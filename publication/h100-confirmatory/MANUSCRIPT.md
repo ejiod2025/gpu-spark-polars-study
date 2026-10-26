@@ -173,6 +173,12 @@ support control without establishing dedicated hardware or constant clocks.
 Plans show operator selection, not kernel/transfer times or runtime fractions.
 Additional profiling must remain outside primary timings.
 
+Read-only status probes and completed-block core-metadata backups are recorded
+during collection. These observer activities add no engine runs or exclusions;
+results remain measurements of an instrumented virtual host. Source Parquet
+is not read by the core-backup collector. Full input-byte hashing, oracle
+execution and tests on the benchmark host remain outside engine measurements.
+
 ### 3.3 Correctness and coverage
 
 Before confirmation, DuckDB 1.5.6 executes all original SQL definitions for all
