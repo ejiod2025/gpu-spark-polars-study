@@ -70,6 +70,50 @@ def fail(message):
     sys.exit(f"run_experiment.py: error: {message}")
 
 
+def save_json(path, value):
+    """Publish complete schedule/environment records even if a run is interrupted."""
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("w") as handle:
+        json.dump(value, handle, indent=2, default=str)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    temporary.replace(path)
+
+
+def stop_process_group(process, grace_seconds=15):
+    """Reap an owned worker and its JVM descendants on every abort path."""
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        process.wait(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        pass
+    # A worker may exit before its descendants. Kill the owned group as well.
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait()
+
+
+def interrupt_run(signum, _frame):
+    raise InterruptedError(f"Runner received signal {signum}")
+
+
+def observe_cache(data, phase, item, schedule, output):
+    from cache_residency import host_snapshot, snapshot
+    observed = {"cache": snapshot(data), "host": host_snapshot()}
+    item.setdefault("cache_observations", {})[phase] = observed
+    save_json(output / "schedule.json", schedule)
+    if observed["cache"]["errors"] or not observed["cache"]["files"]:
+        item.update(status="failed", failure_reason=f"cache_observation_failed:{phase}")
+        save_json(output / "schedule.json", schedule)
+        raise RuntimeError(f"Required cache observation failed at {phase}; see schedule.json")
+
+
 def load_spark_gpu_conf(path):
     """Read the h100-tuned overrides: a JSON object of flat Spark conf key -> scalar value."""
     try:
@@ -110,6 +154,10 @@ def main():
     parser.add_argument("--engines", nargs="+", choices=ENGINES, default=DEFAULT_ENGINES,
                         help="default: the three engines of the A100 study; add polars_gpu explicitly")
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument("--query-seed", type=int, default=42,
+                        help="worker query-order seed; recorded for paired independent sessions")
+    parser.add_argument("--cache-observation", action="store_true",
+                        help="require Linux mincore + host observations before/after preheat and after worker")
     parser.add_argument("--cpus", type=int, default=30)
     parser.add_argument("--driver-memory", default="96g")
     parser.add_argument("--jar", type=Path, required=True)
@@ -195,7 +243,7 @@ def main():
     except OSError as exc:  # only reachable without a GPU engine: those fail fast above
         monitor = None
         environment["gpu_telemetry"] = {"started": False, "error": f"{type(exc).__name__}: {exc}"}
-    (args.output / "environment.json").write_text(json.dumps(environment, indent=2, default=str) + "\n")
+    save_json(args.output / "environment.json", environment)
     schedule = []
     host_stop = threading.Event()
     active = {"scale": "", "engine": "", "phase": "idle"}
@@ -218,6 +266,8 @@ def main():
     env.update({"POLARS_MAX_THREADS": str(args.cpus), "OMP_NUM_THREADS": str(args.cpus),
                 "OPENBLAS_NUM_THREADS": str(args.cpus), "PYSPARK_PYTHON": sys.executable,
                 "SPARK_LOCAL_IP": "127.0.0.1"})
+    previous_handlers = {sig: signal.signal(sig, interrupt_run) for sig in (signal.SIGTERM, signal.SIGINT)}
+    owned_process = None
     try:
         for scale_index, scale in enumerate(args.scales):
             data = args.data_root / ("sf" + scale.replace(".", "p"))
@@ -232,10 +282,20 @@ def main():
                 active.update(scale=scale, engine=engine, phase="preheat")
                 target = args.output / data.name / engine
                 target.parent.mkdir(parents=True, exist_ok=True)
-                # Warming identical files removes an engine-order disk-cache advantage.
+                item = {"scale": scale, "engine": engine, "status": "preparing",
+                        "preparation_start_utc": datetime.now(timezone.utc).isoformat(),
+                        "query_seed": args.query_seed}
+                schedule.append(item)
+                save_json(args.output / "schedule.json", schedule)
+                if args.cache_observation:
+                    observe_cache(data, "before_preheat", item, schedule, args.output)
+                # Identical preheating is a policy, not a guarantee of cache residency.
                 warming = preheat(data)
+                if args.cache_observation:
+                    observe_cache(data, "after_preheat", item, schedule, args.output)
                 worker_args = [str(HERE / "worker.py"), "--engine", engine, "--data", str(data),
                                "--output", str(target), "--runs", str(args.runs), "--suite", args.suite,
+                               "--seed", str(args.query_seed),
                                "--query-cleanup", args.query_cleanup,
                                "--cleanup-timeout-seconds", str(args.cleanup_timeout_seconds)]
                 if args.queries:
@@ -275,8 +335,8 @@ def main():
                         for key, value in spark_gpu_conf.items():
                             command += ["--conf", f"{key}={value}"]
                     command += worker_args
-                item = {"scale": scale, "engine": engine, "command": command, "preheat": warming,
-                        "start_utc": datetime.now(timezone.utc).isoformat()}
+                item.update(command=command, preheat=warming,
+                            start_utc=datetime.now(timezone.utc).isoformat(), status="running")
                 if engine == "polars_gpu":
                     item["polars_gpu_options"] = {"executor": args.polars_gpu_executor,
                                                   "executor_options": polars_gpu_options}
@@ -285,9 +345,9 @@ def main():
                                                  "conf_file_sha256": spark_gpu_conf_sha256,
                                                  "extra_conf": spark_gpu_conf,
                                                  "overridden_parity_confs": spark_gpu_overrides}
-                schedule.append(item)
-                print(json.dumps({"event": "engine_started", **item}), flush=True)
-                (args.output / "schedule.json").write_text(json.dumps(schedule, indent=2) + "\n")
+                print(json.dumps({"event": "engine_started", **{k: v for k, v in item.items()
+                                                                 if k != "cache_observations"}}), flush=True)
+                save_json(args.output / "schedule.json", schedule)
                 started = time.perf_counter()
                 env["BENCHMARK_LAUNCH_UNIX"] = str(time.time())
                 # Environment, not a command-line flag, so spark command lines match the A100 runs.
@@ -298,32 +358,56 @@ def main():
                 active["phase"] = "execute"
                 with (target.parent / (engine + ".log")).open("w") as log:
                     process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                    owned_process = process
                     try:
+                        item.update(pid=process.pid, pgid=process.pid,
+                                    pid_create_time=psutil.Process(process.pid).create_time())
+                        save_json(args.output / "schedule.json", schedule)
                         returncode = process.wait(timeout=args.engine_timeout_seconds)
                     except subprocess.TimeoutExpired:
                         item["failure_reason"] = "engine_timeout"
-                        os.killpg(process.pid, signal.SIGTERM)
-                        try:
-                            process.wait(timeout=15)
-                        except subprocess.TimeoutExpired:
-                            os.killpg(process.pid, signal.SIGKILL)
-                            process.wait()
+                        stop_process_group(process)
                         returncode = 124
+                    except BaseException as exc:
+                        # Stop repeated signals interrupting termination of an owned group.
+                        for sig in previous_handlers:
+                            signal.signal(sig, signal.SIG_IGN)
+                        stop_process_group(process)
+                        item.update(status="interrupted", returncode=process.returncode,
+                                    end_utc=datetime.now(timezone.utc).isoformat(),
+                                    process_wall_seconds=time.perf_counter() - started,
+                                    failure_reason=f"{type(exc).__name__}: {exc}")
+                        save_json(args.output / "schedule.json", schedule)
+                        raise
+                    finally:
+                        # Includes descendants surviving an otherwise successful worker exit.
+                        stop_process_group(process)
+                        owned_process = None
                 item["process_wall_seconds"] = time.perf_counter() - started
+                item["end_utc"] = datetime.now(timezone.utc).isoformat()
                 item["returncode"] = returncode
                 item["status"] = "complete" if returncode == 0 else "failed"
                 active["phase"] = "idle"
-                (args.output / "schedule.json").write_text(json.dumps(schedule, indent=2) + "\n")
+                save_json(args.output / "schedule.json", schedule)
+                if args.cache_observation:
+                    observe_cache(data, "after_worker", item, schedule, args.output)
                 if returncode and not args.keep_going:
                     raise RuntimeError(f"{engine} {data.name} failed; see {target.parent / (engine + '.log')}")
-                print(json.dumps({"event": "engine_complete" if returncode == 0 else "engine_failed", **item}), flush=True)
+                print(json.dumps({"event": "engine_complete" if returncode == 0 else "engine_failed",
+                                  **{k: v for k, v in item.items() if k != "cache_observations"}}), flush=True)
     finally:
+        if owned_process is not None:
+            for sig in previous_handlers:
+                signal.signal(sig, signal.SIG_IGN)
+            stop_process_group(owned_process)
         host_stop.set()
         host_thread.join(timeout=5)
         if monitor is not None:
             monitor.terminate()
             monitor.wait(timeout=10)
         telemetry.close()
+        for sig, handler in previous_handlers.items():
+            signal.signal(sig, handler)
 
 
 if __name__ == "__main__":

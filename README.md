@@ -4,12 +4,18 @@ Private development and reproducibility repository for the [public study](https:
 
 ## H100 development
 
-The completed [H100 study](reports/H100_STUDY.md) includes five baseline scales,
+The completed exploratory [H100 study](reports/H100_STUDY.md) includes five baseline scales,
 three complex scales, and separate CPU Polars 2.0 controls. All 936 successful
 formal outputs agree, and all 1,776 input files passed post-run re-hashing.
 At SF300, Polars GPU's baseline score is 12.774 s versus 31.540 s for CPU Polars
 2.0 (2.47× faster). GPU Spark wins selected queries but has no aggregate win
 against that CPU control; strict Polars GPU mode rejects two original complex cases.
+
+A prospective [confirmatory protocol](docs/H100_CONFIRMATORY_PROTOCOL.md) adds
+ten paired blocks (400 fresh engine sessions), independent SQL oracles, balanced
+execution order, and a common Python 3.11 build for both CPU Polars versions.
+The pilot observations are kept separate from those new measurements. See
+[the research runbook](docs/H100_RESEARCH_RUNBOOK.md) for execution and validation.
 
 Branch `H100_main_dev` extends the experiment to four engines: Polars CPU, Polars GPU with cuDF, CPU Spark, and GPU Spark. The H100 host has one 80 GB H100, 26 Intel Xeon vCPUs, and about 221 GiB RAM. Both Polars engines use 1.44.2 with `cudf-polars-cu12==26.10.2` on Python 3.11; the A100 record below used Polars 2.0.0 on Python 3.10. Within-H100 comparisons are the primary result. Hardware, CPU allocation, and software differences prevent interpreting A100/H100 ratios as an isolated GPU upgrade effect.
 

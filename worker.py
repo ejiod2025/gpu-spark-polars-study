@@ -90,6 +90,31 @@ class MemorySampler:
         self.thread.join()
 
 
+def process_counters(processes):
+    """Untimed cumulative Linux I/O/fault snapshots for the currently owned tree.
+
+    Per-PID values avoid subtracting unrelated process populations. Processes
+    created and exited between snapshots are not observable by this method.
+    """
+    result = {}
+    for process in processes:
+        try:
+            row = {"name": process.name(), "created": process.create_time(),
+                   "cpu_times": process.cpu_times()._asdict()}
+            if hasattr(process, "io_counters"):
+                row["io_counters"] = process.io_counters()._asdict()
+            stat_path = Path(f"/proc/{process.pid}/stat")
+            if stat_path.exists():
+                # The parenthesized command may contain spaces or closing parens.
+                fields = stat_path.read_text().rsplit(")", 1)[1].split()
+                row["minor_faults"] = int(fields[7])  # proc stat field 10
+                row["major_faults"] = int(fields[9])  # proc stat field 12
+            result[str(process.pid)] = row
+        except (psutil.Error, OSError, ValueError, IndexError):
+            continue
+    return result
+
+
 def json_safe(value):
     """Reduce config objects (dataclasses, enums, handles) to plain JSON values."""
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
@@ -448,9 +473,11 @@ def main():
         "scale_factor": json.loads(manifest_path.read_text())["scale_factor"],
         "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         "runs": args.runs,
+        "query_seed": args.seed,
         "queries": args.queries,
         "cache_policy": "preheated filesystem; no application dataframe cache",
         "timing_scope": "query construction, optimization, parquet read, execution, result collection; excludes session/table setup and plan serialization",
+        "host_result_timing_scope": "same start as seconds, through conversion to a list of Python dictionaries; excludes normalization, plan serialization, sampler shutdown and cleanup",
         "pid": os.getpid(),
         "polars_execution_engine": {"polars": "streaming", "polars_gpu": "gpu"}.get(args.engine),
         "records": [],
@@ -523,7 +550,7 @@ def main():
             "interval_seconds": gpu_probe.interval if gpu_probe else None,
             "device": args.gpu_device,
             "scope": "sum of device memory of the worker process tree (plus the SparkSubmit JVM parent), "
-                     "sampled during the timed action; a sampled peak can miss short transients",
+                     "sampled through the host-result conversion endpoint; a sampled peak can miss short transients",
         }
     metadata["session_and_table_setup_seconds"] = time.perf_counter() - setup_start
     if "BENCHMARK_LAUNCH_UNIX" in os.environ:
@@ -544,20 +571,30 @@ def main():
               warning_scope as caught):
             if caught is not None:
                 warnings.simplefilter("default")  # one entry per distinct warning, not per emission
+            counters_before = process_counters(memory.process_tree())
+            action_started_utc = datetime.now(timezone.utc).isoformat()
             start = time.perf_counter()
             if args.engine in POLARS_ENGINES:
                 frame = polars_query(query, tables)
                 result = frame.collect(engine=polars_engine)
                 elapsed = time.perf_counter() - start
-                gpu_memory.stop()
+                action_ended_utc = datetime.now(timezone.utc).isoformat()
                 rows = result.to_dicts()
+                host_result_seconds = time.perf_counter() - start
+                host_result_ended_utc = datetime.now(timezone.utc).isoformat()
+                gpu_memory.stop()
+                counters_after = process_counters(memory.process_tree())
                 plan = frame.explain(engine="streaming") if args.engine == "polars" else frame.explain()
             else:
                 frame = spark.sql(spark_sql(query))
                 result = frame.collect()
                 elapsed = time.perf_counter() - start
-                gpu_memory.stop()
+                action_ended_utc = datetime.now(timezone.utc).isoformat()
                 rows = [r.asDict(recursive=True) for r in result]
+                host_result_seconds = time.perf_counter() - start
+                host_result_ended_utc = datetime.now(timezone.utc).isoformat()
+                gpu_memory.stop()
+                counters_after = process_counters(memory.process_tree())
                 plan = frame._jdf.queryExecution().executedPlan().toString()
         rows = normalized(rows)
         final_plan = plan.split("== Final Plan ==", 1)[-1].split("== Initial Plan ==", 1)[0]
@@ -580,6 +617,14 @@ def main():
         record = {
             "query": query, "phase": phase, "trial": trial,
             "seconds": elapsed, "rows": rows,
+            "host_result_seconds": host_result_seconds,
+            "action_started_at_utc": action_started_utc,
+            "action_ended_at_utc": action_ended_utc,
+            "host_result_ended_at_utc": host_result_ended_utc,
+            "action_start_monotonic_seconds": start,
+            "action_end_monotonic_seconds": start + elapsed,
+            "process_counters_before": counters_before,
+            "process_counters_after_host_result": counters_after,
             "started_at_utc": start_utc,
             "ended_at_utc": datetime.now(timezone.utc).isoformat(),
             "peak_process_tree_rss_bytes": memory.peak,
