@@ -1,0 +1,99 @@
+{
+  "source_commit": "c4c934cf732b4394e2bcb0547bb642ee2a1ae5d4",
+  "source_hashes_verified": 21,
+  "engine_sessions_complete": 12,
+  "successful_outputs_compared": 264,
+  "verified_successful_action_cleanup_barriers": 264,
+  "verified_failed_action_cleanup_barriers": 6,
+  "spark_gpu_plans_checked": 72,
+  "output_or_integrity_errors": 0,
+  "independent_sql_oracle_cases": 0,
+  "oracle_scope": "Cross-engine agreement with Polars CPU warmup; no independent oracle is claimed for formal scales.",
+  "datasets": [
+    {
+      "scale_factor": 100.0,
+      "manifest_sha256": "6e7ba60a90bb5d7b7ea76284f5151578df8c8ee045ce1283ac29a7499caeb7b0"
+    },
+    {
+      "scale_factor": 30.0,
+      "manifest_sha256": "25f58e05ffe8aa0ef8aa8d1ed811345e4667cb40e8402bfd468c3c3c7fb203ae"
+    },
+    {
+      "scale_factor": 300.0,
+      "manifest_sha256": "70dd48cd534af99c106ecade0aad4d5e20bddcf732811e88c06326de1c96d8da"
+    }
+  ],
+  "unsupported_gpu_warmups": [
+    {
+      "scale_factor": 100.0,
+      "engine": "polars_gpu",
+      "query": "cx_q13",
+      "phase": "warmup",
+      "trial": 0,
+      "type": "ComputeError",
+      "message": "'cuda' conversion failed: NotImplementedError: ('Query execution with GPU not possible: unsupported operations.\\nThe errors were:\\n- NotImplementedError: Unsupported regex (?s)special.*requests for GPU engine.', [NotImplementedError('Unsupported regex (?s)special.*requests for GPU engine.')])",
+      "failed_at_utc": "2026-10-26T15:19:36.350959+00:00"
+    },
+    {
+      "scale_factor": 100.0,
+      "engine": "polars_gpu",
+      "query": "cx_window",
+      "phase": "warmup",
+      "trial": 0,
+      "type": "ComputeError",
+      "message": "'cuda' conversion failed: NotImplementedError: (\"Query execution with GPU not possible: unsupported operations.\\nThe errors were:\\n- NotImplementedError: No support for <class 'cudf_polars.dsl.expressions.unary.UnaryFunction'> in groupby/rolling\", [NotImplementedError(\"No support for <class 'cudf_polars.dsl.expressions.unary.UnaryFunction'> in groupby/rolling\")])",
+      "failed_at_utc": "2026-10-26T15:19:37.186820+00:00"
+    },
+    {
+      "scale_factor": 30.0,
+      "engine": "polars_gpu",
+      "query": "cx_q13",
+      "phase": "warmup",
+      "trial": 0,
+      "type": "ComputeError",
+      "message": "'cuda' conversion failed: NotImplementedError: ('Query execution with GPU not possible: unsupported operations.\\nThe errors were:\\n- NotImplementedError: Unsupported regex (?s)special.*requests for GPU engine.', [NotImplementedError('Unsupported regex (?s)special.*requests for GPU engine.')])",
+      "failed_at_utc": "2026-10-26T14:59:39.648441+00:00"
+    },
+    {
+      "scale_factor": 30.0,
+      "engine": "polars_gpu",
+      "query": "cx_window",
+      "phase": "warmup",
+      "trial": 0,
+      "type": "ComputeError",
+      "message": "'cuda' conversion failed: NotImplementedError: (\"Query execution with GPU not possible: unsupported operations.\\nThe errors were:\\n- NotImplementedError: No support for <class 'cudf_polars.dsl.expressions.unary.UnaryFunction'> in groupby/rolling\", [NotImplementedError(\"No support for <class 'cudf_polars.dsl.expressions.unary.UnaryFunction'> in groupby/rolling\")])",
+      "failed_at_utc": "2026-10-26T14:59:40.035532+00:00"
+    },
+    {
+      "scale_factor": 300.0,
+      "engine": "polars_gpu",
+      "query": "cx_q13",
+      "phase": "warmup",
+      "trial": 0,
+      "type": "ComputeError",
+      "message": "'cuda' conversion failed: NotImplementedError: ('Query execution with GPU not possible: unsupported operations.\\nThe errors were:\\n- NotImplementedError: Unsupported regex (?s)special.*requests for GPU engine.', [NotImplementedError('Unsupported regex (?s)special.*requests for GPU engine.')])",
+      "failed_at_utc": "2026-10-26T15:24:52.307816+00:00"
+    },
+    {
+      "scale_factor": 300.0,
+      "engine": "polars_gpu",
+      "query": "cx_window",
+      "phase": "warmup",
+      "trial": 0,
+      "type": "ComputeError",
+      "message": "'cuda' conversion failed: NotImplementedError: (\"Query execution with GPU not possible: unsupported operations.\\nThe errors were:\\n- NotImplementedError: No support for <class 'cudf_polars.dsl.expressions.unary.UnaryFunction'> in groupby/rolling\", [NotImplementedError(\"No support for <class 'cudf_polars.dsl.expressions.unary.UnaryFunction'> in groupby/rolling\")])",
+      "failed_at_utc": "2026-10-26T15:24:54.415258+00:00"
+    }
+  ],
+  "reporter_sha256": {
+    "analyze_complex.py": "3082260059f61cda2f338b36e80771de81fa113e67fea1d6cd7da4b8540bfffe",
+    "analyze_results.py": "8d017ffa7b40b163a1e322ea908d63273c3334dfd3a25884fcd09342cd0a5c92",
+    "plot_complex.py": "64568d738425159b8b0b2e084c7555735020bda455bc9095a2e0dbae65b71b23",
+    "plot_crossover.py": "00f9e7018e620bf624c9ab5b47dfa480de43b892309e700a005fc461da581864"
+  },
+  "coverage_note": "Spark final correlated plans contain two LeftSemi joins; the anti branch is optimized away. Operator presence is not a runtime fraction.",
+  "interpretation_note": "GPU Spark wins the matched Polars 1.44.2 complex score, driven by the window case. A CPU 2.0.0 software-stack control is separate.",
+  "polars_gpu_saved_plan_artifacts": 48,
+  "polars_gpu_per_query_lowerings": 12,
+  "polars_gpu_plan_scope": "Per-query explanations are cached in saved action files, not independent executed kernel traces."
+}

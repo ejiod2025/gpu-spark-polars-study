@@ -1,0 +1,43 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=97]
+   +- GpuSort [left_shipmode#2553 ASC NULLS LAST, right_shipmode#2554 ASC NULLS LAST], true, com.nvidia.spark.rapids.OutOfCoreSort$@4b5389f5, [loreId=96]
+      +- GpuShuffleCoalesce 1073741824, [loreId=95]
+         +- GpuCustomShuffleReader coalesced
+            +- ShuffleQueryStage 4
+               +- GpuColumnarExchange gpurangepartitioning(left_shipmode#2553 ASC NULLS LAST, right_shipmode#2554 ASC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=13567], [loreId=90]
+                  +- GpuHashAggregate (keys=[l_shipmode#40, l_shipmode#2570], functions=[gpucount(1, false)], output=[left_shipmode#2553, right_shipmode#2554, pair_count#2555L]) [loreId=89]
+                     +- GpuShuffleCoalesce 1073741824, [loreId=88]
+                        +- GpuCustomShuffleReader coalesced
+                           +- ShuffleQueryStage 3
+                              +- GpuColumnarExchange gpuhashpartitioning(l_shipmode#40, l_shipmode#2570, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=13492], [loreId=77]
+                                 +- GpuHashAggregate (keys=[l_shipmode#40, l_shipmode#2570], functions=[partial_gpucount(1, false)], output=[l_shipmode#40, l_shipmode#2570, count#2582L]) [loreId=76]
+                                    +- GpuProject [l_shipmode#40, l_shipmode#2570], true, [loreId=75]
+                                       +- GpuShuffledSymmetricHashJoin Inner, [l_orderkey#26L], [l_orderkey#2556L], (l_linenumber#29L < l_linenumber#2559L), false, 1073741824, 1.0, CoalesceReadOption(true,GPU,Never,None,false), false, [loreId=74]
+                                          :- ShuffleQueryStage 0
+                                          :  +- GpuColumnarExchange gpuhashpartitioning(l_orderkey#26L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=13320], [loreId=53]
+                                          :     +- GpuProject [l_orderkey#26L, l_linenumber#29L, l_shipmode#40], true, [loreId=52]
+                                          :        +- GpuCoalesceBatches targetsize(1073741824), [loreId=51]
+                                          :           +- GpuFilter ((((gpuisnotnull(l_shipdate#36) AND (l_shipdate#36 >= 8766)) AND (l_shipdate#36 < 9131)) AND gpuisnotnull(l_orderkey#26L)) AND gpuisnotnull(l_linenumber#29L)), [loreId=50]
+                                          :              +- GpuFileGpuScan parquet [l_orderkey#26L,l_linenumber#29L,l_shipdate#36,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 >= 1994-01-01), (l_shipdate#36 < 1995-01-01), isnotnull..., Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf300/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1994-01-01), LessThan(l_shipdate,1995-01-01..., ReadSchema: struct<l_orderkey:bigint,l_linenumber:bigint,l_shipdate:date,l_shipmode:string>
+                                          +- ShuffleQueryStage 2
+                                             +- ReusedExchange [l_orderkey#2556L, l_linenumber#2559L, l_shipmode#2570], GpuColumnarExchange gpuhashpartitioning(l_orderkey#26L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=13320], [loreId=53]
++- == Initial Plan ==
+   Sort [left_shipmode#2553 ASC NULLS LAST, right_shipmode#2554 ASC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(left_shipmode#2553 ASC NULLS LAST, right_shipmode#2554 ASC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=13088]
+      +- HashAggregate(keys=[l_shipmode#40, l_shipmode#2570], functions=[count(1)], output=[left_shipmode#2553, right_shipmode#2554, pair_count#2555L])
+         +- Exchange hashpartitioning(l_shipmode#40, l_shipmode#2570, 120), ENSURE_REQUIREMENTS, [plan_id=13085]
+            +- HashAggregate(keys=[l_shipmode#40, l_shipmode#2570], functions=[partial_count(1)], output=[l_shipmode#40, l_shipmode#2570, count#2582L])
+               +- Project [l_shipmode#40, l_shipmode#2570]
+                  +- SortMergeJoin [l_orderkey#26L], [l_orderkey#2556L], Inner, (l_linenumber#29L < l_linenumber#2559L)
+                     :- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                     :  +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=13077]
+                     :     +- Project [l_orderkey#26L, l_linenumber#29L, l_shipmode#40]
+                     :        +- Filter ((((isnotnull(l_shipdate#36) AND (l_shipdate#36 >= 1994-01-01)) AND (l_shipdate#36 < 1995-01-01)) AND isnotnull(l_orderkey#26L)) AND isnotnull(l_linenumber#29L))
+                     :           +- FileScan parquet [l_orderkey#26L,l_linenumber#29L,l_shipdate#36,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 >= 1994-01-01), (l_shipdate#36 < 1995-01-01), isnotnull..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf300/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1994-01-01), LessThan(l_shipdate,1995-01-01..., ReadSchema: struct<l_orderkey:bigint,l_linenumber:bigint,l_shipdate:date,l_shipmode:string>
+                     +- Sort [l_orderkey#2556L ASC NULLS FIRST], false, 0
+                        +- Exchange hashpartitioning(l_orderkey#2556L, 120), ENSURE_REQUIREMENTS, [plan_id=13078]
+                           +- Project [l_orderkey#2556L, l_linenumber#2559L, l_shipmode#2570]
+                              +- Filter ((((isnotnull(l_shipdate#2566) AND (l_shipdate#2566 >= 1994-01-01)) AND (l_shipdate#2566 < 1995-01-01)) AND isnotnull(l_orderkey#2556L)) AND isnotnull(l_linenumber#2559L))
+                                 +- FileScan parquet [l_orderkey#2556L,l_linenumber#2559L,l_shipdate#2566,l_shipmode#2570] Batched: true, DataFilters: [isnotnull(l_shipdate#2566), (l_shipdate#2566 >= 1994-01-01), (l_shipdate#2566 < 1995-01-01), isn..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf300/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1994-01-01), LessThan(l_shipdate,1995-01-01..., ReadSchema: struct<l_orderkey:bigint,l_linenumber:bigint,l_shipdate:date,l_shipmode:string>
+

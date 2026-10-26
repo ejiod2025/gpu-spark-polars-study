@@ -2,13 +2,16 @@
 
 Status (2026-10-26): H100 development is on branch `H100_main_dev`. The fresh SF1 preflight
 passed 74 checks with zero failures/warnings and two explicit unsupported-query XFAILs.
-All five datasets passed content validation. The formal baseline is complete: 480 saved
-outputs and 120 Spark GPU plans validated across all five scales. The complex campaign is
-running from frozen source commit `c4c934cf732b4394e2bcb0547bb642ee2a1ae5d4`.
+All formal campaigns, CPU controls, and post-run input checks are complete. Validation covers
+480 baseline, 264 complex, and 192 CPU-control outputs, with zero mismatches or integrity
+violations. All 1,776 Parquet files re-hashed against their unchanged validated manifests.
+Engine source is frozen at `c4c934cf732b4394e2bcb0547bb642ee2a1ae5d4`.
 
-A separate CPU software-stack control will repeat both suites with the existing Polars 2.0.0 /
-Python 3.10 environment after the main campaign. It is secondary evidence, not a fifth engine
-in the matched four-engine comparison, and cannot isolate Polars-version effects from Python.
+A separate CPU software-stack control repeated both suites with Polars 2.0.0 / Python 3.10.
+It is secondary evidence, not a fifth engine in the matched four-engine comparison, and
+cannot isolate Polars-version effects from Python. CPU 2.0 wins the complete complex score
+against GPU Spark, reversing the matched CPU 1.44.2 comparison. See the
+[completed results](../reports/H100_STUDY.md) before using the primary plots as a broad claim.
 
 ## Goal
 
@@ -86,6 +89,8 @@ Per record:
 Legacy `gpu_plan_observed` and `gpu_operators` parse Spark-style `Gpu*` node names. For Polars
 GPU, inspect the strict guard, `gpu_execution_class`, captured cuDF physical plan, and device
 memory samples instead; an empty Spark-style operator list does not establish CPU execution.
+Polars GPU lowerings are explained once per query/session outside the timer and
+cached in later action artifacts; these are not per-action executed kernel traces.
 
 Timing scope for polars_gpu equals polars: query construction, optimization, Parquet read,
 GPU execution and device-to-host result transfer (collect returns a host DataFrame), inside the

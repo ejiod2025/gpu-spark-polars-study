@@ -1,0 +1,20 @@
+SORT BY [descending: [true, true]] [col("custdist"), col("c_count")]
+  AGGREGATE[maintain_order: false]
+    [len().cast(Int64).alias("custdist")] BY [col("c_count")]
+    FROM
+    simple π 1/1 ["c_count"]
+      AGGREGATE[maintain_order: false]
+        [col("o_orderkey").count().cast(Int64).alias("c_count")] BY [col("c_custkey")]
+        FROM
+        LEFT JOIN:
+        LEFT PLAN ON: [col("c_custkey")]
+          Parquet SCAN [/home/ubuntu/study/data/sf300/customer/part-000000-000.parquet, ... 59 other sources]
+          PROJECT 1/8 COLUMNS
+          ESTIMATED ROWS: 45000322
+        RIGHT PLAN ON: [col("o_custkey")]
+          simple π 2/2 ["o_orderkey", "o_custkey"]
+            Parquet SCAN [/home/ubuntu/study/data/sf300/orders/part-000000-000.parquet, ... 179 other sources]
+            PROJECT 3/9 COLUMNS
+            SELECTION: col("o_comment").str.contains(["(?s)special.*requests"]).not()
+            ESTIMATED ROWS: 449928384
+        END LEFT JOIN

@@ -12,8 +12,8 @@ Python 3.11.13, Polars 1.44.2 for both Polars modes, cuDF Polars 26.10.2/CUDA 12
 PySpark 3.5.9, RAPIDS Spark 26.08.1, Java 17, DuckDB 1.5.6. Spark uses `local[26]`,
 96 GiB driver memory, and the original `a100-parity` configuration. No tuned profile is mixed in.
 
-Local validation passed 169 tests with one skipped test requiring an absent local CPU-smoke
-directory. Three regression tests compare analyzer output byte for byte with source commit
+Local benchmark and publication validation passed 200 tests with one skipped test requiring
+an absent local CPU-smoke directory. Three regression tests compare analyzer output byte for byte with source commit
 `06850ed` on the saved A100 evidence. The fresh H100 preflight passed 74 checks, zero failures,
 zero warnings, four informational checks, and two expected unsupported-query rejections.
 The analyzers checked 92 successful smoke outputs, 24 Spark GPU plans, and 44 complex cleanup
@@ -103,12 +103,16 @@ Its run roots are `rerun/h100-baseline-formal-20261026` and
 `rerun/h100-complex-formal-20261026`; adjacent `.log` and `.exit` files record the shell launches.
 The fresh SF1 preflight is in `/home/ubuntu/study-h100-main-dev/rerun/h100-preflight-20261026`.
 Local curated validation/preflight/source evidence is in `evidence-h100/20261026/`.
-The baseline is complete and validated (480 outputs, 120 Spark GPU plans). Its report and plots
-are in `reports/h100-baseline-20261026/`; complex results are pending. A separate
-CPU software-stack control of both suites using Polars 2.0.0/Python 3.10 is planned after the main campaign.
-It will reuse the frozen source, files, thread allocation, and protocol and compare every saved
-output with the primary CPU reference. Both Python and Polars versions differ; this is not an
+The baseline (480 outputs), complex suite (264), and CPU controls (192) are complete and
+validated. Reports are in `reports/h100-baseline-20261026/`, `reports/h100-complex-20261026/`,
+and the corresponding `h100-polars2-*-control-20261026/` folders. The controls reused the frozen
+source, files, thread allocation, and protocol and compared every saved output with the primary
+CPU reference. Both Python and Polars versions differ; this is not an
 isolated Polars-version experiment. Use `analyze_polars_control.py --suite baseline` or
 `--suite complex`, with `--primary-root`, `--control-root`, a new `--output`, and optional
-`--include-polars-gpu` to revalidate and compare those saved results. SSH credentials, environments, bulk
+`--include-polars-gpu` to revalidate and compare those saved results. Post-run verification
+re-hashed all 1,776 Parquet files. Its initial copied checker lacked `workloads.py`; the import
+failed before verification began, the dependency was added, and the full check passed. The
+traceback is retained under `evidence-h100/20261026/incidents/`. See the
+[overview](../reports/H100_STUDY.md) for conclusions and coverage limits. SSH credentials, environments, bulk
 Parquet data, and raw Spark event logs are not repository inputs.

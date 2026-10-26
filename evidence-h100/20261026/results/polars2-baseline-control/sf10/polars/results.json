@@ -1,0 +1,1722 @@
+{
+  "engine": "polars",
+  "suite": "baseline",
+  "suite_version": "baseline-v1",
+  "query_descriptions": {
+    "q01": "Broad scan, arithmetic, and grouped aggregates",
+    "q03": "Selective three-table join, aggregation, and top 10",
+    "q06": "Selective scan and scalar revenue aggregation",
+    "q10": "Four-table join, customer aggregation, and top 20",
+    "q12": "Join and conditional grouped counts",
+    "q14": "Part join and conditional revenue ratio"
+  },
+  "started_at_utc": "2026-10-26T16:21:33.617281+00:00",
+  "scale_factor": 10.0,
+  "manifest_sha256": "c26b367dff48b9955c7aee513dc57b3137cbf4f872ff3989d467dad7345f8036",
+  "runs": 3,
+  "queries": [
+    "q01",
+    "q03",
+    "q06",
+    "q10",
+    "q12",
+    "q14"
+  ],
+  "cache_policy": "preheated filesystem; no application dataframe cache",
+  "timing_scope": "query construction, optimization, parquet read, execution, result collection; excludes session/table setup and plan serialization",
+  "pid": 50823,
+  "polars_execution_engine": "streaming",
+  "records": [
+    {
+      "query": "q01",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 0.5217854719994648,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 377518399.0,
+          "sum_base_price": 566065727797.25,
+          "sum_disc_price": 537759104278.06586,
+          "sum_charge": 559276670892.1165,
+          "avg_qty": 25.500975103007097,
+          "avg_price": 38237.15100895854,
+          "avg_disc": 0.050006574540222164,
+          "count_order": 14804077
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 9851614.0,
+          "sum_base_price": 14767438399.169992,
+          "sum_disc_price": 14028805792.211412,
+          "sum_charge": 14590490998.366735,
+          "avg_qty": 25.522448302840946,
+          "avg_price": 38257.81066008112,
+          "avg_disc": 0.049973367737656794,
+          "count_order": 385998
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 743124873.0,
+          "sum_base_price": 1114302286901.88,
+          "sum_disc_price": 1058580922144.9636,
+          "sum_charge": 1100937000170.591,
+          "avg_qty": 25.498075870689316,
+          "avg_price": 38233.90292348181,
+          "avg_disc": 0.050000811821141244,
+          "count_order": 29144351
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 377732830.0,
+          "sum_base_price": 566431054976.0,
+          "sum_disc_price": 538110922664.7677,
+          "sum_charge": 559634780885.0867,
+          "avg_qty": 25.50838478968014,
+          "avg_price": 38251.219273559764,
+          "avg_disc": 0.04999679231406641,
+          "count_order": 14808183
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:33.697386+00:00",
+      "ended_at_utc": "2026-10-26T16:21:34.221684+00:00",
+      "peak_process_tree_rss_bytes": 5833641984,
+      "plan": "plans/q01-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q03",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 0.24853587600046012,
+      "rows": [
+        {
+          "l_orderkey": 4791171,
+          "revenue": 440715.2185,
+          "o_orderdate": "1995-02-23",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 46678469,
+          "revenue": 439855.32499999995,
+          "o_orderdate": "1995-01-27",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 23906758,
+          "revenue": 432728.57369999995,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 23861382,
+          "revenue": 428739.1368,
+          "o_orderdate": "1995-03-09",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 59393639,
+          "revenue": 426036.0662,
+          "o_orderdate": "1995-02-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 3355202,
+          "revenue": 425100.6657,
+          "o_orderdate": "1995-03-04",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 9806272,
+          "revenue": 425088.0568,
+          "o_orderdate": "1995-03-13",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 22810436,
+          "revenue": 423231.969,
+          "o_orderdate": "1995-01-02",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 16384100,
+          "revenue": 421478.72940000007,
+          "o_orderdate": "1995-03-02",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 52974151,
+          "revenue": 415367.11950000003,
+          "o_orderdate": "1995-02-05",
+          "o_shippriority": 0
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:34.222096+00:00",
+      "ended_at_utc": "2026-10-26T16:21:34.472522+00:00",
+      "peak_process_tree_rss_bytes": 6047506432,
+      "plan": "plans/q03-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q06",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 0.07480331199985812,
+      "rows": [
+        {
+          "revenue": 1230113636.0101
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:34.473038+00:00",
+      "ended_at_utc": "2026-10-26T16:21:34.549722+00:00",
+      "peak_process_tree_rss_bytes": 6014902272,
+      "plan": "plans/q06-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q10",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 0.2368735670006572,
+      "rows": [
+        {
+          "c_custkey": 1237537,
+          "c_name": "Customer#001237537",
+          "revenue": 884989.6657000001,
+          "c_acctbal": 7840.17,
+          "n_name": "RUSSIA",
+          "c_address": "mdkU4LpZECCtt20RHa76sA6b4WC",
+          "c_phone": "32-367-120-4327",
+          "c_comment": "yly regular accounts boost. requests need to nag evenly"
+        },
+        {
+          "c_custkey": 1116802,
+          "c_name": "Customer#001116802",
+          "revenue": 830214.1117,
+          "c_acctbal": 772.17,
+          "n_name": "JORDAN",
+          "c_address": "iBka7YijCCLApX1f 8 sKp 5ldP ",
+          "c_phone": "23-199-655-3770",
+          "c_comment": "y carefully regular deposits. packages nod ironic packages"
+        },
+        {
+          "c_custkey": 508954,
+          "c_name": "Customer#000508954",
+          "revenue": 826167.5138000001,
+          "c_acctbal": 3072.07,
+          "n_name": "ETHIOPIA",
+          "c_address": "tKQLmGq3MOqXiTmNZQRp",
+          "c_phone": "15-880-510-9487",
+          "c_comment": "t the quickly pending deposits. carefully express dependencies detect. blithely regular"
+        },
+        {
+          "c_custkey": 1487503,
+          "c_name": "Customer#001487503",
+          "revenue": 825996.5903,
+          "c_acctbal": 5398.11,
+          "n_name": "IRAN",
+          "c_address": "D tOJIC0rcVO",
+          "c_phone": "20-271-234-4401",
+          "c_comment": "ithely quiet deposits about the slyly final dolphins hinder carefully about the slyly ironic accounts. carefully ir"
+        },
+        {
+          "c_custkey": 1461247,
+          "c_name": "Customer#001461247",
+          "revenue": 775992.082,
+          "c_acctbal": 3205.93,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "Ia1gHwdAyyFo,pCKhCkqX6",
+          "c_phone": "30-137-949-5375",
+          "c_comment": "beans. furiously ironic realms after the slyly ironic sentiments are requests. courts was carefully about t"
+        },
+        {
+          "c_custkey": 1316338,
+          "c_name": "Customer#001316338",
+          "revenue": 765063.7002999999,
+          "c_acctbal": 8682.95,
+          "n_name": "INDIA",
+          "c_address": "QLsXlkrrAQ7fz5TDIoDUVsUMsH1pBOG",
+          "c_phone": "18-793-610-3832",
+          "c_comment": "olites sleep furiously ironic instructions. final, final ideas wake carefully after the slyly iron"
+        },
+        {
+          "c_custkey": 817849,
+          "c_name": "Customer#000817849",
+          "revenue": 737664.7231999999,
+          "c_acctbal": -380.3,
+          "n_name": "MOROCCO",
+          "c_address": "UKsTjQdC5d9PwYXz u",
+          "c_phone": "25-111-847-3201",
+          "c_comment": "ts after the slyly regular excuses wake pending accounts. deposits wake? carefully ironic foxes wa"
+        },
+        {
+          "c_custkey": 1335394,
+          "c_name": "Customer#001335394",
+          "revenue": 731259.8674999999,
+          "c_acctbal": 3978.53,
+          "n_name": "VIETNAM",
+          "c_address": "FNdEi9tP 5eQib8C",
+          "c_phone": "31-760-271-2302",
+          "c_comment": "ly ironic, final foxes. slyly bold instructions "
+        },
+        {
+          "c_custkey": 102358,
+          "c_name": "Customer#000102358",
+          "revenue": 715001.8825,
+          "c_acctbal": 3564.9,
+          "n_name": "BRAZIL",
+          "c_address": "3BnBw0 bZWmVue6bPGn513kOeitBl5VHj",
+          "c_phone": "12-941-212-8350",
+          "c_comment": " furiously furiously dogged deposits. regular accounts are furiously furiously pending instructions. carefu"
+        },
+        {
+          "c_custkey": 1432624,
+          "c_name": "Customer#001432624",
+          "revenue": 713512.6431,
+          "c_acctbal": 205.08,
+          "n_name": "FRANCE",
+          "c_address": "e7o5TBwh,bLO6flPI05Nrp0,1Q8m19ODDs0",
+          "c_phone": "16-550-232-2774",
+          "c_comment": "y ironic packages. slyly silent instructions cajole about the a"
+        },
+        {
+          "c_custkey": 160528,
+          "c_name": "Customer#000160528",
+          "revenue": 710673.3317,
+          "c_acctbal": 3425.52,
+          "n_name": "INDONESIA",
+          "c_address": "VrYJ,qyK75m PkPLTQT7KocfwMwPYQTlcEYBz",
+          "c_phone": "19-670-600-6340",
+          "c_comment": "blithely even deposits sleep until the even accounts"
+        },
+        {
+          "c_custkey": 1345237,
+          "c_name": "Customer#001345237",
+          "revenue": 707735.5745,
+          "c_acctbal": 6905.22,
+          "n_name": "FRANCE",
+          "c_address": "QJxZWEukcxoDYlFOgUGIOuGay",
+          "c_phone": "16-133-279-4001",
+          "c_comment": "symptotes integrate according to the sl"
+        },
+        {
+          "c_custkey": 839816,
+          "c_name": "Customer#000839816",
+          "revenue": 705643.2854,
+          "c_acctbal": 2110.25,
+          "n_name": "UNITED STATES",
+          "c_address": "r9c CDy,MgOouA",
+          "c_phone": "34-453-282-7925",
+          "c_comment": "sly sly pinto beans wake quickly slyly final packages. express deposit"
+        },
+        {
+          "c_custkey": 1136716,
+          "c_name": "Customer#001136716",
+          "revenue": 695043.5606,
+          "c_acctbal": 5886.01,
+          "n_name": "CHINA",
+          "c_address": "yqiALHYT6gaiip1g6wgnM6ctJ",
+          "c_phone": "28-729-762-5783",
+          "c_comment": "out the fluffily pending requests. furiously ironic forges integrate. quickly bold theod"
+        },
+        {
+          "c_custkey": 1439413,
+          "c_name": "Customer#001439413",
+          "revenue": 690161.9783000001,
+          "c_acctbal": 8808.65,
+          "n_name": "ETHIOPIA",
+          "c_address": "5vMec8OoAWrStjng",
+          "c_phone": "15-432-961-8772",
+          "c_comment": "boost across the regular, ironic packages. final instructions "
+        },
+        {
+          "c_custkey": 1392475,
+          "c_name": "Customer#001392475",
+          "revenue": 685464.4086,
+          "c_acctbal": 593.26,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "sbjxdO1xOzy1wBIhAOzp6b2,9sHMj8q1f",
+          "c_phone": "30-640-220-2095",
+          "c_comment": "c accounts. always final instructions boost according to the final "
+        },
+        {
+          "c_custkey": 616909,
+          "c_name": "Customer#000616909",
+          "revenue": 684978.1044,
+          "c_acctbal": 2660.84,
+          "n_name": "EGYPT",
+          "c_address": "Jg9FiC98BUWmlBb3WTN",
+          "c_phone": "14-185-768-2185",
+          "c_comment": "s about the busy ideas affix f"
+        },
+        {
+          "c_custkey": 314272,
+          "c_name": "Customer#000314272",
+          "revenue": 682212.6365,
+          "c_acctbal": 5127.92,
+          "n_name": "UNITED STATES",
+          "c_address": " LKR3R5VStcAlT4D,qGBJLWYkmJU",
+          "c_phone": "34-674-752-5199",
+          "c_comment": "ng to the slyly express instructions sleep fluffily even foxes. special id"
+        },
+        {
+          "c_custkey": 1472980,
+          "c_name": "Customer#001472980",
+          "revenue": 677765.918,
+          "c_acctbal": 6003.36,
+          "n_name": "IRAQ",
+          "c_address": "JIMreXGvswrve5rkBww",
+          "c_phone": "21-506-776-4657",
+          "c_comment": "e. packages according to the instructions are among the even, regular th"
+        },
+        {
+          "c_custkey": 1486201,
+          "c_name": "Customer#001486201",
+          "revenue": 674878.4539,
+          "c_acctbal": -276.92,
+          "n_name": "JORDAN",
+          "c_address": "8hJKgyMlv Ay3fyNDJFvszoYd",
+          "c_phone": "23-611-797-4750",
+          "c_comment": "es nag. silent accounts are blithely daring packages. "
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:34.550277+00:00",
+      "ended_at_utc": "2026-10-26T16:21:34.789766+00:00",
+      "peak_process_tree_rss_bytes": 5773467648,
+      "plan": "plans/q10-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q12",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 0.08709765399908065,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 62071,
+          "low_line_count": 93045
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 62426,
+          "low_line_count": 93261
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:34.790602+00:00",
+      "ended_at_utc": "2026-10-26T16:21:34.880177+00:00",
+      "peak_process_tree_rss_bytes": 5021618176,
+      "plan": "plans/q12-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q14",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 0.09950218699850666,
+      "rows": [
+        {
+          "promo_revenue": 16.647594941615093
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:34.880951+00:00",
+      "ended_at_utc": "2026-10-26T16:21:34.982596+00:00",
+      "peak_process_tree_rss_bytes": 4405284864,
+      "plan": "plans/q14-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 0.2235472340016713,
+      "rows": [
+        {
+          "c_custkey": 1237537,
+          "c_name": "Customer#001237537",
+          "revenue": 884989.6657000001,
+          "c_acctbal": 7840.17,
+          "n_name": "RUSSIA",
+          "c_address": "mdkU4LpZECCtt20RHa76sA6b4WC",
+          "c_phone": "32-367-120-4327",
+          "c_comment": "yly regular accounts boost. requests need to nag evenly"
+        },
+        {
+          "c_custkey": 1116802,
+          "c_name": "Customer#001116802",
+          "revenue": 830214.1117,
+          "c_acctbal": 772.17,
+          "n_name": "JORDAN",
+          "c_address": "iBka7YijCCLApX1f 8 sKp 5ldP ",
+          "c_phone": "23-199-655-3770",
+          "c_comment": "y carefully regular deposits. packages nod ironic packages"
+        },
+        {
+          "c_custkey": 508954,
+          "c_name": "Customer#000508954",
+          "revenue": 826167.5138000001,
+          "c_acctbal": 3072.07,
+          "n_name": "ETHIOPIA",
+          "c_address": "tKQLmGq3MOqXiTmNZQRp",
+          "c_phone": "15-880-510-9487",
+          "c_comment": "t the quickly pending deposits. carefully express dependencies detect. blithely regular"
+        },
+        {
+          "c_custkey": 1487503,
+          "c_name": "Customer#001487503",
+          "revenue": 825996.5902999999,
+          "c_acctbal": 5398.11,
+          "n_name": "IRAN",
+          "c_address": "D tOJIC0rcVO",
+          "c_phone": "20-271-234-4401",
+          "c_comment": "ithely quiet deposits about the slyly final dolphins hinder carefully about the slyly ironic accounts. carefully ir"
+        },
+        {
+          "c_custkey": 1461247,
+          "c_name": "Customer#001461247",
+          "revenue": 775992.0819999999,
+          "c_acctbal": 3205.93,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "Ia1gHwdAyyFo,pCKhCkqX6",
+          "c_phone": "30-137-949-5375",
+          "c_comment": "beans. furiously ironic realms after the slyly ironic sentiments are requests. courts was carefully about t"
+        },
+        {
+          "c_custkey": 1316338,
+          "c_name": "Customer#001316338",
+          "revenue": 765063.7002999999,
+          "c_acctbal": 8682.95,
+          "n_name": "INDIA",
+          "c_address": "QLsXlkrrAQ7fz5TDIoDUVsUMsH1pBOG",
+          "c_phone": "18-793-610-3832",
+          "c_comment": "olites sleep furiously ironic instructions. final, final ideas wake carefully after the slyly iron"
+        },
+        {
+          "c_custkey": 817849,
+          "c_name": "Customer#000817849",
+          "revenue": 737664.7231999999,
+          "c_acctbal": -380.3,
+          "n_name": "MOROCCO",
+          "c_address": "UKsTjQdC5d9PwYXz u",
+          "c_phone": "25-111-847-3201",
+          "c_comment": "ts after the slyly regular excuses wake pending accounts. deposits wake? carefully ironic foxes wa"
+        },
+        {
+          "c_custkey": 1335394,
+          "c_name": "Customer#001335394",
+          "revenue": 731259.8674999999,
+          "c_acctbal": 3978.53,
+          "n_name": "VIETNAM",
+          "c_address": "FNdEi9tP 5eQib8C",
+          "c_phone": "31-760-271-2302",
+          "c_comment": "ly ironic, final foxes. slyly bold instructions "
+        },
+        {
+          "c_custkey": 102358,
+          "c_name": "Customer#000102358",
+          "revenue": 715001.8825000001,
+          "c_acctbal": 3564.9,
+          "n_name": "BRAZIL",
+          "c_address": "3BnBw0 bZWmVue6bPGn513kOeitBl5VHj",
+          "c_phone": "12-941-212-8350",
+          "c_comment": " furiously furiously dogged deposits. regular accounts are furiously furiously pending instructions. carefu"
+        },
+        {
+          "c_custkey": 1432624,
+          "c_name": "Customer#001432624",
+          "revenue": 713512.6431,
+          "c_acctbal": 205.08,
+          "n_name": "FRANCE",
+          "c_address": "e7o5TBwh,bLO6flPI05Nrp0,1Q8m19ODDs0",
+          "c_phone": "16-550-232-2774",
+          "c_comment": "y ironic packages. slyly silent instructions cajole about the a"
+        },
+        {
+          "c_custkey": 160528,
+          "c_name": "Customer#000160528",
+          "revenue": 710673.3317000001,
+          "c_acctbal": 3425.52,
+          "n_name": "INDONESIA",
+          "c_address": "VrYJ,qyK75m PkPLTQT7KocfwMwPYQTlcEYBz",
+          "c_phone": "19-670-600-6340",
+          "c_comment": "blithely even deposits sleep until the even accounts"
+        },
+        {
+          "c_custkey": 1345237,
+          "c_name": "Customer#001345237",
+          "revenue": 707735.5745000001,
+          "c_acctbal": 6905.22,
+          "n_name": "FRANCE",
+          "c_address": "QJxZWEukcxoDYlFOgUGIOuGay",
+          "c_phone": "16-133-279-4001",
+          "c_comment": "symptotes integrate according to the sl"
+        },
+        {
+          "c_custkey": 839816,
+          "c_name": "Customer#000839816",
+          "revenue": 705643.2854,
+          "c_acctbal": 2110.25,
+          "n_name": "UNITED STATES",
+          "c_address": "r9c CDy,MgOouA",
+          "c_phone": "34-453-282-7925",
+          "c_comment": "sly sly pinto beans wake quickly slyly final packages. express deposit"
+        },
+        {
+          "c_custkey": 1136716,
+          "c_name": "Customer#001136716",
+          "revenue": 695043.5606,
+          "c_acctbal": 5886.01,
+          "n_name": "CHINA",
+          "c_address": "yqiALHYT6gaiip1g6wgnM6ctJ",
+          "c_phone": "28-729-762-5783",
+          "c_comment": "out the fluffily pending requests. furiously ironic forges integrate. quickly bold theod"
+        },
+        {
+          "c_custkey": 1439413,
+          "c_name": "Customer#001439413",
+          "revenue": 690161.9783000001,
+          "c_acctbal": 8808.65,
+          "n_name": "ETHIOPIA",
+          "c_address": "5vMec8OoAWrStjng",
+          "c_phone": "15-432-961-8772",
+          "c_comment": "boost across the regular, ironic packages. final instructions "
+        },
+        {
+          "c_custkey": 1392475,
+          "c_name": "Customer#001392475",
+          "revenue": 685464.4086,
+          "c_acctbal": 593.26,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "sbjxdO1xOzy1wBIhAOzp6b2,9sHMj8q1f",
+          "c_phone": "30-640-220-2095",
+          "c_comment": "c accounts. always final instructions boost according to the final "
+        },
+        {
+          "c_custkey": 616909,
+          "c_name": "Customer#000616909",
+          "revenue": 684978.1044000001,
+          "c_acctbal": 2660.84,
+          "n_name": "EGYPT",
+          "c_address": "Jg9FiC98BUWmlBb3WTN",
+          "c_phone": "14-185-768-2185",
+          "c_comment": "s about the busy ideas affix f"
+        },
+        {
+          "c_custkey": 314272,
+          "c_name": "Customer#000314272",
+          "revenue": 682212.6365,
+          "c_acctbal": 5127.92,
+          "n_name": "UNITED STATES",
+          "c_address": " LKR3R5VStcAlT4D,qGBJLWYkmJU",
+          "c_phone": "34-674-752-5199",
+          "c_comment": "ng to the slyly express instructions sleep fluffily even foxes. special id"
+        },
+        {
+          "c_custkey": 1472980,
+          "c_name": "Customer#001472980",
+          "revenue": 677765.918,
+          "c_acctbal": 6003.36,
+          "n_name": "IRAQ",
+          "c_address": "JIMreXGvswrve5rkBww",
+          "c_phone": "21-506-776-4657",
+          "c_comment": "e. packages according to the instructions are among the even, regular th"
+        },
+        {
+          "c_custkey": 1486201,
+          "c_name": "Customer#001486201",
+          "revenue": 674878.4539,
+          "c_acctbal": -276.92,
+          "n_name": "JORDAN",
+          "c_address": "8hJKgyMlv Ay3fyNDJFvszoYd",
+          "c_phone": "23-611-797-4750",
+          "c_comment": "es nag. silent accounts are blithely daring packages. "
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:34.983414+00:00",
+      "ended_at_utc": "2026-10-26T16:21:35.209790+00:00",
+      "peak_process_tree_rss_bytes": 3883831296,
+      "plan": "plans/q10-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 0.21537237399934384,
+      "rows": [
+        {
+          "l_orderkey": 4791171,
+          "revenue": 440715.2185,
+          "o_orderdate": "1995-02-23",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 46678469,
+          "revenue": 439855.32499999995,
+          "o_orderdate": "1995-01-27",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 23906758,
+          "revenue": 432728.57369999995,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 23861382,
+          "revenue": 428739.1368,
+          "o_orderdate": "1995-03-09",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 59393639,
+          "revenue": 426036.0662,
+          "o_orderdate": "1995-02-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 3355202,
+          "revenue": 425100.6657,
+          "o_orderdate": "1995-03-04",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 9806272,
+          "revenue": 425088.0568,
+          "o_orderdate": "1995-03-13",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 22810436,
+          "revenue": 423231.969,
+          "o_orderdate": "1995-01-02",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 16384100,
+          "revenue": 421478.72940000007,
+          "o_orderdate": "1995-03-02",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 52974151,
+          "revenue": 415367.11950000003,
+          "o_orderdate": "1995-02-05",
+          "o_shippriority": 0
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:35.210875+00:00",
+      "ended_at_utc": "2026-10-26T16:21:35.428960+00:00",
+      "peak_process_tree_rss_bytes": 2667569152,
+      "plan": "plans/q03-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 0.06575612699998601,
+      "rows": [
+        {
+          "revenue": 1230113636.0101004
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:35.430180+00:00",
+      "ended_at_utc": "2026-10-26T16:21:35.498587+00:00",
+      "peak_process_tree_rss_bytes": 2548850688,
+      "plan": "plans/q06-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 0.08705358299994259,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 62071,
+          "low_line_count": 93045
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 62426,
+          "low_line_count": 93261
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:35.500947+00:00",
+      "ended_at_utc": "2026-10-26T16:21:35.590577+00:00",
+      "peak_process_tree_rss_bytes": 2502864896,
+      "plan": "plans/q12-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 0.44148426599895174,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 377518399.0,
+          "sum_base_price": 566065727797.2494,
+          "sum_disc_price": 537759104278.06537,
+          "sum_charge": 559276670892.117,
+          "avg_qty": 25.500975103007097,
+          "avg_price": 38237.151008958506,
+          "avg_disc": 0.050006574540222226,
+          "count_order": 14804077
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 9851614.0,
+          "sum_base_price": 14767438399.170012,
+          "sum_disc_price": 14028805792.211395,
+          "sum_charge": 14590490998.366737,
+          "avg_qty": 25.522448302840946,
+          "avg_price": 38257.81066008117,
+          "avg_disc": 0.049973367737656774,
+          "count_order": 385998
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 743124873.0,
+          "sum_base_price": 1114302286901.88,
+          "sum_disc_price": 1058580922144.9637,
+          "sum_charge": 1100937000170.5906,
+          "avg_qty": 25.498075870689316,
+          "avg_price": 38233.90292348181,
+          "avg_disc": 0.05000081182114117,
+          "count_order": 29144351
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 377732830.0,
+          "sum_base_price": 566431054975.9999,
+          "sum_disc_price": 538110922664.7674,
+          "sum_charge": 559634780885.086,
+          "avg_qty": 25.50838478968014,
+          "avg_price": 38251.21927355975,
+          "avg_disc": 0.049996792314066375,
+          "count_order": 14808183
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:35.591677+00:00",
+      "ended_at_utc": "2026-10-26T16:21:36.035513+00:00",
+      "peak_process_tree_rss_bytes": 6086615040,
+      "plan": "plans/q01-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 0.08091149800020503,
+      "rows": [
+        {
+          "promo_revenue": 16.647594941615097
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:36.036848+00:00",
+      "ended_at_utc": "2026-10-26T16:21:36.120403+00:00",
+      "peak_process_tree_rss_bytes": 5909479424,
+      "plan": "plans/q14-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 0.22076137499971082,
+      "rows": [
+        {
+          "c_custkey": 1237537,
+          "c_name": "Customer#001237537",
+          "revenue": 884989.6657,
+          "c_acctbal": 7840.17,
+          "n_name": "RUSSIA",
+          "c_address": "mdkU4LpZECCtt20RHa76sA6b4WC",
+          "c_phone": "32-367-120-4327",
+          "c_comment": "yly regular accounts boost. requests need to nag evenly"
+        },
+        {
+          "c_custkey": 1116802,
+          "c_name": "Customer#001116802",
+          "revenue": 830214.1117,
+          "c_acctbal": 772.17,
+          "n_name": "JORDAN",
+          "c_address": "iBka7YijCCLApX1f 8 sKp 5ldP ",
+          "c_phone": "23-199-655-3770",
+          "c_comment": "y carefully regular deposits. packages nod ironic packages"
+        },
+        {
+          "c_custkey": 508954,
+          "c_name": "Customer#000508954",
+          "revenue": 826167.5138000001,
+          "c_acctbal": 3072.07,
+          "n_name": "ETHIOPIA",
+          "c_address": "tKQLmGq3MOqXiTmNZQRp",
+          "c_phone": "15-880-510-9487",
+          "c_comment": "t the quickly pending deposits. carefully express dependencies detect. blithely regular"
+        },
+        {
+          "c_custkey": 1487503,
+          "c_name": "Customer#001487503",
+          "revenue": 825996.5903,
+          "c_acctbal": 5398.11,
+          "n_name": "IRAN",
+          "c_address": "D tOJIC0rcVO",
+          "c_phone": "20-271-234-4401",
+          "c_comment": "ithely quiet deposits about the slyly final dolphins hinder carefully about the slyly ironic accounts. carefully ir"
+        },
+        {
+          "c_custkey": 1461247,
+          "c_name": "Customer#001461247",
+          "revenue": 775992.0819999999,
+          "c_acctbal": 3205.93,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "Ia1gHwdAyyFo,pCKhCkqX6",
+          "c_phone": "30-137-949-5375",
+          "c_comment": "beans. furiously ironic realms after the slyly ironic sentiments are requests. courts was carefully about t"
+        },
+        {
+          "c_custkey": 1316338,
+          "c_name": "Customer#001316338",
+          "revenue": 765063.7003,
+          "c_acctbal": 8682.95,
+          "n_name": "INDIA",
+          "c_address": "QLsXlkrrAQ7fz5TDIoDUVsUMsH1pBOG",
+          "c_phone": "18-793-610-3832",
+          "c_comment": "olites sleep furiously ironic instructions. final, final ideas wake carefully after the slyly iron"
+        },
+        {
+          "c_custkey": 817849,
+          "c_name": "Customer#000817849",
+          "revenue": 737664.7231999999,
+          "c_acctbal": -380.3,
+          "n_name": "MOROCCO",
+          "c_address": "UKsTjQdC5d9PwYXz u",
+          "c_phone": "25-111-847-3201",
+          "c_comment": "ts after the slyly regular excuses wake pending accounts. deposits wake? carefully ironic foxes wa"
+        },
+        {
+          "c_custkey": 1335394,
+          "c_name": "Customer#001335394",
+          "revenue": 731259.8674999999,
+          "c_acctbal": 3978.53,
+          "n_name": "VIETNAM",
+          "c_address": "FNdEi9tP 5eQib8C",
+          "c_phone": "31-760-271-2302",
+          "c_comment": "ly ironic, final foxes. slyly bold instructions "
+        },
+        {
+          "c_custkey": 102358,
+          "c_name": "Customer#000102358",
+          "revenue": 715001.8825000001,
+          "c_acctbal": 3564.9,
+          "n_name": "BRAZIL",
+          "c_address": "3BnBw0 bZWmVue6bPGn513kOeitBl5VHj",
+          "c_phone": "12-941-212-8350",
+          "c_comment": " furiously furiously dogged deposits. regular accounts are furiously furiously pending instructions. carefu"
+        },
+        {
+          "c_custkey": 1432624,
+          "c_name": "Customer#001432624",
+          "revenue": 713512.6431,
+          "c_acctbal": 205.08,
+          "n_name": "FRANCE",
+          "c_address": "e7o5TBwh,bLO6flPI05Nrp0,1Q8m19ODDs0",
+          "c_phone": "16-550-232-2774",
+          "c_comment": "y ironic packages. slyly silent instructions cajole about the a"
+        },
+        {
+          "c_custkey": 160528,
+          "c_name": "Customer#000160528",
+          "revenue": 710673.3317000001,
+          "c_acctbal": 3425.52,
+          "n_name": "INDONESIA",
+          "c_address": "VrYJ,qyK75m PkPLTQT7KocfwMwPYQTlcEYBz",
+          "c_phone": "19-670-600-6340",
+          "c_comment": "blithely even deposits sleep until the even accounts"
+        },
+        {
+          "c_custkey": 1345237,
+          "c_name": "Customer#001345237",
+          "revenue": 707735.5745000001,
+          "c_acctbal": 6905.22,
+          "n_name": "FRANCE",
+          "c_address": "QJxZWEukcxoDYlFOgUGIOuGay",
+          "c_phone": "16-133-279-4001",
+          "c_comment": "symptotes integrate according to the sl"
+        },
+        {
+          "c_custkey": 839816,
+          "c_name": "Customer#000839816",
+          "revenue": 705643.2854,
+          "c_acctbal": 2110.25,
+          "n_name": "UNITED STATES",
+          "c_address": "r9c CDy,MgOouA",
+          "c_phone": "34-453-282-7925",
+          "c_comment": "sly sly pinto beans wake quickly slyly final packages. express deposit"
+        },
+        {
+          "c_custkey": 1136716,
+          "c_name": "Customer#001136716",
+          "revenue": 695043.5606,
+          "c_acctbal": 5886.01,
+          "n_name": "CHINA",
+          "c_address": "yqiALHYT6gaiip1g6wgnM6ctJ",
+          "c_phone": "28-729-762-5783",
+          "c_comment": "out the fluffily pending requests. furiously ironic forges integrate. quickly bold theod"
+        },
+        {
+          "c_custkey": 1439413,
+          "c_name": "Customer#001439413",
+          "revenue": 690161.9783000001,
+          "c_acctbal": 8808.65,
+          "n_name": "ETHIOPIA",
+          "c_address": "5vMec8OoAWrStjng",
+          "c_phone": "15-432-961-8772",
+          "c_comment": "boost across the regular, ironic packages. final instructions "
+        },
+        {
+          "c_custkey": 1392475,
+          "c_name": "Customer#001392475",
+          "revenue": 685464.4086,
+          "c_acctbal": 593.26,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "sbjxdO1xOzy1wBIhAOzp6b2,9sHMj8q1f",
+          "c_phone": "30-640-220-2095",
+          "c_comment": "c accounts. always final instructions boost according to the final "
+        },
+        {
+          "c_custkey": 616909,
+          "c_name": "Customer#000616909",
+          "revenue": 684978.1044000001,
+          "c_acctbal": 2660.84,
+          "n_name": "EGYPT",
+          "c_address": "Jg9FiC98BUWmlBb3WTN",
+          "c_phone": "14-185-768-2185",
+          "c_comment": "s about the busy ideas affix f"
+        },
+        {
+          "c_custkey": 314272,
+          "c_name": "Customer#000314272",
+          "revenue": 682212.6364999999,
+          "c_acctbal": 5127.92,
+          "n_name": "UNITED STATES",
+          "c_address": " LKR3R5VStcAlT4D,qGBJLWYkmJU",
+          "c_phone": "34-674-752-5199",
+          "c_comment": "ng to the slyly express instructions sleep fluffily even foxes. special id"
+        },
+        {
+          "c_custkey": 1472980,
+          "c_name": "Customer#001472980",
+          "revenue": 677765.918,
+          "c_acctbal": 6003.36,
+          "n_name": "IRAQ",
+          "c_address": "JIMreXGvswrve5rkBww",
+          "c_phone": "21-506-776-4657",
+          "c_comment": "e. packages according to the instructions are among the even, regular th"
+        },
+        {
+          "c_custkey": 1486201,
+          "c_name": "Customer#001486201",
+          "revenue": 674878.4539000001,
+          "c_acctbal": -276.92,
+          "n_name": "JORDAN",
+          "c_address": "8hJKgyMlv Ay3fyNDJFvszoYd",
+          "c_phone": "23-611-797-4750",
+          "c_comment": "es nag. silent accounts are blithely daring packages. "
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:36.121627+00:00",
+      "ended_at_utc": "2026-10-26T16:21:36.345688+00:00",
+      "peak_process_tree_rss_bytes": 5902049280,
+      "plan": "plans/q10-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 0.3817601459995785,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 377518399.0,
+          "sum_base_price": 566065727797.2502,
+          "sum_disc_price": 537759104278.066,
+          "sum_charge": 559276670892.1166,
+          "avg_qty": 25.500975103007097,
+          "avg_price": 38237.151008958564,
+          "avg_disc": 0.0500065745402222,
+          "count_order": 14804077
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 9851614.0,
+          "sum_base_price": 14767438399.169996,
+          "sum_disc_price": 14028805792.211401,
+          "sum_charge": 14590490998.36674,
+          "avg_qty": 25.522448302840946,
+          "avg_price": 38257.81066008113,
+          "avg_disc": 0.04997336773765681,
+          "count_order": 385998
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 743124873.0,
+          "sum_base_price": 1114302286901.8806,
+          "sum_disc_price": 1058580922144.9644,
+          "sum_charge": 1100937000170.5923,
+          "avg_qty": 25.498075870689316,
+          "avg_price": 38233.90292348183,
+          "avg_disc": 0.050000811821141244,
+          "count_order": 29144351
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 377732830.0,
+          "sum_base_price": 566431054976.0001,
+          "sum_disc_price": 538110922664.76794,
+          "sum_charge": 559634780885.086,
+          "avg_qty": 25.50838478968014,
+          "avg_price": 38251.21927355977,
+          "avg_disc": 0.04999679231406639,
+          "count_order": 14808183
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:36.347120+00:00",
+      "ended_at_utc": "2026-10-26T16:21:36.731429+00:00",
+      "peak_process_tree_rss_bytes": 6342758400,
+      "plan": "plans/q01-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 0.06988897500013991,
+      "rows": [
+        {
+          "revenue": 1230113636.0101001
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:36.732931+00:00",
+      "ended_at_utc": "2026-10-26T16:21:36.805747+00:00",
+      "peak_process_tree_rss_bytes": 6288183296,
+      "plan": "plans/q06-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 0.0848155619987665,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 62071,
+          "low_line_count": 93045
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 62426,
+          "low_line_count": 93261
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:36.807578+00:00",
+      "ended_at_utc": "2026-10-26T16:21:36.895949+00:00",
+      "peak_process_tree_rss_bytes": 6123769856,
+      "plan": "plans/q12-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 0.08125436800037278,
+      "rows": [
+        {
+          "promo_revenue": 16.64759494161509
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:36.897578+00:00",
+      "ended_at_utc": "2026-10-26T16:21:36.981893+00:00",
+      "peak_process_tree_rss_bytes": 5885227008,
+      "plan": "plans/q14-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 0.2204101269999228,
+      "rows": [
+        {
+          "l_orderkey": 4791171,
+          "revenue": 440715.2185,
+          "o_orderdate": "1995-02-23",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 46678469,
+          "revenue": 439855.32499999995,
+          "o_orderdate": "1995-01-27",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 23906758,
+          "revenue": 432728.57369999995,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 23861382,
+          "revenue": 428739.1368,
+          "o_orderdate": "1995-03-09",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 59393639,
+          "revenue": 426036.0662,
+          "o_orderdate": "1995-02-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 3355202,
+          "revenue": 425100.6657,
+          "o_orderdate": "1995-03-04",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 9806272,
+          "revenue": 425088.0568,
+          "o_orderdate": "1995-03-13",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 22810436,
+          "revenue": 423231.969,
+          "o_orderdate": "1995-01-02",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 16384100,
+          "revenue": 421478.72940000007,
+          "o_orderdate": "1995-03-02",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 52974151,
+          "revenue": 415367.11950000003,
+          "o_orderdate": "1995-02-05",
+          "o_shippriority": 0
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:36.983599+00:00",
+      "ended_at_utc": "2026-10-26T16:21:37.207137+00:00",
+      "peak_process_tree_rss_bytes": 5442912256,
+      "plan": "plans/q03-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 0.19810812800096755,
+      "rows": [
+        {
+          "c_custkey": 1237537,
+          "c_name": "Customer#001237537",
+          "revenue": 884989.6657000001,
+          "c_acctbal": 7840.17,
+          "n_name": "RUSSIA",
+          "c_address": "mdkU4LpZECCtt20RHa76sA6b4WC",
+          "c_phone": "32-367-120-4327",
+          "c_comment": "yly regular accounts boost. requests need to nag evenly"
+        },
+        {
+          "c_custkey": 1116802,
+          "c_name": "Customer#001116802",
+          "revenue": 830214.1116999999,
+          "c_acctbal": 772.17,
+          "n_name": "JORDAN",
+          "c_address": "iBka7YijCCLApX1f 8 sKp 5ldP ",
+          "c_phone": "23-199-655-3770",
+          "c_comment": "y carefully regular deposits. packages nod ironic packages"
+        },
+        {
+          "c_custkey": 508954,
+          "c_name": "Customer#000508954",
+          "revenue": 826167.5138000001,
+          "c_acctbal": 3072.07,
+          "n_name": "ETHIOPIA",
+          "c_address": "tKQLmGq3MOqXiTmNZQRp",
+          "c_phone": "15-880-510-9487",
+          "c_comment": "t the quickly pending deposits. carefully express dependencies detect. blithely regular"
+        },
+        {
+          "c_custkey": 1487503,
+          "c_name": "Customer#001487503",
+          "revenue": 825996.5902999999,
+          "c_acctbal": 5398.11,
+          "n_name": "IRAN",
+          "c_address": "D tOJIC0rcVO",
+          "c_phone": "20-271-234-4401",
+          "c_comment": "ithely quiet deposits about the slyly final dolphins hinder carefully about the slyly ironic accounts. carefully ir"
+        },
+        {
+          "c_custkey": 1461247,
+          "c_name": "Customer#001461247",
+          "revenue": 775992.0819999999,
+          "c_acctbal": 3205.93,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "Ia1gHwdAyyFo,pCKhCkqX6",
+          "c_phone": "30-137-949-5375",
+          "c_comment": "beans. furiously ironic realms after the slyly ironic sentiments are requests. courts was carefully about t"
+        },
+        {
+          "c_custkey": 1316338,
+          "c_name": "Customer#001316338",
+          "revenue": 765063.7002999999,
+          "c_acctbal": 8682.95,
+          "n_name": "INDIA",
+          "c_address": "QLsXlkrrAQ7fz5TDIoDUVsUMsH1pBOG",
+          "c_phone": "18-793-610-3832",
+          "c_comment": "olites sleep furiously ironic instructions. final, final ideas wake carefully after the slyly iron"
+        },
+        {
+          "c_custkey": 817849,
+          "c_name": "Customer#000817849",
+          "revenue": 737664.7232,
+          "c_acctbal": -380.3,
+          "n_name": "MOROCCO",
+          "c_address": "UKsTjQdC5d9PwYXz u",
+          "c_phone": "25-111-847-3201",
+          "c_comment": "ts after the slyly regular excuses wake pending accounts. deposits wake? carefully ironic foxes wa"
+        },
+        {
+          "c_custkey": 1335394,
+          "c_name": "Customer#001335394",
+          "revenue": 731259.8674999999,
+          "c_acctbal": 3978.53,
+          "n_name": "VIETNAM",
+          "c_address": "FNdEi9tP 5eQib8C",
+          "c_phone": "31-760-271-2302",
+          "c_comment": "ly ironic, final foxes. slyly bold instructions "
+        },
+        {
+          "c_custkey": 102358,
+          "c_name": "Customer#000102358",
+          "revenue": 715001.8825000001,
+          "c_acctbal": 3564.9,
+          "n_name": "BRAZIL",
+          "c_address": "3BnBw0 bZWmVue6bPGn513kOeitBl5VHj",
+          "c_phone": "12-941-212-8350",
+          "c_comment": " furiously furiously dogged deposits. regular accounts are furiously furiously pending instructions. carefu"
+        },
+        {
+          "c_custkey": 1432624,
+          "c_name": "Customer#001432624",
+          "revenue": 713512.6431000001,
+          "c_acctbal": 205.08,
+          "n_name": "FRANCE",
+          "c_address": "e7o5TBwh,bLO6flPI05Nrp0,1Q8m19ODDs0",
+          "c_phone": "16-550-232-2774",
+          "c_comment": "y ironic packages. slyly silent instructions cajole about the a"
+        },
+        {
+          "c_custkey": 160528,
+          "c_name": "Customer#000160528",
+          "revenue": 710673.3317,
+          "c_acctbal": 3425.52,
+          "n_name": "INDONESIA",
+          "c_address": "VrYJ,qyK75m PkPLTQT7KocfwMwPYQTlcEYBz",
+          "c_phone": "19-670-600-6340",
+          "c_comment": "blithely even deposits sleep until the even accounts"
+        },
+        {
+          "c_custkey": 1345237,
+          "c_name": "Customer#001345237",
+          "revenue": 707735.5745000001,
+          "c_acctbal": 6905.22,
+          "n_name": "FRANCE",
+          "c_address": "QJxZWEukcxoDYlFOgUGIOuGay",
+          "c_phone": "16-133-279-4001",
+          "c_comment": "symptotes integrate according to the sl"
+        },
+        {
+          "c_custkey": 839816,
+          "c_name": "Customer#000839816",
+          "revenue": 705643.2854,
+          "c_acctbal": 2110.25,
+          "n_name": "UNITED STATES",
+          "c_address": "r9c CDy,MgOouA",
+          "c_phone": "34-453-282-7925",
+          "c_comment": "sly sly pinto beans wake quickly slyly final packages. express deposit"
+        },
+        {
+          "c_custkey": 1136716,
+          "c_name": "Customer#001136716",
+          "revenue": 695043.5606000001,
+          "c_acctbal": 5886.01,
+          "n_name": "CHINA",
+          "c_address": "yqiALHYT6gaiip1g6wgnM6ctJ",
+          "c_phone": "28-729-762-5783",
+          "c_comment": "out the fluffily pending requests. furiously ironic forges integrate. quickly bold theod"
+        },
+        {
+          "c_custkey": 1439413,
+          "c_name": "Customer#001439413",
+          "revenue": 690161.9783000001,
+          "c_acctbal": 8808.65,
+          "n_name": "ETHIOPIA",
+          "c_address": "5vMec8OoAWrStjng",
+          "c_phone": "15-432-961-8772",
+          "c_comment": "boost across the regular, ironic packages. final instructions "
+        },
+        {
+          "c_custkey": 1392475,
+          "c_name": "Customer#001392475",
+          "revenue": 685464.4086,
+          "c_acctbal": 593.26,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "sbjxdO1xOzy1wBIhAOzp6b2,9sHMj8q1f",
+          "c_phone": "30-640-220-2095",
+          "c_comment": "c accounts. always final instructions boost according to the final "
+        },
+        {
+          "c_custkey": 616909,
+          "c_name": "Customer#000616909",
+          "revenue": 684978.1044000001,
+          "c_acctbal": 2660.84,
+          "n_name": "EGYPT",
+          "c_address": "Jg9FiC98BUWmlBb3WTN",
+          "c_phone": "14-185-768-2185",
+          "c_comment": "s about the busy ideas affix f"
+        },
+        {
+          "c_custkey": 314272,
+          "c_name": "Customer#000314272",
+          "revenue": 682212.6365,
+          "c_acctbal": 5127.92,
+          "n_name": "UNITED STATES",
+          "c_address": " LKR3R5VStcAlT4D,qGBJLWYkmJU",
+          "c_phone": "34-674-752-5199",
+          "c_comment": "ng to the slyly express instructions sleep fluffily even foxes. special id"
+        },
+        {
+          "c_custkey": 1472980,
+          "c_name": "Customer#001472980",
+          "revenue": 677765.918,
+          "c_acctbal": 6003.36,
+          "n_name": "IRAQ",
+          "c_address": "JIMreXGvswrve5rkBww",
+          "c_phone": "21-506-776-4657",
+          "c_comment": "e. packages according to the instructions are among the even, regular th"
+        },
+        {
+          "c_custkey": 1486201,
+          "c_name": "Customer#001486201",
+          "revenue": 674878.4539000001,
+          "c_acctbal": -276.92,
+          "n_name": "JORDAN",
+          "c_address": "8hJKgyMlv Ay3fyNDJFvszoYd",
+          "c_phone": "23-611-797-4750",
+          "c_comment": "es nag. silent accounts are blithely daring packages. "
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:37.208737+00:00",
+      "ended_at_utc": "2026-10-26T16:21:37.410507+00:00",
+      "peak_process_tree_rss_bytes": 4709810176,
+      "plan": "plans/q10-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 0.2089476819983247,
+      "rows": [
+        {
+          "l_orderkey": 4791171,
+          "revenue": 440715.2185,
+          "o_orderdate": "1995-02-23",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 46678469,
+          "revenue": 439855.32499999995,
+          "o_orderdate": "1995-01-27",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 23906758,
+          "revenue": 432728.57369999995,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 23861382,
+          "revenue": 428739.1368,
+          "o_orderdate": "1995-03-09",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 59393639,
+          "revenue": 426036.0662,
+          "o_orderdate": "1995-02-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 3355202,
+          "revenue": 425100.6657,
+          "o_orderdate": "1995-03-04",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 9806272,
+          "revenue": 425088.0568,
+          "o_orderdate": "1995-03-13",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 22810436,
+          "revenue": 423231.969,
+          "o_orderdate": "1995-01-02",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 16384100,
+          "revenue": 421478.72940000007,
+          "o_orderdate": "1995-03-02",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 52974151,
+          "revenue": 415367.11950000003,
+          "o_orderdate": "1995-02-05",
+          "o_shippriority": 0
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:37.412476+00:00",
+      "ended_at_utc": "2026-10-26T16:21:37.624841+00:00",
+      "peak_process_tree_rss_bytes": 4009975808,
+      "plan": "plans/q03-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 0.06973354100045981,
+      "rows": [
+        {
+          "revenue": 1230113636.0101
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:37.626904+00:00",
+      "ended_at_utc": "2026-10-26T16:21:37.700030+00:00",
+      "peak_process_tree_rss_bytes": 3479175168,
+      "plan": "plans/q06-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 0.4363761379991047,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 377518399.0,
+          "sum_base_price": 566065727797.2501,
+          "sum_disc_price": 537759104278.0659,
+          "sum_charge": 559276670892.1167,
+          "avg_qty": 25.500975103007097,
+          "avg_price": 38237.15100895856,
+          "avg_disc": 0.05000657454022217,
+          "count_order": 14804077
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 9851614.0,
+          "sum_base_price": 14767438399.17001,
+          "sum_disc_price": 14028805792.211388,
+          "sum_charge": 14590490998.366747,
+          "avg_qty": 25.522448302840946,
+          "avg_price": 38257.810660081166,
+          "avg_disc": 0.04997336773765675,
+          "count_order": 385998
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 743124873.0,
+          "sum_base_price": 1114302286901.8801,
+          "sum_disc_price": 1058580922144.9639,
+          "sum_charge": 1100937000170.5918,
+          "avg_qty": 25.498075870689316,
+          "avg_price": 38233.902923481815,
+          "avg_disc": 0.05000081182114124,
+          "count_order": 29144351
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 377732830.0,
+          "sum_base_price": 566431054975.9995,
+          "sum_disc_price": 538110922664.7675,
+          "sum_charge": 559634780885.0859,
+          "avg_qty": 25.50838478968014,
+          "avg_price": 38251.21927355973,
+          "avg_disc": 0.049996792314066375,
+          "count_order": 14808183
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:37.702022+00:00",
+      "ended_at_utc": "2026-10-26T16:21:38.141657+00:00",
+      "peak_process_tree_rss_bytes": 6657605632,
+      "plan": "plans/q01-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 0.08507125300093321,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 62071,
+          "low_line_count": 93045
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 62426,
+          "low_line_count": 93261
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:38.143562+00:00",
+      "ended_at_utc": "2026-10-26T16:21:38.232271+00:00",
+      "peak_process_tree_rss_bytes": 6232014848,
+      "plan": "plans/q12-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 0.08128092500010098,
+      "rows": [
+        {
+          "promo_revenue": 16.647594941615097
+        }
+      ],
+      "started_at_utc": "2026-10-26T16:21:38.234449+00:00",
+      "ended_at_utc": "2026-10-26T16:21:38.319062+00:00",
+      "peak_process_tree_rss_bytes": 6087823360,
+      "plan": "plans/q14-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    }
+  ],
+  "query_errors": [],
+  "query_cleanup_policy": "none",
+  "cleanup_records": [],
+  "failure_policy": "raise",
+  "version": "2.0.0",
+  "cpu_threads": 26,
+  "session_and_table_setup_seconds": 0.07957974000055401,
+  "launch_to_engine_ready_seconds": 0.14061951637268066,
+  "active_query": null,
+  "query_execution_status": "complete",
+  "completed_at_utc": "2026-10-26T16:21:38.320969+00:00"
+}

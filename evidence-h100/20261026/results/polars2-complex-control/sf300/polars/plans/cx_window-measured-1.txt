@@ -1,0 +1,20 @@
+SORT BY [slice: (0, 100), nulls_last: [true, true, true]] [col("custkey"), col("row_num"), col("orderkey")]
+  SELECT [col("o_custkey").alias("custkey"), col("o_orderkey").alias("orderkey"), col("o_orderdate").alias("orderdate"), col("o_totalprice").alias("totalprice"), col("previous_totalprice"), col("row_num")]
+    FILTER col("row_num") <= 3
+    FROM
+      simple π 6/6 ["o_custkey", "o_orderkey", ... 4 other columns]
+         WITH_COLUMNS:
+         [col("_POLARS_TMP_PLAN_12").alias("previous_totalprice"), col("_POLARS_TMP_PLAN_13").cast(Int64).alias("row_num")] 
+          WINDOW[maintain_order: false, ordered_eval: true] PARTITION BY ["o_custkey"] ORDER BY "_POLARS_TMP_PLAN_15":
+           [col("o_orderkey").fill_null([0]).cum_count().over(partition_by: [col("o_custkey")], order_by: col("_POLARS_TMP_PLAN_15")).alias("_POLARS_TMP_PLAN_13")] 
+            WINDOW[maintain_order: true, ordered_eval: true] PARTITION BY ["o_custkey"] ORDER BY "_POLARS_TMP_PLAN_14":
+             [col("o_totalprice").shift([dyn int: 1]).over(partition_by: [col("o_custkey")], order_by: col("_POLARS_TMP_PLAN_14")).alias("_POLARS_TMP_PLAN_12")] 
+               WITH_COLUMNS:
+               [col("o_orderdate").row_encode([col("o_orderkey")]).alias("_POLARS_TMP_PLAN_14"), col("o_totalprice").negate().row_encode([col("o_orderdate"), col("o_orderkey")]).alias("_POLARS_TMP_PLAN_15")] 
+                simple π 4/4 ["o_custkey", "o_orderkey", ... 2 other columns]
+                   WITH_COLUMNS:
+                   [col("o_totalprice").strict_cast(Float64)] 
+                    Parquet SCAN [/home/ubuntu/study/data/sf300/orders/part-000000-000.parquet, ... 179 other sources]
+                    PROJECT 4/9 COLUMNS
+                    SELECTION: (col("o_orderdate") >= 1994-01-01) & (col("o_orderdate") < 1996-01-01)
+                    ESTIMATED ROWS: 449928384

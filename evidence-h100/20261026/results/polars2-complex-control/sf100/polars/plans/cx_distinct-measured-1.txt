@@ -1,0 +1,34 @@
+SORT BY [nulls_last: [true, true]] [col("n_name"), col("o_orderpriority")]
+  AGGREGATE[maintain_order: false]
+    [col("l_orderkey").drop_nulls().n_unique().cast(Int64).alias("distinct_orders"), col("o_custkey").drop_nulls().n_unique().cast(Int64).alias("distinct_customers"), col("l_partkey").drop_nulls().n_unique().cast(Int64).alias("distinct_parts")] BY [col("n_name"), col("o_orderpriority")]
+    FROM
+    simple π 5/5 ["n_name", "o_orderpriority", ... 3 other columns]
+      INNER JOIN:
+      LEFT PLAN ON: [col("s_nationkey")]
+        simple π 5/5 ["l_orderkey", "l_partkey", ... 3 other columns]
+          INNER JOIN:
+          LEFT PLAN ON: [col("l_suppkey")]
+            INNER JOIN:
+            BUILD SIDE: PreferRight
+            LEFT PLAN ON: [col("l_orderkey")]
+              Parquet SCAN [/home/ubuntu/study/data/sf100/lineitem/part-000000-000.parquet, ... 179 other sources]
+              PROJECT 3/16 COLUMNS
+              SELECTION: col("l_orderkey").dynamic_predicate()
+              ESTIMATED ROWS: 600014047
+            RIGHT PLAN ON: [col("o_orderkey")]
+              simple π 3/3 ["o_orderkey", "o_custkey", ... 1 other column]
+                Parquet SCAN [/home/ubuntu/study/data/sf100/orders/part-000000-000.parquet, ... 59 other sources]
+                PROJECT 4/9 COLUMNS
+                SELECTION: (col("o_orderdate") >= 1995-01-01) & (col("o_orderdate") < 1996-01-01)
+                ESTIMATED ROWS: 149996322
+            END INNER JOIN
+          RIGHT PLAN ON: [col("s_suppkey")]
+            Parquet SCAN [/home/ubuntu/study/data/sf100/supplier/part-000000-000.parquet, ... 19 other sources]
+            PROJECT 2/7 COLUMNS
+            ESTIMATED ROWS: 999993
+          END INNER JOIN
+      RIGHT PLAN ON: [col("n_nationkey")]
+        Parquet SCAN [/home/ubuntu/study/data/sf100/nation/part-000000-000.parquet, ... 12 other sources]
+        PROJECT 2/4 COLUMNS
+        ESTIMATED ROWS: 25
+      END INNER JOIN

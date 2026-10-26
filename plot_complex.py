@@ -287,15 +287,14 @@ def draw(cases: list[Case], evidence: dict, stem: Path) -> tuple[Path, Path]:
     for position, value, case in zip(x, values, cases):
         ratio.scatter(position, value, s=45, marker="o",
                       color="#4F7600" if value > 1 else "#18708A", zorder=4)
-        ratio.annotate(f"{value:.2f}×", (position, value), xytext=(0, 8),
+        label_above = not ext or case.polars_over_polars_gpu is None or value >= case.polars_over_polars_gpu
+        ratio.annotate(f"{value:.2f}×", (position, value), xytext=(0, 8 if label_above else -14),
                        textcoords="offset points", ha="center", fontsize=8)
     for position, value in zip(x, gpu_values):
         if value is None:
-            ratio.text(position, 0.31, "no Polars GPU", transform=ratio.get_xaxis_transform(), ha="center",
-                       va="bottom", rotation=90, fontsize=7, color="#B42318")
             continue
         ratio.scatter(position, value, s=45, marker="D", color="#D9822B", zorder=4)
-        ratio.annotate(f"{value:.2f}×", (position, value), xytext=(0, -14),
+        ratio.annotate(f"{value:.2f}×", (position, value), xytext=(0, 8 if value > values[position] else -14),
                        textcoords="offset points", ha="center", fontsize=8, color="#9A4F0A")
     ratio.text(0.98, 0.98, "> 1×: GPU-plugin Spark session faster" if not ext else "> 1×: GPU engine faster than Polars CPU",
                transform=ratio.transAxes, ha="right", va="top", fontsize=8.5, color="#436600")
@@ -340,6 +339,17 @@ def draw(cases: list[Case], evidence: dict, stem: Path) -> tuple[Path, Path]:
         footnotes[1:1] = [software, matching]
     for index, note in enumerate(footnotes):
         fig.text(0.065, (0.22 - index * 0.032) if ext else (0.16 - index * 0.033), note, fontsize=8.5, color="#4B5563")
+    if any(value is None for value in gpu_values):
+        # Give missing ratios their own row below even rotated or multiline ticks.
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        tick_bottom = min(label.get_window_extent(renderer).y0 for label in ratio.get_xticklabels())
+        tick_depth = (ratio.bbox.y0 - tick_bottom) * 72 / fig.dpi
+        for position, value in zip(x, gpu_values):
+            if value is None:
+                ratio.annotate("no Polars\nGPU", (position, 0), xycoords=ratio.get_xaxis_transform(),
+                               xytext=(0, -tick_depth - 8), textcoords="offset points", ha="center",
+                               va="top", fontsize=7, color="#B42318", annotation_clip=False)
     paths = tuple(stem.with_suffix("." + suffix) for suffix in ("png", "svg"))
     for path in paths:
         fig.savefig(path, dpi=180, facecolor="white")

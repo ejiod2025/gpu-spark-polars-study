@@ -3,8 +3,10 @@
 Research and H100 bring-up date: 2026-10-26. Branch: `H100_main_dev`. Sources include PyPI metadata,
 wheel contents, upstream source/commits, NVIDIA documentation and recovered H100 SF1 smoke
 evidence; URLs are in the last section. The original Phase 0 source assessment is retained below
-and distinguished from the observed SF1 outcome. A fresh preflight of the updated code is
-pending; formal multi-scale coverage and performance are not yet established.
+and distinguished from the observed outcomes. The fresh preflight, formal multi-scale
+campaigns, CPU 2.0.0 controls, and post-run checks are complete. See the
+[study results](../reports/H100_STUDY.md); both strict unsupported expressions
+were confirmed at every measured complex scale.
 
 ## 1. Selected stack
 
@@ -183,15 +185,18 @@ lock minus Polars resolves with zero drift). Install size is several GB (libcudf
 `cudf-polars-cu12==26.12.0a568.post261026052714` with `--extra-index-url
 https://pypi.anaconda.org/rapidsai-wheels-nightly/simple --prerelease allow`, Python 3.12).
 
-## 8. Remaining H100 validation
+## 8. Completed H100 validation
 
-1. Complete a fresh preflight of the updated code. The recovered SF1 smoke already establishes
-   the two strict unsupported cases above; local revalidation passes with those explicit XFAILs.
-2. Retain warning/configuration evidence at each scale. No cudf-polars warnings were recorded
-   on the successful queries in the recovered SF1 smoke; that does not rule them out at scale.
-3. Validate all generated scales and measure SF100/SF300 behaviour (VRAM, streaming executor),
-   recording unsupported/runtime errors rather than filling in missing timings.
-4. Optional bridge: Polars 1.44.2 vs 2.0.0 CPU streaming timings on the same host.
+1. Fresh preflight: 74 PASS, zero FAIL/WARN, two explicit unsupported-query XFAILs.
+2. Formal Polars GPU baseline coverage is 6/6 at SF1/10/30/100/300; complex coverage is
+   4/6 at SF30/100/300. Successful queries have captured physical plans and no recorded
+   executor warnings. Q13's regex and the grouped window expression remain explicit errors.
+3. All five datasets passed initial content checks and post-run file re-hashing.
+   Runtime configurations and sampled device memory are retained with the results.
+4. Same-host CPU controls using Polars 2.0.0/Python 3.10 passed 192 output comparisons.
+   Python also differs from the primary stack; this is a software-stack control. It changes
+   the complex aggregate interpretation, so consult those controls before generalizing
+   GPU Spark's win against CPU Polars 1.44.2.
 
 ## 9. Sources
 

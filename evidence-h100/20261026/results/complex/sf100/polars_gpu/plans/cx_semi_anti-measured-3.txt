@@ -1,0 +1,48 @@
+== Polars optimized plan (CPU optimizer; executed by cudf-polars, executor=streaming) ==
+SORT BY [slice: (0, 100, dynamic_pred: bba9219f-2b3d-4678-84d7-11e801ca6f36)] [col("c_custkey")]
+  ANTI JOIN:
+  LEFT PLAN ON: [col("c_custkey")]
+    SEMI JOIN:
+    LEFT PLAN ON: [col("c_custkey")]
+      Parquet SCAN [/home/ubuntu/study/data/sf100/customer/part-000000-000.parquet, ... 19 other sources]
+      PROJECT 3/8 COLUMNS
+      SELECTION: col("c_custkey").dynamic_predicate()
+      ESTIMATED ROWS: 15000582
+    RIGHT PLAN ON: [col("o_custkey")]
+      simple π 1/1 ["o_custkey"]
+        SEMI JOIN:
+        LEFT PLAN ON: [col("o_orderkey")]
+          simple π 2/2 ["o_custkey", "o_orderkey"]
+            Parquet SCAN [/home/ubuntu/study/data/sf100/orders/part-000000-000.parquet, ... 59 other sources]
+            PROJECT 3/9 COLUMNS
+            SELECTION: col("o_custkey").dynamic_predicate() & ((col("o_orderdate") >= 1995-01-01) & (col("o_orderdate") < 1996-01-01))
+            ESTIMATED ROWS: 149996322
+        RIGHT PLAN ON: [col("l_orderkey")]
+          simple π 1/1 ["l_orderkey"]
+            Parquet SCAN [/home/ubuntu/study/data/sf100/lineitem/part-000000-000.parquet, ... 179 other sources]
+            PROJECT 4/16 COLUMNS
+            SELECTION: (col("l_receiptdate") > col("l_commitdate")) & col("l_shipmode").is_in([["AIR", "SHIP"]])
+            ESTIMATED ROWS: 600014047
+        END SEMI JOIN
+    END SEMI JOIN
+  RIGHT PLAN ON: [col("o_custkey")]
+    simple π 1/1 ["o_custkey"]
+      Parquet SCAN [/home/ubuntu/study/data/sf100/orders/part-000000-000.parquet, ... 59 other sources]
+      PROJECT 3/9 COLUMNS
+      SELECTION: (col("o_custkey").dynamic_predicate() & ((col("o_orderdate") >= 1996-01-01) & (col("o_orderdate") < 1997-01-01))) & (col("o_orderstatus") == "F")
+      ESTIMATED ROWS: 149996322
+  END ANTI JOIN
+== cudf-polars physical plan ==
+SORT ('c_custkey',) ('c_custkey', 'c_name', 'c_nationkey') [10]
+  JOIN Anti ('c_custkey',) ('o_custkey',) ('c_custkey', 'c_name', 'c_nationkey') [10]
+    JOIN Semi ('c_custkey',) ('o_custkey',) ('c_custkey', 'c_name', 'c_nationkey') [10]
+      STREAMINGSCAN ('c_custkey', 'c_name', 'c_nationkey') [1]
+      PROJECTION ('o_custkey',) [10]
+        JOIN Semi ('o_orderkey',) ('l_orderkey',) ('o_custkey', 'o_orderkey') [10]
+          PROJECTION ('o_custkey', 'o_orderkey') [3]
+            STREAMINGSCAN ('o_custkey', 'o_orderkey', 'o_orderdate') [3]
+          PROJECTION ('l_orderkey',) [10]
+            STREAMINGSCAN ('l_orderkey', 'l_receiptdate', 'l_commitdate', 'l_shipmode') [10]
+    PROJECTION ('o_custkey',) [2]
+      STREAMINGSCAN ('o_custkey', 'o_orderdate', 'o_orderstatus') [2]
+
