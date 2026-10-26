@@ -6,7 +6,7 @@ All five datasets passed content validation. The formal baseline is complete: 48
 outputs and 120 Spark GPU plans validated across all five scales. The complex campaign is
 running from frozen source commit `c4c934cf732b4394e2bcb0547bb642ee2a1ae5d4`.
 
-A separate CPU software-stack control will repeat the baseline with the existing Polars 2.0.0 /
+A separate CPU software-stack control will repeat both suites with the existing Polars 2.0.0 /
 Python 3.10 environment after the main campaign. It is secondary evidence, not a fifth engine
 in the matched four-engine comparison, and cannot isolate Polars-version effects from Python.
 
