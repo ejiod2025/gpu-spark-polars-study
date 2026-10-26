@@ -103,5 +103,10 @@ Its run roots are `rerun/h100-baseline-formal-20261026` and
 `rerun/h100-complex-formal-20261026`; adjacent `.log` and `.exit` files record the shell launches.
 The fresh SF1 preflight is in `/home/ubuntu/study-h100-main-dev/rerun/h100-preflight-20261026`.
 Local curated validation/preflight/source evidence is in `evidence-h100/20261026/`.
-Formal results are pending while the campaign runs. SSH credentials, environments, bulk
+The baseline is complete and validated (480 outputs, 120 Spark GPU plans). Its report and plots
+are in `reports/h100-baseline-20261026/`; complex results are pending. A separate baseline-only
+CPU software-stack control using Polars 2.0.0/Python 3.10 is planned after the main campaign.
+It will reuse the frozen source, files, thread allocation, and protocol and compare every saved
+output with the primary CPU reference. Both Python and Polars versions differ; this is not an
+isolated Polars-version experiment. SSH credentials, environments, bulk
 Parquet data, and raw Spark event logs are not repository inputs.

@@ -1,0 +1,53 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=127]
+   +- GpuTopN(limit=10, orderBy=[revenue#3231 DESC NULLS LAST,o_orderdate#139 ASC NULLS FIRST,l_orderkey#26L ASC NULLS FIRST,o_shippriority#142 ASC NULLS FIRST], output=[l_orderkey#26L,revenue#3231,o_orderdate#139,o_shippriority#142], offset=0)
+      +- GpuShuffleCoalesce 1073741824, [loreId=125]
+         +- GpuColumnarExchange gpusinglepartitioning$(), ENSURE_REQUIREMENTS, [plan_id=10113], [loreId=124]
+            +- GpuTopN(limit=10, orderBy=[revenue#3231 DESC NULLS LAST,o_orderdate#139 ASC NULLS FIRST,l_orderkey#26L ASC NULLS FIRST,o_shippriority#142 ASC NULLS FIRST], output=[l_orderkey#26L,revenue#3231,o_orderdate#139,o_shippriority#142], offset=0)
+               +- GpuHashAggregate (keys=[l_orderkey#26L, o_orderdate#139, o_shippriority#142], functions=[gpubasicsum((l_extendedprice#76 * (1.0 - l_discount#93)), DoubleType, false)], output=[l_orderkey#26L, revenue#3231, o_orderdate#139, o_shippriority#142]) [loreId=122]
+                  +- GpuProject [l_orderkey#26L, l_extendedprice#76, l_discount#93, o_orderdate#139, o_shippriority#142], true, [loreId=121]
+                     +- GpuBroadcastHashJoin [o_custkey#136L], [c_custkey#0L], Inner, GpuBuildRight, false, [loreId=120]
+                        :- GpuProject [l_orderkey#26L, l_extendedprice#76, l_discount#93, o_custkey#136L, o_orderdate#139, o_shippriority#142], true, [loreId=119]
+                        :  +- GpuShuffledSymmetricHashJoin Inner, [l_orderkey#26L], [o_orderkey#135L], false, 1073741824, 1.0, CoalesceReadOption(true,GPU,Never,None,false), false, [loreId=118]
+                        :     :- GpuCustomShuffleReader coalesced
+                        :     :  +- ShuffleQueryStage 0
+                        :     :     +- GpuColumnarExchange gpuhashpartitioning(l_orderkey#26L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=9741], [loreId=65]
+                        :     :        +- GpuProject [l_orderkey#26L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93], true, [loreId=64]
+                        :     :           +- GpuCoalesceBatches targetsize(1073741824), [loreId=63]
+                        :     :              +- GpuFilter ((gpuisnotnull(l_shipdate#36) AND (l_shipdate#36 > 9204)) AND gpuisnotnull(l_orderkey#26L)), [loreId=62]
+                        :     :                 +- GpuFileGpuScan parquet [l_orderkey#26L,l_extendedprice#31,l_discount#32,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 > 1995-03-15), isnotnull(l_orderkey#26L)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThan(l_shipdate,1995-03-15), IsNotNull(l_orderkey)], ReadSchema: struct<l_orderkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_shipdate:date>
+                        :     +- GpuCustomShuffleReader coalesced
+                        :        +- ShuffleQueryStage 1
+                        :           +- GpuColumnarExchange gpuhashpartitioning(o_orderkey#135L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=9776], [loreId=72]
+                        :              +- GpuCoalesceBatches targetsize(1073741824), [loreId=71]
+                        :                 +- GpuFilter (((gpuisnotnull(o_orderdate#139) AND (o_orderdate#139 < 9204)) AND gpuisnotnull(o_orderkey#135L)) AND gpuisnotnull(o_custkey#136L)), [loreId=70]
+                        :                    +- GpuFileGpuScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139,o_shippriority#142] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 < 1995-03-15), isnotnull(o_orderkey#135L), isnotnul..., Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), LessThan(o_orderdate,1995-03-15), IsNotNull(o_orderkey), IsNotNull(o_cus..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date,o_shippriority:int>
+                        +- BroadcastQueryStage 2
+                           +- GpuBroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=9815], [loreId=81]
+                              +- GpuProject [c_custkey#0L], true, [loreId=80]
+                                 +- GpuCoalesceBatches targetsize(1073741824), [loreId=79]
+                                    +- GpuFilter ((gpuisnotnull(c_mktsegment#6) AND (c_mktsegment#6 = BUILDING)) AND gpuisnotnull(c_custkey#0L)), [loreId=78]
+                                       +- GpuFileGpuScan parquet [c_custkey#0L,c_mktsegment#6] Batched: true, DataFilters: [isnotnull(c_mktsegment#6), (c_mktsegment#6 = BUILDING), isnotnull(c_custkey#0L)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/customer], PartitionFilters: [], PushedFilters: [IsNotNull(c_mktsegment), EqualTo(c_mktsegment,BUILDING), IsNotNull(c_custkey)], ReadSchema: struct<c_custkey:bigint,c_mktsegment:string>
++- == Initial Plan ==
+   TakeOrderedAndProject(limit=10, orderBy=[revenue#3231 DESC NULLS LAST,o_orderdate#139 ASC NULLS FIRST,l_orderkey#26L ASC NULLS FIRST,o_shippriority#142 ASC NULLS FIRST], output=[l_orderkey#26L,revenue#3231,o_orderdate#139,o_shippriority#142])
+   +- HashAggregate(keys=[l_orderkey#26L, o_orderdate#139, o_shippriority#142], functions=[sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[l_orderkey#26L, revenue#3231, o_orderdate#139, o_shippriority#142])
+      +- HashAggregate(keys=[l_orderkey#26L, o_orderdate#139, o_shippriority#142], functions=[partial_sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[l_orderkey#26L, o_orderdate#139, o_shippriority#142, sum#3238])
+         +- Project [l_orderkey#26L, l_extendedprice#76, l_discount#93, o_orderdate#139, o_shippriority#142]
+            +- BroadcastHashJoin [o_custkey#136L], [c_custkey#0L], Inner, BuildRight, false
+               :- Project [l_orderkey#26L, l_extendedprice#76, l_discount#93, o_custkey#136L, o_orderdate#139, o_shippriority#142]
+               :  +- SortMergeJoin [l_orderkey#26L], [o_orderkey#135L], Inner
+               :     :- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+               :     :  +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=9463]
+               :     :     +- Project [l_orderkey#26L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93]
+               :     :        +- Filter ((isnotnull(l_shipdate#36) AND (l_shipdate#36 > 1995-03-15)) AND isnotnull(l_orderkey#26L))
+               :     :           +- FileScan parquet [l_orderkey#26L,l_extendedprice#31,l_discount#32,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 > 1995-03-15), isnotnull(l_orderkey#26L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThan(l_shipdate,1995-03-15), IsNotNull(l_orderkey)], ReadSchema: struct<l_orderkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_shipdate:date>
+               :     +- Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+               :        +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=9464]
+               :           +- Filter (((isnotnull(o_orderdate#139) AND (o_orderdate#139 < 1995-03-15)) AND isnotnull(o_orderkey#135L)) AND isnotnull(o_custkey#136L))
+               :              +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139,o_shippriority#142] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 < 1995-03-15), isnotnull(o_orderkey#135L), isnotnul..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), LessThan(o_orderdate,1995-03-15), IsNotNull(o_orderkey), IsNotNull(o_cus..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date,o_shippriority:int>
+               +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=9470]
+                  +- Project [c_custkey#0L]
+                     +- Filter ((isnotnull(c_mktsegment#6) AND (c_mktsegment#6 = BUILDING)) AND isnotnull(c_custkey#0L))
+                        +- FileScan parquet [c_custkey#0L,c_mktsegment#6] Batched: true, DataFilters: [isnotnull(c_mktsegment#6), (c_mktsegment#6 = BUILDING), isnotnull(c_custkey#0L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/customer], PartitionFilters: [], PushedFilters: [IsNotNull(c_mktsegment), EqualTo(c_mktsegment,BUILDING), IsNotNull(c_custkey)], ReadSchema: struct<c_custkey:bigint,c_mktsegment:string>
+
