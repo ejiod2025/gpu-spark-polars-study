@@ -1,12 +1,13 @@
 # H100 research campaign status
 
-Snapshot: **2026-10-26 19:38 UTC**. Data collection is in progress. No
+Snapshot: **2026-10-26 21:19 UTC**. Data collection is in progress. No
 confirmatory performance conclusion is available yet.
 
-The first **14 of 400 sessions** have passed their scientific gates, with
-**320 successful outputs** independently compared. All five configurations
-have completed the complex SF300 condition. These progress counts do not
-provide the ten-block performance estimates.
+The first **54 of 400 sessions** have passed their scientific gates, with
+**1264 successful outputs** independently compared. Block 01 completed all
+40 sessions across all eight conditions. Its 936 successful outputs and core
+evidence have been copied off the VM and reverified locally. The remaining
+blocks are collecting; no ten-block performance estimate is available.
 Both initial full-file integrity gates passed all **1,776 Parquet files**.
 See the [machine-readable snapshot](h100-confirmatory-launch-status.json).
 
@@ -52,3 +53,5 @@ those study gates.
 [pre-start archive](../evidence-research/20261026/h100-confirmatory-v1/README.md) ·
 [semantic audit](../docs/H100_SEMANTIC_AUDIT.md) ·
 [report renderer](../research_reporting/README.md)
+
+[Completed block 01 core checkpoint](../evidence-research/20261026/block01-core-checkpoint/README.md)
