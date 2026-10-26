@@ -1,0 +1,51 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=112]
+   +- GpuSort [l_shipmode#40 ASC NULLS FIRST], true, com.nvidia.spark.rapids.OutOfCoreSort$@21d56644, [loreId=111]
+      +- GpuShuffleCoalesce 1073741824, [loreId=110]
+         +- GpuCustomShuffleReader coalesced
+            +- ShuffleQueryStage 4
+               +- GpuColumnarExchange gpurangepartitioning(l_shipmode#40 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=4963], [loreId=105]
+                  +- GpuHashAggregate (keys=[l_shipmode#40], functions=[gpubasicsum(CASE WHEN o_orderpriority#140 INSET 1-URGENT, 2-HIGH THEN 1 ELSE 0 END, LongType, false), gpubasicsum(CASE WHEN NOT o_orderpriority#140 INSET 1-URGENT, 2-HIGH THEN 1 ELSE 0 END, LongType, false)], output=[l_shipmode#40, high_line_count#2079L, low_line_count#2080L]) [loreId=104]
+                     +- GpuShuffleCoalesce 1073741824, [loreId=103]
+                        +- GpuCustomShuffleReader coalesced
+                           +- ShuffleQueryStage 3
+                              +- GpuColumnarExchange gpuhashpartitioning(l_shipmode#40, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=4903], [loreId=95]
+                                 +- GpuHashAggregate (keys=[l_shipmode#40], functions=[partial_gpubasicsum(CASE WHEN o_orderpriority#140 INSET 1-URGENT, 2-HIGH THEN 1 ELSE 0 END, LongType, false), partial_gpubasicsum(CASE WHEN NOT o_orderpriority#140 INSET 1-URGENT, 2-HIGH THEN 1 ELSE 0 END, LongType, false)], output=[l_shipmode#40, sum#2088L, sum#2089L]) [loreId=94]
+                                    +- GpuProject [l_shipmode#40, o_orderpriority#140], true, [loreId=93]
+                                       +- GpuBroadcastHashJoin [l_orderkey#26L], [o_orderkey#135L], Inner, GpuBuildLeft, false, [loreId=92]
+                                          :- BroadcastQueryStage 2
+                                          :  +- GpuBroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=4745], [loreId=70]
+                                          :     +- GpuShuffleCoalesce 1073741824, [loreId=69]
+                                          :        +- GpuCustomShuffleReader
+                                          :           +- ShuffleQueryStage 0
+                                          :              +- GpuColumnarExchange gpuhashpartitioning(l_orderkey#26L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=4607], [loreId=50]
+                                          :                 +- GpuProject [l_orderkey#26L, l_shipmode#40], true, [loreId=49]
+                                          :                    +- GpuCoalesceBatches targetsize(1073741824), [loreId=48]
+                                          :                       +- GpuFilter ((((((((gpuisnotnull(l_commitdate#37) AND gpuisnotnull(l_receiptdate#38)) AND gpuisnotnull(l_shipdate#36)) AND l_shipmode#40 INSET MAIL, SHIP) AND (l_commitdate#37 < l_receiptdate#38)) AND (l_shipdate#36 < l_commitdate#37)) AND (l_receiptdate#38 >= 8766)) AND (l_receiptdate#38 < 9131)) AND gpuisnotnull(l_orderkey#26L)), [loreId=47]
+                                          :                          +- GpuFileGpuScan parquet [l_orderkey#26L,l_shipdate#36,l_commitdate#37,l_receiptdate#38,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_commitdate#37), isnotnull(l_receiptdate#38), isnotnull(l_shipdate#36), l_shipmode#40..., Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf10/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_commitdate), IsNotNull(l_receiptdate), IsNotNull(l_shipdate), In(l_shipmode, [MAIL,S..., ReadSchema: struct<l_orderkey:bigint,l_shipdate:date,l_commitdate:date,l_receiptdate:date,l_shipmode:string>
+                                          +- GpuShuffleCoalesce 1073741824, [loreId=91]
+                                             +- GpuCustomShuffleReader local
+                                                +- ShuffleQueryStage 1
+                                                   +- GpuColumnarExchange gpuhashpartitioning(o_orderkey#135L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=4637], [loreId=57]
+                                                      +- GpuCoalesceBatches targetsize(1073741824), [loreId=56]
+                                                         +- GpuFilter gpuisnotnull(o_orderkey#135L), [loreId=55]
+                                                            +- GpuFileGpuScan parquet [o_orderkey#135L,o_orderpriority#140] Batched: true, DataFilters: [isnotnull(o_orderkey#135L)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf10/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderkey)], ReadSchema: struct<o_orderkey:bigint,o_orderpriority:string>
++- == Initial Plan ==
+   Sort [l_shipmode#40 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(l_shipmode#40 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=4376]
+      +- HashAggregate(keys=[l_shipmode#40], functions=[sum(CASE WHEN o_orderpriority#140 IN (1-URGENT,2-HIGH) THEN 1 ELSE 0 END), sum(CASE WHEN NOT o_orderpriority#140 IN (1-URGENT,2-HIGH) THEN 1 ELSE 0 END)], output=[l_shipmode#40, high_line_count#2079L, low_line_count#2080L])
+         +- Exchange hashpartitioning(l_shipmode#40, 120), ENSURE_REQUIREMENTS, [plan_id=4373]
+            +- HashAggregate(keys=[l_shipmode#40], functions=[partial_sum(CASE WHEN o_orderpriority#140 IN (1-URGENT,2-HIGH) THEN 1 ELSE 0 END), partial_sum(CASE WHEN NOT o_orderpriority#140 IN (1-URGENT,2-HIGH) THEN 1 ELSE 0 END)], output=[l_shipmode#40, sum#2088L, sum#2089L])
+               +- Project [l_shipmode#40, o_orderpriority#140]
+                  +- SortMergeJoin [l_orderkey#26L], [o_orderkey#135L], Inner
+                     :- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                     :  +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=4365]
+                     :     +- Project [l_orderkey#26L, l_shipmode#40]
+                     :        +- Filter ((((((((isnotnull(l_commitdate#37) AND isnotnull(l_receiptdate#38)) AND isnotnull(l_shipdate#36)) AND l_shipmode#40 IN (MAIL,SHIP)) AND (l_commitdate#37 < l_receiptdate#38)) AND (l_shipdate#36 < l_commitdate#37)) AND (l_receiptdate#38 >= 1994-01-01)) AND (l_receiptdate#38 < 1995-01-01)) AND isnotnull(l_orderkey#26L))
+                     :           +- FileScan parquet [l_orderkey#26L,l_shipdate#36,l_commitdate#37,l_receiptdate#38,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_commitdate#37), isnotnull(l_receiptdate#38), isnotnull(l_shipdate#36), l_shipmode#40..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf10/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_commitdate), IsNotNull(l_receiptdate), IsNotNull(l_shipdate), In(l_shipmode, [MAIL,S..., ReadSchema: struct<l_orderkey:bigint,l_shipdate:date,l_commitdate:date,l_receiptdate:date,l_shipmode:string>
+                     +- Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+                        +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=4366]
+                           +- Filter isnotnull(o_orderkey#135L)
+                              +- FileScan parquet [o_orderkey#135L,o_orderpriority#140] Batched: true, DataFilters: [isnotnull(o_orderkey#135L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf10/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderkey)], ReadSchema: struct<o_orderkey:bigint,o_orderpriority:string>
+

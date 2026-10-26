@@ -1,0 +1,83 @@
+== Polars optimized plan (CPU optimizer; executed by cudf-polars, executor=streaming) ==
+SORT BY [descending: [false, true]] [col("nation"), col("o_year")]
+  AGGREGATE[maintain_order: false]
+    [col("l_extendedprice").fms([1.0 - col("l_discount"), col("ps_supplycost") * col("l_quantity")]).sum().alias("sum_profit")] BY [col("nation"), col("o_year")]
+    FROM
+    simple π 6/6 ["nation", "o_year", ... 4 other columns]
+       WITH_COLUMNS:
+       [col("n_name").alias("nation"), col("o_orderdate").dt.year().alias("o_year")] 
+        simple π 6/6 ["l_quantity", ... 5 other columns]
+          INNER JOIN:
+          LEFT PLAN ON: [col("s_nationkey")]
+            simple π 6/6 ["l_quantity", ... 5 other columns]
+              INNER JOIN:
+              LEFT PLAN ON: [col("l_orderkey")]
+                simple π 6/6 ["l_quantity", ... 5 other columns]
+                  INNER JOIN:
+                  LEFT PLAN ON: [col("l_partkey"), col("l_suppkey")]
+                    simple π 7/7 ["l_orderkey", "l_quantity", ... 5 other columns]
+                      INNER JOIN:
+                      LEFT PLAN ON: [col("l_suppkey")]
+                        INNER JOIN:
+                        LEFT PLAN ON: [col("l_partkey")]
+                           WITH_COLUMNS:
+                           [col("l_quantity").strict_cast(Float64), col("l_extendedprice").strict_cast(Float64), col("l_discount").strict_cast(Float64)] 
+                            Parquet SCAN [/home/ubuntu/study/data/sf30/lineitem/data_0.parquet, ... 62 other sources]
+                            PROJECT 6/16 COLUMNS
+                            ESTIMATED ROWS: 179989252
+                        RIGHT PLAN ON: [col("p_partkey")]
+                          simple π 1/1 ["p_partkey"]
+                            Parquet SCAN [/home/ubuntu/study/data/sf30/part/data_0.parquet, ... 29 other sources]
+                            PROJECT 2/9 COLUMNS
+                            SELECTION: col("p_name").str.contains(["green"])
+                            ESTIMATED ROWS: 6003137
+                        END INNER JOIN
+                      RIGHT PLAN ON: [col("s_suppkey")]
+                        Parquet SCAN [/home/ubuntu/study/data/sf30/supplier/data_0.parquet, ... 2 other sources]
+                        PROJECT 2/7 COLUMNS
+                        ESTIMATED ROWS: 300000
+                      END INNER JOIN
+                  RIGHT PLAN ON: [col("ps_partkey"), col("ps_suppkey")]
+                    simple π 3/3 ["ps_supplycost", "ps_partkey", ... 1 other column]
+                       WITH_COLUMNS:
+                       [col("ps_supplycost").strict_cast(Float64)] 
+                        Parquet SCAN [/home/ubuntu/study/data/sf30/partsupp/data_0.parquet, ... 29 other sources]
+                        PROJECT 3/5 COLUMNS
+                        ESTIMATED ROWS: 24001317
+                  END INNER JOIN
+              RIGHT PLAN ON: [col("o_orderkey")]
+                Parquet SCAN [/home/ubuntu/study/data/sf30/orders/data_0.parquet, ... 29 other sources]
+                PROJECT 2/9 COLUMNS
+                ESTIMATED ROWS: 45001051
+              END INNER JOIN
+          RIGHT PLAN ON: [col("n_nationkey")]
+            Parquet SCAN [/home/ubuntu/study/data/sf30/nation/data_0.parquet]
+            PROJECT 2/4 COLUMNS
+            ESTIMATED ROWS: 25
+          END INNER JOIN
+== cudf-polars physical plan ==
+SORT ('nation', 'o_year') ('nation', 'o_year', 'sum_profit') [9]
+  SELECT ('nation', 'o_year', 'sum_profit') [9]
+    GROUPBY ('nation', 'o_year') ('nation', 'o_year', 'sum_profit') [9]
+      SELECT ('nation', 'o_year', 'l_extendedprice', 'l_discount', 'ps_supplycost', 'l_quantity') [9]
+        HSTACK ('l_quantity', 'l_extendedprice', 'l_discount', '...', 'nation', 'o_year') [9]
+          PROJECTION ('l_quantity', 'l_extendedprice', 'l_discount', 'ps_supplycost', 'o_orderdate', 'n_name') [9]
+            JOIN Inner ('s_nationkey',) ('n_nationkey',) ('l_quantity', 'l_extendedprice', 'l_discount', '...', 's_nationkey', 'n_name') [9]
+              PROJECTION ('l_quantity', 'l_extendedprice', 'l_discount', 'ps_supplycost', 'o_orderdate', 's_nationkey') [9]
+                JOIN Inner ('l_orderkey',) ('o_orderkey',) ('l_quantity', 'l_extendedprice', 'l_discount', '...', 'l_orderkey', 'o_orderdate') [9]
+                  PROJECTION ('l_quantity', 'l_extendedprice', 'l_discount', 's_nationkey', 'ps_supplycost', 'l_orderkey') [9]
+                    JOIN Inner ('l_partkey', 'l_suppkey') ('ps_partkey', 'ps_suppkey') ('l_orderkey', 'l_quantity', 'l_extendedprice', '...', 'l_suppkey', 'ps_supplycost') [9]
+                      PROJECTION ('l_orderkey', 'l_quantity', 'l_extendedprice', '...', 'l_partkey', 'l_suppkey') [9]
+                        JOIN Inner ('l_suppkey',) ('s_suppkey',) ('l_orderkey', 'l_partkey', 'l_suppkey', '...', 'l_discount', 's_nationkey') [9]
+                          JOIN Inner ('l_partkey',) ('p_partkey',) ('l_orderkey', 'l_partkey', 'l_suppkey', 'l_quantity', 'l_extendedprice', 'l_discount') [9]
+                            HSTACK ('l_orderkey', 'l_partkey', 'l_suppkey', 'l_quantity', 'l_extendedprice', 'l_discount') [9]
+                              STREAMINGSCAN ('l_orderkey', 'l_partkey', 'l_suppkey', 'l_quantity', 'l_extendedprice', 'l_discount') [9]
+                            PROJECTION ('p_partkey',) [1]
+                              STREAMINGSCAN ('p_partkey', 'p_name') [1]
+                          STREAMINGSCAN ('s_nationkey', 's_suppkey') [1]
+                      SELECT ('ps_supplycost', 'ps_partkey', 'ps_suppkey') [1]
+                        HSTACK ('ps_partkey', 'ps_suppkey', 'ps_supplycost') [1]
+                          STREAMINGSCAN ('ps_partkey', 'ps_suppkey', 'ps_supplycost') [1]
+                  STREAMINGSCAN ('o_orderdate', 'o_orderkey') [1]
+              STREAMINGSCAN ('n_name', 'n_nationkey') [1]
+

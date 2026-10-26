@@ -1,0 +1,25 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(3) Sort [l_returnflag#34 ASC NULLS FIRST, l_linestatus#35 ASC NULLS FIRST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 1
+         +- Exchange rangepartitioning(l_returnflag#34 ASC NULLS FIRST, l_linestatus#35 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=5481]
+            +- *(2) HashAggregate(keys=[l_returnflag#34, l_linestatus#35], functions=[sum(l_quantity#58), sum(l_extendedprice#76), sum((l_extendedprice#76 * (1.0 - l_discount#93))), sum(((l_extendedprice#76 * (1.0 - l_discount#93)) * (1.0 + l_tax#110))), avg(l_quantity#58), avg(l_extendedprice#76), avg(l_discount#93), count(1)], output=[l_returnflag#34, l_linestatus#35, sum_qty#708, sum_base_price#709, sum_disc_price#710, sum_charge#711, avg_qty#712, avg_price#713, avg_disc#714, count_order#715L])
+               +- AQEShuffleRead coalesced
+                  +- ShuffleQueryStage 0
+                     +- Exchange hashpartitioning(l_returnflag#34, l_linestatus#35, 120), ENSURE_REQUIREMENTS, [plan_id=5449]
+                        +- *(1) HashAggregate(keys=[l_returnflag#34, l_linestatus#35], functions=[partial_sum(l_quantity#58), partial_sum(l_extendedprice#76), partial_sum((l_extendedprice#76 * (1.0 - l_discount#93))), partial_sum(((l_extendedprice#76 * (1.0 - l_discount#93)) * (1.0 + l_tax#110))), partial_avg(l_quantity#58), partial_avg(l_extendedprice#76), partial_avg(l_discount#93), partial_count(1)], output=[l_returnflag#34, l_linestatus#35, sum#745, sum#746, sum#747, sum#748, sum#749, count#750L, sum#751, count#752L, sum#753, count#754L, count#755L])
+                           +- *(1) Project [cast(l_quantity#30 as double) AS l_quantity#58, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93, cast(l_tax#33 as double) AS l_tax#110, l_returnflag#34, l_linestatus#35]
+                              +- *(1) Filter (isnotnull(l_shipdate#36) AND (l_shipdate#36 <= 1998-09-02))
+                                 +- *(1) ColumnarToRow
+                                    +- FileScan parquet [l_quantity#30,l_extendedprice#31,l_discount#32,l_tax#33,l_returnflag#34,l_linestatus#35,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 <= 1998-09-02)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf10/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), LessThanOrEqual(l_shipdate,1998-09-02)], ReadSchema: struct<l_quantity:decimal(15,2),l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_tax:deci...
++- == Initial Plan ==
+   Sort [l_returnflag#34 ASC NULLS FIRST, l_linestatus#35 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(l_returnflag#34 ASC NULLS FIRST, l_linestatus#35 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=5423]
+      +- HashAggregate(keys=[l_returnflag#34, l_linestatus#35], functions=[sum(l_quantity#58), sum(l_extendedprice#76), sum((l_extendedprice#76 * (1.0 - l_discount#93))), sum(((l_extendedprice#76 * (1.0 - l_discount#93)) * (1.0 + l_tax#110))), avg(l_quantity#58), avg(l_extendedprice#76), avg(l_discount#93), count(1)], output=[l_returnflag#34, l_linestatus#35, sum_qty#708, sum_base_price#709, sum_disc_price#710, sum_charge#711, avg_qty#712, avg_price#713, avg_disc#714, count_order#715L])
+         +- Exchange hashpartitioning(l_returnflag#34, l_linestatus#35, 120), ENSURE_REQUIREMENTS, [plan_id=5420]
+            +- HashAggregate(keys=[l_returnflag#34, l_linestatus#35], functions=[partial_sum(l_quantity#58), partial_sum(l_extendedprice#76), partial_sum((l_extendedprice#76 * (1.0 - l_discount#93))), partial_sum(((l_extendedprice#76 * (1.0 - l_discount#93)) * (1.0 + l_tax#110))), partial_avg(l_quantity#58), partial_avg(l_extendedprice#76), partial_avg(l_discount#93), partial_count(1)], output=[l_returnflag#34, l_linestatus#35, sum#745, sum#746, sum#747, sum#748, sum#749, count#750L, sum#751, count#752L, sum#753, count#754L, count#755L])
+               +- Project [cast(l_quantity#30 as double) AS l_quantity#58, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93, cast(l_tax#33 as double) AS l_tax#110, l_returnflag#34, l_linestatus#35]
+                  +- Filter (isnotnull(l_shipdate#36) AND (l_shipdate#36 <= 1998-09-02))
+                     +- FileScan parquet [l_quantity#30,l_extendedprice#31,l_discount#32,l_tax#33,l_returnflag#34,l_linestatus#35,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 <= 1998-09-02)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf10/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), LessThanOrEqual(l_shipdate,1998-09-02)], ReadSchema: struct<l_quantity:decimal(15,2),l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_tax:deci...
+

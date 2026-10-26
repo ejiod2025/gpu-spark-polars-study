@@ -1,0 +1,162 @@
+{
+  "started_at_utc": "2026-10-26T20:51:16.184088+00:00",
+  "arguments": {
+    "data_root": "/home/ubuntu/study/data",
+    "output": "/home/ubuntu/study-h100-research-evidence-20261026/campaign-results/block-02-complex-sf30-polars_cpu_144/attempt-001/run",
+    "scales": [
+      "30"
+    ],
+    "engines": [
+      "polars"
+    ],
+    "runs": 3,
+    "query_seed": 2054492319,
+    "cache_observation": true,
+    "cpus": 26,
+    "driver_memory": "96g",
+    "jar": "/home/ubuntu/study/jars/rapids-4-spark_2.12-26.08.1.jar",
+    "queries": null,
+    "suite": "complex",
+    "query_cleanup": "verified_gc",
+    "cleanup_timeout_seconds": 60.0,
+    "keep_going": false,
+    "engine_timeout_seconds": 7200.0,
+    "polars_gpu_executor": "streaming",
+    "polars_gpu_executor_options": "{}",
+    "spark_gpu_profile": "a100-parity",
+    "spark_gpu_conf_file": null
+  },
+  "platform": "Linux-6.8.0-60-generic-x86_64-with-glibc2.35",
+  "python": "3.11.13 (main, Aug 18 2025, 19:19:13) [Clang 20.1.4 ]",
+  "inventory": [
+    {
+      "command": [
+        "lscpu"
+      ],
+      "returncode": 0,
+      "output": "Architecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        52 bits physical, 57 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               26\nOn-line CPU(s) list:                  0-25\nVendor ID:                            GenuineIntel\nModel name:                           Intel(R) Xeon(R) Platinum 8480+\nCPU family:                           6\nModel:                                143\nThread(s) per core:                   2\nCore(s) per socket:                   13\nSocket(s):                            1\nStepping:                             8\nBogoMIPS:                             4000.00\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx_vnni avx512_bf16 wbnoinvd arat vnmi avx512vbmi umip pku ospke waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq la57 rdpid bus_lock_detect cldemote movdiri movdir64b fsrm md_clear serialize tsxldtrk avx512_fp16 arch_capabilities\nVirtualization:                       VT-x\nHypervisor vendor:                    KVM\nVirtualization type:                  full\nL1d cache:                            832 KiB (26 instances)\nL1i cache:                            832 KiB (26 instances)\nL2 cache:                             52 MiB (13 instances)\nL3 cache:                             16 MiB (1 instance)\nNUMA node(s):                         1\nNUMA node0 CPU(s):                    0-25\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Unknown: No mitigations\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; RSB filling; PBRSB-eIBRS SW sequence; BHI SW loop, KVM SW loop\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Mitigation; TSX disabled\n"
+    },
+    {
+      "command": [
+        "free",
+        "-b"
+      ],
+      "returncode": 0,
+      "output": "               total        used        free      shared  buff/cache   available\nMem:     237490950144  4466495488 74905739264     5607424 158118715392 230917365760\nSwap:              0           0           0\n"
+    },
+    {
+      "command": [
+        "df",
+        "-B1",
+        "/home/ubuntu/study/data"
+      ],
+      "returncode": 0,
+      "output": "Filesystem         1B-blocks         Used     Available Use% Mounted on\n/dev/vda1      2930253778944 196063875072 2734173126656   7% /\n"
+    },
+    {
+      "command": [
+        "nvidia-smi",
+        "-q"
+      ],
+      "returncode": 0,
+      "output": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Mon Oct 26 20:51:16 2026\nDriver Version                            : 570.148.08\nCUDA Version                              : 12.8\n\nAttached GPUs                             : 1\nGPU 00000000:06:00.0\n    Product Name                          : NVIDIA H100 80GB HBM3\n    Product Brand                         : NVIDIA\n    Product Architecture                  : Hopper\n    Display Mode                          : Enabled\n    Display Active                        : Disabled\n    Persistence Mode                      : Enabled\n    Addressing Mode                       : HMM\n    MIG Mode\n        Current                           : Disabled\n        Pending                           : Disabled\n    Accounting Mode                       : Disabled\n    Accounting Mode Buffer Size           : 4000\n    Driver Model\n        Current                           : N/A\n        Pending                           : N/A\n    Serial Number                         : 1650124008317\n    GPU UUID                              : GPU-7964af6e-be67-5c48-d871-9797603d3893\n    Minor Number                          : 0\n    VBIOS Version                         : 96.00.99.00.01\n    MultiGPU Board                        : No\n    Board ID                              : 0x600\n    Board Part Number                     : 692-2G520-0200-000\n    GPU Part Number                       : 2330-885-A1\n    FRU Part Number                       : N/A\n    Platform Info\n        Chassis Serial Number             : N/A\n        Slot Number                       : N/A\n        Tray Index                        : N/A\n        Host ID                           : N/A\n        Peer Type                         : N/A\n        Module Id                         : 7\n        GPU Fabric GUID                   : N/A\n    Inforom Version\n        Image Version                     : G520.0200.00.05\n        OEM Object                        : 2.1\n        ECC Object                        : 7.16\n        Power Management Object           : N/A\n    Inforom BBX Object Flush\n        Latest Timestamp                  : N/A\n        Latest Duration                   : N/A\n    GPU Operation Mode\n        Current                           : N/A\n        Pending                           : N/A\n    GPU C2C Mode                          : Disabled\n    GPU Virtualization Mode\n        Virtualization Mode               : Pass-Through\n        Host VGPU Mode                    : N/A\n        vGPU Heterogeneous Mode           : N/A\n    GPU Reset Status\n        Reset Required                    : Requested functionality has been deprecated\n        Drain and Reset Recommended       : Requested functionality has been deprecated\n    GPU Recovery Action                   : None\n    GSP Firmware Version                  : 570.148.08\n    IBMNPU\n        Relaxed Ordering Mode             : N/A\n    PCI\n        Bus                               : 0x06\n        Device                            : 0x00\n        Domain                            : 0x0000\n        Base Classcode                    : 0x3\n        Sub Classcode                     : 0x2\n        Device Id                         : 0x233010DE\n        Bus Id                            : 00000000:06:00.0\n        Sub System Id                     : 0x16C110DE\n        GPU Link Info\n            PCIe Generation\n                Max                       : 5\n                Current                   : 5\n                Device Current            : 5\n                Device Max                : 5\n                Host Max                  : N/A\n            Link Width\n                Max                       : 16x\n                Current                   : 16x\n        Bridge Chip\n            Type                          : N/A\n            Firmware                      : N/A\n        Replays Since Reset               : 6\n        Replay Number Rollovers           : 0\n        Tx Throughput                     : 3997 KB/s\n        Rx Throughput                     : 573 KB/s\n        Atomic Caps Outbound              : N/A\n        Atomic Caps Inbound               : N/A\n    Fan Speed                             : N/A\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n    FB Memory Usage\n        Total                             : 81559 MiB\n        Reserved                          : 470 MiB\n        Used                              : 0 MiB\n        Free                              : 81090 MiB\n    BAR1 Memory Usage\n        Total                             : 131072 MiB\n        Used                              : 1 MiB\n        Free                              : 131071 MiB\n    Conf Compute Protected Memory Usage\n        Total                             : 0 MiB\n        Used                              : 0 MiB\n        Free                              : 0 MiB\n    Compute Mode                          : Default\n    Utilization\n        GPU                               : 0 %\n        Memory                            : 0 %\n        Encoder                           : 0 %\n        Decoder                           : 0 %\n        JPEG                              : 0 %\n        OFA                               : 0 %\n    Encoder Stats\n        Active Sessions                   : 0\n        Average FPS                       : 0\n        Average Latency                   : 0\n    FBC Stats\n        Active Sessions                   : 0\n        Average FPS                       : 0\n        Average Latency                   : 0\n    DRAM Encryption Mode\n        Current                           : N/A\n        Pending                           : N/A\n    ECC Mode\n        Current                           : Enabled\n        Pending                           : Enabled\n    ECC Errors\n        Volatile\n            SRAM Correctable              : 0\n            SRAM Uncorrectable Parity     : 0\n            SRAM Uncorrectable SEC-DED    : 0\n            DRAM Correctable              : 0\n            DRAM Uncorrectable            : 0\n        Aggregate\n            SRAM Correctable              : 0\n            SRAM Uncorrectable Parity     : 0\n            SRAM Uncorrectable SEC-DED    : 0\n            DRAM Correctable              : 0\n            DRAM Uncorrectable            : 0\n            SRAM Threshold Exceeded       : No\n        Aggregate Uncorrectable SRAM Sources\n            SRAM L2                       : 0\n            SRAM SM                       : 0\n            SRAM Microcontroller          : 0\n            SRAM PCIE                     : 0\n            SRAM Other                    : 0\n    Retired Pages\n        Single Bit ECC                    : N/A\n        Double Bit ECC                    : N/A\n        Pending Page Blacklist            : N/A\n    Remapped Rows\n        Correctable Error                 : 0\n        Uncorrectable Error               : 0\n        Pending                           : No\n        Remapping Failure Occurred        : No\n        Bank Remap Availability Histogram\n            Max                           : 2560 bank(s)\n            High                          : 0 bank(s)\n            Partial                       : 0 bank(s)\n            Low                           : 0 bank(s)\n            None                          : 0 bank(s)\n    Temperature\n        GPU Current Temp                  : 26 C\n        GPU T.Limit Temp                  : 61 C\n        GPU Shutdown T.Limit Temp         : -8 C\n        GPU Slowdown T.Limit Temp         : -2 C\n        GPU Max Operating T.Limit Temp    : 0 C\n        GPU Target Temperature            : N/A\n        Memory Current Temp               : 34 C\n        Memory Max Operating T.Limit Temp : 0 C\n    GPU Power Readings\n        Average Power Draw                : 69.29 W\n        Instantaneous Power Draw          : 69.04 W\n        Current Power Limit               : 700.00 W\n        Requested Power Limit             : 700.00 W\n        Default Power Limit               : 700.00 W\n        Min Power Limit                   : 200.00 W\n        Max Power Limit                   : 700.00 W\n    GPU Memory Power Readings \n        Average Power Draw                : 36.12 W\n        Instantaneous Power Draw          : N/A\n    Module Power Readings\n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Power Smoothing                       : N/A\n    Workload Power Profiles\n        Requested Profiles                : N/A\n        Enforced Profiles                 : N/A\n    Clocks\n        Graphics                          : 345 MHz\n        SM                                : 345 MHz\n        Memory                            : 2619 MHz\n        Video                             : 765 MHz\n    Applications Clocks\n        Graphics                          : 1980 MHz\n        Memory                            : 2619 MHz\n    Default Applications Clocks\n        Graphics                          : 1980 MHz\n        Memory                            : 2619 MHz\n    Deferred Clocks\n        Memory                            : N/A\n    Max Clocks\n        Graphics                          : 1980 MHz\n        SM                                : 1980 MHz\n        Memory                            : 2619 MHz\n        Video                             : 1545 MHz\n    Max Customer Boost Clocks\n        Graphics                          : 1980 MHz\n    Clock Policy\n        Auto Boost                        : N/A\n        Auto Boost Default                : N/A\n    Voltage\n        Graphics                          : N/A\n    Fabric\n        State                             : Completed\n        Status                            : Success\n        CliqueId                          : 0\n        ClusterUUID                       : 00000000-0000-0000-0000-000000000000\n        Health\n            Bandwidth                     : N/A\n            Route Recovery in progress    : N/A\n            Route Unhealthy               : N/A\n            Access Timeout Recovery       : N/A\n    Processes                             : None\n    Capabilities\n        EGM                               : disabled\n\n"
+    },
+    {
+      "command": [
+        "java",
+        "-version"
+      ],
+      "returncode": 0,
+      "output": "openjdk version \"17.0.20.1\" 2026-08-18\nOpenJDK Runtime Environment (build 17.0.20.1+1-1-22.04-Ubuntu)\nOpenJDK 64-Bit Server VM (build 17.0.20.1+1-1-22.04-Ubuntu, mixed mode, sharing)\n"
+    },
+    {
+      "command": [
+        "/home/ubuntu/study/.venv/bin/python",
+        "-m",
+        "pip",
+        "freeze"
+      ],
+      "returncode": 1,
+      "output": "/home/ubuntu/study/.venv/bin/python: No module named pip\n"
+    },
+    {
+      "command": [
+        "/home/ubuntu/study/.venv/bin/python",
+        "-c",
+        "import importlib.metadata as m,json; print(json.dumps(sorted((d.metadata['Name'], d.version) for d in m.distributions())))"
+      ],
+      "returncode": 0,
+      "output": "[[\"cuda-bindings\", \"12.9.10\"], [\"cuda-core\", \"1.2.2\"], [\"cuda-pathfinder\", \"1.8.4\"], [\"cuda-toolkit\", \"12.9.2.0\"], [\"cudf-polars-cu12\", \"26.10.2\"], [\"cudf-streaming-cu12\", \"26.10.2\"], [\"cupy-cuda12x\", \"14.2.0\"], [\"duckdb\", \"1.5.6\"], [\"kvikio-cu12\", \"26.10.0\"], [\"libcudf-cu12\", \"26.10.2\"], [\"libcudf-streaming-cu12\", \"26.10.2\"], [\"libkvikio-cu12\", \"26.10.0\"], [\"librapidsmpf-cu12\", \"26.10.0\"], [\"librmm-cu12\", \"26.10.0\"], [\"libucx-cu12\", \"1.21.0\"], [\"libucxx-cu12\", \"0.52.0\"], [\"numpy\", \"2.4.6\"], [\"nvidia-cublas-cu12\", \"12.9.2.10\"], [\"nvidia-cuda-nvrtc-cu12\", \"12.9.86\"], [\"nvidia-cuda-runtime-cu12\", \"12.9.79\"], [\"nvidia-cufft-cu12\", \"11.4.1.4\"], [\"nvidia-cufile-cu12\", \"1.14.1.1\"], [\"nvidia-curand-cu12\", \"10.3.10.19\"], [\"nvidia-cusolver-cu12\", \"11.7.5.82\"], [\"nvidia-cusparse-cu12\", \"12.5.10.65\"], [\"nvidia-libnvcomp-cu12\", \"5.3.0.16\"], [\"nvidia-ml-py\", \"13.615.71\"], [\"nvidia-nvjitlink-cu12\", \"12.9.86\"], [\"nvtx\", \"0.2.16\"], [\"packaging\", \"26.3\"], [\"polars\", \"1.44.2\"], [\"polars-runtime-32\", \"1.44.2\"], [\"psutil\", \"7.1.2\"], [\"py4j\", \"0.10.9.9\"], [\"pyarrow\", \"22.0.0\"], [\"pylibcudf-cu12\", \"26.10.2\"], [\"pyspark\", \"3.5.9\"], [\"rapids-logger\", \"0.3.0\"], [\"rapidsmpf-cu12\", \"26.10.0\"], [\"rmm-cu12\", \"26.10.0\"], [\"typing_extensions\", \"4.16.0\"], [\"ucxx-cu12\", \"0.52.0\"]]\n"
+    },
+    {
+      "command": [
+        "nvidia-smi",
+        "topo",
+        "-m"
+      ],
+      "returncode": 0,
+      "output": "\t\u001b[4mGPU0\tNIC0\tCPU Affinity\tNUMA Affinity\tGPU NUMA ID\u001b[0m\nGPU0\t X \tPHB\t0-25\t0\t\tN/A\nNIC0\tPHB\t X \t\t\t\t\n\nLegend:\n\n  X    = Self\n  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)\n  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node\n  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)\n  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)\n  PIX  = Connection traversing at most a single PCIe bridge\n  NV#  = Connection traversing a bonded set of # NVLinks\n\nNIC Legend:\n\n  NIC0: mlx5_0\n\n"
+    },
+    {
+      "command": [
+        "nvidia-smi",
+        "--query-gpu=name,driver_version,memory.total",
+        "--format=csv"
+      ],
+      "returncode": 0,
+      "output": "name, driver_version, memory.total [MiB]\nNVIDIA H100 80GB HBM3, 570.148.08, 81559 MiB\n"
+    },
+    {
+      "command": [
+        "/home/ubuntu/study/.venv/bin/python",
+        "-c",
+        "\nimport importlib, importlib.metadata as metadata, json\nout = {\"distributions\": {}, \"imports\": {}}\nfor dist in (\"polars\", \"cudf-polars-cu12\", \"cudf-polars-cu13\", \"cudf-cu12\", \"cudf-cu13\",\n             \"pylibcudf-cu12\", \"pylibcudf-cu13\", \"rmm-cu12\", \"rmm-cu13\", \"rapidsmpf-cu12\",\n             \"rapidsmpf-cu13\", \"cuda-python\", \"cuda-bindings\", \"nvidia-ml-py\"):\n    try:\n        out[\"distributions\"][dist] = metadata.version(dist)\n    except metadata.PackageNotFoundError:\n        pass\nfor name in (\"cudf_polars\", \"pylibcudf\", \"rmm\", \"cuda.bindings\", \"pynvml\"):\n    try:\n        module = importlib.import_module(name)\n        out[\"imports\"][name] = str(getattr(module, \"__version__\", \"imported\"))\n    except Exception as exc:\n        out[\"imports\"][name] = (\"unavailable: %s: %s\" % (type(exc).__name__, exc))[:300]\ntry:\n    from cuda.bindings import runtime\n    out[\"cuda_runtime_version\"] = runtime.cudaRuntimeGetVersion()[1]\n    out[\"cuda_driver_version\"] = runtime.cudaDriverGetVersion()[1]\nexcept Exception as exc:\n    out[\"cuda_versions_error\"] = (\"%s: %s\" % (type(exc).__name__, exc))[:300]\nprint(json.dumps(out, indent=2))\n"
+      ],
+      "returncode": 0,
+      "output": "{\n  \"distributions\": {\n    \"polars\": \"1.44.2\",\n    \"cudf-polars-cu12\": \"26.10.2\",\n    \"pylibcudf-cu12\": \"26.10.2\",\n    \"rmm-cu12\": \"26.10.0\",\n    \"rapidsmpf-cu12\": \"26.10.0\",\n    \"cuda-bindings\": \"12.9.10\",\n    \"nvidia-ml-py\": \"13.615.71\"\n  },\n  \"imports\": {\n    \"cudf_polars\": \"26.10.02\",\n    \"pylibcudf\": \"imported\",\n    \"rmm\": \"26.10.00\",\n    \"cuda.bindings\": \"12.9.10\",\n    \"pynvml\": \"imported\"\n  },\n  \"cuda_runtime_version\": 12090,\n  \"cuda_driver_version\": 12080\n}\n"
+    }
+  ],
+  "gpu_engine_options": {
+    "polars_gpu_executor": "streaming",
+    "polars_gpu_executor_options": {},
+    "spark_gpu_profile": "a100-parity",
+    "spark_gpu_conf_file": null,
+    "spark_gpu_conf_file_sha256": null,
+    "spark_gpu_extra_conf": {}
+  },
+  "source_sha256": {
+    "preflight.py": "905ccb6e7fbcda5038143407f09ee7ca76a7b52ff6150811dcec886e76378846",
+    "run_experiment.py": "c770b3fdd93b07029b2a2adec85ac8e50e821d7f48f6b683be7bf93a3ff672f8",
+    "research_oracle.py": "c13548fbf904ca18bce0d0ad308e05bd649300a7505a872363d9acb3dedfd603",
+    "research_validate.py": "b140b925632c07b0d90587730422e6c489c65b023a3f033efc73d52e6bd21830",
+    "compare_hardware.py": "3eb413aee78e0ed9891df53233ae24a902d93fbe123c112a0cc9cea4b3993391",
+    "generate_data.py": "ce8b4f02672c002c4f3941223acc11e971c5e16fdb788a3723cf7fe62aaa7acf",
+    "complex_joins.py": "030412b31e874272274c7568633ed10239e0f8c95edfafe3f118bcc06b016463",
+    "cache_residency.py": "fdf6fa616687544e12dd7ca886f1078499ce6f80004b314a5cb6d480f06a8f49",
+    "plot_crossover.py": "00f9e7018e620bf624c9ab5b47dfa480de43b892309e700a005fc461da581864",
+    "research_fixture_runner.py": "55792b005201a698e04287aa43b05507a41be46e8a9b37b91ad7facdb2c74dd6",
+    "analyze_results.py": "8d017ffa7b40b163a1e322ea908d63273c3334dfd3a25884fcd09342cd0a5c92",
+    "workloads.py": "ac8391ea9dd8ea5f7af9b7087dad9809da39c04cbb52dfb7a0485eac4357b232",
+    "complex_workloads.py": "35e54e0ac0da7a05dd47b4d3051606dd3e76b5b3c93724cf491acbefb44fd0a3",
+    "plot_results.py": "290b07eda7b86880e00165ded57812cf76c6d5b3c65aab72c82f7da5988f1550",
+    "research_readiness.py": "37801386d90019e1ce07776999bbaf83043a0568ee0c354216be74626b397602",
+    "query_cleanup.py": "090f823e50247090fc5bb6d9fec08b65b3936d34bb5cc0fd126f3d33c9792f3f",
+    "research_fixtures.py": "436ba1ff4df91c100f77651d35837bdd5ea08cb02cec5f543f3ce32a7620a92c",
+    "complex_analytics.py": "b31c14f22891ef8018d9a65b1cf46587904a46398b7656a101e34e94c1be9803",
+    "research_campaign.py": "050df9d1890f7fbe38a133c46aa76ae9e47ac9f1782686d9d6af39ada4815a85",
+    "generate_large_data.py": "d7bdddd602a0cd757747f82502f3d665bd65993a4b0de5059dc8c0da282b8c08",
+    "prove_query_cleanup.py": "e8460922ff0e30f47970e86ce6ac1bb424c80cd29b37312bb0b3de1ce1b9aac5",
+    "plot_complex.py": "64568d738425159b8b0b2e084c7555735020bda455bc9095a2e0dbae65b71b23",
+    "complex_oracle.py": "0bf3d44b5fb55e4f98ad9960b5a16e2fb491ee0175c19ae1823ba03338bf917b",
+    "analyze_polars_control.py": "0b68d6904c1b44f4b5c004833cf74543b12022e4dd8ce9d727caabd2e9441032",
+    "analyze_crossover.py": "26582504e7e6f641bb3301c144c50d0365c52313be20f92d58bbba94dd5367bd",
+    "verify_generated_inputs.py": "e8b7d96b4edf24b35231971962ccbcef8ec487f35f80f6c255f63de28b385e61",
+    "inspect_spark_metrics.py": "99816f9ce64fe8525bb0a1ddd46976b217fb3b6811685abbc63979fb6ff4ffc7",
+    "worker.py": "7d8121d61f5e21819d9cd61e7d9fb3dae6451fe9304410bb0d47e46af1dab970",
+    "analyze_complex.py": "3082260059f61cda2f338b36e80771de81fa113e67fea1d6cd7da4b8540bfffe",
+    "research_analysis.py": "91c23e3ee50d57ae8ca6340e38bfa2edb038fabb1614c64875b629a9b31e999c"
+  },
+  "gpu_telemetry": {
+    "started": true
+  }
+}

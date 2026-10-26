@@ -1,0 +1,2972 @@
+{
+  "engine": "polars",
+  "suite": "baseline",
+  "suite_version": "baseline-v1",
+  "query_descriptions": {
+    "q01": "Broad scan, arithmetic, and grouped aggregates",
+    "q03": "Selective three-table join, aggregation, and top 10",
+    "q06": "Selective scan and scalar revenue aggregation",
+    "q10": "Four-table join, customer aggregation, and top 20",
+    "q12": "Join and conditional grouped counts",
+    "q14": "Part join and conditional revenue ratio"
+  },
+  "started_at_utc": "2026-10-26T20:40:02.245750+00:00",
+  "scale_factor": 100.0,
+  "manifest_sha256": "6e7ba60a90bb5d7b7ea76284f5151578df8c8ee045ce1283ac29a7499caeb7b0",
+  "runs": 3,
+  "query_seed": 159332890,
+  "queries": [
+    "q01",
+    "q03",
+    "q06",
+    "q10",
+    "q12",
+    "q14"
+  ],
+  "cache_policy": "preheated filesystem; no application dataframe cache",
+  "timing_scope": "query construction, optimization, parquet read, execution, result collection; excludes session/table setup and plan serialization",
+  "host_result_timing_scope": "same start as seconds, through conversion to a list of Python dictionaries; excludes normalization, plan serialization, sampler shutdown and cleanup",
+  "pid": 92860,
+  "polars_execution_engine": "streaming",
+  "records": [
+    {
+      "query": "q01",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 4.103826480000862,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 3775127758.0,
+          "sum_base_price": 5660776097194.385,
+          "sum_disc_price": 5377736398183.928,
+          "sum_charge": 5592847429515.929,
+          "avg_qty": 25.499370423275426,
+          "avg_price": 38236.116984304455,
+          "avg_disc": 0.05000224353079342,
+          "count_order": 148047881
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 98553062.0,
+          "sum_base_price": 147771098385.98004,
+          "sum_disc_price": 140384965965.0346,
+          "sum_charge": 145999793032.77563,
+          "avg_qty": 25.501556956882876,
+          "avg_price": 38237.19938880452,
+          "avg_disc": 0.049985284338107894,
+          "count_order": 3864590
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 7436302976.0,
+          "sum_base_price": 11150725681373.617,
+          "sum_disc_price": 10593195308234.805,
+          "sum_charge": 11016932248183.695,
+          "avg_qty": 25.500009404374193,
+          "avg_price": 38237.22764636104,
+          "avg_disc": 0.04999791831763998,
+          "count_order": 291619617
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 3775724970.0,
+          "sum_base_price": 5661603032745.389,
+          "sum_disc_price": 5378513563915.334,
+          "sum_charge": 5593662252666.926,
+          "avg_qty": 25.50006628406532,
+          "avg_price": 38236.6972584533,
+          "avg_disc": 0.05000130433951825,
+          "count_order": 148067261
+        }
+      ],
+      "host_result_seconds": 4.103917178999836,
+      "action_started_at_utc": "2026-10-26T20:40:02.337849+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:06.441690+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:06.441776+00:00",
+      "action_start_monotonic_seconds": 25185.590315403,
+      "action_end_monotonic_seconds": 25189.694141883,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 0.12,
+            "system": 0.04,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2016,
+            "write_count": 2,
+            "read_bytes": 0,
+            "write_bytes": 8192,
+            "read_chars": 8541988,
+            "write_chars": 3167
+          },
+          "minor_faults": 8967,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 95.77,
+            "system": 9.99,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 29428,
+            "write_count": 47,
+            "read_bytes": 0,
+            "write_bytes": 8192,
+            "read_chars": 11025678,
+            "write_chars": 3527
+          },
+          "minor_faults": 3465532,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:02.320409+00:00",
+      "ended_at_utc": "2026-10-26T20:40:06.451983+00:00",
+      "peak_process_tree_rss_bytes": 11040354304,
+      "plan": "plans/q01-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q03",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 3.9858432979999634,
+      "rows": [
+        {
+          "l_orderkey": 249739810,
+          "revenue": 492136.8537,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 165214338,
+          "revenue": 485645.5293,
+          "o_orderdate": "1995-03-09",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 507274210,
+          "revenue": 485256.2467,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 202071367,
+          "revenue": 474746.4068,
+          "o_orderdate": "1995-03-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 37307463,
+          "revenue": 474325.19379999995,
+          "o_orderdate": "1995-02-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 461984355,
+          "revenue": 468002.52739999996,
+          "o_orderdate": "1995-03-13",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 100810368,
+          "revenue": 467932.7645,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 74015523,
+          "revenue": 467786.8027,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 402772582,
+          "revenue": 463367.0665,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 367111712,
+          "revenue": 462559.3977,
+          "o_orderdate": "1995-03-01",
+          "o_shippriority": 0
+        }
+      ],
+      "host_result_seconds": 3.985928411002533,
+      "action_started_at_utc": "2026-10-26T20:40:06.477655+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:10.463516+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:10.463596+00:00",
+      "action_start_monotonic_seconds": 25189.730124166,
+      "action_end_monotonic_seconds": 25193.715967464,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 95.79,
+            "system": 10.08,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 30922,
+            "write_count": 51,
+            "read_bytes": 0,
+            "write_bytes": 32768,
+            "read_chars": 11170889,
+            "write_chars": 16851
+          },
+          "minor_faults": 3465557,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 176.96,
+            "system": 23.75,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 57426,
+            "write_count": 129,
+            "read_bytes": 0,
+            "write_bytes": 32768,
+            "read_chars": 13568628,
+            "write_chars": 17475
+          },
+          "minor_faults": 7851430,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:06.452633+00:00",
+      "ended_at_utc": "2026-10-26T20:40:10.469126+00:00",
+      "peak_process_tree_rss_bytes": 21477531648,
+      "plan": "plans/q03-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q06",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 0.7255883059988264,
+      "rows": [
+        {
+          "revenue": 12330426888.463701
+        }
+      ],
+      "host_result_seconds": 0.7256408569992345,
+      "action_started_at_utc": "2026-10-26T20:40:10.488471+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:11.214074+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:11.214122+00:00",
+      "action_start_monotonic_seconds": 25193.740937807,
+      "action_end_monotonic_seconds": 25194.466526113,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 176.97,
+            "system": 23.77,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 58916,
+            "write_count": 133,
+            "read_bytes": 0,
+            "write_bytes": 61440,
+            "read_chars": 13710534,
+            "write_chars": 38863
+          },
+          "minor_faults": 7851439,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 191.54,
+            "system": 24.89,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 64080,
+            "write_count": 190,
+            "read_bytes": 0,
+            "write_bytes": 61440,
+            "read_chars": 14183236,
+            "write_chars": 39319
+          },
+          "minor_faults": 7936911,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:10.469701+00:00",
+      "ended_at_utc": "2026-10-26T20:40:11.232735+00:00",
+      "peak_process_tree_rss_bytes": 21487992832,
+      "plan": "plans/q06-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q10",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 2.470280759000161,
+      "rows": [
+        {
+          "c_custkey": 7450894,
+          "c_name": "Customer#007450894",
+          "revenue": 936768.8469,
+          "c_acctbal": 927.18,
+          "n_name": "ARGENTINA",
+          "c_address": "Kub3yOhSWLuc MTLe8owZ spwzrOvVlX8WQJwuE",
+          "c_phone": "11-833-256-7879",
+          "c_comment": "the furiously unusual foxes! platelets nag boldly above the quickly bold accounts. furiously "
+        },
+        {
+          "c_custkey": 9739771,
+          "c_name": "Customer#009739771",
+          "revenue": 842966.5285,
+          "c_acctbal": 1286.48,
+          "n_name": "JORDAN",
+          "c_address": "zoTOSQ1TrpuUDmCk9f",
+          "c_phone": "23-281-450-4794",
+          "c_comment": "boost quickly. never dogged instructions boost quickly ironic requests. pinto beans sleep carefully across "
+        },
+        {
+          "c_custkey": 4571035,
+          "c_name": "Customer#004571035",
+          "revenue": 838705.6168,
+          "c_acctbal": 6704.13,
+          "n_name": "UNITED KINGDOM",
+          "c_address": "Z,inL0muZQK8AiEm3qme9CBjuYIO0JTfH",
+          "c_phone": "33-138-285-3770",
+          "c_comment": "ecial theodolites wake slyly across the never silent ideas. final foxes around the carefully regular "
+        },
+        {
+          "c_custkey": 637855,
+          "c_name": "Customer#000637855",
+          "revenue": 812034.3778000001,
+          "c_acctbal": 2674.86,
+          "n_name": "MOZAMBIQUE",
+          "c_address": "BV7zGwFIOkc",
+          "c_phone": "26-852-120-2850",
+          "c_comment": "ges. express, special dolphins cajole around the slyly regular accounts. fu"
+        },
+        {
+          "c_custkey": 10781974,
+          "c_name": "Customer#010781974",
+          "revenue": 801735.5176000001,
+          "c_acctbal": 5079.77,
+          "n_name": "ROMANIA",
+          "c_address": "pwYB0N97ySprr4vi5UZ382q0U8WCPp",
+          "c_phone": "29-651-722-6239",
+          "c_comment": "sits haggle evenly. express packages sl"
+        },
+        {
+          "c_custkey": 11361613,
+          "c_name": "Customer#011361613",
+          "revenue": 800558.4336999999,
+          "c_acctbal": 4644.71,
+          "n_name": "INDONESIA",
+          "c_address": "I4gKJjA4BV6syYz",
+          "c_phone": "19-344-539-9187",
+          "c_comment": "l, special dependencies. carefully regular instructions use about the carefully bold accounts. pending accou"
+        },
+        {
+          "c_custkey": 1259743,
+          "c_name": "Customer#001259743",
+          "revenue": 793274.7846000001,
+          "c_acctbal": 2592.74,
+          "n_name": "ETHIOPIA",
+          "c_address": "35Mr0In QWvDgyLt8UYPECuBEllYNShLI",
+          "c_phone": "15-733-636-6732",
+          "c_comment": "y express requests cajole furiously alongside of the carefull"
+        },
+        {
+          "c_custkey": 5154136,
+          "c_name": "Customer#005154136",
+          "revenue": 787191.1958999999,
+          "c_acctbal": 1028.97,
+          "n_name": "MOROCCO",
+          "c_address": "30OHoO9k5s,HrKS3a6k9fLVsXa",
+          "c_phone": "25-841-379-9394",
+          "c_comment": "affix carefully blithely unusual requests. unusual ideas b"
+        },
+        {
+          "c_custkey": 14986552,
+          "c_name": "Customer#014986552",
+          "revenue": 781645.8638,
+          "c_acctbal": 2678.94,
+          "n_name": "ARGENTINA",
+          "c_address": "zFVtpT4Zo,",
+          "c_phone": "11-671-762-3613",
+          "c_comment": "s. packages haggle carefully at the ironic braids. blithely regular pinto beans cajole slyly. "
+        },
+        {
+          "c_custkey": 2905816,
+          "c_name": "Customer#002905816",
+          "revenue": 778729.4413999999,
+          "c_acctbal": 5085.53,
+          "n_name": "UNITED STATES",
+          "c_address": "QOfcBYPRbq",
+          "c_phone": "34-217-584-5820",
+          "c_comment": "s under the regular sheaves sleep blithely final platelets. dolphins sleep across the stealthily special ideas. furi"
+        },
+        {
+          "c_custkey": 6184141,
+          "c_name": "Customer#006184141",
+          "revenue": 772721.0973,
+          "c_acctbal": 5901.88,
+          "n_name": "BRAZIL",
+          "c_address": "3CxIFtsmlpESaUQzurlTV",
+          "c_phone": "12-563-743-4211",
+          "c_comment": "eodolites according to the carefully final accounts use carefully slyly ironic instructions. b"
+        },
+        {
+          "c_custkey": 7852024,
+          "c_name": "Customer#007852024",
+          "revenue": 769688.6616,
+          "c_acctbal": 1197.57,
+          "n_name": "INDIA",
+          "c_address": "ZrF1h1tpKbH9j5cVtnD3NMJFtE1my05S86WiWU09",
+          "c_phone": "18-141-580-3886",
+          "c_comment": " blithely ironic notornis cajole according to the quickly even requests! quickly re"
+        },
+        {
+          "c_custkey": 7183231,
+          "c_name": "Customer#007183231",
+          "revenue": 768455.8796000001,
+          "c_acctbal": -683.01,
+          "n_name": "INDIA",
+          "c_address": "Ds83MjPovIdahJd",
+          "c_phone": "18-270-127-8463",
+          "c_comment": "ial pinto beans among the furiously special deposits haggle quickly after the ironic, final deposits. regular theodo"
+        },
+        {
+          "c_custkey": 1627651,
+          "c_name": "Customer#001627651",
+          "revenue": 768300.3006000001,
+          "c_acctbal": 3059.82,
+          "n_name": "MOROCCO",
+          "c_address": "PBXh8ZQR2xTOpgQo 7FBfI EZGZ BnD",
+          "c_phone": "25-732-202-4862",
+          "c_comment": "ts are alongside of the requests. carefully regular accounts above the ironic deposits integrate slyly pendi"
+        },
+        {
+          "c_custkey": 13624771,
+          "c_name": "Customer#013624771",
+          "revenue": 767856.1561999999,
+          "c_acctbal": -168.68,
+          "n_name": "IRAN",
+          "c_address": " uekVASYAlR1fqAFoJwcgndQAF",
+          "c_phone": "20-919-886-5399",
+          "c_comment": "unts wake furiously above the carefully special instruction"
+        },
+        {
+          "c_custkey": 13896424,
+          "c_name": "Customer#013896424",
+          "revenue": 760957.6214000001,
+          "c_acctbal": 3798.91,
+          "n_name": "INDONESIA",
+          "c_address": "PzqffgfQ7p",
+          "c_phone": "19-494-837-4503",
+          "c_comment": " the quickly furious deposits. packages after the furiously unusual instructions hang slyly iron"
+        },
+        {
+          "c_custkey": 4926817,
+          "c_name": "Customer#004926817",
+          "revenue": 758756.8533,
+          "c_acctbal": 5462.22,
+          "n_name": "RUSSIA",
+          "c_address": "4RbwBrzz6eHCI",
+          "c_phone": "32-610-751-1595",
+          "c_comment": "against the furiously regular ideas. carefully e"
+        },
+        {
+          "c_custkey": 319150,
+          "c_name": "Customer#000319150",
+          "revenue": 757235.8949,
+          "c_acctbal": 3257.68,
+          "n_name": "IRAN",
+          "c_address": "GZg5Tg1XIJUOKHxb6C,I4h7PrwFiwitvn",
+          "c_phone": "20-837-276-7259",
+          "c_comment": "deposits. regular accounts nag. slyly ironic idea"
+        },
+        {
+          "c_custkey": 5894188,
+          "c_name": "Customer#005894188",
+          "revenue": 756482.0641000001,
+          "c_acctbal": 3062.0,
+          "n_name": "BRAZIL",
+          "c_address": ",b 3YYdbkOsSZdSEekTT,Dk8dljn 4aUkzEE9M3",
+          "c_phone": "12-372-345-6045",
+          "c_comment": "slyly regular pinto beans integrate s"
+        },
+        {
+          "c_custkey": 3387028,
+          "c_name": "Customer#003387028",
+          "revenue": 755937.5756999999,
+          "c_acctbal": 3726.64,
+          "n_name": "ETHIOPIA",
+          "c_address": "IWj4CTUBet5tE",
+          "c_phone": "15-880-219-8399",
+          "c_comment": "ests sleep furiously among the furiously regular p"
+        }
+      ],
+      "host_result_seconds": 2.470606263999798,
+      "action_started_at_utc": "2026-10-26T20:40:11.296092+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:13.766393+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:13.766717+00:00",
+      "action_start_monotonic_seconds": 25194.54856278,
+      "action_end_monotonic_seconds": 25197.018843539,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 191.55,
+            "system": 24.98,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 65574,
+            "write_count": 194,
+            "read_bytes": 0,
+            "write_bytes": 94208,
+            "read_chars": 14328450,
+            "write_chars": 64054
+          },
+          "minor_faults": 7936919,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 240.87,
+            "system": 29.68,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 82510,
+            "write_count": 273,
+            "read_bytes": 0,
+            "write_bytes": 94208,
+            "read_chars": 15861784,
+            "write_chars": 64686
+          },
+          "minor_faults": 8957494,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:11.233363+00:00",
+      "ended_at_utc": "2026-10-26T20:40:13.779256+00:00",
+      "peak_process_tree_rss_bytes": 21774766080,
+      "plan": "plans/q10-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q12",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 1.5582066200004192,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 623115,
+          "low_line_count": 934713
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 622979,
+          "low_line_count": 934534
+        }
+      ],
+      "host_result_seconds": 1.558257387001504,
+      "action_started_at_utc": "2026-10-26T20:40:13.808673+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:15.366894+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:15.366941+00:00",
+      "action_start_monotonic_seconds": 25197.061140389,
+      "action_end_monotonic_seconds": 25198.619347009,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 240.9,
+            "system": 29.75,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 84004,
+            "write_count": 277,
+            "read_bytes": 0,
+            "write_bytes": 147456,
+            "read_chars": 16007047,
+            "write_chars": 110848
+          },
+          "minor_faults": 8957512,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 274.05,
+            "system": 31.59,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 95052,
+            "write_count": 335,
+            "read_bytes": 0,
+            "write_bytes": 147456,
+            "read_chars": 17008546,
+            "write_chars": 111312
+          },
+          "minor_faults": 9154749,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:13.780472+00:00",
+      "ended_at_utc": "2026-10-26T20:40:15.385035+00:00",
+      "peak_process_tree_rss_bytes": 8620986368,
+      "plan": "plans/q12-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q14",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 0.8554627949997666,
+      "rows": [
+        {
+          "promo_revenue": 16.64035743325411
+        }
+      ],
+      "host_result_seconds": 0.8555346230023133,
+      "action_started_at_utc": "2026-10-26T20:40:15.406079+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:16.261558+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:16.261624+00:00",
+      "action_start_monotonic_seconds": 25198.658545926,
+      "action_end_monotonic_seconds": 25199.514008721,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 274.07,
+            "system": 31.61,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 96478,
+            "write_count": 339,
+            "read_bytes": 0,
+            "write_bytes": 200704,
+            "read_chars": 17143196,
+            "write_chars": 161021
+          },
+          "minor_faults": 9154759,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 292.28,
+            "system": 33.01,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 102442,
+            "write_count": 370,
+            "read_bytes": 0,
+            "write_bytes": 200704,
+            "read_chars": 17689929,
+            "write_chars": 161269
+          },
+          "minor_faults": 9346838,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:15.385970+00:00",
+      "ended_at_utc": "2026-10-26T20:40:16.267590+00:00",
+      "peak_process_tree_rss_bytes": 4883345408,
+      "plan": "plans/q14-warmup-0.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 3.8984292309978628,
+      "rows": [
+        {
+          "l_orderkey": 249739810,
+          "revenue": 492136.8536999999,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 165214338,
+          "revenue": 485645.5293,
+          "o_orderdate": "1995-03-09",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 507274210,
+          "revenue": 485256.2467,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 202071367,
+          "revenue": 474746.4068,
+          "o_orderdate": "1995-03-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 37307463,
+          "revenue": 474325.19379999995,
+          "o_orderdate": "1995-02-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 461984355,
+          "revenue": 468002.52739999996,
+          "o_orderdate": "1995-03-13",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 100810368,
+          "revenue": 467932.76450000005,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 74015523,
+          "revenue": 467786.8027,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 402772582,
+          "revenue": 463367.0665,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 367111712,
+          "revenue": 462559.3977,
+          "o_orderdate": "1995-03-01",
+          "o_shippriority": 0
+        }
+      ],
+      "host_result_seconds": 3.898512840998592,
+      "action_started_at_utc": "2026-10-26T20:40:16.290156+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:20.188601+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:20.188680+00:00",
+      "action_start_monotonic_seconds": 25199.542623638,
+      "action_end_monotonic_seconds": 25203.441052869,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 292.3,
+            "system": 33.03,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 103936,
+            "write_count": 374,
+            "read_bytes": 0,
+            "write_bytes": 266240,
+            "read_chars": 17835192,
+            "write_chars": 215310
+          },
+          "minor_faults": 9346847,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 370.2,
+            "system": 49.55,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 129704,
+            "write_count": 460,
+            "read_bytes": 0,
+            "write_bytes": 266240,
+            "read_chars": 20166643,
+            "write_chars": 215998
+          },
+          "minor_faults": 15012653,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:16.268619+00:00",
+      "ended_at_utc": "2026-10-26T20:40:20.195913+00:00",
+      "peak_process_tree_rss_bytes": 21626753024,
+      "plan": "plans/q03-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 2.291801339997619,
+      "rows": [
+        {
+          "c_custkey": 7450894,
+          "c_name": "Customer#007450894",
+          "revenue": 936768.8469000001,
+          "c_acctbal": 927.18,
+          "n_name": "ARGENTINA",
+          "c_address": "Kub3yOhSWLuc MTLe8owZ spwzrOvVlX8WQJwuE",
+          "c_phone": "11-833-256-7879",
+          "c_comment": "the furiously unusual foxes! platelets nag boldly above the quickly bold accounts. furiously "
+        },
+        {
+          "c_custkey": 9739771,
+          "c_name": "Customer#009739771",
+          "revenue": 842966.5285,
+          "c_acctbal": 1286.48,
+          "n_name": "JORDAN",
+          "c_address": "zoTOSQ1TrpuUDmCk9f",
+          "c_phone": "23-281-450-4794",
+          "c_comment": "boost quickly. never dogged instructions boost quickly ironic requests. pinto beans sleep carefully across "
+        },
+        {
+          "c_custkey": 4571035,
+          "c_name": "Customer#004571035",
+          "revenue": 838705.6168,
+          "c_acctbal": 6704.13,
+          "n_name": "UNITED KINGDOM",
+          "c_address": "Z,inL0muZQK8AiEm3qme9CBjuYIO0JTfH",
+          "c_phone": "33-138-285-3770",
+          "c_comment": "ecial theodolites wake slyly across the never silent ideas. final foxes around the carefully regular "
+        },
+        {
+          "c_custkey": 637855,
+          "c_name": "Customer#000637855",
+          "revenue": 812034.3778,
+          "c_acctbal": 2674.86,
+          "n_name": "MOZAMBIQUE",
+          "c_address": "BV7zGwFIOkc",
+          "c_phone": "26-852-120-2850",
+          "c_comment": "ges. express, special dolphins cajole around the slyly regular accounts. fu"
+        },
+        {
+          "c_custkey": 10781974,
+          "c_name": "Customer#010781974",
+          "revenue": 801735.5176,
+          "c_acctbal": 5079.77,
+          "n_name": "ROMANIA",
+          "c_address": "pwYB0N97ySprr4vi5UZ382q0U8WCPp",
+          "c_phone": "29-651-722-6239",
+          "c_comment": "sits haggle evenly. express packages sl"
+        },
+        {
+          "c_custkey": 11361613,
+          "c_name": "Customer#011361613",
+          "revenue": 800558.4336999999,
+          "c_acctbal": 4644.71,
+          "n_name": "INDONESIA",
+          "c_address": "I4gKJjA4BV6syYz",
+          "c_phone": "19-344-539-9187",
+          "c_comment": "l, special dependencies. carefully regular instructions use about the carefully bold accounts. pending accou"
+        },
+        {
+          "c_custkey": 1259743,
+          "c_name": "Customer#001259743",
+          "revenue": 793274.7846000001,
+          "c_acctbal": 2592.74,
+          "n_name": "ETHIOPIA",
+          "c_address": "35Mr0In QWvDgyLt8UYPECuBEllYNShLI",
+          "c_phone": "15-733-636-6732",
+          "c_comment": "y express requests cajole furiously alongside of the carefull"
+        },
+        {
+          "c_custkey": 5154136,
+          "c_name": "Customer#005154136",
+          "revenue": 787191.1958999999,
+          "c_acctbal": 1028.97,
+          "n_name": "MOROCCO",
+          "c_address": "30OHoO9k5s,HrKS3a6k9fLVsXa",
+          "c_phone": "25-841-379-9394",
+          "c_comment": "affix carefully blithely unusual requests. unusual ideas b"
+        },
+        {
+          "c_custkey": 14986552,
+          "c_name": "Customer#014986552",
+          "revenue": 781645.8637999999,
+          "c_acctbal": 2678.94,
+          "n_name": "ARGENTINA",
+          "c_address": "zFVtpT4Zo,",
+          "c_phone": "11-671-762-3613",
+          "c_comment": "s. packages haggle carefully at the ironic braids. blithely regular pinto beans cajole slyly. "
+        },
+        {
+          "c_custkey": 2905816,
+          "c_name": "Customer#002905816",
+          "revenue": 778729.4413999999,
+          "c_acctbal": 5085.53,
+          "n_name": "UNITED STATES",
+          "c_address": "QOfcBYPRbq",
+          "c_phone": "34-217-584-5820",
+          "c_comment": "s under the regular sheaves sleep blithely final platelets. dolphins sleep across the stealthily special ideas. furi"
+        },
+        {
+          "c_custkey": 6184141,
+          "c_name": "Customer#006184141",
+          "revenue": 772721.0973,
+          "c_acctbal": 5901.88,
+          "n_name": "BRAZIL",
+          "c_address": "3CxIFtsmlpESaUQzurlTV",
+          "c_phone": "12-563-743-4211",
+          "c_comment": "eodolites according to the carefully final accounts use carefully slyly ironic instructions. b"
+        },
+        {
+          "c_custkey": 7852024,
+          "c_name": "Customer#007852024",
+          "revenue": 769688.6616000001,
+          "c_acctbal": 1197.57,
+          "n_name": "INDIA",
+          "c_address": "ZrF1h1tpKbH9j5cVtnD3NMJFtE1my05S86WiWU09",
+          "c_phone": "18-141-580-3886",
+          "c_comment": " blithely ironic notornis cajole according to the quickly even requests! quickly re"
+        },
+        {
+          "c_custkey": 7183231,
+          "c_name": "Customer#007183231",
+          "revenue": 768455.8796,
+          "c_acctbal": -683.01,
+          "n_name": "INDIA",
+          "c_address": "Ds83MjPovIdahJd",
+          "c_phone": "18-270-127-8463",
+          "c_comment": "ial pinto beans among the furiously special deposits haggle quickly after the ironic, final deposits. regular theodo"
+        },
+        {
+          "c_custkey": 1627651,
+          "c_name": "Customer#001627651",
+          "revenue": 768300.3006,
+          "c_acctbal": 3059.82,
+          "n_name": "MOROCCO",
+          "c_address": "PBXh8ZQR2xTOpgQo 7FBfI EZGZ BnD",
+          "c_phone": "25-732-202-4862",
+          "c_comment": "ts are alongside of the requests. carefully regular accounts above the ironic deposits integrate slyly pendi"
+        },
+        {
+          "c_custkey": 13624771,
+          "c_name": "Customer#013624771",
+          "revenue": 767856.1562,
+          "c_acctbal": -168.68,
+          "n_name": "IRAN",
+          "c_address": " uekVASYAlR1fqAFoJwcgndQAF",
+          "c_phone": "20-919-886-5399",
+          "c_comment": "unts wake furiously above the carefully special instruction"
+        },
+        {
+          "c_custkey": 13896424,
+          "c_name": "Customer#013896424",
+          "revenue": 760957.6214000001,
+          "c_acctbal": 3798.91,
+          "n_name": "INDONESIA",
+          "c_address": "PzqffgfQ7p",
+          "c_phone": "19-494-837-4503",
+          "c_comment": " the quickly furious deposits. packages after the furiously unusual instructions hang slyly iron"
+        },
+        {
+          "c_custkey": 4926817,
+          "c_name": "Customer#004926817",
+          "revenue": 758756.8533,
+          "c_acctbal": 5462.22,
+          "n_name": "RUSSIA",
+          "c_address": "4RbwBrzz6eHCI",
+          "c_phone": "32-610-751-1595",
+          "c_comment": "against the furiously regular ideas. carefully e"
+        },
+        {
+          "c_custkey": 319150,
+          "c_name": "Customer#000319150",
+          "revenue": 757235.8949,
+          "c_acctbal": 3257.68,
+          "n_name": "IRAN",
+          "c_address": "GZg5Tg1XIJUOKHxb6C,I4h7PrwFiwitvn",
+          "c_phone": "20-837-276-7259",
+          "c_comment": "deposits. regular accounts nag. slyly ironic idea"
+        },
+        {
+          "c_custkey": 5894188,
+          "c_name": "Customer#005894188",
+          "revenue": 756482.0641000001,
+          "c_acctbal": 3062.0,
+          "n_name": "BRAZIL",
+          "c_address": ",b 3YYdbkOsSZdSEekTT,Dk8dljn 4aUkzEE9M3",
+          "c_phone": "12-372-345-6045",
+          "c_comment": "slyly regular pinto beans integrate s"
+        },
+        {
+          "c_custkey": 3387028,
+          "c_name": "Customer#003387028",
+          "revenue": 755937.5756999999,
+          "c_acctbal": 3726.64,
+          "n_name": "ETHIOPIA",
+          "c_address": "IWj4CTUBet5tE",
+          "c_phone": "15-880-219-8399",
+          "c_comment": "ests sleep furiously among the furiously regular p"
+        }
+      ],
+      "host_result_seconds": 2.292083635999006,
+      "action_started_at_utc": "2026-10-26T20:40:20.220851+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:22.512669+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:22.512947+00:00",
+      "action_start_monotonic_seconds": 25203.473319034,
+      "action_end_monotonic_seconds": 25205.765120374,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 370.25,
+            "system": 49.59,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 131198,
+            "write_count": 464,
+            "read_bytes": 0,
+            "write_bytes": 335872,
+            "read_chars": 20311923,
+            "write_chars": 278209
+          },
+          "minor_faults": 15012656,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 420.24,
+            "system": 53.97,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 146662,
+            "write_count": 531,
+            "read_bytes": 0,
+            "write_bytes": 335872,
+            "read_chars": 21712511,
+            "write_chars": 278745
+          },
+          "minor_faults": 15862759,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:20.197263+00:00",
+      "ended_at_utc": "2026-10-26T20:40:22.530689+00:00",
+      "peak_process_tree_rss_bytes": 22314160128,
+      "plan": "plans/q10-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 1.6980337939967285,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 623115,
+          "low_line_count": 934713
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 622979,
+          "low_line_count": 934534
+        }
+      ],
+      "host_result_seconds": 1.698104371997033,
+      "action_started_at_utc": "2026-10-26T20:40:22.573908+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:24.271959+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:24.272024+00:00",
+      "action_start_monotonic_seconds": 25205.8263761,
+      "action_end_monotonic_seconds": 25207.524409894,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 420.26,
+            "system": 54.05,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 148156,
+            "write_count": 535,
+            "read_bytes": 0,
+            "write_bytes": 421888,
+            "read_chars": 21857786,
+            "write_chars": 361388
+          },
+          "minor_faults": 15862777,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 453.49,
+            "system": 56.23,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 159940,
+            "write_count": 595,
+            "read_bytes": 0,
+            "write_bytes": 421888,
+            "read_chars": 22925881,
+            "write_chars": 361868
+          },
+          "minor_faults": 16003334,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:22.532067+00:00",
+      "ended_at_utc": "2026-10-26T20:40:24.284197+00:00",
+      "peak_process_tree_rss_bytes": 17370734592,
+      "plan": "plans/q12-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 0.6138223809975898,
+      "rows": [
+        {
+          "revenue": 12330426888.463697
+        }
+      ],
+      "host_result_seconds": 0.6138750719983364,
+      "action_started_at_utc": "2026-10-26T20:40:24.309749+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:24.923588+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:24.923636+00:00",
+      "action_start_monotonic_seconds": 25207.562217152,
+      "action_end_monotonic_seconds": 25208.176039533,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 453.51,
+            "system": 56.27,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 161434,
+            "write_count": 599,
+            "read_bytes": 0,
+            "write_bytes": 520192,
+            "read_chars": 23071156,
+            "write_chars": 448069
+          },
+          "minor_faults": 16003345,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 467.98,
+            "system": 57.18,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 165858,
+            "write_count": 634,
+            "read_bytes": 0,
+            "write_bytes": 520192,
+            "read_chars": 23474222,
+            "write_chars": 448349
+          },
+          "minor_faults": 16089784,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:24.286197+00:00",
+      "ended_at_utc": "2026-10-26T20:40:24.929988+00:00",
+      "peak_process_tree_rss_bytes": 7583072256,
+      "plan": "plans/q06-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 4.11516323899923,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 3775127758.0,
+          "sum_base_price": 5660776097194.385,
+          "sum_disc_price": 5377736398183.926,
+          "sum_charge": 5592847429515.93,
+          "avg_qty": 25.499370423275426,
+          "avg_price": 38236.116984304455,
+          "avg_disc": 0.050002243530793605,
+          "count_order": 148047881
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 98553062.0,
+          "sum_base_price": 147771098385.98004,
+          "sum_disc_price": 140384965965.03467,
+          "sum_charge": 145999793032.77563,
+          "avg_qty": 25.501556956882876,
+          "avg_price": 38237.19938880452,
+          "avg_disc": 0.049985284338107894,
+          "count_order": 3864590
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 7436302976.0,
+          "sum_base_price": 11150725681373.617,
+          "sum_disc_price": 10593195308234.807,
+          "sum_charge": 11016932248183.695,
+          "avg_qty": 25.500009404374193,
+          "avg_price": 38237.22764636104,
+          "avg_disc": 0.0499979183176401,
+          "count_order": 291619617
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 3775724970.0,
+          "sum_base_price": 5661603032745.39,
+          "sum_disc_price": 5378513563915.335,
+          "sum_charge": 5593662252666.927,
+          "avg_qty": 25.50006628406532,
+          "avg_price": 38236.6972584533,
+          "avg_disc": 0.05000130433951815,
+          "count_order": 148067261
+        }
+      ],
+      "host_result_seconds": 4.115238524002052,
+      "action_started_at_utc": "2026-10-26T20:40:24.957222+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:29.072400+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:29.072471+00:00",
+      "action_start_monotonic_seconds": 25208.209688747,
+      "action_end_monotonic_seconds": 25212.324851986,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 468.0,
+            "system": 57.22,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 167352,
+            "write_count": 638,
+            "read_bytes": 0,
+            "write_bytes": 614400,
+            "read_chars": 23619487,
+            "write_chars": 538577
+          },
+          "minor_faults": 16089791,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 564.19,
+            "system": 67.08,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 194592,
+            "write_count": 668,
+            "read_bytes": 0,
+            "write_bytes": 614400,
+            "read_chars": 26083938,
+            "write_chars": 538817
+          },
+          "minor_faults": 19307767,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:24.931498+00:00",
+      "ended_at_utc": "2026-10-26T20:40:29.079976+00:00",
+      "peak_process_tree_rss_bytes": 11454234624,
+      "plan": "plans/q01-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 0.9233537070031161,
+      "rows": [
+        {
+          "promo_revenue": 16.640357433254106
+        }
+      ],
+      "host_result_seconds": 0.9234089900019171,
+      "action_started_at_utc": "2026-10-26T20:40:29.106236+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:30.029607+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:30.029657+00:00",
+      "action_start_monotonic_seconds": 25212.358704492,
+      "action_end_monotonic_seconds": 25213.282058199,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 564.21,
+            "system": 67.14,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 196000,
+            "write_count": 672,
+            "read_bytes": 0,
+            "write_bytes": 720896,
+            "read_chars": 26216961,
+            "write_chars": 636986
+          },
+          "minor_faults": 19307773,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 582.45,
+            "system": 68.68,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 202718,
+            "write_count": 742,
+            "read_bytes": 0,
+            "write_bytes": 720896,
+            "read_chars": 26831716,
+            "write_chars": 637546
+          },
+          "minor_faults": 19469208,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:29.081598+00:00",
+      "ended_at_utc": "2026-10-26T20:40:30.042287+00:00",
+      "peak_process_tree_rss_bytes": 13012844544,
+      "plan": "plans/q14-measured-1.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 0.8891306250006892,
+      "rows": [
+        {
+          "promo_revenue": 16.6403574332541
+        }
+      ],
+      "host_result_seconds": 0.8891822930017952,
+      "action_started_at_utc": "2026-10-26T20:40:30.068968+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:30.958115+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:30.958163+00:00",
+      "action_start_monotonic_seconds": 25213.321437312,
+      "action_end_monotonic_seconds": 25214.210567937,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 582.48,
+            "system": 68.73,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 204212,
+            "write_count": 746,
+            "read_bytes": 0,
+            "write_bytes": 835584,
+            "read_chars": 26976991,
+            "write_chars": 740031
+          },
+          "minor_faults": 19469218,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 600.76,
+            "system": 70.39,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 210844,
+            "write_count": 785,
+            "read_bytes": 0,
+            "write_bytes": 835584,
+            "read_chars": 27579557,
+            "write_chars": 740343
+          },
+          "minor_faults": 19642475,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:30.044329+00:00",
+      "ended_at_utc": "2026-10-26T20:40:30.970400+00:00",
+      "peak_process_tree_rss_bytes": 9997078528,
+      "plan": "plans/q14-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 0.6359267219995672,
+      "rows": [
+        {
+          "revenue": 12330426888.463697
+        }
+      ],
+      "host_result_seconds": 0.6359803849991295,
+      "action_started_at_utc": "2026-10-26T20:40:30.998657+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:31.634600+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:31.634649+00:00",
+      "action_start_monotonic_seconds": 25214.251125353,
+      "action_end_monotonic_seconds": 25214.887052075,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 600.78,
+            "system": 70.44,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 212338,
+            "write_count": 789,
+            "read_bytes": 0,
+            "write_bytes": 946176,
+            "read_chars": 27724798,
+            "write_chars": 847203
+          },
+          "minor_faults": 19642491,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 615.44,
+            "system": 71.42,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 216762,
+            "write_count": 835,
+            "read_bytes": 0,
+            "write_bytes": 946176,
+            "read_chars": 28127816,
+            "write_chars": 847571
+          },
+          "minor_faults": 19744916,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:30.972850+00:00",
+      "ended_at_utc": "2026-10-26T20:40:31.640006+00:00",
+      "peak_process_tree_rss_bytes": 5117100032,
+      "plan": "plans/q06-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 1.5372165300032066,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 623115,
+          "low_line_count": 934713
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 622979,
+          "low_line_count": 934534
+        }
+      ],
+      "host_result_seconds": 1.5372694200013939,
+      "action_started_at_utc": "2026-10-26T20:40:31.666165+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:33.203395+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:33.203444+00:00",
+      "action_start_monotonic_seconds": 25214.918631339,
+      "action_end_monotonic_seconds": 25216.455847869,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 615.46,
+            "system": 71.45,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 218108,
+            "write_count": 839,
+            "read_bytes": 0,
+            "write_bytes": 1069056,
+            "read_chars": 28255197,
+            "write_chars": 958493
+          },
+          "minor_faults": 19744925,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 648.22,
+            "system": 73.83,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 228568,
+            "write_count": 853,
+            "read_bytes": 0,
+            "write_bytes": 1069056,
+            "read_chars": 29207976,
+            "write_chars": 958605
+          },
+          "minor_faults": 20369857,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:31.641704+00:00",
+      "ended_at_utc": "2026-10-26T20:40:33.209862+00:00",
+      "peak_process_tree_rss_bytes": 3506249728,
+      "plan": "plans/q12-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 2.249440527000843,
+      "rows": [
+        {
+          "c_custkey": 7450894,
+          "c_name": "Customer#007450894",
+          "revenue": 936768.8469,
+          "c_acctbal": 927.18,
+          "n_name": "ARGENTINA",
+          "c_address": "Kub3yOhSWLuc MTLe8owZ spwzrOvVlX8WQJwuE",
+          "c_phone": "11-833-256-7879",
+          "c_comment": "the furiously unusual foxes! platelets nag boldly above the quickly bold accounts. furiously "
+        },
+        {
+          "c_custkey": 9739771,
+          "c_name": "Customer#009739771",
+          "revenue": 842966.5284999998,
+          "c_acctbal": 1286.48,
+          "n_name": "JORDAN",
+          "c_address": "zoTOSQ1TrpuUDmCk9f",
+          "c_phone": "23-281-450-4794",
+          "c_comment": "boost quickly. never dogged instructions boost quickly ironic requests. pinto beans sleep carefully across "
+        },
+        {
+          "c_custkey": 4571035,
+          "c_name": "Customer#004571035",
+          "revenue": 838705.6168000001,
+          "c_acctbal": 6704.13,
+          "n_name": "UNITED KINGDOM",
+          "c_address": "Z,inL0muZQK8AiEm3qme9CBjuYIO0JTfH",
+          "c_phone": "33-138-285-3770",
+          "c_comment": "ecial theodolites wake slyly across the never silent ideas. final foxes around the carefully regular "
+        },
+        {
+          "c_custkey": 637855,
+          "c_name": "Customer#000637855",
+          "revenue": 812034.3778000001,
+          "c_acctbal": 2674.86,
+          "n_name": "MOZAMBIQUE",
+          "c_address": "BV7zGwFIOkc",
+          "c_phone": "26-852-120-2850",
+          "c_comment": "ges. express, special dolphins cajole around the slyly regular accounts. fu"
+        },
+        {
+          "c_custkey": 10781974,
+          "c_name": "Customer#010781974",
+          "revenue": 801735.5176,
+          "c_acctbal": 5079.77,
+          "n_name": "ROMANIA",
+          "c_address": "pwYB0N97ySprr4vi5UZ382q0U8WCPp",
+          "c_phone": "29-651-722-6239",
+          "c_comment": "sits haggle evenly. express packages sl"
+        },
+        {
+          "c_custkey": 11361613,
+          "c_name": "Customer#011361613",
+          "revenue": 800558.4336999999,
+          "c_acctbal": 4644.71,
+          "n_name": "INDONESIA",
+          "c_address": "I4gKJjA4BV6syYz",
+          "c_phone": "19-344-539-9187",
+          "c_comment": "l, special dependencies. carefully regular instructions use about the carefully bold accounts. pending accou"
+        },
+        {
+          "c_custkey": 1259743,
+          "c_name": "Customer#001259743",
+          "revenue": 793274.7845999998,
+          "c_acctbal": 2592.74,
+          "n_name": "ETHIOPIA",
+          "c_address": "35Mr0In QWvDgyLt8UYPECuBEllYNShLI",
+          "c_phone": "15-733-636-6732",
+          "c_comment": "y express requests cajole furiously alongside of the carefull"
+        },
+        {
+          "c_custkey": 5154136,
+          "c_name": "Customer#005154136",
+          "revenue": 787191.1959,
+          "c_acctbal": 1028.97,
+          "n_name": "MOROCCO",
+          "c_address": "30OHoO9k5s,HrKS3a6k9fLVsXa",
+          "c_phone": "25-841-379-9394",
+          "c_comment": "affix carefully blithely unusual requests. unusual ideas b"
+        },
+        {
+          "c_custkey": 14986552,
+          "c_name": "Customer#014986552",
+          "revenue": 781645.8638,
+          "c_acctbal": 2678.94,
+          "n_name": "ARGENTINA",
+          "c_address": "zFVtpT4Zo,",
+          "c_phone": "11-671-762-3613",
+          "c_comment": "s. packages haggle carefully at the ironic braids. blithely regular pinto beans cajole slyly. "
+        },
+        {
+          "c_custkey": 2905816,
+          "c_name": "Customer#002905816",
+          "revenue": 778729.4413999999,
+          "c_acctbal": 5085.53,
+          "n_name": "UNITED STATES",
+          "c_address": "QOfcBYPRbq",
+          "c_phone": "34-217-584-5820",
+          "c_comment": "s under the regular sheaves sleep blithely final platelets. dolphins sleep across the stealthily special ideas. furi"
+        },
+        {
+          "c_custkey": 6184141,
+          "c_name": "Customer#006184141",
+          "revenue": 772721.0973,
+          "c_acctbal": 5901.88,
+          "n_name": "BRAZIL",
+          "c_address": "3CxIFtsmlpESaUQzurlTV",
+          "c_phone": "12-563-743-4211",
+          "c_comment": "eodolites according to the carefully final accounts use carefully slyly ironic instructions. b"
+        },
+        {
+          "c_custkey": 7852024,
+          "c_name": "Customer#007852024",
+          "revenue": 769688.6616,
+          "c_acctbal": 1197.57,
+          "n_name": "INDIA",
+          "c_address": "ZrF1h1tpKbH9j5cVtnD3NMJFtE1my05S86WiWU09",
+          "c_phone": "18-141-580-3886",
+          "c_comment": " blithely ironic notornis cajole according to the quickly even requests! quickly re"
+        },
+        {
+          "c_custkey": 7183231,
+          "c_name": "Customer#007183231",
+          "revenue": 768455.8796000001,
+          "c_acctbal": -683.01,
+          "n_name": "INDIA",
+          "c_address": "Ds83MjPovIdahJd",
+          "c_phone": "18-270-127-8463",
+          "c_comment": "ial pinto beans among the furiously special deposits haggle quickly after the ironic, final deposits. regular theodo"
+        },
+        {
+          "c_custkey": 1627651,
+          "c_name": "Customer#001627651",
+          "revenue": 768300.3006,
+          "c_acctbal": 3059.82,
+          "n_name": "MOROCCO",
+          "c_address": "PBXh8ZQR2xTOpgQo 7FBfI EZGZ BnD",
+          "c_phone": "25-732-202-4862",
+          "c_comment": "ts are alongside of the requests. carefully regular accounts above the ironic deposits integrate slyly pendi"
+        },
+        {
+          "c_custkey": 13624771,
+          "c_name": "Customer#013624771",
+          "revenue": 767856.1562000001,
+          "c_acctbal": -168.68,
+          "n_name": "IRAN",
+          "c_address": " uekVASYAlR1fqAFoJwcgndQAF",
+          "c_phone": "20-919-886-5399",
+          "c_comment": "unts wake furiously above the carefully special instruction"
+        },
+        {
+          "c_custkey": 13896424,
+          "c_name": "Customer#013896424",
+          "revenue": 760957.6214,
+          "c_acctbal": 3798.91,
+          "n_name": "INDONESIA",
+          "c_address": "PzqffgfQ7p",
+          "c_phone": "19-494-837-4503",
+          "c_comment": " the quickly furious deposits. packages after the furiously unusual instructions hang slyly iron"
+        },
+        {
+          "c_custkey": 4926817,
+          "c_name": "Customer#004926817",
+          "revenue": 758756.8533,
+          "c_acctbal": 5462.22,
+          "n_name": "RUSSIA",
+          "c_address": "4RbwBrzz6eHCI",
+          "c_phone": "32-610-751-1595",
+          "c_comment": "against the furiously regular ideas. carefully e"
+        },
+        {
+          "c_custkey": 319150,
+          "c_name": "Customer#000319150",
+          "revenue": 757235.8949000001,
+          "c_acctbal": 3257.68,
+          "n_name": "IRAN",
+          "c_address": "GZg5Tg1XIJUOKHxb6C,I4h7PrwFiwitvn",
+          "c_phone": "20-837-276-7259",
+          "c_comment": "deposits. regular accounts nag. slyly ironic idea"
+        },
+        {
+          "c_custkey": 5894188,
+          "c_name": "Customer#005894188",
+          "revenue": 756482.0641,
+          "c_acctbal": 3062.0,
+          "n_name": "BRAZIL",
+          "c_address": ",b 3YYdbkOsSZdSEekTT,Dk8dljn 4aUkzEE9M3",
+          "c_phone": "12-372-345-6045",
+          "c_comment": "slyly regular pinto beans integrate s"
+        },
+        {
+          "c_custkey": 3387028,
+          "c_name": "Customer#003387028",
+          "revenue": 755937.5756999999,
+          "c_acctbal": 3726.64,
+          "n_name": "ETHIOPIA",
+          "c_address": "IWj4CTUBet5tE",
+          "c_phone": "15-880-219-8399",
+          "c_comment": "ests sleep furiously among the furiously regular p"
+        }
+      ],
+      "host_result_seconds": 2.249698311003158,
+      "action_started_at_utc": "2026-10-26T20:40:33.236644+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:35.486099+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:35.486353+00:00",
+      "action_start_monotonic_seconds": 25216.489111032,
+      "action_end_monotonic_seconds": 25218.738551559,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 648.24,
+            "system": 73.9,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 230060,
+            "write_count": 857,
+            "read_bytes": 0,
+            "write_bytes": 1187840,
+            "read_chars": 29350182,
+            "write_chars": 1074622
+          },
+          "minor_faults": 20369865,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 698.53,
+            "system": 79.32,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 245526,
+            "write_count": 924,
+            "read_bytes": 0,
+            "write_bytes": 1187840,
+            "read_chars": 30753660,
+            "write_chars": 1075158
+          },
+          "minor_faults": 21880868,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:33.211818+00:00",
+      "ended_at_utc": "2026-10-26T20:40:35.491976+00:00",
+      "peak_process_tree_rss_bytes": 6273499136,
+      "plan": "plans/q10-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 3.850856498000212,
+      "rows": [
+        {
+          "l_orderkey": 249739810,
+          "revenue": 492136.8536999999,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 165214338,
+          "revenue": 485645.5293,
+          "o_orderdate": "1995-03-09",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 507274210,
+          "revenue": 485256.2467,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 202071367,
+          "revenue": 474746.4068,
+          "o_orderdate": "1995-03-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 37307463,
+          "revenue": 474325.19379999995,
+          "o_orderdate": "1995-02-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 461984355,
+          "revenue": 468002.52739999996,
+          "o_orderdate": "1995-03-13",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 100810368,
+          "revenue": 467932.7645,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 74015523,
+          "revenue": 467786.8027,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 402772582,
+          "revenue": 463367.06649999996,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 367111712,
+          "revenue": 462559.3977,
+          "o_orderdate": "1995-03-01",
+          "o_shippriority": 0
+        }
+      ],
+      "host_result_seconds": 3.8509216960010235,
+      "action_started_at_utc": "2026-10-26T20:40:35.520111+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:39.370985+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:39.371046+00:00",
+      "action_start_monotonic_seconds": 25218.772580671,
+      "action_end_monotonic_seconds": 25222.623437169,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 698.55,
+            "system": 79.37,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 247020,
+            "write_count": 928,
+            "read_bytes": 0,
+            "write_bytes": 1335296,
+            "read_chars": 30898962,
+            "write_chars": 1212267
+          },
+          "minor_faults": 21880889,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 777.23,
+            "system": 94.29,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 272788,
+            "write_count": 995,
+            "read_bytes": 0,
+            "write_bytes": 1335296,
+            "read_chars": 33230590,
+            "write_chars": 1212803
+          },
+          "minor_faults": 26869414,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:35.494003+00:00",
+      "ended_at_utc": "2026-10-26T20:40:39.377587+00:00",
+      "peak_process_tree_rss_bytes": 21621219328,
+      "plan": "plans/q03-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 4.071662127000309,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 3775127758.0,
+          "sum_base_price": 5660776097194.392,
+          "sum_disc_price": 5377736398183.907,
+          "sum_charge": 5592847429515.92,
+          "avg_qty": 25.499370423275426,
+          "avg_price": 38236.1169843045,
+          "avg_disc": 0.050002243530793654,
+          "count_order": 148047881
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 98553062.0,
+          "sum_base_price": 147771098385.97998,
+          "sum_disc_price": 140384965965.03464,
+          "sum_charge": 145999793032.77567,
+          "avg_qty": 25.501556956882876,
+          "avg_price": 38237.199388804496,
+          "avg_disc": 0.04998528433810789,
+          "count_order": 3864590
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 7436302976.0,
+          "sum_base_price": 11150725681373.582,
+          "sum_disc_price": 10593195308234.793,
+          "sum_charge": 11016932248183.691,
+          "avg_qty": 25.500009404374193,
+          "avg_price": 38237.227646360916,
+          "avg_disc": 0.04999791831763969,
+          "count_order": 291619617
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 3775724970.0,
+          "sum_base_price": 5661603032745.393,
+          "sum_disc_price": 5378513563915.349,
+          "sum_charge": 5593662252666.921,
+          "avg_qty": 25.50006628406532,
+          "avg_price": 38236.69725845332,
+          "avg_disc": 0.05000130433951833,
+          "count_order": 148067261
+        }
+      ],
+      "host_result_seconds": 4.0717345910015865,
+      "action_started_at_utc": "2026-10-26T20:40:39.401665+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:43.473344+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:43.473411+00:00",
+      "action_start_monotonic_seconds": 25222.654132163,
+      "action_end_monotonic_seconds": 25226.72579429,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 777.27,
+            "system": 94.33,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 274282,
+            "write_count": 999,
+            "read_bytes": 0,
+            "write_bytes": 1490944,
+            "read_chars": 33375910,
+            "write_chars": 1356875
+          },
+          "minor_faults": 26869420,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 873.8,
+            "system": 102.88,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 300786,
+            "write_count": 1080,
+            "read_bytes": 0,
+            "write_bytes": 1490944,
+            "read_chars": 35774334,
+            "write_chars": 1357523
+          },
+          "minor_faults": 28991667,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:39.379826+00:00",
+      "ended_at_utc": "2026-10-26T20:40:43.480462+00:00",
+      "peak_process_tree_rss_bytes": 27003822080,
+      "plan": "plans/q01-measured-2.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 1.654594684001495,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 623115,
+          "low_line_count": 934713
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 622979,
+          "low_line_count": 934534
+        }
+      ],
+      "host_result_seconds": 1.6546517920032784,
+      "action_started_at_utc": "2026-10-26T20:40:43.507833+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:45.162443+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:45.162495+00:00",
+      "action_start_monotonic_seconds": 25226.760299755,
+      "action_end_monotonic_seconds": 25228.414894439,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 873.81,
+            "system": 102.94,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 302245,
+            "write_count": 1084,
+            "read_bytes": 0,
+            "write_bytes": 1654784,
+            "read_chars": 35913231,
+            "write_chars": 1508555
+          },
+          "minor_faults": 28991674,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 906.68,
+            "system": 105.17,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 314064,
+            "write_count": 1126,
+            "read_bytes": 0,
+            "write_bytes": 1654784,
+            "read_chars": 36987810,
+            "write_chars": 1508891
+          },
+          "minor_faults": 29144754,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:43.482759+00:00",
+      "ended_at_utc": "2026-10-26T20:40:45.168254+00:00",
+      "peak_process_tree_rss_bytes": 16342159360,
+      "plan": "plans/q12-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 2.2912518990015087,
+      "rows": [
+        {
+          "c_custkey": 7450894,
+          "c_name": "Customer#007450894",
+          "revenue": 936768.8469,
+          "c_acctbal": 927.18,
+          "n_name": "ARGENTINA",
+          "c_address": "Kub3yOhSWLuc MTLe8owZ spwzrOvVlX8WQJwuE",
+          "c_phone": "11-833-256-7879",
+          "c_comment": "the furiously unusual foxes! platelets nag boldly above the quickly bold accounts. furiously "
+        },
+        {
+          "c_custkey": 9739771,
+          "c_name": "Customer#009739771",
+          "revenue": 842966.5285,
+          "c_acctbal": 1286.48,
+          "n_name": "JORDAN",
+          "c_address": "zoTOSQ1TrpuUDmCk9f",
+          "c_phone": "23-281-450-4794",
+          "c_comment": "boost quickly. never dogged instructions boost quickly ironic requests. pinto beans sleep carefully across "
+        },
+        {
+          "c_custkey": 4571035,
+          "c_name": "Customer#004571035",
+          "revenue": 838705.6168,
+          "c_acctbal": 6704.13,
+          "n_name": "UNITED KINGDOM",
+          "c_address": "Z,inL0muZQK8AiEm3qme9CBjuYIO0JTfH",
+          "c_phone": "33-138-285-3770",
+          "c_comment": "ecial theodolites wake slyly across the never silent ideas. final foxes around the carefully regular "
+        },
+        {
+          "c_custkey": 637855,
+          "c_name": "Customer#000637855",
+          "revenue": 812034.3777999999,
+          "c_acctbal": 2674.86,
+          "n_name": "MOZAMBIQUE",
+          "c_address": "BV7zGwFIOkc",
+          "c_phone": "26-852-120-2850",
+          "c_comment": "ges. express, special dolphins cajole around the slyly regular accounts. fu"
+        },
+        {
+          "c_custkey": 10781974,
+          "c_name": "Customer#010781974",
+          "revenue": 801735.5176000001,
+          "c_acctbal": 5079.77,
+          "n_name": "ROMANIA",
+          "c_address": "pwYB0N97ySprr4vi5UZ382q0U8WCPp",
+          "c_phone": "29-651-722-6239",
+          "c_comment": "sits haggle evenly. express packages sl"
+        },
+        {
+          "c_custkey": 11361613,
+          "c_name": "Customer#011361613",
+          "revenue": 800558.4336999999,
+          "c_acctbal": 4644.71,
+          "n_name": "INDONESIA",
+          "c_address": "I4gKJjA4BV6syYz",
+          "c_phone": "19-344-539-9187",
+          "c_comment": "l, special dependencies. carefully regular instructions use about the carefully bold accounts. pending accou"
+        },
+        {
+          "c_custkey": 1259743,
+          "c_name": "Customer#001259743",
+          "revenue": 793274.7845999999,
+          "c_acctbal": 2592.74,
+          "n_name": "ETHIOPIA",
+          "c_address": "35Mr0In QWvDgyLt8UYPECuBEllYNShLI",
+          "c_phone": "15-733-636-6732",
+          "c_comment": "y express requests cajole furiously alongside of the carefull"
+        },
+        {
+          "c_custkey": 5154136,
+          "c_name": "Customer#005154136",
+          "revenue": 787191.1958999999,
+          "c_acctbal": 1028.97,
+          "n_name": "MOROCCO",
+          "c_address": "30OHoO9k5s,HrKS3a6k9fLVsXa",
+          "c_phone": "25-841-379-9394",
+          "c_comment": "affix carefully blithely unusual requests. unusual ideas b"
+        },
+        {
+          "c_custkey": 14986552,
+          "c_name": "Customer#014986552",
+          "revenue": 781645.8638,
+          "c_acctbal": 2678.94,
+          "n_name": "ARGENTINA",
+          "c_address": "zFVtpT4Zo,",
+          "c_phone": "11-671-762-3613",
+          "c_comment": "s. packages haggle carefully at the ironic braids. blithely regular pinto beans cajole slyly. "
+        },
+        {
+          "c_custkey": 2905816,
+          "c_name": "Customer#002905816",
+          "revenue": 778729.4414,
+          "c_acctbal": 5085.53,
+          "n_name": "UNITED STATES",
+          "c_address": "QOfcBYPRbq",
+          "c_phone": "34-217-584-5820",
+          "c_comment": "s under the regular sheaves sleep blithely final platelets. dolphins sleep across the stealthily special ideas. furi"
+        },
+        {
+          "c_custkey": 6184141,
+          "c_name": "Customer#006184141",
+          "revenue": 772721.0973,
+          "c_acctbal": 5901.88,
+          "n_name": "BRAZIL",
+          "c_address": "3CxIFtsmlpESaUQzurlTV",
+          "c_phone": "12-563-743-4211",
+          "c_comment": "eodolites according to the carefully final accounts use carefully slyly ironic instructions. b"
+        },
+        {
+          "c_custkey": 7852024,
+          "c_name": "Customer#007852024",
+          "revenue": 769688.6616,
+          "c_acctbal": 1197.57,
+          "n_name": "INDIA",
+          "c_address": "ZrF1h1tpKbH9j5cVtnD3NMJFtE1my05S86WiWU09",
+          "c_phone": "18-141-580-3886",
+          "c_comment": " blithely ironic notornis cajole according to the quickly even requests! quickly re"
+        },
+        {
+          "c_custkey": 7183231,
+          "c_name": "Customer#007183231",
+          "revenue": 768455.8796,
+          "c_acctbal": -683.01,
+          "n_name": "INDIA",
+          "c_address": "Ds83MjPovIdahJd",
+          "c_phone": "18-270-127-8463",
+          "c_comment": "ial pinto beans among the furiously special deposits haggle quickly after the ironic, final deposits. regular theodo"
+        },
+        {
+          "c_custkey": 1627651,
+          "c_name": "Customer#001627651",
+          "revenue": 768300.3006,
+          "c_acctbal": 3059.82,
+          "n_name": "MOROCCO",
+          "c_address": "PBXh8ZQR2xTOpgQo 7FBfI EZGZ BnD",
+          "c_phone": "25-732-202-4862",
+          "c_comment": "ts are alongside of the requests. carefully regular accounts above the ironic deposits integrate slyly pendi"
+        },
+        {
+          "c_custkey": 13624771,
+          "c_name": "Customer#013624771",
+          "revenue": 767856.1561999999,
+          "c_acctbal": -168.68,
+          "n_name": "IRAN",
+          "c_address": " uekVASYAlR1fqAFoJwcgndQAF",
+          "c_phone": "20-919-886-5399",
+          "c_comment": "unts wake furiously above the carefully special instruction"
+        },
+        {
+          "c_custkey": 13896424,
+          "c_name": "Customer#013896424",
+          "revenue": 760957.6214000001,
+          "c_acctbal": 3798.91,
+          "n_name": "INDONESIA",
+          "c_address": "PzqffgfQ7p",
+          "c_phone": "19-494-837-4503",
+          "c_comment": " the quickly furious deposits. packages after the furiously unusual instructions hang slyly iron"
+        },
+        {
+          "c_custkey": 4926817,
+          "c_name": "Customer#004926817",
+          "revenue": 758756.8533,
+          "c_acctbal": 5462.22,
+          "n_name": "RUSSIA",
+          "c_address": "4RbwBrzz6eHCI",
+          "c_phone": "32-610-751-1595",
+          "c_comment": "against the furiously regular ideas. carefully e"
+        },
+        {
+          "c_custkey": 319150,
+          "c_name": "Customer#000319150",
+          "revenue": 757235.8949,
+          "c_acctbal": 3257.68,
+          "n_name": "IRAN",
+          "c_address": "GZg5Tg1XIJUOKHxb6C,I4h7PrwFiwitvn",
+          "c_phone": "20-837-276-7259",
+          "c_comment": "deposits. regular accounts nag. slyly ironic idea"
+        },
+        {
+          "c_custkey": 5894188,
+          "c_name": "Customer#005894188",
+          "revenue": 756482.0641000001,
+          "c_acctbal": 3062.0,
+          "n_name": "BRAZIL",
+          "c_address": ",b 3YYdbkOsSZdSEekTT,Dk8dljn 4aUkzEE9M3",
+          "c_phone": "12-372-345-6045",
+          "c_comment": "slyly regular pinto beans integrate s"
+        },
+        {
+          "c_custkey": 3387028,
+          "c_name": "Customer#003387028",
+          "revenue": 755937.5756999999,
+          "c_acctbal": 3726.64,
+          "n_name": "ETHIOPIA",
+          "c_address": "IWj4CTUBet5tE",
+          "c_phone": "15-880-219-8399",
+          "c_comment": "ests sleep furiously among the furiously regular p"
+        }
+      ],
+      "host_result_seconds": 2.291503279000608,
+      "action_started_at_utc": "2026-10-26T20:40:45.191711+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:47.482978+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:47.483225+00:00",
+      "action_start_monotonic_seconds": 25228.444177807,
+      "action_end_monotonic_seconds": 25230.735429706,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 906.68,
+            "system": 105.23,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 315370,
+            "write_count": 1130,
+            "read_bytes": 0,
+            "write_bytes": 1814528,
+            "read_chars": 37111774,
+            "write_chars": 1664656
+          },
+          "minor_faults": 29144765,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 956.8,
+            "system": 110.74,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 331022,
+            "write_count": 1223,
+            "read_bytes": 0,
+            "write_bytes": 1814528,
+            "read_chars": 38533787,
+            "write_chars": 1665400
+          },
+          "minor_faults": 30669952,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:45.170623+00:00",
+      "ended_at_utc": "2026-10-26T20:40:47.489606+00:00",
+      "peak_process_tree_rss_bytes": 6663401472,
+      "plan": "plans/q10-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 0.9542552189996059,
+      "rows": [
+        {
+          "promo_revenue": 16.640357433254103
+        }
+      ],
+      "host_result_seconds": 0.9543045370010077,
+      "action_started_at_utc": "2026-10-26T20:40:47.516507+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:48.470777+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:48.470822+00:00",
+      "action_start_monotonic_seconds": 25230.768973829,
+      "action_end_monotonic_seconds": 25231.723229048,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 956.82,
+            "system": 110.79,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 332426,
+            "write_count": 1227,
+            "read_bytes": 0,
+            "write_bytes": 2007040,
+            "read_chars": 38666554,
+            "write_chars": 1842254
+          },
+          "minor_faults": 30669974,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 975.23,
+            "system": 112.41,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 339148,
+            "write_count": 1250,
+            "read_bytes": 0,
+            "write_bytes": 2007040,
+            "read_chars": 39281754,
+            "write_chars": 1842438
+          },
+          "minor_faults": 30831031,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:47.492595+00:00",
+      "ended_at_utc": "2026-10-26T20:40:48.481352+00:00",
+      "peak_process_tree_rss_bytes": 8676335616,
+      "plan": "plans/q14-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 0.6193098209987511,
+      "rows": [
+        {
+          "revenue": 12330426888.463701
+        }
+      ],
+      "host_result_seconds": 0.6193608199973824,
+      "action_started_at_utc": "2026-10-26T20:40:48.512154+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:49.131483+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:49.131530+00:00",
+      "action_start_monotonic_seconds": 25231.764625937,
+      "action_end_monotonic_seconds": 25232.383935758,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 975.25,
+            "system": 112.47,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 340642,
+            "write_count": 1254,
+            "read_bytes": 0,
+            "write_bytes": 2191360,
+            "read_chars": 39427050,
+            "write_chars": 2022470
+          },
+          "minor_faults": 30831041,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 989.92,
+            "system": 113.4,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 345066,
+            "write_count": 1280,
+            "read_bytes": 0,
+            "write_bytes": 2191360,
+            "read_chars": 39830032,
+            "write_chars": 2022678
+          },
+          "minor_faults": 30923822,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:48.483957+00:00",
+      "ended_at_utc": "2026-10-26T20:40:49.142107+00:00",
+      "peak_process_tree_rss_bytes": 4257509376,
+      "plan": "plans/q06-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 4.109097442997154,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 3775127758.0,
+          "sum_base_price": 5660776097194.385,
+          "sum_disc_price": 5377736398183.93,
+          "sum_charge": 5592847429515.93,
+          "avg_qty": 25.499370423275426,
+          "avg_price": 38236.116984304455,
+          "avg_disc": 0.050002243530793564,
+          "count_order": 148047881
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 98553062.0,
+          "sum_base_price": 147771098385.98004,
+          "sum_disc_price": 140384965965.03464,
+          "sum_charge": 145999793032.7756,
+          "avg_qty": 25.501556956882876,
+          "avg_price": 38237.19938880452,
+          "avg_disc": 0.04998528433810789,
+          "count_order": 3864590
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 7436302976.0,
+          "sum_base_price": 11150725681373.613,
+          "sum_disc_price": 10593195308234.807,
+          "sum_charge": 11016932248183.693,
+          "avg_qty": 25.500009404374193,
+          "avg_price": 38237.227646361025,
+          "avg_disc": 0.04999791831764006,
+          "count_order": 291619617
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 3775724970.0,
+          "sum_base_price": 5661603032745.39,
+          "sum_disc_price": 5378513563915.333,
+          "sum_charge": 5593662252666.928,
+          "avg_qty": 25.50006628406532,
+          "avg_price": 38236.6972584533,
+          "avg_disc": 0.050001304339518104,
+          "count_order": 148067261
+        }
+      ],
+      "host_result_seconds": 4.109162690998346,
+      "action_started_at_utc": "2026-10-26T20:40:49.169089+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:53.278201+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:53.278262+00:00",
+      "action_start_monotonic_seconds": 25232.42155609,
+      "action_end_monotonic_seconds": 25236.530653533,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 989.94,
+            "system": 113.46,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 346556,
+            "write_count": 1284,
+            "read_bytes": 0,
+            "write_bytes": 2383872,
+            "read_chars": 39971920,
+            "write_chars": 2206785
+          },
+          "minor_faults": 30923831,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 1086.3,
+            "system": 123.2,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 373064,
+            "write_count": 1314,
+            "read_bytes": 0,
+            "write_bytes": 2383872,
+            "read_chars": 42373724,
+            "write_chars": 2207025
+          },
+          "minor_faults": 34146446,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:49.145589+00:00",
+      "ended_at_utc": "2026-10-26T20:40:53.284962+00:00",
+      "peak_process_tree_rss_bytes": 11354456064,
+      "plan": "plans/q01-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 3.7516569519975747,
+      "rows": [
+        {
+          "l_orderkey": 249739810,
+          "revenue": 492136.8536999999,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 165214338,
+          "revenue": 485645.5293,
+          "o_orderdate": "1995-03-09",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 507274210,
+          "revenue": 485256.2467,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 202071367,
+          "revenue": 474746.4068,
+          "o_orderdate": "1995-03-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 37307463,
+          "revenue": 474325.19379999995,
+          "o_orderdate": "1995-02-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 461984355,
+          "revenue": 468002.52739999996,
+          "o_orderdate": "1995-03-13",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 100810368,
+          "revenue": 467932.76450000005,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 74015523,
+          "revenue": 467786.8027,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 402772582,
+          "revenue": 463367.0665,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 367111712,
+          "revenue": 462559.3977,
+          "o_orderdate": "1995-03-01",
+          "o_shippriority": 0
+        }
+      ],
+      "host_result_seconds": 3.7517213909995917,
+      "action_started_at_utc": "2026-10-26T20:40:53.307975+00:00",
+      "action_ended_at_utc": "2026-10-26T20:40:57.059646+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:40:57.059707+00:00",
+      "action_start_monotonic_seconds": 25236.560441655,
+      "action_end_monotonic_seconds": 25240.312098607,
+      "process_counters_before": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 1086.32,
+            "system": 123.23,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 374508,
+            "write_count": 1318,
+            "read_bytes": 0,
+            "write_bytes": 2592768,
+            "read_chars": 42510415,
+            "write_chars": 2399090
+          },
+          "minor_faults": 34146456,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "92860": {
+          "name": "python",
+          "created": 1793047201.43,
+          "cpu_times": {
+            "user": 1165.94,
+            "system": 135.9,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 399590,
+            "write_count": 1371,
+            "read_bytes": 0,
+            "write_bytes": 2592768,
+            "read_chars": 44784388,
+            "write_chars": 2399514
+          },
+          "minor_faults": 38296938,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:40:53.287785+00:00",
+      "ended_at_utc": "2026-10-26T20:40:57.065116+00:00",
+      "peak_process_tree_rss_bytes": 21546217472,
+      "plan": "plans/q03-measured-3.txt",
+      "gpu_plan_observed": false,
+      "gpu_operators": [],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "cpu_engine"
+    }
+  ],
+  "query_errors": [],
+  "query_cleanup_policy": "none",
+  "cleanup_records": [],
+  "failure_policy": "raise",
+  "version": "1.44.2",
+  "cpu_threads": 26,
+  "session_and_table_setup_seconds": 0.07380201799969655,
+  "launch_to_engine_ready_seconds": 0.13724660873413086,
+  "active_query": null,
+  "query_execution_status": "complete",
+  "completed_at_utc": "2026-10-26T20:40:57.067984+00:00"
+}

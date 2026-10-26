@@ -1,0 +1,79 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   TakeOrderedAndProject(limit=20, orderBy=[revenue#551 DESC NULLS LAST,c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,revenue#551,c_acctbal#16,n_name#128,c_address#2,c_phone#4,c_comment#7])
+   +- *(11) HashAggregate(keys=[c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7], functions=[sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[c_custkey#0L, c_name#1, revenue#551, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7])
+      +- AQEShuffleRead coalesced
+         +- ShuffleQueryStage 5
+            +- Exchange hashpartitioning(c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7, 120), ENSURE_REQUIREMENTS, [plan_id=4588]
+               +- *(10) HashAggregate(keys=[c_custkey#0L, c_name#1, knownfloatingpointnormalized(normalizenanandzero(c_acctbal#16)) AS c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7], functions=[partial_sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7, sum#562])
+                  +- *(10) Project [c_custkey#0L, c_name#1, c_address#2, c_phone#4, c_acctbal#16, c_comment#7, l_extendedprice#76, l_discount#93, n_name#128]
+                     +- *(10) BroadcastHashJoin [c_nationkey#3], [n_nationkey#127], Inner, BuildRight, false
+                        :- *(10) Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, c_acctbal#16, c_comment#7, l_extendedprice#76, l_discount#93]
+                        :  +- *(10) SortMergeJoin [o_orderkey#135L], [l_orderkey#26L], Inner
+                        :     :- *(8) Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+                        :     :  +- AQEShuffleRead coalesced
+                        :     :     +- ShuffleQueryStage 4
+                        :     :        +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=4447]
+                        :     :           +- *(7) Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, c_acctbal#16, c_comment#7, o_orderkey#135L]
+                        :     :              +- *(7) SortMergeJoin [c_custkey#0L], [o_custkey#136L], Inner
+                        :     :                 :- *(5) Sort [c_custkey#0L ASC NULLS FIRST], false, 0
+                        :     :                 :  +- AQEShuffleRead coalesced
+                        :     :                 :     +- ShuffleQueryStage 0
+                        :     :                 :        +- Exchange hashpartitioning(c_custkey#0L, 120), ENSURE_REQUIREMENTS, [plan_id=4169]
+                        :     :                 :           +- *(1) Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, cast(c_acctbal#5 as double) AS c_acctbal#16, c_comment#7]
+                        :     :                 :              +- *(1) Filter (isnotnull(c_custkey#0L) AND isnotnull(c_nationkey#3))
+                        :     :                 :                 +- *(1) ColumnarToRow
+                        :     :                 :                    +- FileScan parquet [c_custkey#0L,c_name#1,c_address#2,c_nationkey#3,c_phone#4,c_acctbal#5,c_comment#7] Batched: true, DataFilters: [isnotnull(c_custkey#0L), isnotnull(c_nationkey#3)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/customer], PartitionFilters: [], PushedFilters: [IsNotNull(c_custkey), IsNotNull(c_nationkey)], ReadSchema: struct<c_custkey:bigint,c_name:string,c_address:string,c_nationkey:int,c_phone:string,c_acctbal:d...
+                        :     :                 +- *(6) Sort [o_custkey#136L ASC NULLS FIRST], false, 0
+                        :     :                    +- AQEShuffleRead coalesced
+                        :     :                       +- ShuffleQueryStage 1
+                        :     :                          +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=4190]
+                        :     :                             +- *(2) Project [o_orderkey#135L, o_custkey#136L]
+                        :     :                                +- *(2) Filter ((((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1993-10-01)) AND (o_orderdate#139 < 1994-01-01)) AND isnotnull(o_custkey#136L)) AND isnotnull(o_orderkey#135L))
+                        :     :                                   +- *(2) ColumnarToRow
+                        :     :                                      +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1993-10-01), (o_orderdate#139 < 1994-01-01), isn..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1993-10-01), LessThan(o_orderdate,1994-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date>
+                        :     +- *(9) Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                        :        +- AQEShuffleRead coalesced
+                        :           +- ShuffleQueryStage 2
+                        :              +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=4215]
+                        :                 +- *(3) Project [l_orderkey#26L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93]
+                        :                    +- *(3) Filter ((isnotnull(l_returnflag#34) AND (l_returnflag#34 = R)) AND isnotnull(l_orderkey#26L))
+                        :                       +- *(3) ColumnarToRow
+                        :                          +- FileScan parquet [l_orderkey#26L,l_extendedprice#31,l_discount#32,l_returnflag#34] Batched: true, DataFilters: [isnotnull(l_returnflag#34), (l_returnflag#34 = R), isnotnull(l_orderkey#26L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_returnflag), EqualTo(l_returnflag,R), IsNotNull(l_orderkey)], ReadSchema: struct<l_orderkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_returnflag:string>
+                        +- BroadcastQueryStage 3
+                           +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=4236]
+                              +- *(4) Filter isnotnull(n_nationkey#127)
+                                 +- *(4) ColumnarToRow
+                                    +- FileScan parquet [n_nationkey#127,n_name#128] Batched: true, DataFilters: [isnotnull(n_nationkey#127)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/nation], PartitionFilters: [], PushedFilters: [IsNotNull(n_nationkey)], ReadSchema: struct<n_nationkey:int,n_name:string>
++- == Initial Plan ==
+   TakeOrderedAndProject(limit=20, orderBy=[revenue#551 DESC NULLS LAST,c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,revenue#551,c_acctbal#16,n_name#128,c_address#2,c_phone#4,c_comment#7])
+   +- HashAggregate(keys=[c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7], functions=[sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[c_custkey#0L, c_name#1, revenue#551, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7])
+      +- Exchange hashpartitioning(c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7, 120), ENSURE_REQUIREMENTS, [plan_id=4106]
+         +- HashAggregate(keys=[c_custkey#0L, c_name#1, knownfloatingpointnormalized(normalizenanandzero(c_acctbal#16)) AS c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7], functions=[partial_sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7, sum#562])
+            +- Project [c_custkey#0L, c_name#1, c_address#2, c_phone#4, c_acctbal#16, c_comment#7, l_extendedprice#76, l_discount#93, n_name#128]
+               +- BroadcastHashJoin [c_nationkey#3], [n_nationkey#127], Inner, BuildRight, false
+                  :- Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, c_acctbal#16, c_comment#7, l_extendedprice#76, l_discount#93]
+                  :  +- SortMergeJoin [o_orderkey#135L], [l_orderkey#26L], Inner
+                  :     :- Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+                  :     :  +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=4094]
+                  :     :     +- Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, c_acctbal#16, c_comment#7, o_orderkey#135L]
+                  :     :        +- SortMergeJoin [c_custkey#0L], [o_custkey#136L], Inner
+                  :     :           :- Sort [c_custkey#0L ASC NULLS FIRST], false, 0
+                  :     :           :  +- Exchange hashpartitioning(c_custkey#0L, 120), ENSURE_REQUIREMENTS, [plan_id=4086]
+                  :     :           :     +- Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, cast(c_acctbal#5 as double) AS c_acctbal#16, c_comment#7]
+                  :     :           :        +- Filter (isnotnull(c_custkey#0L) AND isnotnull(c_nationkey#3))
+                  :     :           :           +- FileScan parquet [c_custkey#0L,c_name#1,c_address#2,c_nationkey#3,c_phone#4,c_acctbal#5,c_comment#7] Batched: true, DataFilters: [isnotnull(c_custkey#0L), isnotnull(c_nationkey#3)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/customer], PartitionFilters: [], PushedFilters: [IsNotNull(c_custkey), IsNotNull(c_nationkey)], ReadSchema: struct<c_custkey:bigint,c_name:string,c_address:string,c_nationkey:int,c_phone:string,c_acctbal:d...
+                  :     :           +- Sort [o_custkey#136L ASC NULLS FIRST], false, 0
+                  :     :              +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=4087]
+                  :     :                 +- Project [o_orderkey#135L, o_custkey#136L]
+                  :     :                    +- Filter ((((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1993-10-01)) AND (o_orderdate#139 < 1994-01-01)) AND isnotnull(o_custkey#136L)) AND isnotnull(o_orderkey#135L))
+                  :     :                       +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1993-10-01), (o_orderdate#139 < 1994-01-01), isn..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1993-10-01), LessThan(o_orderdate,1994-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date>
+                  :     +- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                  :        +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=4095]
+                  :           +- Project [l_orderkey#26L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93]
+                  :              +- Filter ((isnotnull(l_returnflag#34) AND (l_returnflag#34 = R)) AND isnotnull(l_orderkey#26L))
+                  :                 +- FileScan parquet [l_orderkey#26L,l_extendedprice#31,l_discount#32,l_returnflag#34] Batched: true, DataFilters: [isnotnull(l_returnflag#34), (l_returnflag#34 = R), isnotnull(l_orderkey#26L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_returnflag), EqualTo(l_returnflag,R), IsNotNull(l_orderkey)], ReadSchema: struct<l_orderkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_returnflag:string>
+                  +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=4101]
+                     +- Filter isnotnull(n_nationkey#127)
+                        +- FileScan parquet [n_nationkey#127,n_name#128] Batched: true, DataFilters: [isnotnull(n_nationkey#127)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/nation], PartitionFilters: [], PushedFilters: [IsNotNull(n_nationkey)], ReadSchema: struct<n_nationkey:int,n_name:string>
+
