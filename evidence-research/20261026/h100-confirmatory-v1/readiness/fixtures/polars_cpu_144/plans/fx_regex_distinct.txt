@@ -1,0 +1,9 @@
+SORT BY [col("group_name")]
+  AGGREGATE[maintain_order: false]
+    [len().cast(Int64).alias("eligible_rows"), col("value_id").drop_nulls().n_unique().cast(Int64).alias("distinct_values")] BY [col("group_name")]
+    FROM
+    simple π 2/2 ["group_name", "value_id"]
+      FILTER col("comment").str.contains(["(?s)special.*requests"]).not()
+      FROM
+        simple π 3/3 ["group_name", "value_id", ... 1 other column]
+          DF ["group_name", "comment", "value_id"]; PROJECT */3 COLUMNS

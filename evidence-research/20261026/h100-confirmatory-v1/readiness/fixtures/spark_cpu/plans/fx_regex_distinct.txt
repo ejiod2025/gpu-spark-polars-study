@@ -1,0 +1,32 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(4) Sort [group_name#24 ASC NULLS FIRST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 2
+         +- Exchange rangepartitioning(group_name#24 ASC NULLS FIRST, 2), ENSURE_REQUIREMENTS, [plan_id=984]
+            +- *(3) HashAggregate(keys=[group_name#24], functions=[count(1), count(distinct value_id#26L)], output=[group_name#24, eligible_rows#93L, distinct_values#94L])
+               +- AQEShuffleRead coalesced
+                  +- ShuffleQueryStage 1
+                     +- Exchange hashpartitioning(group_name#24, 2), ENSURE_REQUIREMENTS, [plan_id=954]
+                        +- *(2) HashAggregate(keys=[group_name#24], functions=[merge_count(1), partial_count(distinct value_id#26L)], output=[group_name#24, count#101L, count#104L])
+                           +- *(2) HashAggregate(keys=[group_name#24, value_id#26L], functions=[merge_count(1)], output=[group_name#24, value_id#26L, count#101L])
+                              +- AQEShuffleRead coalesced
+                                 +- ShuffleQueryStage 0
+                                    +- Exchange hashpartitioning(group_name#24, value_id#26L, 2), ENSURE_REQUIREMENTS, [plan_id=919]
+                                       +- *(1) HashAggregate(keys=[group_name#24, value_id#26L], functions=[partial_count(1)], output=[group_name#24, value_id#26L, count#101L])
+                                          +- *(1) Project [group_name#24, value_id#26L]
+                                             +- *(1) Filter (isnotnull(comment#25) AND NOT comment#25 LIKE %special%requests%)
+                                                +- *(1) Scan ExistingRDD[group_name#24,comment#25,value_id#26L]
++- == Initial Plan ==
+   Sort [group_name#24 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(group_name#24 ASC NULLS FIRST, 2), ENSURE_REQUIREMENTS, [plan_id=897]
+      +- HashAggregate(keys=[group_name#24], functions=[count(1), count(distinct value_id#26L)], output=[group_name#24, eligible_rows#93L, distinct_values#94L])
+         +- Exchange hashpartitioning(group_name#24, 2), ENSURE_REQUIREMENTS, [plan_id=894]
+            +- HashAggregate(keys=[group_name#24], functions=[merge_count(1), partial_count(distinct value_id#26L)], output=[group_name#24, count#101L, count#104L])
+               +- HashAggregate(keys=[group_name#24, value_id#26L], functions=[merge_count(1)], output=[group_name#24, value_id#26L, count#101L])
+                  +- Exchange hashpartitioning(group_name#24, value_id#26L, 2), ENSURE_REQUIREMENTS, [plan_id=890]
+                     +- HashAggregate(keys=[group_name#24, value_id#26L], functions=[partial_count(1)], output=[group_name#24, value_id#26L, count#101L])
+                        +- Project [group_name#24, value_id#26L]
+                           +- Filter (isnotnull(comment#25) AND NOT comment#25 LIKE %special%requests%)
+                              +- Scan ExistingRDD[group_name#24,comment#25,value_id#26L]
+

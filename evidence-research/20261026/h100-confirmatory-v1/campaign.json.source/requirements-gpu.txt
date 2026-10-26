@@ -1,0 +1,56 @@
+# GPU-side Python pins for the H100 extension (Option B in docs/POLARS_GPU_COMPAT.md).
+#
+# Layering over the A100 record (evidence/requirements.lock.txt):
+#   * Every package in the lock stays pinned EXCEPT polars and polars-runtime-32, which this file
+#     overrides. No released cudf-polars supports Polars 2.0.0 (the lock's pin); 26.10.2 requires
+#     polars>=1.35,<1.45. Both Polars engines (polars CPU and polars_gpu) therefore run 1.44.2 on
+#     the H100 host. setup_h100.sh installs the lock with those two lines removed, then this file,
+#     in ONE resolver call so any conflict fails loudly.
+#   * Python must be 3.11 or newer (cudf-polars >= 26.4 dropped 3.10). This file was resolved with
+#     `uv pip compile --python-version 3.11 --python-platform x86_64-manylinux_2_28` on 2026-10-26.
+#   * CUDA 12 wheels (-cu12): the A100 record used the CUDA 12 RAPIDS Spark jar and driver 580.x
+#     (R525.60.13+ is the documented minimum for CUDA 12 wheels). Do not mix -cu12 and -cu13.
+#   * numpy is not in the A100 lock; it arrives transitively (rmm/kvikio/cupy) and is pinned here.
+#
+# Alternatives (NOT active): see docs/POLARS_GPU_COMPAT.md, Options A and C.
+#
+# --- Polars override (replaces the lock's polars==2.0.0 / polars-runtime-32==2.0.0) ---
+polars-runtime-32==1.44.2
+polars==1.44.2
+#
+# --- cudf-polars and its resolved closure (CUDA 12, RAPIDS 26.10) ---
+cuda-bindings==12.9.10
+cuda-core==1.2.2
+cuda-pathfinder==1.8.4
+cuda-toolkit==12.9.2.0
+cudf-polars-cu12==26.10.2
+cudf-streaming-cu12==26.10.2
+cupy-cuda12x==14.2.0
+kvikio-cu12==26.10.0
+libcudf-cu12==26.10.2
+libcudf-streaming-cu12==26.10.2
+libkvikio-cu12==26.10.0
+librapidsmpf-cu12==26.10.0
+librmm-cu12==26.10.0
+libucx-cu12==1.21.0
+libucxx-cu12==0.52.0
+numpy==2.4.6
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cuda-nvrtc-cu12==12.9.86
+nvidia-cuda-runtime-cu12==12.9.79
+nvidia-cufft-cu12==11.4.1.4
+nvidia-cufile-cu12==1.14.1.1
+nvidia-curand-cu12==10.3.10.19
+nvidia-cusolver-cu12==11.7.5.82
+nvidia-cusparse-cu12==12.5.10.65
+nvidia-libnvcomp-cu12==5.3.0.16
+nvidia-ml-py==13.615.71
+nvidia-nvjitlink-cu12==12.9.86
+nvtx==0.2.16
+packaging==26.3
+pylibcudf-cu12==26.10.2
+rapids-logger==0.3.0
+rapidsmpf-cu12==26.10.0
+rmm-cu12==26.10.0
+typing-extensions==4.16.0
+ucxx-cu12==0.52.0

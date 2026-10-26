@@ -1,0 +1,15 @@
+SORT BY [col("left_id"), col("right_id")]
+  simple π 2/2 ["left_id", "right_id"]
+    INNER JOIN:
+    LEFT PLAN ON: [col("join_key")]
+      DF ["left_id", "join_key"]; PROJECT */2 COLUMNS
+    RIGHT PLAN ON: [col("join_key")]
+      DF ["right_id", "join_key"]; PROJECT */2 COLUMNS
+    END INNER JOIN
+== cudf-polars lowering (diagnostic, not runtime trace) ==
+SORT ('left_id', 'right_id') ('left_id', 'right_id') [1]
+  PROJECTION ('left_id', 'right_id') [1]
+    JOIN Inner ('join_key',) ('join_key',) ('left_id', 'join_key', 'right_id') [1]
+      DATAFRAMESCAN ('left_id', 'join_key') row_count='~5' [1]
+      DATAFRAMESCAN ('right_id', 'join_key') row_count='~5' [1]
+

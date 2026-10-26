@@ -1,0 +1,36 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(4) Sort [entity_id#8L ASC NULLS LAST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 3
+         +- Exchange rangepartitioning(entity_id#8L ASC NULLS LAST, 2), ENSURE_REQUIREMENTS, [plan_id=424]
+            +- *(3) HashAggregate(keys=[entity_id#8L], functions=[count(1), count(fact_id#10L)], output=[entity_id#8L, joined_rows#32L, nonnull_fact_ids#33L])
+               +- *(3) HashAggregate(keys=[entity_id#8L], functions=[partial_count(1), partial_count(fact_id#10L)], output=[entity_id#8L, count#41L, count#42L])
+                  +- *(3) Project [entity_id#8L, fact_id#10L]
+                     +- *(3) BroadcastHashJoin [entity_id#8L], [entity_id#11L], LeftOuter, BuildRight, false
+                        :- AQEShuffleRead coalesced
+                        :  +- ShuffleQueryStage 0
+                        :     +- Exchange hashpartitioning(entity_id#8L, 2), ENSURE_REQUIREMENTS, [plan_id=269]
+                        :        +- *(1) Scan ExistingRDD[entity_id#8L]
+                        +- BroadcastQueryStage 2
+                           +- BroadcastExchange HashedRelationBroadcastMode(List(input[1, bigint, false]),false), [plan_id=367]
+                              +- AQEShuffleRead local
+                                 +- ShuffleQueryStage 1
+                                    +- Exchange hashpartitioning(entity_id#11L, 2), ENSURE_REQUIREMENTS, [plan_id=276]
+                                       +- *(2) Filter isnotnull(entity_id#11L)
+                                          +- *(2) Scan ExistingRDD[fact_id#10L,entity_id#11L]
++- == Initial Plan ==
+   Sort [entity_id#8L ASC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(entity_id#8L ASC NULLS LAST, 2), ENSURE_REQUIREMENTS, [plan_id=244]
+      +- HashAggregate(keys=[entity_id#8L], functions=[count(1), count(fact_id#10L)], output=[entity_id#8L, joined_rows#32L, nonnull_fact_ids#33L])
+         +- HashAggregate(keys=[entity_id#8L], functions=[partial_count(1), partial_count(fact_id#10L)], output=[entity_id#8L, count#41L, count#42L])
+            +- Project [entity_id#8L, fact_id#10L]
+               +- SortMergeJoin [entity_id#8L], [entity_id#11L], LeftOuter
+                  :- Sort [entity_id#8L ASC NULLS FIRST], false, 0
+                  :  +- Exchange hashpartitioning(entity_id#8L, 2), ENSURE_REQUIREMENTS, [plan_id=235]
+                  :     +- Scan ExistingRDD[entity_id#8L]
+                  +- Sort [entity_id#11L ASC NULLS FIRST], false, 0
+                     +- Exchange hashpartitioning(entity_id#11L, 2), ENSURE_REQUIREMENTS, [plan_id=236]
+                        +- Filter isnotnull(entity_id#11L)
+                           +- Scan ExistingRDD[fact_id#10L,entity_id#11L]
+

@@ -1,0 +1,18 @@
+SORT BY [nulls_last: [true]] [col("entity_id")]
+  AGGREGATE[maintain_order: false]
+    [len().cast(Int64).alias("joined_rows"), col("fact_id").count().cast(Int64).alias("nonnull_fact_ids")] BY [col("entity_id")]
+    FROM
+    LEFT JOIN:
+    LEFT PLAN ON: [col("entity_id")]
+      DF ["entity_id"]; PROJECT */1 COLUMNS
+    RIGHT PLAN ON: [col("entity_id")]
+      DF ["fact_id", "entity_id"]; PROJECT */2 COLUMNS
+    END LEFT JOIN
+== cudf-polars lowering (diagnostic, not runtime trace) ==
+SORT ('entity_id',) ('entity_id', 'joined_rows', 'nonnull_fact_ids') [1]
+  SELECT ('entity_id', 'joined_rows', 'nonnull_fact_ids') [1]
+    GROUPBY ('entity_id',) ('entity_id', '________________1', '________________3') [1]
+      JOIN Left ('entity_id',) ('entity_id',) ('entity_id', 'fact_id') [1]
+        DATAFRAMESCAN ('entity_id',) row_count='~5' [1]
+        DATAFRAMESCAN ('fact_id', 'entity_id') row_count='~5' [1]
+

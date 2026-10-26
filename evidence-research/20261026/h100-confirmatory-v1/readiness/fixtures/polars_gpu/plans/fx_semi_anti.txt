@@ -1,0 +1,20 @@
+SORT BY [nulls_last: [true]] [col("entity_id")]
+  ANTI JOIN:
+  LEFT PLAN ON: [col("entity_id")]
+    SEMI JOIN:
+    LEFT PLAN ON: [col("entity_id")]
+      DF ["entity_id"]; PROJECT */1 COLUMNS
+    RIGHT PLAN ON: [col("entity_id")]
+      DF ["entity_id"]; PROJECT */1 COLUMNS
+    END SEMI JOIN
+  RIGHT PLAN ON: [col("entity_id")]
+    DF ["entity_id"]; PROJECT */1 COLUMNS
+  END ANTI JOIN
+== cudf-polars lowering (diagnostic, not runtime trace) ==
+SORT ('entity_id',) ('entity_id',) [1]
+  JOIN Anti ('entity_id',) ('entity_id',) ('entity_id',) [1]
+    JOIN Semi ('entity_id',) ('entity_id',) ('entity_id',) [1]
+      DATAFRAMESCAN ('entity_id',) row_count='~5' [1]
+      (repeated 2 times)
+    DATAFRAMESCAN ('entity_id',) row_count='~4' [1]
+
