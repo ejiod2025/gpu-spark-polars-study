@@ -126,6 +126,69 @@ def test_pristine_dataset_passes(dataset, tmp_path):
     assert "FAIL" not in result.values()
 
 
+def test_dbgen_reference_respects_memory_threads_and_temp_root(dataset, tmp_path, monkeypatch):
+    original_connect = vgi.connect
+    resources = []
+
+    def tracked_connect(threads, memory_limit, temp_dir):
+        connection = original_connect(threads, memory_limit, temp_dir)
+        actual = connection.execute(
+            "SELECT current_setting('threads'), current_setting('memory_limit'), current_setting('temp_directory')"
+        ).fetchone()
+        resources.append((threads, memory_limit, Path(temp_dir), actual))
+        return connection
+
+    monkeypatch.setattr(vgi, "connect", tracked_connect)
+    code, report = run(dataset, tmp_path, "--reference-dbgen")
+    assert code == 0 and report["ok"]
+    assert len(resources) == 2
+    source, reference = resources
+    assert source[:2] == reference[:2] == (2, "1GB")
+    assert source[3][:2] == reference[3][:2]  # Effective DuckDB settings, not merely passed arguments.
+    assert Path(source[3][2]) == source[2]
+    assert Path(reference[3][2]) == reference[2]
+    assert reference[2].parent == source[2] and reference[2].name == "reference-dbgen"
+    assert source[2].parent == tmp_path
+    assert not source[2].exists() and not reference[2].exists()
+    checks = statuses(report)
+    assert any(key.startswith("content_fingerprint[in-memory CALL dbgen") and value == "PASS"
+               for key, value in checks.items())
+
+
+def test_dbgen_reference_failure_closes_connection_and_is_reported(dataset, tmp_path, monkeypatch):
+    original_connect = vgi.connect
+    closed, reference_dirs = [], []
+
+    class FailingReference:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def execute(self, sql):
+            if sql.startswith("CALL dbgen"):
+                raise duckdb.OutOfMemoryException("reference generation budget exceeded")
+            return self.connection.execute(sql)
+
+        def close(self):
+            self.connection.close()
+            closed.append(True)
+
+    def fail_reference(threads, memory_limit, temp_dir):
+        connection = original_connect(threads, memory_limit, temp_dir)
+        if Path(temp_dir).name == "reference-dbgen":
+            reference_dirs.append(Path(temp_dir))
+            return FailingReference(connection)
+        return connection
+
+    monkeypatch.setattr(vgi, "connect", fail_reference)
+    code, report = run(dataset, tmp_path, "--reference-dbgen")
+    assert code == 1 and not report["ok"]
+    failure = next(check for check in report["datasets"][0]["checks"] if check["id"] == "content_fingerprint")
+    assert failure["status"] == "FAIL" and "reference generation budget exceeded" in failure["detail"]
+    assert closed == [True]
+    assert len(reference_dirs) == 1 and not reference_dirs[0].exists()
+    assert not reference_dirs[0].parent.exists()
+
+
 def test_report_is_never_overwritten(dataset, tmp_path):
     target = tmp_path / "once.json"
     args = ["--data-root", str(dataset), "--scales", str(SCALE), "--allow-no-reference", "--threads", "2",

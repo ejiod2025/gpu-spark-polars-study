@@ -284,9 +284,13 @@ def check_disk(ds: Dataset, new: dict, rehash: bool, workers: int) -> None:
 
 def connect(threads: int, memory_limit: str, temp_dir: Path):
     connection = duckdb.connect(":memory:")
-    connection.execute(f"SET threads = {int(threads)}")
-    connection.execute(f"SET memory_limit = {sql_string(memory_limit)}")
-    connection.execute(f"SET temp_directory = {sql_string(temp_dir)}")
+    try:
+        connection.execute(f"SET threads = {int(threads)}")
+        connection.execute(f"SET memory_limit = {sql_string(memory_limit)}")
+        connection.execute(f"SET temp_directory = {sql_string(temp_dir)}")
+    except BaseException:
+        connection.close()
+        raise
     return connection
 
 
@@ -316,7 +320,8 @@ def compare_fingerprint(expected: dict, observed: dict) -> list[str]:
 
 
 def check_content(ds: Dataset, ref: dict | None, new: dict, connection, reference_dbgen: bool,
-                  proof: dict | None, proof_path: str | None, threads: int) -> dict:
+                  proof: dict | None, proof_path: str | None, threads: int,
+                  memory_limit: str, temp_dir: Path) -> dict:
     """Fingerprint the Parquet on disk and compare against every available reference."""
     start = time.perf_counter()
     observed = {table: fingerprint(connection, table, relation(ds.path, table)) for table in TABLES}
@@ -331,14 +336,20 @@ def check_content(ds: Dataset, ref: dict | None, new: dict, connection, referenc
         sources.append(("new manifest (self-consistency)", {t: new["tables"][t] for t in TABLES}))
     if reference_dbgen:
         start = time.perf_counter()
-        reference = duckdb.connect(":memory:")
-        reference.execute(f"SET threads = {int(threads)}")
-        reference.execute("INSTALL tpch")
-        reference.execute("LOAD tpch")
-        reference.execute(f"CALL dbgen(sf = {ds.scale!r})")
-        sources.append((f"in-memory CALL dbgen(sf = {ds.scale!r}) with duckdb {duckdb.__version__}",
-                        {t: fingerprint(reference, t) for t in TABLES}))
-        reference.close()
+        # Each in-memory DuckDB database has its own resource settings. The
+        # reference must honor the same CLI budget as the Parquet connection;
+        # isolate spill files under the verifier's owned temporary directory.
+        reference_temp_dir = temp_dir / "reference-dbgen"
+        reference_temp_dir.mkdir()
+        reference = connect(threads, memory_limit, reference_temp_dir)
+        try:
+            reference.execute("INSTALL tpch")
+            reference.execute("LOAD tpch")
+            reference.execute(f"CALL dbgen(sf = {ds.scale!r})")
+            sources.append((f"in-memory CALL dbgen(sf = {ds.scale!r}) with duckdb {duckdb.__version__}",
+                            {t: fingerprint(reference, t) for t in TABLES}))
+        finally:
+            reference.close()
         ds.add("dbgen_reference", "INFO", f"generated reference in {time.perf_counter() - start:.1f}s")
     external = [s for s in sources if not s[0].startswith("new manifest")]
     for label, expected in sources:
@@ -417,12 +428,13 @@ def verify_dataset(scale: float, root: Path, args) -> Dataset:
         for check_id, run_check in (
                 ("parquet_footers", lambda: check_footers(ds, connection)),
                 ("content_fingerprint", lambda: check_content(ds, ref, new, connection, args.reference_dbgen,
-                                                              proof, proof_path, args.threads)),
+                                                              proof, proof_path, args.threads,
+                                                              args.memory_limit, temp_dir)),
                 ("unique_primary_keys", lambda: check_unique_keys(ds, connection, new, args.unique_keys))):
             try:
                 run_check()
-            except duckdb.Error as error:  # unreadable/corrupt Parquet must be a finding, not a crash
-                ds.add(check_id, "FAIL", f"DuckDB could not read the Parquet files: {str(error).splitlines()[0]}")
+            except duckdb.Error as error:  # I/O, generation and resource failures are findings, not crashes
+                ds.add(check_id, "FAIL", f"DuckDB verification failed: {str(error).splitlines()[0]}")
     finally:
         connection.close()
         for item in sorted(temp_dir.rglob("*"), reverse=True):
