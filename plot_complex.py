@@ -314,7 +314,8 @@ def draw(cases: list[Case], evidence: dict, stem: Path) -> tuple[Path, Path]:
     if ext:
         ratio.legend(handles=[Line2D([], [], marker="o", linestyle="", color="#4F7600", label="GPU-plugin Spark"),
                               Line2D([], [], marker="D", linestyle="", color="#D9822B", label="Polars GPU")],
-                     loc="center right", frameon=False, fontsize=8.5, title="Ratio to Polars CPU", title_fontsize=8.5)
+                     loc="upper right", bbox_to_anchor=(1.0, 1.33), ncol=2,
+                     frameon=False, fontsize=8.5, title="Ratio to Polars CPU", title_fontsize=8.5)
     fig.legend(handles=engine_legend, loc="upper left", bbox_to_anchor=(0.06, 0.865),
                ncol=len(engine_legend) if ext else 3, frameon=False, fontsize=9)
     present = {case.gpu_execution_class for case in cases}
