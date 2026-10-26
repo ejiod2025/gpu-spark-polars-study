@@ -1,0 +1,56 @@
+SORT BY [descending: [false, true]] [col("nation"), col("o_year")]
+  AGGREGATE[maintain_order: false]
+    [col("l_extendedprice").fms([1.0 - col("l_discount"), col("ps_supplycost") * col("l_quantity")]).sum().alias("sum_profit")] BY [col("nation"), col("o_year")]
+    FROM
+    simple π 6/6 ["nation", "o_year", ... 4 other columns]
+       WITH_COLUMNS:
+       [col("n_name").alias("nation"), col("o_orderdate").dt.year().alias("o_year")] 
+        simple π 6/6 ["l_quantity", ... 5 other columns]
+          INNER JOIN:
+          LEFT PLAN ON: [col("s_nationkey")]
+            simple π 6/6 ["l_quantity", ... 5 other columns]
+              INNER JOIN:
+              LEFT PLAN ON: [col("l_orderkey")]
+                simple π 6/6 ["l_quantity", ... 5 other columns]
+                  INNER JOIN:
+                  LEFT PLAN ON: [col("l_partkey"), col("l_suppkey")]
+                    simple π 7/7 ["l_orderkey", "l_quantity", ... 5 other columns]
+                      INNER JOIN:
+                      LEFT PLAN ON: [col("l_suppkey")]
+                        INNER JOIN:
+                        LEFT PLAN ON: [col("l_partkey")]
+                           WITH_COLUMNS:
+                           [col("l_quantity").strict_cast(Float64), col("l_extendedprice").strict_cast(Float64), col("l_discount").strict_cast(Float64)] 
+                            Parquet SCAN [/home/ubuntu/study/data/sf1/lineitem/data_0.parquet, ... 29 other sources]
+                            PROJECT 6/16 COLUMNS
+                            ESTIMATED ROWS: 5997687
+                        RIGHT PLAN ON: [col("p_partkey")]
+                          simple π 1/1 ["p_partkey"]
+                            Parquet SCAN [/home/ubuntu/study/data/sf1/part/data_0.parquet, /home/ubuntu/study/data/sf1/part/data_1.parquet]
+                            PROJECT 2/9 COLUMNS
+                            SELECTION: col("p_name").str.contains(["green"])
+                            ESTIMATED ROWS: 200000
+                        END INNER JOIN
+                      RIGHT PLAN ON: [col("s_suppkey")]
+                        Parquet SCAN [/home/ubuntu/study/data/sf1/supplier/data_0.parquet]
+                        PROJECT 2/7 COLUMNS
+                        ESTIMATED ROWS: 10000
+                      END INNER JOIN
+                  RIGHT PLAN ON: [col("ps_partkey"), col("ps_suppkey")]
+                    simple π 3/3 ["ps_supplycost", "ps_partkey", ... 1 other column]
+                       WITH_COLUMNS:
+                       [col("ps_supplycost").strict_cast(Float64)] 
+                        Parquet SCAN [/home/ubuntu/study/data/sf1/partsupp/data_0.parquet, ... 6 other sources]
+                        PROJECT 3/5 COLUMNS
+                        ESTIMATED ROWS: 800000
+                  END INNER JOIN
+              RIGHT PLAN ON: [col("o_orderkey")]
+                Parquet SCAN [/home/ubuntu/study/data/sf1/orders/data_0.parquet, ... 12 other sources]
+                PROJECT 2/9 COLUMNS
+                ESTIMATED ROWS: 1500000
+              END INNER JOIN
+          RIGHT PLAN ON: [col("n_nationkey")]
+            Parquet SCAN [/home/ubuntu/study/data/sf1/nation/data_0.parquet]
+            PROJECT 2/4 COLUMNS
+            ESTIMATED ROWS: 25
+          END INNER JOIN

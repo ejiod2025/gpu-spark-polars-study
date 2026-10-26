@@ -231,6 +231,9 @@ def test_unsupported_polars_gpu_case_prevents_full_four_engine_coverage(tmp_path
     sf30 = next(total for total in evidence["full_suite_totals"] if total["scale"] == "sf30")
     assert sf30["polars_gpu_sum_medians_seconds"] is None
     assert sf30["polars_sum_medians_seconds"] > 0
+    report = (out / "COMPLEX_REPORT.md").read_text()
+    assert "Each engine's sum of six per-query medians" in report
+    assert "Complete 4-engine suites: **1**." in report
 
 
 def test_polars_gpu_difference_within_tolerance_is_accepted_and_still_reported(tmp_path):
@@ -315,8 +318,14 @@ def test_crossover_polars_gpu_in_the_schedule_only_is_required(tmp_path):
 
 def test_crossover_host_text_follows_the_recorded_host(tmp_path):
     code, out, _ = crossover(tmp_path / "h100")
-    assert "NVIDIA H100 80GB HBM3" in (out / "CROSSOVER_REPORT.md").read_text() and "26 vCPU" in (out / "CROSSOVER_REPORT.md").read_text()
-    assert "A100 40 GB" not in (out / "CROSSOVER_REPORT.md").read_text()
+    report = (out / "CROSSOVER_REPORT.md").read_text()
+    assert "NVIDIA H100 80GB HBM3" in report and "26 vCPU" in report
+    assert "A100 40 GB" not in report
+    assert report.startswith("# Four-engine baseline comparison and crossover search")
+    assert "Polars GPU uses the cuDF engine for Polars; GPU Spark uses NVIDIA's Spark plugin" in report
+    assert "## GPU Spark against Polars CPU brackets" in report
+    assert "| GPU Spark / Polars CPU | CPU Spark / GPU Spark | Polars CPU / Polars GPU | Polars GPU / GPU Spark |" in report
+    assert "Observed scales where GPU is faster than Polars" not in report
     code, out, _ = crossover(tmp_path / "a100", engines=LEGACY, env=S.A100_ENV)
     assert "The experiment targets one A100 40 GB VM with 30 CPU threads and 216 GiB host RAM" in (out / "CROSSOVER_REPORT.md").read_text()
     code, out, _ = crossover(tmp_path / "h100-legacy-engines", engines=LEGACY)
@@ -338,6 +347,11 @@ def test_complex_four_engines_and_pairwise_ratios(tmp_path):
     assert (out / "pairwise_speedups.csv").exists()
     report = (out / "COMPLEX_REPORT.md").read_text()
     assert "Polars GPU" in report and "Pairwise speedup matrices" in report
+    assert report.startswith("# Four-engine complex-query comparison")
+    assert "These are separate GPU engines" in report
+    assert "## GPU Spark final-plan coverage" in report
+    assert "| Polars CPU / GPU Spark | CPU Spark / GPU Spark | Polars CPU / Polars GPU | Polars GPU / GPU Spark | GPU Spark coverage |" in report
+    assert "GPU-plugin Spark" not in report
 
 
 def test_complex_polars_gpu_case_failure_keeps_the_case_and_hides_the_sum(tmp_path):

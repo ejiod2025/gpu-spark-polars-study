@@ -1,8 +1,9 @@
 # H100 four-engine study — plan and interface contract
 
-Status (2026-10-26): H100 development recovered and under validation on branch `H100_main_dev`.
-The existing SF1 smoke evidence has been audited locally; a fresh preflight of the updated code
-is pending. Formal multi-scale measurements and their reports are not yet complete.
+Status (2026-10-26): H100 development is on branch `H100_main_dev`. The fresh SF1 preflight
+passed 74 checks with zero failures/warnings and two explicit unsupported-query XFAILs.
+All five datasets passed content validation. Formal multi-scale measurements are running
+from frozen source commit `c4c934cf732b4394e2bcb0547bb642ee2a1ae5d4`; their reports are pending.
 
 ## Goal
 
@@ -48,7 +49,7 @@ not establish coverage or behaviour at larger scales.
    warning and effective configuration. That differs from forbidden silent CPU fallback.
    Spark GPU plans retain both GPU and CPU operator evidence and their execution classification.
 3. Analyzers given the saved three-engine A100 evidence must reproduce the committed reports
-   (regression-tested against `git HEAD` analyzers).
+   (regression-tested against the original `06850ed` analyzers).
 4. Explicit schemas: Float64 normalization via `FLOAT_COLUMNS`, unchanged across engines.
 5. New output directories only; runs are re-runnable without clobbering evidence.
 6. Verify generated inputs before timing: file SHA-256 against the new local manifest, then
@@ -66,6 +67,8 @@ Session metadata:
 - `polars_execution_engine`: `"streaming"` (polars), `"gpu"` (polars_gpu), `null` (spark).
 - `polars_gpu`: object for polars_gpu only, else absent: `{"executor": str, "executor_options": dict,
   "raise_on_fail": true, "device": int, "cudf_polars_version": str, "memory_resource": str|null}`.
+  It also records `cpu_fallback_policy="raise"`, the separate streaming fallback policy,
+  effective executor options, and the verified configuration/tiny-query/UDF-canary guard.
 - `spark_gpu_profile`: `"a100-parity"` | `"h100-tuned"` for spark_gpu; absent otherwise.
 - `gpu_inventory`: best-effort device name/driver/CUDA runtime for GPU engines; absent otherwise.
 
@@ -74,6 +77,10 @@ Per record:
   (raise_on_fail guarantees no CPU fallback); `"cpu_engine"` for polars and spark_cpu.
 - `peak_gpu_memory_bytes`: per-process-tree peak device memory sampled during the timed action for
   GPU engines (`null` if sampling unavailable); absent for CPU engines.
+
+Legacy `gpu_plan_observed` and `gpu_operators` parse Spark-style `Gpu*` node names. For Polars
+GPU, inspect the strict guard, `gpu_execution_class`, captured cuDF physical plan, and device
+memory samples instead; an empty Spark-style operator list does not establish CPU execution.
 
 Timing scope for polars_gpu equals polars: query construction, optimization, Parquet read,
 GPU execution and device-to-host result transfer (collect returns a host DataFrame), inside the
@@ -96,8 +103,11 @@ Runner CLI additions (`run_experiment.py`):
 | 3 Formal | H100 | baseline (SF1–SF300) and complex v2 (SF30–SF300), 4 engines attempted, `--cpus 26`; preserve unsupported/error cells and restrict aggregate scores to complete coverage; `h100-tuned` in separate run roots |
 | 4 Harvest | H100 → Mac | results rsynced + checksummed before termination; reports regenerated locally |
 
-Datasets SF1/SF10/SF30/SF100/SF300 are present on the H100. Presence alone does not satisfy the
-Phase 2 verification gate; retain the validation reports before formal timing.
+Datasets SF1/SF10/SF30/SF100/SF300 passed validation before formal timing. The small scales
+were compared with fresh DuckDB reference fingerprints; SF100/SF300 matched the A100 manifest
+fingerprints. SF30 has 63 lineitem files versus 60 in the A100 layout. Logical content matches;
+the physical layout is not identical. Reports and exact source snapshots are retained under
+`evidence-h100/20261026/`. See [the runbook](H100_RUNBOOK.md) for commands and lifecycle details.
 
 ## Development ownership (no two owners edit the same file)
 

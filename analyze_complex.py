@@ -627,24 +627,35 @@ def analyze(roots, oracle_paths, requested_engines=None):
 def report(rows, evidence):
     engines = tuple(evidence.get("engines", LEGACY_ENGINES))
     ext = is_extended(engines)
+    labels = {**COMPLEX_LABELS, "spark_gpu": "GPU Spark"} if ext else COMPLEX_LABELS
     spark = "spark_gpu" in engines
     ratio_specs = ([("Polars / GPU", "polars_over_spark_gpu"), ("CPU Spark / GPU", "spark_cpu_over_spark_gpu")] if spark else [])
     if ext:
-        ratio_specs += [(label, key) for label, key, num, den in (
-            ("Polars / Polars GPU", "polars_over_polars_gpu", "polars", "polars_gpu"),
-            ("Polars GPU / GPU-plugin Spark", "polars_gpu_over_spark_gpu", "polars_gpu", "spark_gpu")) if num in engines and den in engines]
-    text = ["# Complex-query experiment", "",
+        ratio_specs = [(label, key) for label, key, num, den in (
+            ("Polars CPU / GPU Spark", "polars_over_spark_gpu", "polars", "spark_gpu"),
+            ("CPU Spark / GPU Spark", "spark_cpu_over_spark_gpu", "spark_cpu", "spark_gpu"),
+            ("Polars CPU / Polars GPU", "polars_over_polars_gpu", "polars", "polars_gpu"),
+            ("Polars GPU / GPU Spark", "polars_gpu_over_spark_gpu", "polars_gpu", "spark_gpu")) if num in engines and den in engines]
+    title = ("Four-engine" if len(engines) == 4 else f"{len(engines)}-engine") + " complex-query comparison"
+    text = ["# " + title if ext else "# Complex-query experiment", "",
         "This separate suite tests six joins, nested-query, window, exact-distinct, and self-join cases. "
-        "Its score is not added to the original six-query experiment.", "",
-        f"Verified cases: **{len(rows)}**; excluded incomplete/invalid cases: **{len(evidence['excluded_cases'])}**. "
-        "Only included cases enter timing tables. All saved warmup and measured outputs in each included case agree "
+        "Its score is not added to the original six-query experiment." +
+        (" Engines: " + ", ".join(labels[e] for e in engines) + ". Polars GPU uses the cuDF engine for Polars; "
+         "GPU Spark uses NVIDIA's Spark plugin. These are separate GPU engines." if ext else ""), "",
+        f"Verified cases: **{len(rows)}**; excluded incomplete/invalid cases: **{len(evidence['excluded_cases'])}**. " +
+        ("Only included cases enter timing tables. All saved warmup and measured outputs in each included case agree "
+         if not ext else "Only validated engine cells carry timings. Failed, invalid or mismatching Polars GPU cells remain explicit without timings; "
+         "each retained cell's saved warmup and measured outputs agree ") +
         f"with its Polars warmup baseline (relative tolerance {REL_TOL:g}, absolute {ABS_TOL:g}; integer pairs exact).", "",
-        "Times are per-query median [minimum, maximum] seconds. Ratios are CPU-engine time divided by GPU-plugin Spark time; "
-        "values above 1 favor the GPU-plugin session. That session can contain GPU operators, a hybrid plan, or CPU fallback.", "",
+        "Times are per-query median [minimum, maximum] seconds. " +
+        ("Each ratio divides the first named engine's time by the second's; above 1 favors the second engine. "
+         "GPU Spark coverage is classified separately from strict Polars GPU execution."
+         if ext else "Ratios are CPU-engine time divided by GPU-plugin Spark time; values above 1 favor the GPU-plugin session. "
+         "That session can contain GPU operators, a hybrid plan, or CPU fallback."), "",
         "Resource protocol is part of the result: `none` is the preserved legacy session method; `verified_gc` "
         "adds a verified post-query resource barrier outside query timers. Do not silently combine those methods into one uniform scaling series.", "",
-        "| Scale / query | Type | Resource protocol | " + " | ".join(COMPLEX_LABELS.get(e, e) for e in engines) + " | " +
-        " | ".join(label for label, _ in ratio_specs) + (" | Inspected coverage |" if spark else " |"),
+        "| Scale / query | Type | Resource protocol | " + " | ".join(labels.get(e, e) for e in engines) + " | " +
+        " | ".join(label for label, _ in ratio_specs) + ((" | GPU Spark coverage |" if ext else " | Inspected coverage |") if spark else " |"),
         "|---|---|---|" + "---:|" * (len(engines) + len(ratio_specs)) + ("---|" if spark else "")]
     for row in rows:
         cells = [row_cell(row, e) for e in engines]
@@ -655,10 +666,11 @@ def report(rows, evidence):
     if any(r["measured_trials"] == 1 for r in rows):
         text += ["", "**Smoke evidence:** one or more cases have only one measured trial. These check functionality and cannot estimate repeatability."]
     text += ["", "## Full-suite summaries", "",
-        "A sum of six per-query medians is shown only when all six cases at that scale pass complete " +
-        ("three-engine validation. " if not ext else "validation for every required engine; a Polars GPU sum is `n/a` when any of its six cases failed, was invalid or mismatched. ") +
+        ("A sum of six per-query medians is shown only when all six cases at that scale pass complete three-engine validation. "
+         if not ext else "Each engine's sum of six per-query medians is shown only when all six of its cases at that scale pass validation. "
+         "An engine's sum is `n/a` when any case failed, was invalid or mismatched; other engines retain their own complete scores. ") +
         "It is a derived workload score, not a measured once-through suite runtime.", "",
-        "| Scale | Trials/query | Resource protocol | " + " | ".join(f"{COMPLEX_LABELS.get(e, e).replace('Polars CPU', 'Polars')} sum (s)" for e in engines) + " | " +
+        "| Scale | Trials/query | Resource protocol | " + " | ".join(f"{labels.get(e, e) if ext else labels.get(e, e).replace('Polars CPU', 'Polars')} sum (s)" for e in engines) + " | " +
         " | ".join(label for label, _ in ratio_specs) + " |",
         "|---|---:|---|" + "---:|" * (len(engines) + len(ratio_specs))]
     for total in evidence["full_suite_totals"]:
@@ -668,8 +680,12 @@ def report(rows, evidence):
             " | " + " | ".join(ratio_text(total[key], 3) for _, key in ratio_specs) + " |")
     if not evidence["full_suite_totals"]:
         text += ["", "No scale has all six complete cases; no full-suite score is available."]
+    if ext:
+        complete = sum(all(total.get(e + "_sum_medians_seconds") is not None for e in engines)
+                       for total in evidence["full_suite_totals"])
+        text += ["", f"Complete {len(engines)}-engine suites: **{complete}**."]
     if spark:
-        text += ["", "## GPU and CPU plan coverage", "",
+        text += ["", "## GPU Spark final-plan coverage" if ext else "## GPU and CPU plan coverage", "",
             "Coverage is inspected from the saved final AQE plan, excluding unused initial plans. Classification is based on "
             "named plan nodes, not runtime percentages. `gpu_operators_present` does not mean every operation ran on the GPU. "
             "`hybrid` means GPU and checked CPU core operators appear; `cpu_fallback` means no GPU-prefixed nodes were observed "
@@ -781,8 +797,13 @@ def main():
     if is_extended(engines):
         write_pairwise_csv(args.output / "pairwise_speedups.csv", rows, engines)
     (args.output / "COMPLEX_REPORT.md").write_text(report(rows, evidence))
+    coverage = f"full suites {len(evidence['full_suite_totals'])}"
+    if is_extended(engines):
+        complete = sum(all(total.get(e + "_sum_medians_seconds") is not None for e in engines)
+                       for total in evidence["full_suite_totals"])
+        coverage = f"scale summaries {len(evidence['full_suite_totals'])}; complete {len(engines)}-engine suites {complete}"
     print(f"Validated {len(rows)} complex cases; excluded {len(evidence['excluded_cases'])}; "
-          f"full suites {len(evidence['full_suite_totals'])}; report: {args.output.resolve() / 'COMPLEX_REPORT.md'}")
+          f"{coverage}; report: {args.output.resolve() / 'COMPLEX_REPORT.md'}")
     violations = evidence.get("integrity_violations", [])
     for item in violations:
         print(f"{item['scale']}/{item['engine']}/{item['query'] or 'session'}: {item['kind']}: {item['reason']}", file=sys.stderr)

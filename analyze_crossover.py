@@ -255,6 +255,7 @@ def host_bullet(sessions, provenance, ext):
 def report(sessions, evidence, provenance, rows):
     engines = tuple(evidence.get("engines", LEGACY_ENGINES))
     ext = is_extended(engines)
+    labels = {**ENGINE_LABELS, "polars": "Polars CPU"} if ext else ENGINE_LABELS
     index = failure_index(evidence.get("engine_failures", []))
     scales = list(sessions)
     sums = engine_sums(rows, engines)
@@ -262,23 +263,31 @@ def report(sessions, evidence, provenance, rows):
     spark_pair = "spark_gpu" in engines and "polars" in engines
     pairs = []
     if spark_pair:
-        pairs.append(("GPU / Polars", "spark_gpu", "polars"))
+        pairs.append(("GPU Spark / Polars CPU" if ext else "GPU / Polars", "spark_gpu", "polars"))
     if spark_pair and "spark_cpu" in engines:
-        pairs.append(("CPU Spark / GPU", "spark_cpu", "spark_gpu"))
+        pairs.append(("CPU Spark / GPU Spark" if ext else "CPU Spark / GPU", "spark_cpu", "spark_gpu"))
     if ext:
-        pairs += [(label, num, den) for label, num, den in (("Polars / Polars GPU", "polars", "polars_gpu"),
+        pairs += [(label, num, den) for label, num, den in (("Polars CPU / Polars GPU", "polars", "polars_gpu"),
                   ("Polars GPU / GPU Spark", "polars_gpu", "spark_gpu")) if num in engines and den in engines]
     points = [(scale, totals[scale]["spark_gpu"] / totals[scale]["polars"]) for scale in scales] if spark_pair else []
     wins = [scale for scale, ratio in points if ratio < 1]
-    lines = ["# Measured GPU Spark crossover search", ""]
-    if wins:
+    title = ("Four-engine" if len(engines) == 4 else f"{len(engines)}-engine") + " baseline comparison and crossover search"
+    lines = ["# " + title if ext else "# Measured GPU Spark crossover search", ""]
+    if ext:
+        lines += ["This report compares " + ", ".join(labels[e] for e in engines) + ". "
+                  "Polars GPU uses the cuDF engine for Polars; GPU Spark uses NVIDIA's Spark plugin. "
+                  "Their crossover findings are evaluated separately against Polars CPU.", ""]
+    if ext and not spark_pair:
+        lines.append("No GPU Spark versus Polars CPU crossover is evaluated for this engine selection.")
+    elif wins:
         lines.append("GPU Spark has a lower sum of six query medians than CPU Polars at " +
                      ", ".join(wins) + f". The smallest observed winning scale is {wins[0]}; this does not establish an exact threshold.")
     elif scales:
         lines.append("No overall GPU Spark crossover over CPU Polars was observed across the complete, validated scales: " +
                      ", ".join(scales) + ".")
     else:
-        lines.append("No scale has complete, validated results for all three engines and all six queries; no timing winner or crossover can be established.")
+        lines.append("No scale has complete, validated results for " + ("the selected engines" if ext else "all three engines") +
+                     " and all six queries; no timing winner or crossover can be established.")
     gpu_points = []
     if ext and "polars_gpu" in engines and scales:
         gpu_points = [(scale, totals[scale]["polars_gpu"] / totals[scale]["polars"]) for scale in scales
@@ -294,14 +303,15 @@ def report(sessions, evidence, provenance, rows):
     if evidence["excluded_scales"]:
         lines += ["", f"**{len(evidence['excluded_scales'])} selected scale(s) were excluded from timing comparisons.** "
                   "Their failures or incomplete evidence are listed below. An OOM, timeout, or missing result is not a latency win."]
-    lines += ["", "The aggregate is the sum of the six per-query medians, not a directly measured complete-suite runtime. "
-              "GPU / Polars is GPU elapsed time divided by Polars elapsed time: below 1 favors GPU Spark. "
+    lines += ["", "The aggregate is the sum of the six per-query medians, not a directly measured complete-suite runtime. " +
+              ("GPU Spark / Polars CPU is GPU Spark elapsed time divided by Polars CPU elapsed time: below 1 favors GPU Spark. "
+               if ext else "GPU / Polars is GPU elapsed time divided by Polars elapsed time: below 1 favors GPU Spark. ") +
               "Every included scale passes the original strict output and final GPU-plan validator for all six queries and all saved trials."]
     if ext:
-        lines += ["", "Ratios involving Polars GPU (`Polars / Polars GPU`, `Polars GPU / GPU Spark`) divide the first engine's time by the second's: above 1 favors the "
+        lines += ["", "Ratios involving Polars GPU (`Polars CPU / Polars GPU`, `Polars GPU / GPU Spark`) divide the first engine's time by the second's: above 1 favors the "
                   "GPU engine in the denominator. Polars GPU is validated in strict mode (`raise_on_fail=True`); its failures, invalid evidence and output mismatches "
                   "are reported per cell and never enter a sum, ratio or bracket."]
-    lines += ["", "| Scale | Trials/query | " + " | ".join(f"{ENGINE_LABELS.get(e, e)} sum (s)" for e in engines) + " | " + " | ".join(l for l, _, _ in pairs) + " |",
+    lines += ["", "| Scale | Trials/query | " + " | ".join(f"{labels.get(e, e)} sum (s)" for e in engines) + " | " + " | ".join(l for l, _, _ in pairs) + " |",
               "|---|---:|" + "---:|" * (len(engines) + len(pairs))]
     for scale in scales:
         t = totals[scale]
@@ -309,19 +319,22 @@ def report(sessions, evidence, provenance, rows):
         ratios = [ratio_text(safe_ratio(t[num], t[den]), 3) for _, num, den in pairs]
         lines.append(f"| {scale} | {sessions[scale]['polars']['runs']} | " + " | ".join(cells) + " | " + " | ".join(ratios) + " |")
     if spark_pair:
-        lines += ["", "## Observed crossover brackets", "",
+        lines += ["", "## GPU Spark against Polars CPU brackets" if ext else "## Observed crossover brackets", "",
                   "Brackets use adjacent complete, validated observations in numeric scale order. They locate an observed change of winner, "
                   "not a fitted threshold, and do not imply monotonic performance between or beyond the measurements. "
                   "Excluded scales inside a bracket provide no crossover evidence.", ""]
-        overall = brackets(points)
-        lines.append("Overall: " + ("; ".join(overall) if overall else "no observed change from Polars winning to GPU winning, or back, across the validated observations.") )
-        lines += ["", "| Query | Observed scales where GPU is faster than Polars | Observed winner-change brackets |",
+        overall = brackets(points, "GPU Spark") if ext else brackets(points)
+        no_change = ("no observed change from Polars CPU winning to GPU Spark winning, or back, across the validated observations."
+                     if ext else "no observed change from Polars winning to GPU winning, or back, across the validated observations.")
+        lines.append("Overall: " + ("; ".join(overall) if overall else no_change))
+        lines += ["", "| Query | Observed scales where GPU Spark is faster than Polars CPU | Observed winner-change brackets |" if ext else
+                  "| Query | Observed scales where GPU is faster than Polars | Observed winner-change brackets |",
                   "|---|---|---|"]
         for query in QUERIES:
             qpoints = [(r["scale"], r["spark_gpu_median_seconds"] / r["polars_median_seconds"])
                        for r in rows if r["query"] == query]
             q_wins = [scale for scale, ratio in qpoints if ratio < 1]
-            changes = brackets(qpoints)
+            changes = brackets(qpoints, "GPU Spark") if ext else brackets(qpoints)
             lines.append(f"| {query} | {', '.join(q_wins) or 'none'} | {'; '.join(changes) or 'none observed'} |")
     if gpu_points or (ext and "polars_gpu" in engines):
         lines += ["", "## Polars GPU against Polars CPU brackets", "",
@@ -338,9 +351,9 @@ def report(sessions, evidence, provenance, rows):
             q_wins = [scale for scale, ratio in qpoints if ratio < 1]
             lost = [r["scale"] for r in group if r["polars_gpu_median_seconds"] is None]
             lines.append(f"| {query} | {', '.join(q_wins) or 'none'} | {'; '.join(brackets(qpoints, 'Polars GPU')) or 'none observed'} | {', '.join(lost) or 'none'} |")
-    per_query = [(l, n, d) for l, n, d in pairs if l != "CPU Spark / GPU"]
+    per_query = [(l, n, d) for l, n, d in pairs if (n, d) != ("spark_cpu", "spark_gpu")]
     lines += ["", "## Per-query measured times", "", "Median [minimum, maximum] seconds; ranges describe the saved trials.", "",
-              "| Scale / query | " + " | ".join(ENGINE_LABELS.get(e, e) for e in engines) + " | " + " | ".join(l for l, _, _ in per_query) + " |",
+              "| Scale / query | " + " | ".join(labels.get(e, e) for e in engines) + " | " + " | ".join(l for l, _, _ in per_query) + " |",
               "|---|" + "---:|" * (len(engines) + len(per_query))]
     for row in rows:
         values = [row_cell(row, e) for e in engines]

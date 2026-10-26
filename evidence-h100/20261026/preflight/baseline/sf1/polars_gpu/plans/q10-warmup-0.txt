@@ -1,0 +1,61 @@
+== Polars optimized plan (CPU optimizer; executed by cudf-polars, executor=streaming) ==
+SORT BY [slice: (0, 20), descending: [true, false]] [col("revenue"), col("c_custkey")]
+  simple π 8/8 ["c_custkey", "c_name", ... 6 other columns]
+    AGGREGATE[maintain_order: false]
+      [(col("l_extendedprice") * (1.0 - col("l_discount"))).sum().alias("revenue")] BY [col("c_custkey"), col("c_name"), col("c_acctbal"), col("n_name"), col("c_address"), col("c_phone"), col("c_comment")]
+      FROM
+      simple π 9/9 ["c_custkey", "c_name", ... 7 other columns]
+        INNER JOIN:
+        LEFT PLAN ON: [col("c_nationkey")]
+          simple π 9/9 ["c_custkey", "c_name", ... 7 other columns]
+            INNER JOIN:
+            LEFT PLAN ON: [col("o_orderkey")]
+              INNER JOIN:
+              LEFT PLAN ON: [col("c_custkey")]
+                 WITH_COLUMNS:
+                 [col("c_acctbal").strict_cast(Float64)] 
+                  Parquet SCAN [/home/ubuntu/study/data/sf1/customer/data_0.parquet, /home/ubuntu/study/data/sf1/customer/data_1.parquet]
+                  PROJECT 7/8 COLUMNS
+                  ESTIMATED ROWS: 150000
+              RIGHT PLAN ON: [col("o_custkey")]
+                simple π 2/2 ["o_orderkey", "o_custkey"]
+                  Parquet SCAN [/home/ubuntu/study/data/sf1/orders/data_0.parquet, ... 12 other sources]
+                  PROJECT 3/9 COLUMNS
+                  SELECTION: (col("o_orderdate") >= 1993-10-01) & (col("o_orderdate") < 1994-01-01)
+                  ESTIMATED ROWS: 1500000
+              END INNER JOIN
+            RIGHT PLAN ON: [col("l_orderkey")]
+              simple π 3/3 ["l_extendedprice", ... 2 other columns]
+                 WITH_COLUMNS:
+                 [col("l_extendedprice").strict_cast(Float64), col("l_discount").strict_cast(Float64)] 
+                  simple π 3/3 ["l_orderkey", ... 2 other columns]
+                    Parquet SCAN [/home/ubuntu/study/data/sf1/lineitem/data_0.parquet, ... 29 other sources]
+                    PROJECT 4/16 COLUMNS
+                    SELECTION: col("l_returnflag") == "R"
+                    ESTIMATED ROWS: 5997687
+            END INNER JOIN
+        RIGHT PLAN ON: [col("n_nationkey")]
+          Parquet SCAN [/home/ubuntu/study/data/sf1/nation/data_0.parquet]
+          PROJECT 2/4 COLUMNS
+          ESTIMATED ROWS: 25
+        END INNER JOIN
+== cudf-polars physical plan ==
+SORT ('revenue', 'c_custkey') ('c_custkey', 'c_name', 'revenue', '...', 'c_phone', 'c_comment') [1]
+  PROJECTION ('c_custkey', 'c_name', 'revenue', '...', 'c_phone', 'c_comment') [1]
+    SELECT ('c_custkey', 'c_name', 'c_acctbal', '...', 'c_comment', 'revenue') [1]
+      GROUPBY ('c_custkey', 'c_name', 'c_acctbal', 'n_name', 'c_address', 'c_phone', 'c_comment') ('c_custkey', 'c_name', 'c_acctbal', '...', 'c_comment', 'revenue') [1]
+        PROJECTION ('c_custkey', 'c_name', 'c_acctbal', '...', 'l_extendedprice', 'l_discount') [1]
+          JOIN Inner ('c_nationkey',) ('n_nationkey',) ('c_custkey', 'c_name', 'c_address', '...', 'c_nationkey', 'n_name') [1]
+            PROJECTION ('c_custkey', 'c_name', 'c_address', '...', 'l_discount', 'c_nationkey') [1]
+              JOIN Inner ('o_orderkey',) ('l_orderkey',) ('c_custkey', 'c_name', 'c_address', '...', 'l_extendedprice', 'l_discount') [1]
+                JOIN Inner ('c_custkey',) ('o_custkey',) ('c_custkey', 'c_name', 'c_address', '...', 'c_comment', 'o_orderkey') [1]
+                  HSTACK ('c_custkey', 'c_name', 'c_address', '...', 'c_acctbal', 'c_comment') [1]
+                    STREAMINGSCAN ('c_custkey', 'c_name', 'c_address', '...', 'c_acctbal', 'c_comment') [1]
+                  PROJECTION ('o_orderkey', 'o_custkey') [1]
+                    STREAMINGSCAN ('o_orderkey', 'o_custkey', 'o_orderdate') [1]
+                SELECT ('l_extendedprice', 'l_discount', 'l_orderkey') [1]
+                  HSTACK ('l_orderkey', 'l_extendedprice', 'l_discount') [1]
+                    PROJECTION ('l_orderkey', 'l_extendedprice', 'l_discount') [1]
+                      STREAMINGSCAN ('l_orderkey', 'l_extendedprice', 'l_discount', 'l_returnflag') [1]
+            STREAMINGSCAN ('n_name', 'n_nationkey') [1]
+
