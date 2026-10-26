@@ -21,6 +21,7 @@ import math
 from pathlib import Path
 
 from analyze_results import ENGINE_ORDER, LEGACY_ENGINES, plot_hardware
+from plot_crossover import software_caption
 
 
 QUERIES = ("cx_q09", "cx_q13", "cx_semi_anti", "cx_window", "cx_distinct", "cx_self_join")
@@ -226,8 +227,8 @@ def draw(cases: list[Case], evidence: dict, stem: Path) -> tuple[Path, Path]:
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9,
                          "axes.spines.top": False, "axes.spines.right": False,
                          "svg.fonttype": "none", "hatch.linewidth": 0.7})
-    fig, (times, ratio) = plt.subplots(1, 2, figsize=(max(13.5, len(cases) * 1.15), 7.6))
-    fig.subplots_adjust(left=0.065, right=0.98, top=0.71, bottom=0.31, wspace=0.24)
+    fig, (times, ratio) = plt.subplots(1, 2, figsize=(max(13.5, len(cases) * 1.15), 8.5 if ext else 7.6))
+    fig.subplots_adjust(left=0.065, right=0.98, top=0.71, bottom=0.36 if ext else 0.31, wspace=0.24)
     fig.suptitle("Complex queries: measured engine observations", x=0.065, y=0.965,
                  ha="left", fontsize=20, fontweight="bold")
     fig.text(0.065, 0.91, "Validated included cases only · individual query times · no extrapolation",
@@ -333,8 +334,11 @@ def draw(cases: list[Case], evidence: dict, stem: Path) -> tuple[Path, Path]:
          if mixed_protocols else "Resource protocol: verified_gc; explicit post-query barriers excluded from query time and retained in process wall time."
          if policies == ["verified_gc"] else "Resource protocol: legacy none; no explicit verified post-query barrier is recorded."),
     ]
+    if ext:
+        software, matching = software_caption(evidence)
+        footnotes[1:1] = [software, matching]
     for index, note in enumerate(footnotes):
-        fig.text(0.065, 0.16 - index * 0.033, note, fontsize=8.5, color="#4B5563")
+        fig.text(0.065, (0.22 - index * 0.032) if ext else (0.16 - index * 0.033), note, fontsize=8.5, color="#4B5563")
     paths = tuple(stem.with_suffix("." + suffix) for suffix in ("png", "svg"))
     for path in paths:
         fig.savefig(path, dpi=180, facecolor="white")

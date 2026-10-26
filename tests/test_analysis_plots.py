@@ -54,6 +54,9 @@ def test_crossover_plot_four_engines_with_a_failed_cell(tmp_path):
     assert (out / "crossover.png").stat().st_size > 10_000
     svg = (out / "crossover.svg").read_text()
     assert "Polars GPU" in svg and "H100" in svg and "A100" not in svg
+    assert "Polars CPU 2.0.0" in svg and "Polars GPU 2.0.0" in svg and "cuDF-Polars 25.12.0" in svg
+    assert "CPU/GPU Spark 3.5.9" in svg and "Spark GPU plugin 26.08.1" in svg
+    assert "Primary Polars CPU/GPU versions matched (2.0.0)" in svg and "secondary CPU software-stack control is not shown" in svg
 
 
 def test_crossover_plot_legacy_report_keeps_a100_wording(tmp_path):
@@ -61,6 +64,7 @@ def test_crossover_plot_legacy_report_keeps_a100_wording(tmp_path):
     assert S.run_main(plot_crossover, ["--report", out])[0] in (0, None)
     svg = (out / "crossover.svg").read_text()
     assert "GPU Spark (A100)" in svg and "Polars GPU" not in svg
+    assert "software-stack control" not in svg and "cuDF-Polars" not in svg
 
 
 def test_crossover_plot_rejects_a_missing_timing_without_a_recorded_failure(tmp_path):
@@ -93,6 +97,9 @@ def test_complex_plot_four_engines_with_a_failed_case(tmp_path):
     assert code in (0, None), err
     svg = (out / "complex.svg").read_text()
     assert "Polars GPU" in svg and "FAILED" in svg and "1 case(s) without a Polars GPU timing" in svg
+    assert "Polars CPU 2.0.0" in svg and "Polars GPU 2.0.0" in svg and "cuDF-Polars 25.12.0" in svg
+    assert "CPU/GPU Spark 3.5.9" in svg and "Spark GPU plugin 26.08.1" in svg
+    assert "secondary CPU software-stack control is not shown" in svg
 
 
 def test_complex_plot_rejects_a_missing_timing_without_a_recorded_failure(tmp_path):

@@ -17,12 +17,89 @@ from decimal import Decimal, InvalidOperation
 import json
 import math
 from pathlib import Path
+import re
 
 from analyze_results import ENGINE_ORDER, LEGACY_ENGINES, plot_hardware
 
 
 QUERIES = ("q01", "q03", "q06", "q10", "q12", "q14")
 JOIN_QUERIES = {"q03", "q10", "q12", "q14"}
+
+
+def software_caption(evidence):
+    """Describe the primary plotted software from saved session/environment metadata.
+
+    Raw sessions are preferred; report-carried session versions and package
+    inventory provide a portable fallback when a source root is unavailable.
+    No secondary control run is read or combined with the primary figure.
+    """
+    versions = {key: set() for key in (*ENGINE_ORDER, "cudf", "plugin")}
+    paths, packages = set(), []
+
+    def add(key, value):
+        if isinstance(value, str) and value.strip():
+            if key == "cudf":
+                value = ".".join(str(int(part)) if part.isdigit() else part for part in value.split("."))
+            versions[key].add(value)
+
+    def session(item):
+        if not isinstance(item, dict):
+            return
+        engine = item.get("engine")
+        if engine in ENGINE_ORDER:
+            add(engine, item.get("version"))
+        meta = item.get("polars_gpu")
+        if isinstance(meta, dict):
+            add("cudf", meta.get("cudf_polars_version"))
+        conf = item.get("spark_conf")
+        if isinstance(conf, dict):
+            for version in re.findall(r"rapids-4-spark_[0-9.]+-([0-9][0-9A-Za-z.+-]*?)\.jar", str(conf.get("spark.jars", ""))):
+                add("plugin", version)
+
+    for item in evidence.get("sessions", []):
+        session(item)
+        if isinstance(item.get("source_results"), str):
+            paths.add(Path(item["source_results"]))
+    for item in evidence.get("polars_gpu_sessions", []):
+        session({**item, "engine": "polars_gpu"})
+    sources = list(evidence.get("source_roots", []))
+    if isinstance(evidence.get("source_host"), dict):
+        packages.append(evidence["source_host"].get("packages", {}))
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        packages.append(source.get("host", {}).get("packages", {}))
+        root = source.get("root")
+        if not isinstance(root, str):
+            continue
+        for scale in source.get("scales_found", source.get("scales", [])):
+            if isinstance(scale, str) and re.fullmatch(r"sf[0-9]+(?:p[0-9]+)?", scale):
+                paths.update(Path(root) / scale / engine / "results.json" for engine in ENGINE_ORDER)
+    for path in sorted(paths):
+        try:
+            session(json.loads(path.read_text()))
+        except (OSError, ValueError, TypeError):
+            pass
+    for package in packages:
+        if not isinstance(package, dict):
+            continue
+        for key, name in (("polars", "polars"), ("cudf", "cudf-polars-cu12"), ("spark_cpu", "pyspark")):
+            if not versions[key]:
+                add(key, package.get(name))
+    show = lambda key: "/".join(sorted(versions[key])) or "unrecorded"
+    parts = [f"Polars CPU {show('polars')}", f"Polars GPU {show('polars_gpu')}", f"cuDF-Polars {show('cudf')}"]
+    if versions["spark_cpu"] == versions["spark_gpu"] and versions["spark_cpu"]:
+        parts.append(f"CPU/GPU Spark {show('spark_cpu')}")
+    else:
+        parts.extend((f"CPU Spark {show('spark_cpu')}", f"GPU Spark {show('spark_gpu')}"))
+    parts.append(f"Spark GPU plugin {show('plugin')}")
+    if len(versions["polars"]) == 1 and versions["polars"] == versions["polars_gpu"]:
+        matching = f"Primary Polars CPU/GPU versions matched ({show('polars')})"
+    elif versions["polars"] and versions["polars_gpu"]:
+        matching = "Primary Polars CPU/GPU versions differ or vary across sessions"
+    else:
+        matching = "Primary Polars CPU/GPU version matching is unverified"
+    return " · ".join(parts), matching + "; secondary CPU software-stack control is not shown."
 
 
 def scale_number(value: str) -> Decimal:
@@ -177,9 +254,9 @@ def plot(report: Path) -> tuple[Path, Path]:
     overall = [polars / gpu_time for polars, gpu_time in zip(totals["polars"], totals["spark_gpu"])]
     ratios = {query: [values[(scale, query)]["polars"] / values[(scale, query)]["spark_gpu"]
                      for scale in scales] for query in QUERIES}
-    fig, axes = plt.subplots(1, 3 if ext else 2, figsize=(20.0 if ext else 14.0, 7.2))
+    fig, axes = plt.subplots(1, 3 if ext else 2, figsize=(20.0 if ext else 14.0, 8.0 if ext else 7.2))
     times, ratio = axes[0], axes[1]
-    fig.subplots_adjust(left=0.055 if ext else 0.075, right=0.985 if ext else 0.975, top=0.77, bottom=0.25,
+    fig.subplots_adjust(left=0.055 if ext else 0.075, right=0.985 if ext else 0.975, top=0.77, bottom=0.30 if ext else 0.25,
                         wspace=0.30 if ext else 0.26)
     fig.suptitle("GPU crossover: measured observations" if ext else "GPU Spark crossover: measured observations",
                  x=0.055 if ext else 0.075, y=0.965, ha="left", fontsize=21, fontweight="bold")
@@ -266,15 +343,19 @@ def plot(report: Path) -> tuple[Path, Path]:
         axis.set_axisbelow(True)
         axis.grid(which="major", color="#9CA3AF", alpha=0.23, linewidth=0.65)
     trial_counts = "/".join(str(count) for count in sorted(set(trials.values())))
-    fig.text(left, 0.105,
+    fig.text(left, 0.160 if ext else 0.105,
              (f"One {gpu} 40 GB host · 30 CPU threads" if host_text is None else host_text) +
              f" · {trial_counts} measured trials/query · Float64 · preheated filesystem policy; residency not guaranteed",
              fontsize=9, color="#4B5563")
-    fig.text(left, 0.072,
+    if ext:
+        software, matching = software_caption(evidence)
+        fig.text(left, 0.126, software, fontsize=9, color="#4B5563")
+        fig.text(left, 0.094, matching, fontsize=9, color="#4B5563")
+    fig.text(left, 0.062 if ext else 0.072,
              "Aggregate = sum of per-query medians; startup excluded. Lines connect observations; no fitted threshold or extrapolation.",
              fontsize=9, color="#4B5563")
     excluded = len(evidence.get("excluded_scales", []))
-    fig.text(left, 0.039,
+    fig.text(left, 0.030 if ext else 0.039,
              "Six selected, TPC-H-derived queries; non-certified. Single-host observations, not a distributed or equivalent-cost comparison."
              + (f" {excluded} incomplete/failed scale(s) excluded." if excluded else ""),
              fontsize=9, color="#4B5563")
