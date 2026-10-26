@@ -18,6 +18,9 @@ import time
 
 
 _GONE = {errno.ENOENT, errno.ENOTDIR, errno.ELOOP}
+# Engines whose action state lives in this Python process (no JVM, no shuffle
+# files): cleanup is a Python GC request with nothing Spark-owned to observe.
+PYTHON_ONLY_ENGINES = ("polars", "polars_gpu")
 _DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 
 
@@ -111,21 +114,22 @@ class CleanupTimeout(TimeoutError):
 class CleanupBarrier:
     def __init__(self, engine, spark=None, owned_blockmgr_dirs=(),
                  timeout_seconds=60, poll_seconds=0.25):
-        if engine not in ("polars", "spark_cpu", "spark_gpu"):
+        if engine not in (*PYTHON_ONLY_ENGINES, "spark_cpu", "spark_gpu"):
             raise ValueError(f"Unknown cleanup engine: {engine!r}")
-        if engine != "polars" and spark is None:
+        if engine not in PYTHON_ONLY_ENGINES and spark is None:
             raise ValueError("Spark cleanup requires its SparkSession")
         if any(not math.isfinite(v) or v <= 0 for v in (timeout_seconds, poll_seconds)):
             raise ValueError("Cleanup timeout and poll interval must be finite and positive")
         self.engine, self.spark = engine, spark
-        self.owned_dirs = (() if engine == "polars" else
+        self.python_only = engine in PYTHON_ONLY_ENGINES
+        self.owned_dirs = (() if self.python_only else
                            tuple(sorted({Path(p).absolute() for p in owned_blockmgr_dirs})))
         self.timeout_seconds, self.poll_seconds = timeout_seconds, poll_seconds
 
     def _snapshot(self):
         # Polars does not inspect any Spark-owned directory, even if supplied.
-        files, size = (0, 0) if self.engine == "polars" else _shuffle_usage(self.owned_dirs)
-        jobs = [] if self.engine == "polars" else sorted(
+        files, size = (0, 0) if self.python_only else _shuffle_usage(self.owned_dirs)
+        jobs = [] if self.python_only else sorted(
             int(job) for job in self.spark.sparkContext.statusTracker().getActiveJobsIds()
         )
         return {"shuffle_files": files, "shuffle_bytes": size,
@@ -143,7 +147,7 @@ class CleanupBarrier:
         record = {"engine": self.engine, "status": "running", "seconds": 0.0,
                   "started_at_utc": datetime.now(timezone.utc).isoformat(),
                   "owned_blockmgr_dirs": [str(p) for p in self.owned_dirs],
-                  "spark_cleanup_applicable": self.engine != "polars",
+                  "spark_cleanup_applicable": not self.python_only,
                   "gc_requests": 0, "python_gc_runs": 0, "python_gc_collected": 0}
         record["before"] = self._snapshot()
         record["after"] = dict(record["before"])
@@ -165,7 +169,7 @@ class CleanupBarrier:
         check_deadline()
         record["python_gc_collected"] = gc.collect()
         record["python_gc_runs"] = 1
-        if self.engine == "polars":
+        if self.python_only:
             record["after"] = self._snapshot()
             check_deadline()
             return finish("passed")

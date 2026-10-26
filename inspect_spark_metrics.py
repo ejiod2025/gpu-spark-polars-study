@@ -5,6 +5,11 @@ Uses two streaming passes through uncompressed JSON event logs. Query records
 must map one-to-one to collect SQL executions; jobs then map executions to stages.
 Ambiguous attribution is flagged and its metrics are withheld. Failed task
 attempts and duplicate successful partitions do not inflate successful work.
+
+Only Spark engines (spark_cpu, spark_gpu and any other spark_* result directory)
+have event logs. Other non-legacy engines such as polars_gpu are listed under
+non_spark_engines_skipped rather than inspected; their GPU memory is reported by
+the analyzers from the worker's peak_gpu_memory_bytes field.
 """
 from __future__ import annotations
 
@@ -319,6 +324,7 @@ def main():
         if not root.is_dir():
             parser.error(f"Result root is not a directory: {root}")
     sessions = []
+    skipped = set()
     for root in roots:
         scales = []
         for path in root.glob("sf*"):
@@ -329,8 +335,10 @@ def main():
             except InvalidOperation:
                 continue
         for _, scale in sorted(scales):
-            for engine in ("spark_cpu", "spark_gpu"):
+            present = [child.name for child in scale.iterdir() if child.is_dir() and not child.name.endswith("-events")]
+            for engine in dict.fromkeys(("spark_cpu", "spark_gpu", *sorted(n for n in present if n.startswith("spark_")))):
                 sessions.append(inspect(root, scale, engine))
+            skipped.update(n for n in present if not n.startswith("spark_") and n not in ("polars", "plans"))
     records = [record for session in sessions for record in session["records"]]
     matched = sum(record["mapping_status"] == "matched" for record in records)
     passed = bool(records) and matched == len(records) and not any(session["issues"] or session.get("metric_parse_error_counts") for session in sessions)
@@ -348,6 +356,8 @@ def main():
                   "Collect SQL executions map by worker UTC time windows, then SparkListenerJobStart.Properties.spark.sql.execution.id and Stage IDs. Ambiguous mappings withhold metrics.",
                   "Uncompressed UTF-8 JSON event logs are supported. Read/parse failures are explicit issues; no result evidence is modified."],
               "sessions": sessions}
+    if skipped:
+        result["non_spark_engines_skipped"] = sorted(skipped)
     output = args.output.expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")

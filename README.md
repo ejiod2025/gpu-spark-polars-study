@@ -1,6 +1,28 @@
-# GPU Spark, CPU Spark and Polars study
+# Spark and Polars CPU/GPU study
 
 Private development and reproducibility repository for the [public study](https://a100-spark-polars-study-oct2026.ejiod.chatgpt.site). It preserves the author-created benchmark and publication sources, historical source snapshots, final reports, and curated evidence. Repository visibility and the public website are separate: this repository is intended to remain private.
+
+## H100 development
+
+Branch `H100_main_dev` extends the experiment to four engines: Polars CPU, Polars GPU with cuDF, CPU Spark, and GPU Spark. The H100 host has one 80 GB H100, 26 Intel Xeon vCPUs, and about 221 GiB RAM. Both Polars engines use 1.44.2 with `cudf-polars-cu12==26.10.2` on Python 3.11; the A100 record below used Polars 2.0.0 on Python 3.10. Within-H100 comparisons are the primary result. Hardware, CPU allocation, and software differences prevent interpreting A100/H100 ratios as an isolated GPU upgrade effect.
+
+The original query expressions and saved A100 evidence remain available. Polars GPU disables CPU fallback and verifies this with a successful GPU query, resolved engine settings, and an unsupported Python-UDF canary before timing. Streaming may use a single GPU partition with a recorded warning; this is distinct from CPU fallback. Unsupported queries and other failures are retained and cannot create a complete suite score.
+
+See [the H100 plan](docs/H100_PLAN.md), [compatibility notes](docs/POLARS_GPU_COMPAT.md), `setup_h100.sh`, `preflight.py`, and `verify_generated_inputs.py`. Revalidate historical evidence with the commands below. `SOURCE_MANIFEST.json` describes the original repository import; new runs record their own source hashes.
+
+The four-engine invocation explicitly adds `polars_gpu`:
+
+```bash
+python run_experiment.py \
+  --data-root data --output rerun/h100-baseline-new \
+  --scales 1 10 30 100 300 --runs 3 --cpus 26 --driver-memory 96g \
+  --engines polars polars_gpu spark_cpu spark_gpu \
+  --jar jars/rapids-4-spark_2.12-26.08.1.jar --keep-going
+```
+
+For the complex suite, add `--suite complex --query-cleanup verified_gc` and use scales `30 100 300` with a separate output directory. Validate data and run the SF1 preflight before formal timings. New H100 development does not change the published A100 website.
+
+## Recorded A100 experiment
 
 The study compares CPU Polars, CPU Apache Spark, and Spark with NVIDIA's [cuDF plugin](https://docs.nvidia.com/cudf-spark/latest/overview.html) on the same generated Parquet files. The host had one NVIDIA A100-SXM4-40GB, 30 AMD EPYC 7J13 vCPUs, and approximately 216 GiB RAM. Polars used CPU streaming with a pool of 30; Spark used `local[30]`, a 96 GiB driver heap, 120 shuffle partitions, and adaptive query execution.
 
