@@ -1,0 +1,19 @@
+SORT BY [col("l_shipmode")]
+  AGGREGATE[maintain_order: false]
+    [col("o_orderpriority").is_in([["1-URGENT", "2-HIGH"]]).strict_cast(Int64).sum().alias("high_line_count"), col("o_orderpriority").is_in([["1-URGENT", "2-HIGH"]]).not().strict_cast(Int64).sum().alias("low_line_count")] BY [col("l_shipmode")]
+    FROM
+    simple π 2/2 ["l_shipmode", ... 1 other column]
+      INNER JOIN:
+      BUILD SIDE: PreferLeft
+      LEFT PLAN ON: [col("l_orderkey")]
+        simple π 2/2 ["l_shipmode", "l_orderkey"]
+          Parquet SCAN [/home/ubuntu/study/data/sf1/lineitem/data_0.parquet, ... 29 other sources]
+          PROJECT 5/16 COLUMNS
+          SELECTION: (((col("l_commitdate") < col("l_receiptdate")) & ((col("l_receiptdate") >= 1994-01-01) & (col("l_receiptdate") < 1995-01-01))) & (col("l_shipdate") < col("l_commitdate"))) & col("l_shipmode").is_in([["MAIL", "SHIP"]])
+          ESTIMATED ROWS: 5997687
+      RIGHT PLAN ON: [col("o_orderkey")]
+        Parquet SCAN [/home/ubuntu/study/data/sf1/orders/data_0.parquet, ... 12 other sources]
+        PROJECT 2/9 COLUMNS
+        SELECTION: col("o_orderkey").dynamic_predicate()
+        ESTIMATED ROWS: 1500000
+      END INNER JOIN

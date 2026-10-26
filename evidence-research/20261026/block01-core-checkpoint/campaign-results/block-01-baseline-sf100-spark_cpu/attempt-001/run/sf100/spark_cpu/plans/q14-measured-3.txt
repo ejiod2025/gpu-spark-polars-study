@@ -1,0 +1,39 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(6) HashAggregate(keys=[], functions=[sum(CASE WHEN StartsWith(p_type#168, PROMO) THEN (l_extendedprice#76 * (1.0 - l_discount#93)) ELSE 0.0 END), sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[promo_revenue#711])
+   +- ShuffleQueryStage 2
+      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=6325]
+         +- *(5) HashAggregate(keys=[], functions=[partial_sum(CASE WHEN StartsWith(p_type#168, PROMO) THEN (l_extendedprice#76 * (1.0 - l_discount#93)) ELSE 0.0 END), partial_sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[sum#717, sum#718])
+            +- *(5) Project [l_extendedprice#76, l_discount#93, p_type#168]
+               +- *(5) SortMergeJoin [l_partkey#27L], [p_partkey#164L], Inner
+                  :- *(3) Sort [l_partkey#27L ASC NULLS FIRST], false, 0
+                  :  +- AQEShuffleRead coalesced
+                  :     +- ShuffleQueryStage 0
+                  :        +- Exchange hashpartitioning(l_partkey#27L, 120), ENSURE_REQUIREMENTS, [plan_id=6214]
+                  :           +- *(1) Project [l_partkey#27L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93]
+                  :              +- *(1) Filter (((isnotnull(l_shipdate#36) AND (l_shipdate#36 >= 1995-09-01)) AND (l_shipdate#36 < 1995-10-01)) AND isnotnull(l_partkey#27L))
+                  :                 +- *(1) ColumnarToRow
+                  :                    +- FileScan parquet [l_partkey#27L,l_extendedprice#31,l_discount#32,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 >= 1995-09-01), (l_shipdate#36 < 1995-10-01), isnotnull..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1995-09-01), LessThan(l_shipdate,1995-10-01..., ReadSchema: struct<l_partkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_shipdate:date>
+                  +- *(4) Sort [p_partkey#164L ASC NULLS FIRST], false, 0
+                     +- AQEShuffleRead coalesced
+                        +- ShuffleQueryStage 1
+                           +- Exchange hashpartitioning(p_partkey#164L, 120), ENSURE_REQUIREMENTS, [plan_id=6233]
+                              +- *(2) Filter isnotnull(p_partkey#164L)
+                                 +- *(2) ColumnarToRow
+                                    +- FileScan parquet [p_partkey#164L,p_type#168] Batched: true, DataFilters: [isnotnull(p_partkey#164L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/part], PartitionFilters: [], PushedFilters: [IsNotNull(p_partkey)], ReadSchema: struct<p_partkey:bigint,p_type:string>
++- == Initial Plan ==
+   HashAggregate(keys=[], functions=[sum(CASE WHEN StartsWith(p_type#168, PROMO) THEN (l_extendedprice#76 * (1.0 - l_discount#93)) ELSE 0.0 END), sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[promo_revenue#711])
+   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=6180]
+      +- HashAggregate(keys=[], functions=[partial_sum(CASE WHEN StartsWith(p_type#168, PROMO) THEN (l_extendedprice#76 * (1.0 - l_discount#93)) ELSE 0.0 END), partial_sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[sum#717, sum#718])
+         +- Project [l_extendedprice#76, l_discount#93, p_type#168]
+            +- SortMergeJoin [l_partkey#27L], [p_partkey#164L], Inner
+               :- Sort [l_partkey#27L ASC NULLS FIRST], false, 0
+               :  +- Exchange hashpartitioning(l_partkey#27L, 120), ENSURE_REQUIREMENTS, [plan_id=6172]
+               :     +- Project [l_partkey#27L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93]
+               :        +- Filter (((isnotnull(l_shipdate#36) AND (l_shipdate#36 >= 1995-09-01)) AND (l_shipdate#36 < 1995-10-01)) AND isnotnull(l_partkey#27L))
+               :           +- FileScan parquet [l_partkey#27L,l_extendedprice#31,l_discount#32,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 >= 1995-09-01), (l_shipdate#36 < 1995-10-01), isnotnull..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1995-09-01), LessThan(l_shipdate,1995-10-01..., ReadSchema: struct<l_partkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_shipdate:date>
+               +- Sort [p_partkey#164L ASC NULLS FIRST], false, 0
+                  +- Exchange hashpartitioning(p_partkey#164L, 120), ENSURE_REQUIREMENTS, [plan_id=6173]
+                     +- Filter isnotnull(p_partkey#164L)
+                        +- FileScan parquet [p_partkey#164L,p_type#168] Batched: true, DataFilters: [isnotnull(p_partkey#164L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/part], PartitionFilters: [], PushedFilters: [IsNotNull(p_partkey)], ReadSchema: struct<p_partkey:bigint,p_type:string>
+

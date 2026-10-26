@@ -1,0 +1,32 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=67]
+   +- GpuHashAggregate (keys=[], functions=[gpubasicsum(CASE WHEN gpustartswith(p_type#168, PROMO) THEN (l_extendedprice#76 * (1.0 - l_discount#93)) ELSE 0.0 END, DoubleType, false), gpubasicsum((l_extendedprice#76 * (1.0 - l_discount#93)), DoubleType, false)], output=[promo_revenue#2064]) [loreId=66]
+      +- GpuShuffleCoalesce 1073741824, [loreId=65]
+         +- ShuffleQueryStage 1
+            +- GpuColumnarExchange gpusinglepartitioning$(), ENSURE_REQUIREMENTS, [plan_id=6566], [loreId=62]
+               +- GpuHashAggregate (keys=[], functions=[partial_gpubasicsum(CASE WHEN gpustartswith(p_type#168, PROMO) THEN (l_extendedprice#76 * (1.0 - l_discount#93)) ELSE 0.0 END, DoubleType, false), partial_gpubasicsum((l_extendedprice#76 * (1.0 - l_discount#93)), DoubleType, false)], output=[sum#2070, sum#2071]) [loreId=61]
+                  +- GpuProject [l_extendedprice#76, l_discount#93, p_type#168], true, [loreId=60]
+                     +- GpuBroadcastHashJoin [l_partkey#27L], [p_partkey#164L], Inner, GpuBuildRight, false, [loreId=59]
+                        :- GpuProject [l_partkey#27L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93], true, [loreId=58]
+                        :  +- GpuCoalesceBatches targetsize(1073741824), [loreId=57]
+                        :     +- GpuFilter (((gpuisnotnull(l_shipdate#36) AND (l_shipdate#36 >= 9374)) AND (l_shipdate#36 < 9404)) AND gpuisnotnull(l_partkey#27L)), [loreId=56]
+                        :        +- GpuFileGpuScan parquet [l_partkey#27L,l_extendedprice#31,l_discount#32,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 >= 1995-09-01), (l_shipdate#36 < 1995-10-01), isnotnull..., Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1995-09-01), LessThan(l_shipdate,1995-10-01..., ReadSchema: struct<l_partkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_shipdate:date>
+                        +- BroadcastQueryStage 0
+                           +- GpuBroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, false]),false), [plan_id=6460], [loreId=39]
+                              +- GpuCoalesceBatches targetsize(1073741824), [loreId=38]
+                                 +- GpuFilter gpuisnotnull(p_partkey#164L), [loreId=37]
+                                    +- GpuFileGpuScan parquet [p_partkey#164L,p_type#168] Batched: true, DataFilters: [isnotnull(p_partkey#164L)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/part], PartitionFilters: [], PushedFilters: [IsNotNull(p_partkey)], ReadSchema: struct<p_partkey:bigint,p_type:string>
++- == Initial Plan ==
+   HashAggregate(keys=[], functions=[sum(CASE WHEN StartsWith(p_type#168, PROMO) THEN (l_extendedprice#76 * (1.0 - l_discount#93)) ELSE 0.0 END), sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[promo_revenue#2064])
+   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=6303]
+      +- HashAggregate(keys=[], functions=[partial_sum(CASE WHEN StartsWith(p_type#168, PROMO) THEN (l_extendedprice#76 * (1.0 - l_discount#93)) ELSE 0.0 END), partial_sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[sum#2070, sum#2071])
+         +- Project [l_extendedprice#76, l_discount#93, p_type#168]
+            +- BroadcastHashJoin [l_partkey#27L], [p_partkey#164L], Inner, BuildRight, false
+               :- Project [l_partkey#27L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93]
+               :  +- Filter (((isnotnull(l_shipdate#36) AND (l_shipdate#36 >= 1995-09-01)) AND (l_shipdate#36 < 1995-10-01)) AND isnotnull(l_partkey#27L))
+               :     +- FileScan parquet [l_partkey#27L,l_extendedprice#31,l_discount#32,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 >= 1995-09-01), (l_shipdate#36 < 1995-10-01), isnotnull..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1995-09-01), LessThan(l_shipdate,1995-10-01..., ReadSchema: struct<l_partkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_shipdate:date>
+               +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, false]),false), [plan_id=6298]
+                  +- Filter isnotnull(p_partkey#164L)
+                     +- FileScan parquet [p_partkey#164L,p_type#168] Batched: true, DataFilters: [isnotnull(p_partkey#164L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/part], PartitionFilters: [], PushedFilters: [IsNotNull(p_partkey)], ReadSchema: struct<p_partkey:bigint,p_type:string>
+

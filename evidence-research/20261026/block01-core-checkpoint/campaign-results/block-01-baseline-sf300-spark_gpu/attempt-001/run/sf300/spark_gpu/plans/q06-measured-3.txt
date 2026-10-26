@@ -1,0 +1,20 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=33]
+   +- GpuHashAggregate (keys=[], functions=[gpubasicsum((l_extendedprice#76 * l_discount#93), DoubleType, false)], output=[revenue#24790]) [loreId=32]
+      +- GpuShuffleCoalesce 1073741824, [loreId=31]
+         +- ShuffleQueryStage 0
+            +- GpuColumnarExchange gpusinglepartitioning$(), ENSURE_REQUIREMENTS, [plan_id=11238], [loreId=28]
+               +- GpuHashAggregate (keys=[], functions=[partial_gpubasicsum((l_extendedprice#76 * l_discount#93), DoubleType, false)], output=[sum#24794]) [loreId=27]
+                  +- GpuProject [cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93], true, [loreId=26]
+                     +- GpuCoalesceBatches targetsize(1073741824), [loreId=25]
+                        +- GpuFilter (((((((gpuisnotnull(l_shipdate#36) AND gpuisnotnull(l_discount#32)) AND gpuisnotnull(l_quantity#30)) AND (l_shipdate#36 >= 8766)) AND (l_shipdate#36 < 9131)) AND (cast(l_discount#32 as double) >= 0.05)) AND (cast(l_discount#32 as double) <= 0.07)) AND (cast(l_quantity#30 as double) < 24.0)), [loreId=24]
+                           +- GpuFileGpuScan parquet [l_quantity#30,l_extendedprice#31,l_discount#32,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), isnotnull(l_discount#32), isnotnull(l_quantity#30), (l_shipdate#36 >= ..., Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf300/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), IsNotNull(l_discount), IsNotNull(l_quantity), GreaterThanOrEqual(l_shipda..., ReadSchema: struct<l_quantity:decimal(15,2),l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_shipdate...
++- == Initial Plan ==
+   HashAggregate(keys=[], functions=[sum((l_extendedprice#76 * l_discount#93))], output=[revenue#24790])
+   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=11140]
+      +- HashAggregate(keys=[], functions=[partial_sum((l_extendedprice#76 * l_discount#93))], output=[sum#24794])
+         +- Project [cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93]
+            +- Filter (((((((isnotnull(l_shipdate#36) AND isnotnull(l_discount#32)) AND isnotnull(l_quantity#30)) AND (l_shipdate#36 >= 1994-01-01)) AND (l_shipdate#36 < 1995-01-01)) AND (cast(l_discount#32 as double) >= 0.05)) AND (cast(l_discount#32 as double) <= 0.07)) AND (cast(l_quantity#30 as double) < 24.0))
+               +- FileScan parquet [l_quantity#30,l_extendedprice#31,l_discount#32,l_shipdate#36] Batched: true, DataFilters: [isnotnull(l_shipdate#36), isnotnull(l_discount#32), isnotnull(l_quantity#30), (l_shipdate#36 >= ..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf300/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), IsNotNull(l_discount), IsNotNull(l_quantity), GreaterThanOrEqual(l_shipda..., ReadSchema: struct<l_quantity:decimal(15,2),l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_shipdate...
+

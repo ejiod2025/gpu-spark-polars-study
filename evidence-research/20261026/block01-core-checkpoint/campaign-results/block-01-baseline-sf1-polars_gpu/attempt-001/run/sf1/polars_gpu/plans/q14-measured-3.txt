@@ -1,0 +1,44 @@
+== Polars optimized plan (CPU optimizer; executed by cudf-polars, executor=streaming) ==
+SELECT [((100.0 * when(col("p_type").str.starts_with(["PROMO"])).then(col("__POLARS_CSER_0x100000007")).otherwise(0.0).sum()) / col("__POLARS_CSER_0x100000007").sum()).alias("promo_revenue")]
+   WITH_COLUMNS:
+   [(col("l_extendedprice") * (1.0 - col("l_discount"))).alias("__POLARS_CSER_0x100000007")] 
+    simple π 3/3 ["l_extendedprice", ... 2 other columns]
+      INNER JOIN:
+      LEFT PLAN ON: [col("l_partkey")]
+        simple π 3/3 ["l_extendedprice", ... 2 other columns]
+           WITH_COLUMNS:
+           [col("l_extendedprice").strict_cast(Float64), col("l_discount").strict_cast(Float64)] 
+            simple π 3/3 ["l_partkey", "l_extendedprice", ... 1 other column]
+              Parquet SCAN [/home/ubuntu/study/data/sf1/lineitem/data_0.parquet, ... 29 other sources]
+              PROJECT 4/16 COLUMNS
+              SELECTION: (col("l_shipdate") >= 1995-09-01) & (col("l_shipdate") < 1995-10-01)
+              ESTIMATED ROWS: 5997687
+      RIGHT PLAN ON: [col("p_partkey")]
+        Parquet SCAN [/home/ubuntu/study/data/sf1/part/data_0.parquet, /home/ubuntu/study/data/sf1/part/data_1.parquet]
+        PROJECT 2/9 COLUMNS
+        ESTIMATED ROWS: 200000
+      END INNER JOIN
+== cudf-polars physical plan ==
+SELECT ('promo_revenue',) [1]
+  HCONCAT ('_______________1', '_______________3') [1]
+    SELECT ('_______________1',) [1]
+      REPARTITION ('_______________0',) [1]
+        SELECT ('_______________0',) [1]
+          PROJECTION ('l_extendedprice', 'l_discount', 'p_type') [1]
+            JOIN Inner ('l_partkey',) ('p_partkey',) ('l_extendedprice', 'l_discount', 'l_partkey', 'p_type') [1]
+              SELECT ('l_extendedprice', 'l_discount', 'l_partkey') [1]
+                HSTACK ('l_partkey', 'l_extendedprice', 'l_discount') [1]
+                  PROJECTION ('l_partkey', 'l_extendedprice', 'l_discount') [1]
+                    STREAMINGSCAN ('l_partkey', 'l_extendedprice', 'l_discount', 'l_shipdate') [1]
+              STREAMINGSCAN ('p_type', 'p_partkey') [1]
+    SELECT ('_______________3',) [1]
+      REPARTITION ('_______________2',) [1]
+        SELECT ('_______________2',) [1]
+          PROJECTION ('l_extendedprice', 'l_discount', 'p_type') [1]
+            JOIN Inner ('l_partkey',) ('p_partkey',) ('l_extendedprice', 'l_discount', 'l_partkey', 'p_type') [1]
+              SELECT ('l_extendedprice', 'l_discount', 'l_partkey') [1]
+                HSTACK ('l_partkey', 'l_extendedprice', 'l_discount') [1]
+                  PROJECTION ('l_partkey', 'l_extendedprice', 'l_discount') [1]
+                    STREAMINGSCAN ('l_partkey', 'l_extendedprice', 'l_discount', 'l_shipdate') [1]
+              STREAMINGSCAN ('p_type', 'p_partkey') [1]
+

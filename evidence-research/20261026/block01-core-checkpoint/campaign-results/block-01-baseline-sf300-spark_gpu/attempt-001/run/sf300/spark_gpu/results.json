@@ -1,0 +1,4343 @@
+{
+  "engine": "spark_gpu",
+  "suite": "baseline",
+  "suite_version": "baseline-v1",
+  "query_descriptions": {
+    "q01": "Broad scan, arithmetic, and grouped aggregates",
+    "q03": "Selective three-table join, aggregation, and top 10",
+    "q06": "Selective scan and scalar revenue aggregation",
+    "q10": "Four-table join, customer aggregation, and top 20",
+    "q12": "Join and conditional grouped counts",
+    "q14": "Part join and conditional revenue ratio"
+  },
+  "started_at_utc": "2026-10-26T20:05:21.007121+00:00",
+  "scale_factor": 300.0,
+  "manifest_sha256": "70dd48cd534af99c106ecade0aad4d5e20bddcf732811e88c06326de1c96d8da",
+  "runs": 3,
+  "query_seed": 1643158179,
+  "queries": [
+    "q01",
+    "q03",
+    "q06",
+    "q10",
+    "q12",
+    "q14"
+  ],
+  "cache_policy": "preheated filesystem; no application dataframe cache",
+  "timing_scope": "query construction, optimization, parquet read, execution, result collection; excludes session/table setup and plan serialization",
+  "host_result_timing_scope": "same start as seconds, through conversion to a list of Python dictionaries; excludes normalization, plan serialization, sampler shutdown and cleanup",
+  "pid": 82477,
+  "polars_execution_engine": null,
+  "records": [
+    {
+      "query": "q01",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 6.9769860730011715,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 11326496070.0,
+          "sum_base_price": 16983850073675.979,
+          "sum_disc_price": 16134638393105.715,
+          "sum_charge": 16780018679256.393,
+          "avg_qty": 25.499846629395265,
+          "avg_price": 38236.50044804907,
+          "avg_disc": 0.05000206283958663,
+          "count_order": 444178988
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 295553717.0,
+          "sum_base_price": 443225142133.9701,
+          "sum_disc_price": 421061190689.03,
+          "sum_charge": 437902785779.35474,
+          "avg_qty": 25.500054657694005,
+          "avg_price": 38240.985309890144,
+          "avg_disc": 0.050009112779227705,
+          "count_order": 11590317
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 22305732548.0,
+          "sum_base_price": 33447472970657.527,
+          "sum_disc_price": 31775099306536.418,
+          "sum_charge": 33046112599006.168,
+          "avg_qty": 25.50013062142964,
+          "avg_price": 38237.47675056649,
+          "avg_disc": 0.049999117179145465,
+          "count_order": 874730129
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 11326615383.0,
+          "sum_base_price": 16983950687632.008,
+          "sum_disc_price": 16134735974329.348,
+          "sum_charge": 16780124874816.938,
+          "avg_qty": 25.500243210608865,
+          "avg_price": 38236.91884705748,
+          "avg_disc": 0.050000135779278795,
+          "count_order": 444176759
+        }
+      ],
+      "host_result_seconds": 6.977024321000499,
+      "action_started_at_utc": "2026-10-26T20:05:37.978440+00:00",
+      "action_ended_at_utc": "2026-10-26T20:05:44.955441+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:05:44.955477+00:00",
+      "action_start_monotonic_seconds": 23121.230909328,
+      "action_end_monotonic_seconds": 23128.207895401,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 3.89,
+            "system": 0.07,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 3381,
+            "write_count": 21,
+            "read_bytes": 0,
+            "write_bytes": 16384,
+            "read_chars": 9638318,
+            "write_chars": 75755
+          },
+          "minor_faults": 16579,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 24.64,
+            "system": 4.39,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 278013,
+            "write_count": 269589,
+            "read_bytes": 0,
+            "write_bytes": 2490609664,
+            "read_chars": 3945473357,
+            "write_chars": 4487209709
+          },
+          "minor_faults": 751844,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 4.3,
+            "system": 0.56,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 101163,
+            "write_count": 21,
+            "read_bytes": 0,
+            "write_bytes": 16384,
+            "read_chars": 18573274,
+            "write_chars": 75755
+          },
+          "minor_faults": 16883,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 118.79,
+            "system": 15.11,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 330288,
+            "write_count": 275672,
+            "read_bytes": 0,
+            "write_bytes": 2510716928,
+            "read_chars": 20984095881,
+            "write_chars": 4493520439
+          },
+          "minor_faults": 1439062,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:05:37.954950+00:00",
+      "ended_at_utc": "2026-10-26T20:05:44.970847+00:00",
+      "peak_process_tree_rss_bytes": 5928165376,
+      "plan": "plans/q01-warmup-0.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84370522112
+    },
+    {
+      "query": "q03",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 12.835892784998578,
+      "rows": [
+        {
+          "l_orderkey": 16050176,
+          "revenue": 489569.49890000006,
+          "o_orderdate": "1995-03-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1161663111,
+          "revenue": 477596.048,
+          "o_orderdate": "1995-03-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 257589767,
+          "revenue": 476019.89019999997,
+          "o_orderdate": "1995-02-20",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1557703747,
+          "revenue": 474467.13670000003,
+          "o_orderdate": "1995-03-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 725432482,
+          "revenue": 469324.8792999999,
+          "o_orderdate": "1995-03-08",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 173325283,
+          "revenue": 468533.46259999997,
+          "o_orderdate": "1995-02-18",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 162051301,
+          "revenue": 468482.1688,
+          "o_orderdate": "1995-03-11",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1435113092,
+          "revenue": 467221.2564,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 177643398,
+          "revenue": 466925.64900000003,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 914948229,
+          "revenue": 466240.68960000004,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        }
+      ],
+      "host_result_seconds": 12.83593888500036,
+      "action_started_at_utc": "2026-10-26T20:05:44.993490+00:00",
+      "action_ended_at_utc": "2026-10-26T20:05:57.829398+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:05:57.829441+00:00",
+      "action_start_monotonic_seconds": 23128.245958847,
+      "action_end_monotonic_seconds": 23141.081851632,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 4.31,
+            "system": 0.58,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 104202,
+            "write_count": 26,
+            "read_bytes": 0,
+            "write_bytes": 49152,
+            "read_chars": 18860599,
+            "write_chars": 107468
+          },
+          "minor_faults": 16890,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 118.86,
+            "system": 15.12,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 330296,
+            "write_count": 275678,
+            "read_bytes": 0,
+            "write_bytes": 2510721024,
+            "read_chars": 20984102306,
+            "write_chars": 4493528663
+          },
+          "minor_faults": 1439174,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 5.01,
+            "system": 1.62,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 283946,
+            "write_count": 26,
+            "read_bytes": 0,
+            "write_bytes": 49152,
+            "read_chars": 35136045,
+            "write_chars": 107468
+          },
+          "minor_faults": 16897,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 308.85,
+            "system": 70.72,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2683329,
+            "write_count": 1116991,
+            "read_bytes": 0,
+            "write_bytes": 32226721792,
+            "read_chars": 58390443041,
+            "write_chars": 33985124959
+          },
+          "minor_faults": 6291486,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:05:44.972492+00:00",
+      "ended_at_utc": "2026-10-26T20:05:57.893135+00:00",
+      "peak_process_tree_rss_bytes": 13930135552,
+      "plan": "plans/q03-warmup-0.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuTopN"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84366327808
+    },
+    {
+      "query": "q06",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 3.3983897090001847,
+      "rows": [
+        {
+          "revenue": 36990825719.5392
+        }
+      ],
+      "host_result_seconds": 3.398413906001224,
+      "action_started_at_utc": "2026-10-26T20:05:57.914474+00:00",
+      "action_ended_at_utc": "2026-10-26T20:06:01.312879+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:06:01.312901+00:00",
+      "action_start_monotonic_seconds": 23141.166943588,
+      "action_end_monotonic_seconds": 23144.565333297,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 5.03,
+            "system": 1.63,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 286232,
+            "write_count": 31,
+            "read_bytes": 0,
+            "write_bytes": 102400,
+            "read_chars": 35355252,
+            "write_chars": 155001
+          },
+          "minor_faults": 16899,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 308.89,
+            "system": 70.72,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2683333,
+            "write_count": 1116998,
+            "read_bytes": 0,
+            "write_bytes": 32226725888,
+            "read_chars": 58390445576,
+            "write_chars": 33985138401
+          },
+          "minor_faults": 6291498,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 5.34,
+            "system": 1.99,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 331367,
+            "write_count": 31,
+            "read_bytes": 0,
+            "write_bytes": 102400,
+            "read_chars": 39445916,
+            "write_chars": 155001
+          },
+          "minor_faults": 16905,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 357.37,
+            "system": 76.63,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2731342,
+            "write_count": 1119687,
+            "read_bytes": 0,
+            "write_bytes": 32239706112,
+            "read_chars": 73808727374,
+            "write_chars": 33989361017
+          },
+          "minor_faults": 6307395,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:05:57.893856+00:00",
+      "ended_at_utc": "2026-10-26T20:06:01.323363+00:00",
+      "peak_process_tree_rss_bytes": 13618704384,
+      "plan": "plans/q06-warmup-0.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84370522112
+    },
+    {
+      "query": "q10",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 13.58425375799925,
+      "rows": [
+        {
+          "c_custkey": 23626387,
+          "c_name": "Customer#023626387",
+          "revenue": 792129.6142000001,
+          "c_acctbal": 4047.44,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "aL1DUk8f ZzXh1uV8PfyV0",
+          "c_phone": "30-950-648-1181",
+          "c_comment": "lly unusual accounts. carefully regular pinto beans wake regularly about the fluffily ironic d"
+        },
+        {
+          "c_custkey": 44005624,
+          "c_name": "Customer#044005624",
+          "revenue": 772571.1214,
+          "c_acctbal": 1704.09,
+          "n_name": "MOROCCO",
+          "c_address": "T4sTPCV5lhCZ",
+          "c_phone": "25-408-510-2059",
+          "c_comment": "arefully alongside of the quickly special ideas. furiously ironic excuses against the blithely ev"
+        },
+        {
+          "c_custkey": 11412268,
+          "c_name": "Customer#011412268",
+          "revenue": 751875.5061,
+          "c_acctbal": 5700.71,
+          "n_name": "ALGERIA",
+          "c_address": "W0nk0B6OCyvKbt1bX RmUuTum",
+          "c_phone": "10-673-432-4349",
+          "c_comment": " carefully fluffily regular deposits. carefully ironic foxes against the blithely expr"
+        },
+        {
+          "c_custkey": 34541281,
+          "c_name": "Customer#034541281",
+          "revenue": 750721.9883999999,
+          "c_acctbal": -565.58,
+          "n_name": "EGYPT",
+          "c_address": "DgZtSbF19wELFiylAcrk0rx5NL3Wb8m6o2O7 G6",
+          "c_phone": "14-300-223-9701",
+          "c_comment": "ackages along the ironic dolphins wake slyly fluffily pending excuses. special dep"
+        },
+        {
+          "c_custkey": 11169961,
+          "c_name": "Customer#011169961",
+          "revenue": 741361.0914,
+          "c_acctbal": -130.85,
+          "n_name": "FRANCE",
+          "c_address": "YxL9bmPBCKqy,2atJ WnMNzEtHuERcbfV6",
+          "c_phone": "16-513-948-2671",
+          "c_comment": "usual accounts cajole quickly requests. ironic, regular packages solve slyly deposits. unusual, quiet dependen"
+        },
+        {
+          "c_custkey": 29510422,
+          "c_name": "Customer#029510422",
+          "revenue": 735457.6240000001,
+          "c_acctbal": 5883.1,
+          "n_name": "JAPAN",
+          "c_address": "YvUIUA2Tm4NeKmjunldTUY9BQ,Pv3",
+          "c_phone": "22-123-392-4151",
+          "c_comment": "counts. fluffily special deposits unwind about the furiously regular epitaphs."
+        },
+        {
+          "c_custkey": 37132390,
+          "c_name": "Customer#037132390",
+          "revenue": 734898.2434,
+          "c_acctbal": 9821.44,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "FMqieVEBQ6nc7VB9,1SBd IFYsg0 ",
+          "c_phone": "30-971-120-9827",
+          "c_comment": "s haggle bold, regular instructio"
+        },
+        {
+          "c_custkey": 11181646,
+          "c_name": "Customer#011181646",
+          "revenue": 725782.2477,
+          "c_acctbal": 3274.65,
+          "n_name": "IRAN",
+          "c_address": "y  TFHPRbJSL9FGpo1Fa6zHgxU0QyCS9ZfGfzg",
+          "c_phone": "20-878-632-4240",
+          "c_comment": "ess frets sleep blithely against the slyly final accounts. regular requests print fur"
+        },
+        {
+          "c_custkey": 29584792,
+          "c_name": "Customer#029584792",
+          "revenue": 721820.9882,
+          "c_acctbal": 1849.83,
+          "n_name": "BRAZIL",
+          "c_address": "tIEMhs2y06HmLFQVFn0K5988a8oaisUm6zA4zDq ",
+          "c_phone": "12-886-962-2760",
+          "c_comment": " requests are slyly. furiously express courts wake slyly. pending accounts affi"
+        },
+        {
+          "c_custkey": 37876916,
+          "c_name": "Customer#037876916",
+          "revenue": 720096.3557,
+          "c_acctbal": 3193.1,
+          "n_name": "IRAQ",
+          "c_address": "a7JjbiFpNCUMML",
+          "c_phone": "21-942-270-3725",
+          "c_comment": " blithely regular instructions haggle at the unusual, regular instructions. quickly even accounts through "
+        },
+        {
+          "c_custkey": 4703650,
+          "c_name": "Customer#004703650",
+          "revenue": 719140.5316999999,
+          "c_acctbal": 5057.98,
+          "n_name": "UNITED KINGDOM",
+          "c_address": "V c1mPGNdkthiUMl0EIVz6pGC2B9dPk2 iEd",
+          "c_phone": "33-918-243-9346",
+          "c_comment": "ealthy dinos. instructions haggle furiously. furiously final a"
+        },
+        {
+          "c_custkey": 13973338,
+          "c_name": "Customer#013973338",
+          "revenue": 718124.702,
+          "c_acctbal": 4700.82,
+          "n_name": "MOROCCO",
+          "c_address": "wmF8seCWEBQsUAdv14irSGyu",
+          "c_phone": "25-800-522-3304",
+          "c_comment": "are blithely regular, final deposits. ruthless, bold asym"
+        },
+        {
+          "c_custkey": 5299150,
+          "c_name": "Customer#005299150",
+          "revenue": 717817.1056,
+          "c_acctbal": 8132.7,
+          "n_name": "EGYPT",
+          "c_address": "9IE5E5JgbbhYRjViRm5Qb",
+          "c_phone": "14-359-961-3984",
+          "c_comment": "ckages are carefully behind the furiously final accounts. carefully i"
+        },
+        {
+          "c_custkey": 4483723,
+          "c_name": "Customer#004483723",
+          "revenue": 717143.722,
+          "c_acctbal": 6455.29,
+          "n_name": "KENYA",
+          "c_address": "9dpBKsrdAb8MyEosuj",
+          "c_phone": "24-972-426-3977",
+          "c_comment": "ithely even platelets haggle fluffily. silent, regular ideas wake blithe"
+        },
+        {
+          "c_custkey": 20644288,
+          "c_name": "Customer#020644288",
+          "revenue": 714835.3887,
+          "c_acctbal": 5296.82,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "JIYZWp9Q0k",
+          "c_phone": "30-206-714-9135",
+          "c_comment": "lar dugouts haggle slyly. express ideas affix. fluffily bold deposits alongside of"
+        },
+        {
+          "c_custkey": 16720108,
+          "c_name": "Customer#016720108",
+          "revenue": 712917.2914999999,
+          "c_acctbal": 9979.69,
+          "n_name": "KENYA",
+          "c_address": "Fwx1aaa77mtQXDAUvV, EYdrcuORK,4e8xLZvBQ",
+          "c_phone": "24-312-188-8289",
+          "c_comment": "cross the slyly regular asymp"
+        },
+        {
+          "c_custkey": 19609774,
+          "c_name": "Customer#019609774",
+          "revenue": 710538.7396999999,
+          "c_acctbal": 5258.18,
+          "n_name": "CHINA",
+          "c_address": "rV3CCJp P2P4u3",
+          "c_phone": "28-673-755-1552",
+          "c_comment": "ly silent ideas are blithely unusual requests"
+        },
+        {
+          "c_custkey": 44504971,
+          "c_name": "Customer#044504971",
+          "revenue": 709194.2822,
+          "c_acctbal": 6374.27,
+          "n_name": "JAPAN",
+          "c_address": "qTe2G8c0inXWNKT,YrEfvbOKafjfEevE6MKUIU8",
+          "c_phone": "22-514-616-7658",
+          "c_comment": "ending dependencies are above th"
+        },
+        {
+          "c_custkey": 7476481,
+          "c_name": "Customer#007476481",
+          "revenue": 708883.2646999999,
+          "c_acctbal": 5533.55,
+          "n_name": "GERMANY",
+          "c_address": "aI2YXtt h2lKNYj4wIn8Cb,Ia",
+          "c_phone": "17-811-789-1621",
+          "c_comment": " across the carefully silent acc"
+        },
+        {
+          "c_custkey": 10116337,
+          "c_name": "Customer#010116337",
+          "revenue": 708706.1623,
+          "c_acctbal": 3233.61,
+          "n_name": "ALGERIA",
+          "c_address": "bRJ4tF1nF5d8P4SVZnlhdobd4",
+          "c_phone": "10-996-379-4737",
+          "c_comment": " packages detect around the special, regular theodolites. even, special deposits above the fi"
+        }
+      ],
+      "host_result_seconds": 13.584326283002156,
+      "action_started_at_utc": "2026-10-26T20:06:01.346184+00:00",
+      "action_ended_at_utc": "2026-10-26T20:06:14.930453+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:06:14.930523+00:00",
+      "action_start_monotonic_seconds": 23144.598653455,
+      "action_end_monotonic_seconds": 23158.182907213,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 5.35,
+            "system": 2.01,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 333653,
+            "write_count": 36,
+            "read_bytes": 0,
+            "write_bytes": 155648,
+            "read_chars": 39665169,
+            "write_chars": 202017
+          },
+          "minor_faults": 16908,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 357.39,
+            "system": 76.63,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2731346,
+            "write_count": 1119693,
+            "read_bytes": 0,
+            "write_bytes": 32239706112,
+            "read_chars": 73808729846,
+            "write_chars": 33989366594
+          },
+          "minor_faults": 6307401,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 6.15,
+            "system": 3.1,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 523174,
+            "write_count": 36,
+            "read_bytes": 0,
+            "write_bytes": 155648,
+            "read_chars": 56827458,
+            "write_chars": 202017
+          },
+          "minor_faults": 16912,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 530.34,
+            "system": 129.17,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 4784462,
+            "write_count": 1854065,
+            "read_bytes": 122880,
+            "write_bytes": 59965505536,
+            "read_chars": 112484526965,
+            "write_chars": 61460946017
+          },
+          "minor_faults": 8524577,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:06:01.324220+00:00",
+      "ended_at_utc": "2026-10-26T20:06:14.984283+00:00",
+      "peak_process_tree_rss_bytes": 16489037824,
+      "plan": "plans/q10-warmup-0.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuBroadcastExchange",
+        "GpuBroadcastHashJoin",
+        "GpuBuildRight",
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuTopN"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84374716416
+    },
+    {
+      "query": "q12",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 6.7994359050026105,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 1869877,
+          "low_line_count": 2802930
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 1868954,
+          "low_line_count": 2804791
+        }
+      ],
+      "host_result_seconds": 6.79946208399997,
+      "action_started_at_utc": "2026-10-26T20:06:15.009756+00:00",
+      "action_ended_at_utc": "2026-10-26T20:06:21.809209+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:06:21.809233+00:00",
+      "action_start_monotonic_seconds": 23158.262227081,
+      "action_end_monotonic_seconds": 23165.061662986,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 6.16,
+            "system": 3.12,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 525460,
+            "write_count": 41,
+            "read_bytes": 0,
+            "write_bytes": 237568,
+            "read_chars": 57046550,
+            "write_chars": 282801
+          },
+          "minor_faults": 16917,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 530.37,
+            "system": 129.17,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 4784466,
+            "write_count": 1854072,
+            "read_bytes": 122880,
+            "write_bytes": 59965509632,
+            "read_chars": 112484529577,
+            "write_chars": 61460962438
+          },
+          "minor_faults": 8524583,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 6.54,
+            "system": 3.7,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 620980,
+            "write_count": 41,
+            "read_bytes": 0,
+            "write_bytes": 237568,
+            "read_chars": 65698442,
+            "write_chars": 282801
+          },
+          "minor_faults": 16919,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 615.16,
+            "system": 154.76,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 5863257,
+            "write_count": 2231543,
+            "read_bytes": 184320,
+            "write_bytes": 70624378880,
+            "read_chars": 134985797950,
+            "write_chars": 71908549576
+          },
+          "minor_faults": 8778971,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:06:14.985445+00:00",
+      "ended_at_utc": "2026-10-26T20:06:21.820401+00:00",
+      "peak_process_tree_rss_bytes": 16551632896,
+      "plan": "plans/q12-warmup-0.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuSort"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84374716416
+    },
+    {
+      "query": "q14",
+      "phase": "warmup",
+      "trial": 0,
+      "seconds": 4.468352899002639,
+      "rows": [
+        {
+          "promo_revenue": 16.6594996187751
+        }
+      ],
+      "host_result_seconds": 4.468382492999808,
+      "action_started_at_utc": "2026-10-26T20:06:21.843953+00:00",
+      "action_ended_at_utc": "2026-10-26T20:06:26.312322+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:06:26.312349+00:00",
+      "action_start_monotonic_seconds": 23165.096423,
+      "action_end_monotonic_seconds": 23169.564775899,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 6.56,
+            "system": 3.72,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 623266,
+            "write_count": 46,
+            "read_bytes": 0,
+            "write_bytes": 319488,
+            "read_chars": 65917723,
+            "write_chars": 364702
+          },
+          "minor_faults": 16922,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 615.22,
+            "system": 154.76,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 5863261,
+            "write_count": 2231549,
+            "read_bytes": 184320,
+            "write_bytes": 70624382976,
+            "read_chars": 134985800503,
+            "write_chars": 71908559179
+          },
+          "minor_faults": 8779005,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 6.84,
+            "system": 4.1,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 685698,
+            "write_count": 46,
+            "read_bytes": 0,
+            "write_bytes": 319488,
+            "read_chars": 71574898,
+            "write_chars": 364702
+          },
+          "minor_faults": 16925,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 667.81,
+            "system": 171.64,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 6279582,
+            "write_count": 2409819,
+            "read_bytes": 225280,
+            "write_bytes": 73371590656,
+            "read_chars": 160990339435,
+            "write_chars": 74470213647
+          },
+          "minor_faults": 8878915,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:06:21.821566+00:00",
+      "ended_at_utc": "2026-10-26T20:06:26.327793+00:00",
+      "peak_process_tree_rss_bytes": 16537546752,
+      "plan": "plans/q14-warmup-0.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84374716416
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 6.692300667997188,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 1869877,
+          "low_line_count": 2802930
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 1868954,
+          "low_line_count": 2804791
+        }
+      ],
+      "host_result_seconds": 6.692341445999773,
+      "action_started_at_utc": "2026-10-26T20:06:26.356208+00:00",
+      "action_ended_at_utc": "2026-10-26T20:06:33.048523+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:06:33.048562+00:00",
+      "action_start_monotonic_seconds": 23169.608677093,
+      "action_end_monotonic_seconds": 23176.300977761,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 6.86,
+            "system": 4.12,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 687984,
+            "write_count": 51,
+            "read_bytes": 0,
+            "write_bytes": 409600,
+            "read_chars": 71794092,
+            "write_chars": 452752
+          },
+          "minor_faults": 16927,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 667.83,
+            "system": 171.64,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 6279586,
+            "write_count": 2409825,
+            "read_bytes": 225280,
+            "write_bytes": 73371594752,
+            "read_chars": 160990341974,
+            "write_chars": 74470221909
+          },
+          "minor_faults": 8878915,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 7.26,
+            "system": 4.66,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 781247,
+            "write_count": 51,
+            "read_bytes": 0,
+            "write_bytes": 409600,
+            "read_chars": 80243170,
+            "write_chars": 452752
+          },
+          "minor_faults": 16929,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 749.84,
+            "system": 197.73,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 7358243,
+            "write_count": 2787312,
+            "read_bytes": 241664,
+            "write_bytes": 84031361024,
+            "read_chars": 183491853295,
+            "write_chars": 84918368539
+          },
+          "minor_faults": 9113271,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:06:26.329989+00:00",
+      "ended_at_utc": "2026-10-26T20:06:33.062668+00:00",
+      "peak_process_tree_rss_bytes": 16567459840,
+      "plan": "plans/q12-measured-1.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuSort"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84374716416
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 13.222072120999655,
+      "rows": [
+        {
+          "l_orderkey": 16050176,
+          "revenue": 489569.49890000006,
+          "o_orderdate": "1995-03-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1161663111,
+          "revenue": 477596.048,
+          "o_orderdate": "1995-03-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 257589767,
+          "revenue": 476019.8902,
+          "o_orderdate": "1995-02-20",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1557703747,
+          "revenue": 474467.1367,
+          "o_orderdate": "1995-03-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 725432482,
+          "revenue": 469324.8792999999,
+          "o_orderdate": "1995-03-08",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 173325283,
+          "revenue": 468533.4626,
+          "o_orderdate": "1995-02-18",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 162051301,
+          "revenue": 468482.1688,
+          "o_orderdate": "1995-03-11",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1435113092,
+          "revenue": 467221.2564,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 177643398,
+          "revenue": 466925.64900000003,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 914948229,
+          "revenue": 466240.68960000004,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        }
+      ],
+      "host_result_seconds": 13.222112527000718,
+      "action_started_at_utc": "2026-10-26T20:06:33.087383+00:00",
+      "action_ended_at_utc": "2026-10-26T20:06:46.309470+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:06:46.309508+00:00",
+      "action_start_monotonic_seconds": 23176.33985204,
+      "action_end_monotonic_seconds": 23189.561924161,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 7.28,
+            "system": 4.67,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 784286,
+            "write_count": 56,
+            "read_bytes": 0,
+            "write_bytes": 507904,
+            "read_chars": 80530617,
+            "write_chars": 550056
+          },
+          "minor_faults": 16931,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 749.84,
+            "system": 197.73,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 7358247,
+            "write_count": 2787318,
+            "read_bytes": 241664,
+            "write_bytes": 84031361024,
+            "read_chars": 183491855853,
+            "write_chars": 84918378147
+          },
+          "minor_faults": 9113275,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 8.06,
+            "system": 5.81,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 965534,
+            "write_count": 56,
+            "read_bytes": 0,
+            "write_bytes": 507904,
+            "read_chars": 96945896,
+            "write_chars": 550056
+          },
+          "minor_faults": 16935,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 933.38,
+            "system": 248.42,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 9709930,
+            "write_count": 3628625,
+            "read_bytes": 290816,
+            "write_bytes": 113745256448,
+            "read_chars": 220896457007,
+            "write_chars": 114407162974
+          },
+          "minor_faults": 10806969,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:06:33.064073+00:00",
+      "ended_at_utc": "2026-10-26T20:06:46.362094+00:00",
+      "peak_process_tree_rss_bytes": 18507251712,
+      "plan": "plans/q03-measured-1.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuTopN"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84374716416
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 4.39804337500027,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 11326496070.0,
+          "sum_base_price": 16983850073675.979,
+          "sum_disc_price": 16134638393105.713,
+          "sum_charge": 16780018679256.396,
+          "avg_qty": 25.499846629395265,
+          "avg_price": 38236.50044804906,
+          "avg_disc": 0.05000206283958661,
+          "count_order": 444178988
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 295553717.0,
+          "sum_base_price": 443225142133.97003,
+          "sum_disc_price": 421061190689.03,
+          "sum_charge": 437902785779.35486,
+          "avg_qty": 25.500054657694005,
+          "avg_price": 38240.98530989015,
+          "avg_disc": 0.05000911277922769,
+          "count_order": 11590317
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 22305732548.0,
+          "sum_base_price": 33447472970657.527,
+          "sum_disc_price": 31775099306536.406,
+          "sum_charge": 33046112599006.17,
+          "avg_qty": 25.50013062142964,
+          "avg_price": 38237.47675056649,
+          "avg_disc": 0.04999911717914546,
+          "count_order": 874730129
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 11326615383.0,
+          "sum_base_price": 16983950687632.01,
+          "sum_disc_price": 16134735974329.348,
+          "sum_charge": 16780124874816.94,
+          "avg_qty": 25.500243210608865,
+          "avg_price": 38236.91884705748,
+          "avg_disc": 0.05000013577927879,
+          "count_order": 444176759
+        }
+      ],
+      "host_result_seconds": 4.398077983001713,
+      "action_started_at_utc": "2026-10-26T20:06:46.387378+00:00",
+      "action_ended_at_utc": "2026-10-26T20:06:50.785435+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:06:50.785468+00:00",
+      "action_start_monotonic_seconds": 23189.6398466,
+      "action_end_monotonic_seconds": 23194.037889975,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 8.08,
+            "system": 5.83,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 968573,
+            "write_count": 61,
+            "read_bytes": 0,
+            "write_bytes": 622592,
+            "read_chars": 97233256,
+            "write_chars": 661861
+          },
+          "minor_faults": 16937,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 933.4,
+            "system": 248.42,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 9709934,
+            "write_count": 3628632,
+            "read_bytes": 290816,
+            "write_bytes": 113745256448,
+            "read_chars": 220896459569,
+            "write_chars": 114407176452
+          },
+          "minor_faults": 10806975,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 8.29,
+            "system": 6.19,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1031005,
+            "write_count": 61,
+            "read_bytes": 0,
+            "write_bytes": 622592,
+            "read_chars": 102891199,
+            "write_chars": 661861
+          },
+          "minor_faults": 16939,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 990.99,
+            "system": 256.75,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 9755805,
+            "write_count": 3634596,
+            "read_bytes": 290816,
+            "write_bytes": 113765085184,
+            "read_chars": 237929149320,
+            "write_chars": 114413209281
+          },
+          "minor_faults": 11225465,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:06:46.363670+00:00",
+      "ended_at_utc": "2026-10-26T20:06:50.796248+00:00",
+      "peak_process_tree_rss_bytes": 18766114816,
+      "plan": "plans/q01-measured-1.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84374716416
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 16.84235427400199,
+      "rows": [
+        {
+          "c_custkey": 23626387,
+          "c_name": "Customer#023626387",
+          "revenue": 792129.6142,
+          "c_acctbal": 4047.44,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "aL1DUk8f ZzXh1uV8PfyV0",
+          "c_phone": "30-950-648-1181",
+          "c_comment": "lly unusual accounts. carefully regular pinto beans wake regularly about the fluffily ironic d"
+        },
+        {
+          "c_custkey": 44005624,
+          "c_name": "Customer#044005624",
+          "revenue": 772571.1214000001,
+          "c_acctbal": 1704.09,
+          "n_name": "MOROCCO",
+          "c_address": "T4sTPCV5lhCZ",
+          "c_phone": "25-408-510-2059",
+          "c_comment": "arefully alongside of the quickly special ideas. furiously ironic excuses against the blithely ev"
+        },
+        {
+          "c_custkey": 11412268,
+          "c_name": "Customer#011412268",
+          "revenue": 751875.5060999999,
+          "c_acctbal": 5700.71,
+          "n_name": "ALGERIA",
+          "c_address": "W0nk0B6OCyvKbt1bX RmUuTum",
+          "c_phone": "10-673-432-4349",
+          "c_comment": " carefully fluffily regular deposits. carefully ironic foxes against the blithely expr"
+        },
+        {
+          "c_custkey": 34541281,
+          "c_name": "Customer#034541281",
+          "revenue": 750721.9883999999,
+          "c_acctbal": -565.58,
+          "n_name": "EGYPT",
+          "c_address": "DgZtSbF19wELFiylAcrk0rx5NL3Wb8m6o2O7 G6",
+          "c_phone": "14-300-223-9701",
+          "c_comment": "ackages along the ironic dolphins wake slyly fluffily pending excuses. special dep"
+        },
+        {
+          "c_custkey": 11169961,
+          "c_name": "Customer#011169961",
+          "revenue": 741361.0914,
+          "c_acctbal": -130.85,
+          "n_name": "FRANCE",
+          "c_address": "YxL9bmPBCKqy,2atJ WnMNzEtHuERcbfV6",
+          "c_phone": "16-513-948-2671",
+          "c_comment": "usual accounts cajole quickly requests. ironic, regular packages solve slyly deposits. unusual, quiet dependen"
+        },
+        {
+          "c_custkey": 29510422,
+          "c_name": "Customer#029510422",
+          "revenue": 735457.6240000001,
+          "c_acctbal": 5883.1,
+          "n_name": "JAPAN",
+          "c_address": "YvUIUA2Tm4NeKmjunldTUY9BQ,Pv3",
+          "c_phone": "22-123-392-4151",
+          "c_comment": "counts. fluffily special deposits unwind about the furiously regular epitaphs."
+        },
+        {
+          "c_custkey": 37132390,
+          "c_name": "Customer#037132390",
+          "revenue": 734898.2434,
+          "c_acctbal": 9821.44,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "FMqieVEBQ6nc7VB9,1SBd IFYsg0 ",
+          "c_phone": "30-971-120-9827",
+          "c_comment": "s haggle bold, regular instructio"
+        },
+        {
+          "c_custkey": 11181646,
+          "c_name": "Customer#011181646",
+          "revenue": 725782.2477,
+          "c_acctbal": 3274.65,
+          "n_name": "IRAN",
+          "c_address": "y  TFHPRbJSL9FGpo1Fa6zHgxU0QyCS9ZfGfzg",
+          "c_phone": "20-878-632-4240",
+          "c_comment": "ess frets sleep blithely against the slyly final accounts. regular requests print fur"
+        },
+        {
+          "c_custkey": 29584792,
+          "c_name": "Customer#029584792",
+          "revenue": 721820.9881999999,
+          "c_acctbal": 1849.83,
+          "n_name": "BRAZIL",
+          "c_address": "tIEMhs2y06HmLFQVFn0K5988a8oaisUm6zA4zDq ",
+          "c_phone": "12-886-962-2760",
+          "c_comment": " requests are slyly. furiously express courts wake slyly. pending accounts affi"
+        },
+        {
+          "c_custkey": 37876916,
+          "c_name": "Customer#037876916",
+          "revenue": 720096.3557000001,
+          "c_acctbal": 3193.1,
+          "n_name": "IRAQ",
+          "c_address": "a7JjbiFpNCUMML",
+          "c_phone": "21-942-270-3725",
+          "c_comment": " blithely regular instructions haggle at the unusual, regular instructions. quickly even accounts through "
+        },
+        {
+          "c_custkey": 4703650,
+          "c_name": "Customer#004703650",
+          "revenue": 719140.5316999999,
+          "c_acctbal": 5057.98,
+          "n_name": "UNITED KINGDOM",
+          "c_address": "V c1mPGNdkthiUMl0EIVz6pGC2B9dPk2 iEd",
+          "c_phone": "33-918-243-9346",
+          "c_comment": "ealthy dinos. instructions haggle furiously. furiously final a"
+        },
+        {
+          "c_custkey": 13973338,
+          "c_name": "Customer#013973338",
+          "revenue": 718124.702,
+          "c_acctbal": 4700.82,
+          "n_name": "MOROCCO",
+          "c_address": "wmF8seCWEBQsUAdv14irSGyu",
+          "c_phone": "25-800-522-3304",
+          "c_comment": "are blithely regular, final deposits. ruthless, bold asym"
+        },
+        {
+          "c_custkey": 5299150,
+          "c_name": "Customer#005299150",
+          "revenue": 717817.1056,
+          "c_acctbal": 8132.7,
+          "n_name": "EGYPT",
+          "c_address": "9IE5E5JgbbhYRjViRm5Qb",
+          "c_phone": "14-359-961-3984",
+          "c_comment": "ckages are carefully behind the furiously final accounts. carefully i"
+        },
+        {
+          "c_custkey": 4483723,
+          "c_name": "Customer#004483723",
+          "revenue": 717143.722,
+          "c_acctbal": 6455.29,
+          "n_name": "KENYA",
+          "c_address": "9dpBKsrdAb8MyEosuj",
+          "c_phone": "24-972-426-3977",
+          "c_comment": "ithely even platelets haggle fluffily. silent, regular ideas wake blithe"
+        },
+        {
+          "c_custkey": 20644288,
+          "c_name": "Customer#020644288",
+          "revenue": 714835.3887,
+          "c_acctbal": 5296.82,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "JIYZWp9Q0k",
+          "c_phone": "30-206-714-9135",
+          "c_comment": "lar dugouts haggle slyly. express ideas affix. fluffily bold deposits alongside of"
+        },
+        {
+          "c_custkey": 16720108,
+          "c_name": "Customer#016720108",
+          "revenue": 712917.2914999999,
+          "c_acctbal": 9979.69,
+          "n_name": "KENYA",
+          "c_address": "Fwx1aaa77mtQXDAUvV, EYdrcuORK,4e8xLZvBQ",
+          "c_phone": "24-312-188-8289",
+          "c_comment": "cross the slyly regular asymp"
+        },
+        {
+          "c_custkey": 19609774,
+          "c_name": "Customer#019609774",
+          "revenue": 710538.7396999999,
+          "c_acctbal": 5258.18,
+          "n_name": "CHINA",
+          "c_address": "rV3CCJp P2P4u3",
+          "c_phone": "28-673-755-1552",
+          "c_comment": "ly silent ideas are blithely unusual requests"
+        },
+        {
+          "c_custkey": 44504971,
+          "c_name": "Customer#044504971",
+          "revenue": 709194.2822,
+          "c_acctbal": 6374.27,
+          "n_name": "JAPAN",
+          "c_address": "qTe2G8c0inXWNKT,YrEfvbOKafjfEevE6MKUIU8",
+          "c_phone": "22-514-616-7658",
+          "c_comment": "ending dependencies are above th"
+        },
+        {
+          "c_custkey": 7476481,
+          "c_name": "Customer#007476481",
+          "revenue": 708883.2646999999,
+          "c_acctbal": 5533.55,
+          "n_name": "GERMANY",
+          "c_address": "aI2YXtt h2lKNYj4wIn8Cb,Ia",
+          "c_phone": "17-811-789-1621",
+          "c_comment": " across the carefully silent acc"
+        },
+        {
+          "c_custkey": 10116337,
+          "c_name": "Customer#010116337",
+          "revenue": 708706.1623,
+          "c_acctbal": 3233.61,
+          "n_name": "ALGERIA",
+          "c_address": "bRJ4tF1nF5d8P4SVZnlhdobd4",
+          "c_phone": "10-996-379-4737",
+          "c_comment": " packages detect around the special, regular theodolites. even, special deposits above the fi"
+        }
+      ],
+      "host_result_seconds": 16.84242850600276,
+      "action_started_at_utc": "2026-10-26T20:06:50.820192+00:00",
+      "action_ended_at_utc": "2026-10-26T20:07:07.662560+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:07:07.662633+00:00",
+      "action_start_monotonic_seconds": 23194.072660706,
+      "action_end_monotonic_seconds": 23210.91501498,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 8.31,
+            "system": 6.21,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1033291,
+            "write_count": 66,
+            "read_bytes": 0,
+            "write_bytes": 745472,
+            "read_chars": 103110512,
+            "write_chars": 779208
+          },
+          "minor_faults": 16941,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 990.99,
+            "system": 256.75,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 9755809,
+            "write_count": 3634602,
+            "read_bytes": 290816,
+            "write_bytes": 113765089280,
+            "read_chars": 237929151850,
+            "write_chars": 114413217591
+          },
+          "minor_faults": 11225465,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 9.2,
+            "system": 7.52,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1268683,
+            "write_count": 66,
+            "read_bytes": 0,
+            "write_bytes": 745472,
+            "read_chars": 124429902,
+            "write_chars": 779208
+          },
+          "minor_faults": 16943,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1170.89,
+            "system": 321.78,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 11808295,
+            "write_count": 4368931,
+            "read_bytes": 421888,
+            "write_bytes": 141486297088,
+            "read_chars": 276602796614,
+            "write_chars": 141880303731
+          },
+          "minor_faults": 12357171,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:06:50.797931+00:00",
+      "ended_at_utc": "2026-10-26T20:07:07.715179+00:00",
+      "peak_process_tree_rss_bytes": 20344852480,
+      "plan": "plans/q10-measured-1.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuBroadcastExchange",
+        "GpuBroadcastHashJoin",
+        "GpuBuildRight",
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuTopN"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 4.3966847129995585,
+      "rows": [
+        {
+          "promo_revenue": 16.659499618775104
+        }
+      ],
+      "host_result_seconds": 4.396707780000725,
+      "action_started_at_utc": "2026-10-26T20:07:07.740121+00:00",
+      "action_ended_at_utc": "2026-10-26T20:07:12.136820+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:07:12.136841+00:00",
+      "action_start_monotonic_seconds": 23210.992590059,
+      "action_end_monotonic_seconds": 23215.389274772,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 9.22,
+            "system": 7.54,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1271722,
+            "write_count": 71,
+            "read_bytes": 0,
+            "write_bytes": 901120,
+            "read_chars": 124717303,
+            "write_chars": 927707
+          },
+          "minor_faults": 16954,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1170.95,
+            "system": 321.78,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 11808299,
+            "write_count": 4368938,
+            "read_bytes": 421888,
+            "write_bytes": 141486301184,
+            "read_chars": 276602799247,
+            "write_chars": 141880320183
+          },
+          "minor_faults": 12357181,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 9.54,
+            "system": 8.01,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1331146,
+            "write_count": 71,
+            "read_bytes": 0,
+            "write_bytes": 901120,
+            "read_chars": 130101937,
+            "write_chars": 927707
+          },
+          "minor_faults": 16957,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1221.23,
+            "system": 339.13,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12224479,
+            "write_count": 4547208,
+            "read_bytes": 483328,
+            "write_bytes": 144233418752,
+            "read_chars": 302607321479,
+            "write_chars": 144441900216
+          },
+          "minor_faults": 12442570,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:07:07.717208+00:00",
+      "ended_at_utc": "2026-10-26T20:07:12.147839+00:00",
+      "peak_process_tree_rss_bytes": 18812096512,
+      "plan": "plans/q14-measured-1.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 1,
+      "seconds": 3.125968448999629,
+      "rows": [
+        {
+          "revenue": 36990825719.5392
+        }
+      ],
+      "host_result_seconds": 3.1259910599983414,
+      "action_started_at_utc": "2026-10-26T20:07:12.173033+00:00",
+      "action_ended_at_utc": "2026-10-26T20:07:15.299015+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:07:15.299036+00:00",
+      "action_start_monotonic_seconds": 23215.425501832,
+      "action_end_monotonic_seconds": 23218.551470281,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 9.56,
+            "system": 8.02,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1333432,
+            "write_count": 76,
+            "read_bytes": 0,
+            "write_bytes": 1056768,
+            "read_chars": 130321099,
+            "write_chars": 1075614
+          },
+          "minor_faults": 16968,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1221.23,
+            "system": 339.14,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12224483,
+            "write_count": 4547214,
+            "read_bytes": 483328,
+            "write_bytes": 144233422848,
+            "read_chars": 302607324041,
+            "write_chars": 144441908507
+          },
+          "minor_faults": 12442570,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 9.78,
+            "system": 8.33,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1376312,
+            "write_count": 76,
+            "read_bytes": 0,
+            "write_bytes": 1056768,
+            "read_chars": 134207510,
+            "write_chars": 1075614
+          },
+          "minor_faults": 16970,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1262.17,
+            "system": 345.09,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12272470,
+            "write_count": 4549902,
+            "read_bytes": 483328,
+            "write_bytes": 144246394880,
+            "read_chars": 318025768989,
+            "write_chars": 144446127192
+          },
+          "minor_faults": 12447809,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:07:12.149907+00:00",
+      "ended_at_utc": "2026-10-26T20:07:15.309361+00:00",
+      "peak_process_tree_rss_bytes": 18831478784,
+      "plan": "plans/q06-measured-1.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 4.506547159999172,
+      "rows": [
+        {
+          "promo_revenue": 16.65949961877511
+        }
+      ],
+      "host_result_seconds": 4.506576812997082,
+      "action_started_at_utc": "2026-10-26T20:07:15.333579+00:00",
+      "action_ended_at_utc": "2026-10-26T20:07:19.840141+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:07:19.840169+00:00",
+      "action_start_monotonic_seconds": 23218.586048033,
+      "action_end_monotonic_seconds": 23223.092595193,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 9.8,
+            "system": 8.35,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1378598,
+            "write_count": 81,
+            "read_bytes": 0,
+            "write_bytes": 1208320,
+            "read_chars": 134426761,
+            "write_chars": 1228242
+          },
+          "minor_faults": 16978,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1262.18,
+            "system": 345.09,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12272474,
+            "write_count": 4549908,
+            "read_bytes": 483328,
+            "write_bytes": 144246394880,
+            "read_chars": 318025771497,
+            "write_chars": 144446132809
+          },
+          "minor_faults": 12447816,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 10.13,
+            "system": 8.83,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1439526,
+            "write_count": 81,
+            "read_bytes": 0,
+            "write_bytes": 1208320,
+            "read_chars": 139947845,
+            "write_chars": 1228242
+          },
+          "minor_faults": 16980,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1314.5,
+            "system": 362.72,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12688674,
+            "write_count": 4728198,
+            "read_bytes": 552960,
+            "write_bytes": 146993278976,
+            "read_chars": 344030155150,
+            "write_chars": 147007450409
+          },
+          "minor_faults": 12532429,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:07:15.311765+00:00",
+      "ended_at_utc": "2026-10-26T20:07:19.853539+00:00",
+      "peak_process_tree_rss_bytes": 18837147648,
+      "plan": "plans/q14-measured-2.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 4.347298209002474,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 11326496070.0,
+          "sum_base_price": 16983850073675.977,
+          "sum_disc_price": 16134638393105.717,
+          "sum_charge": 16780018679256.395,
+          "avg_qty": 25.499846629395265,
+          "avg_price": 38236.50044804905,
+          "avg_disc": 0.050002062839586615,
+          "count_order": 444178988
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 295553717.0,
+          "sum_base_price": 443225142133.97003,
+          "sum_disc_price": 421061190689.03,
+          "sum_charge": 437902785779.3547,
+          "avg_qty": 25.500054657694005,
+          "avg_price": 38240.98530989015,
+          "avg_disc": 0.050009112779227705,
+          "count_order": 11590317
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 22305732548.0,
+          "sum_base_price": 33447472970657.523,
+          "sum_disc_price": 31775099306536.414,
+          "sum_charge": 33046112599006.18,
+          "avg_qty": 25.50013062142964,
+          "avg_price": 38237.47675056649,
+          "avg_disc": 0.04999911717914547,
+          "count_order": 874730129
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 11326615383.0,
+          "sum_base_price": 16983950687632.01,
+          "sum_disc_price": 16134735974329.346,
+          "sum_charge": 16780124874816.938,
+          "avg_qty": 25.500243210608865,
+          "avg_price": 38236.91884705748,
+          "avg_disc": 0.0500001357792788,
+          "count_order": 444176759
+        }
+      ],
+      "host_result_seconds": 4.3473338010007865,
+      "action_started_at_utc": "2026-10-26T20:07:19.878550+00:00",
+      "action_ended_at_utc": "2026-10-26T20:07:24.225864+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:07:24.225897+00:00",
+      "action_start_monotonic_seconds": 23223.131019528,
+      "action_end_monotonic_seconds": 23227.478317737,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 10.15,
+            "system": 8.84,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1441812,
+            "write_count": 86,
+            "read_bytes": 0,
+            "write_bytes": 1372160,
+            "read_chars": 140167106,
+            "write_chars": 1391061
+          },
+          "minor_faults": 16988,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1314.51,
+            "system": 362.72,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12688678,
+            "write_count": 4728204,
+            "read_bytes": 552960,
+            "write_bytes": 146993283072,
+            "read_chars": 344030157714,
+            "write_chars": 147007458702
+          },
+          "minor_faults": 12532433,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 10.45,
+            "system": 9.25,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1501991,
+            "write_count": 86,
+            "read_bytes": 0,
+            "write_bytes": 1372160,
+            "read_chars": 145619319,
+            "write_chars": 1391061
+          },
+          "minor_faults": 16990,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1369.92,
+            "system": 370.4,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12734549,
+            "write_count": 4734166,
+            "read_bytes": 573440,
+            "write_bytes": 147013091328,
+            "read_chars": 361062849819,
+            "write_chars": 147013474694
+          },
+          "minor_faults": 12536437,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:07:19.855851+00:00",
+      "ended_at_utc": "2026-10-26T20:07:24.236353+00:00",
+      "peak_process_tree_rss_bytes": 18843324416,
+      "plan": "plans/q01-measured-2.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 3.1262219669988554,
+      "rows": [
+        {
+          "revenue": 36990825719.5392
+        }
+      ],
+      "host_result_seconds": 3.1262473309980123,
+      "action_started_at_utc": "2026-10-26T20:07:24.262426+00:00",
+      "action_ended_at_utc": "2026-10-26T20:07:27.388662+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:07:27.388686+00:00",
+      "action_start_monotonic_seconds": 23227.514894771,
+      "action_end_monotonic_seconds": 23230.641116738,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 10.47,
+            "system": 9.26,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1504277,
+            "write_count": 91,
+            "read_bytes": 0,
+            "write_bytes": 1552384,
+            "read_chars": 145838511,
+            "write_chars": 1564670
+          },
+          "minor_faults": 16998,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1369.92,
+            "system": 370.4,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12734553,
+            "write_count": 4734172,
+            "read_bytes": 573440,
+            "write_bytes": 147013095424,
+            "read_chars": 361062852365,
+            "write_chars": 147013483058
+          },
+          "minor_faults": 12536437,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 10.65,
+            "system": 9.51,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1548661,
+            "write_count": 91,
+            "read_bytes": 0,
+            "write_bytes": 1552384,
+            "read_chars": 149860830,
+            "write_chars": 1564670
+          },
+          "minor_faults": 17000,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1409.25,
+            "system": 376.05,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12782533,
+            "write_count": 4736860,
+            "read_bytes": 577536,
+            "write_bytes": 147026071552,
+            "read_chars": 376481295813,
+            "write_chars": 147017702706
+          },
+          "minor_faults": 12538396,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:07:24.238797+00:00",
+      "ended_at_utc": "2026-10-26T20:07:27.405061+00:00",
+      "peak_process_tree_rss_bytes": 18848325632,
+      "plan": "plans/q06-measured-2.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 13.387804897000024,
+      "rows": [
+        {
+          "c_custkey": 23626387,
+          "c_name": "Customer#023626387",
+          "revenue": 792129.6142000001,
+          "c_acctbal": 4047.44,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "aL1DUk8f ZzXh1uV8PfyV0",
+          "c_phone": "30-950-648-1181",
+          "c_comment": "lly unusual accounts. carefully regular pinto beans wake regularly about the fluffily ironic d"
+        },
+        {
+          "c_custkey": 44005624,
+          "c_name": "Customer#044005624",
+          "revenue": 772571.1214000001,
+          "c_acctbal": 1704.09,
+          "n_name": "MOROCCO",
+          "c_address": "T4sTPCV5lhCZ",
+          "c_phone": "25-408-510-2059",
+          "c_comment": "arefully alongside of the quickly special ideas. furiously ironic excuses against the blithely ev"
+        },
+        {
+          "c_custkey": 11412268,
+          "c_name": "Customer#011412268",
+          "revenue": 751875.5061,
+          "c_acctbal": 5700.71,
+          "n_name": "ALGERIA",
+          "c_address": "W0nk0B6OCyvKbt1bX RmUuTum",
+          "c_phone": "10-673-432-4349",
+          "c_comment": " carefully fluffily regular deposits. carefully ironic foxes against the blithely expr"
+        },
+        {
+          "c_custkey": 34541281,
+          "c_name": "Customer#034541281",
+          "revenue": 750721.9883999999,
+          "c_acctbal": -565.58,
+          "n_name": "EGYPT",
+          "c_address": "DgZtSbF19wELFiylAcrk0rx5NL3Wb8m6o2O7 G6",
+          "c_phone": "14-300-223-9701",
+          "c_comment": "ackages along the ironic dolphins wake slyly fluffily pending excuses. special dep"
+        },
+        {
+          "c_custkey": 11169961,
+          "c_name": "Customer#011169961",
+          "revenue": 741361.0914,
+          "c_acctbal": -130.85,
+          "n_name": "FRANCE",
+          "c_address": "YxL9bmPBCKqy,2atJ WnMNzEtHuERcbfV6",
+          "c_phone": "16-513-948-2671",
+          "c_comment": "usual accounts cajole quickly requests. ironic, regular packages solve slyly deposits. unusual, quiet dependen"
+        },
+        {
+          "c_custkey": 29510422,
+          "c_name": "Customer#029510422",
+          "revenue": 735457.6240000001,
+          "c_acctbal": 5883.1,
+          "n_name": "JAPAN",
+          "c_address": "YvUIUA2Tm4NeKmjunldTUY9BQ,Pv3",
+          "c_phone": "22-123-392-4151",
+          "c_comment": "counts. fluffily special deposits unwind about the furiously regular epitaphs."
+        },
+        {
+          "c_custkey": 37132390,
+          "c_name": "Customer#037132390",
+          "revenue": 734898.2434,
+          "c_acctbal": 9821.44,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "FMqieVEBQ6nc7VB9,1SBd IFYsg0 ",
+          "c_phone": "30-971-120-9827",
+          "c_comment": "s haggle bold, regular instructio"
+        },
+        {
+          "c_custkey": 11181646,
+          "c_name": "Customer#011181646",
+          "revenue": 725782.2477,
+          "c_acctbal": 3274.65,
+          "n_name": "IRAN",
+          "c_address": "y  TFHPRbJSL9FGpo1Fa6zHgxU0QyCS9ZfGfzg",
+          "c_phone": "20-878-632-4240",
+          "c_comment": "ess frets sleep blithely against the slyly final accounts. regular requests print fur"
+        },
+        {
+          "c_custkey": 29584792,
+          "c_name": "Customer#029584792",
+          "revenue": 721820.9882,
+          "c_acctbal": 1849.83,
+          "n_name": "BRAZIL",
+          "c_address": "tIEMhs2y06HmLFQVFn0K5988a8oaisUm6zA4zDq ",
+          "c_phone": "12-886-962-2760",
+          "c_comment": " requests are slyly. furiously express courts wake slyly. pending accounts affi"
+        },
+        {
+          "c_custkey": 37876916,
+          "c_name": "Customer#037876916",
+          "revenue": 720096.3557000001,
+          "c_acctbal": 3193.1,
+          "n_name": "IRAQ",
+          "c_address": "a7JjbiFpNCUMML",
+          "c_phone": "21-942-270-3725",
+          "c_comment": " blithely regular instructions haggle at the unusual, regular instructions. quickly even accounts through "
+        },
+        {
+          "c_custkey": 4703650,
+          "c_name": "Customer#004703650",
+          "revenue": 719140.5316999999,
+          "c_acctbal": 5057.98,
+          "n_name": "UNITED KINGDOM",
+          "c_address": "V c1mPGNdkthiUMl0EIVz6pGC2B9dPk2 iEd",
+          "c_phone": "33-918-243-9346",
+          "c_comment": "ealthy dinos. instructions haggle furiously. furiously final a"
+        },
+        {
+          "c_custkey": 13973338,
+          "c_name": "Customer#013973338",
+          "revenue": 718124.702,
+          "c_acctbal": 4700.82,
+          "n_name": "MOROCCO",
+          "c_address": "wmF8seCWEBQsUAdv14irSGyu",
+          "c_phone": "25-800-522-3304",
+          "c_comment": "are blithely regular, final deposits. ruthless, bold asym"
+        },
+        {
+          "c_custkey": 5299150,
+          "c_name": "Customer#005299150",
+          "revenue": 717817.1056000001,
+          "c_acctbal": 8132.7,
+          "n_name": "EGYPT",
+          "c_address": "9IE5E5JgbbhYRjViRm5Qb",
+          "c_phone": "14-359-961-3984",
+          "c_comment": "ckages are carefully behind the furiously final accounts. carefully i"
+        },
+        {
+          "c_custkey": 4483723,
+          "c_name": "Customer#004483723",
+          "revenue": 717143.722,
+          "c_acctbal": 6455.29,
+          "n_name": "KENYA",
+          "c_address": "9dpBKsrdAb8MyEosuj",
+          "c_phone": "24-972-426-3977",
+          "c_comment": "ithely even platelets haggle fluffily. silent, regular ideas wake blithe"
+        },
+        {
+          "c_custkey": 20644288,
+          "c_name": "Customer#020644288",
+          "revenue": 714835.3887,
+          "c_acctbal": 5296.82,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "JIYZWp9Q0k",
+          "c_phone": "30-206-714-9135",
+          "c_comment": "lar dugouts haggle slyly. express ideas affix. fluffily bold deposits alongside of"
+        },
+        {
+          "c_custkey": 16720108,
+          "c_name": "Customer#016720108",
+          "revenue": 712917.2914999999,
+          "c_acctbal": 9979.69,
+          "n_name": "KENYA",
+          "c_address": "Fwx1aaa77mtQXDAUvV, EYdrcuORK,4e8xLZvBQ",
+          "c_phone": "24-312-188-8289",
+          "c_comment": "cross the slyly regular asymp"
+        },
+        {
+          "c_custkey": 19609774,
+          "c_name": "Customer#019609774",
+          "revenue": 710538.7397,
+          "c_acctbal": 5258.18,
+          "n_name": "CHINA",
+          "c_address": "rV3CCJp P2P4u3",
+          "c_phone": "28-673-755-1552",
+          "c_comment": "ly silent ideas are blithely unusual requests"
+        },
+        {
+          "c_custkey": 44504971,
+          "c_name": "Customer#044504971",
+          "revenue": 709194.2822,
+          "c_acctbal": 6374.27,
+          "n_name": "JAPAN",
+          "c_address": "qTe2G8c0inXWNKT,YrEfvbOKafjfEevE6MKUIU8",
+          "c_phone": "22-514-616-7658",
+          "c_comment": "ending dependencies are above th"
+        },
+        {
+          "c_custkey": 7476481,
+          "c_name": "Customer#007476481",
+          "revenue": 708883.2646999999,
+          "c_acctbal": 5533.55,
+          "n_name": "GERMANY",
+          "c_address": "aI2YXtt h2lKNYj4wIn8Cb,Ia",
+          "c_phone": "17-811-789-1621",
+          "c_comment": " across the carefully silent acc"
+        },
+        {
+          "c_custkey": 10116337,
+          "c_name": "Customer#010116337",
+          "revenue": 708706.1623,
+          "c_acctbal": 3233.61,
+          "n_name": "ALGERIA",
+          "c_address": "bRJ4tF1nF5d8P4SVZnlhdobd4",
+          "c_phone": "10-996-379-4737",
+          "c_comment": " packages detect around the special, regular theodolites. even, special deposits above the fi"
+        }
+      ],
+      "host_result_seconds": 13.387876745997346,
+      "action_started_at_utc": "2026-10-26T20:07:27.430313+00:00",
+      "action_ended_at_utc": "2026-10-26T20:07:40.818132+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:07:40.818202+00:00",
+      "action_start_monotonic_seconds": 23230.68278134,
+      "action_end_monotonic_seconds": 23244.070586237,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 10.67,
+            "system": 9.53,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1550947,
+            "write_count": 96,
+            "read_bytes": 0,
+            "write_bytes": 1736704,
+            "read_chars": 150080130,
+            "write_chars": 1742922
+          },
+          "minor_faults": 17011,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1409.26,
+            "system": 376.05,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 12782537,
+            "write_count": 4736866,
+            "read_bytes": 577536,
+            "write_bytes": 147026071552,
+            "read_chars": 376481298323,
+            "write_chars": 147017708325
+          },
+          "minor_faults": 12538396,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 11.42,
+            "system": 10.7,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1736707,
+            "write_count": 96,
+            "read_bytes": 0,
+            "write_bytes": 1736704,
+            "read_chars": 166906135,
+            "write_chars": 1742922
+          },
+          "minor_faults": 17013,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1578.18,
+            "system": 428.43,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 14834975,
+            "write_count": 5471218,
+            "read_bytes": 737280,
+            "write_bytes": 174749609984,
+            "read_chars": 415155970761,
+            "write_chars": 174486805444
+          },
+          "minor_faults": 13829197,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:07:27.407592+00:00",
+      "ended_at_utc": "2026-10-26T20:07:40.870185+00:00",
+      "peak_process_tree_rss_bytes": 20731863040,
+      "plan": "plans/q10-measured-2.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuBroadcastExchange",
+        "GpuBroadcastHashJoin",
+        "GpuBuildRight",
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuTopN"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 6.9045935069989355,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 1869877,
+          "low_line_count": 2802930
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 1868954,
+          "low_line_count": 2804791
+        }
+      ],
+      "host_result_seconds": 6.904618646000017,
+      "action_started_at_utc": "2026-10-26T20:07:40.897469+00:00",
+      "action_ended_at_utc": "2026-10-26T20:07:47.802076+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:07:47.802100+00:00",
+      "action_start_monotonic_seconds": 23244.149937937,
+      "action_end_monotonic_seconds": 23251.054531444,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 11.43,
+            "system": 10.72,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1738993,
+            "write_count": 101,
+            "read_bytes": 0,
+            "write_bytes": 1949696,
+            "read_chars": 167125487,
+            "write_chars": 1955030
+          },
+          "minor_faults": 17030,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1578.2,
+            "system": 428.43,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 14834979,
+            "write_count": 5471225,
+            "read_bytes": 737280,
+            "write_bytes": 174749618176,
+            "read_chars": 415155973405,
+            "write_chars": 174486821907
+          },
+          "minor_faults": 13829203,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 11.79,
+            "system": 11.26,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1836752,
+            "write_count": 101,
+            "read_bytes": 0,
+            "write_bytes": 1949696,
+            "read_chars": 175984597,
+            "write_chars": 1955030
+          },
+          "minor_faults": 17032,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1658.94,
+            "system": 454.52,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 15913441,
+            "write_count": 5848696,
+            "read_bytes": 823296,
+            "write_bytes": 185409114112,
+            "read_chars": 437657493765,
+            "write_chars": 184934741633
+          },
+          "minor_faults": 13996804,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:07:40.873043+00:00",
+      "ended_at_utc": "2026-10-26T20:07:47.812750+00:00",
+      "peak_process_tree_rss_bytes": 18869645312,
+      "plan": "plans/q12-measured-2.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuSort"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 2,
+      "seconds": 13.140047537002829,
+      "rows": [
+        {
+          "l_orderkey": 16050176,
+          "revenue": 489569.49890000006,
+          "o_orderdate": "1995-03-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1161663111,
+          "revenue": 477596.048,
+          "o_orderdate": "1995-03-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 257589767,
+          "revenue": 476019.89019999997,
+          "o_orderdate": "1995-02-20",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1557703747,
+          "revenue": 474467.13670000003,
+          "o_orderdate": "1995-03-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 725432482,
+          "revenue": 469324.8792999999,
+          "o_orderdate": "1995-03-08",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 173325283,
+          "revenue": 468533.4626,
+          "o_orderdate": "1995-02-18",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 162051301,
+          "revenue": 468482.1688,
+          "o_orderdate": "1995-03-11",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1435113092,
+          "revenue": 467221.2564,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 177643398,
+          "revenue": 466925.64900000003,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 914948229,
+          "revenue": 466240.68960000004,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        }
+      ],
+      "host_result_seconds": 13.14008851700055,
+      "action_started_at_utc": "2026-10-26T20:07:47.839094+00:00",
+      "action_ended_at_utc": "2026-10-26T20:08:00.979155+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:08:00.979194+00:00",
+      "action_start_monotonic_seconds": 23251.091562223,
+      "action_end_monotonic_seconds": 23264.23160976,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 11.81,
+            "system": 11.27,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 1839032,
+            "write_count": 106,
+            "read_bytes": 0,
+            "write_bytes": 2162688,
+            "read_chars": 176203461,
+            "write_chars": 2168310
+          },
+          "minor_faults": 17042,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1658.94,
+            "system": 454.52,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 15913445,
+            "write_count": 5848702,
+            "read_bytes": 823296,
+            "write_bytes": 185409114112,
+            "read_chars": 437657496347,
+            "write_chars": 184934751275
+          },
+          "minor_faults": 13996804,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 12.56,
+            "system": 12.39,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2021009,
+            "write_count": 106,
+            "read_bytes": 0,
+            "write_bytes": 2162688,
+            "read_chars": 192687715,
+            "write_chars": 2168310
+          },
+          "minor_faults": 17044,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1835.66,
+            "system": 508.61,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 18265061,
+            "write_count": 6690067,
+            "read_bytes": 827392,
+            "write_bytes": 215121911808,
+            "read_chars": 475061891996,
+            "write_chars": 214422231157
+          },
+          "minor_faults": 15537081,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:07:47.815667+00:00",
+      "ended_at_utc": "2026-10-26T20:08:01.031084+00:00",
+      "peak_process_tree_rss_bytes": 21445357568,
+      "plan": "plans/q03-measured-2.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuTopN"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q06",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 3.085649161999754,
+      "rows": [
+        {
+          "revenue": 36990825719.5392
+        }
+      ],
+      "host_result_seconds": 3.0856728840008145,
+      "action_started_at_utc": "2026-10-26T20:08:01.058014+00:00",
+      "action_ended_at_utc": "2026-10-26T20:08:04.143677+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:08:04.143699+00:00",
+      "action_start_monotonic_seconds": 23264.310482671,
+      "action_end_monotonic_seconds": 23267.396131833,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 12.58,
+            "system": 12.4,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2023295,
+            "write_count": 111,
+            "read_bytes": 0,
+            "write_bytes": 2396160,
+            "read_chars": 192907078,
+            "write_chars": 2396166
+          },
+          "minor_faults": 17049,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1835.66,
+            "system": 508.61,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 18265065,
+            "write_count": 6690074,
+            "read_bytes": 827392,
+            "write_bytes": 215121915904,
+            "read_chars": 475061894578,
+            "write_chars": 214422244676
+          },
+          "minor_faults": 15537081,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 12.81,
+            "system": 12.68,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2066175,
+            "write_count": 111,
+            "read_bytes": 0,
+            "write_bytes": 2396160,
+            "read_chars": 196794660,
+            "write_chars": 2396166
+          },
+          "minor_faults": 17052,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1874.56,
+            "system": 514.28,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 18313042,
+            "write_count": 6692766,
+            "read_bytes": 827392,
+            "write_bytes": 215134920704,
+            "read_chars": 490480559202,
+            "write_chars": 214426496499
+          },
+          "minor_faults": 15538002,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:08:01.034192+00:00",
+      "ended_at_utc": "2026-10-26T20:08:04.154136+00:00",
+      "peak_process_tree_rss_bytes": 19220094976,
+      "plan": "plans/q06-measured-3.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q10",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 13.499872645003052,
+      "rows": [
+        {
+          "c_custkey": 23626387,
+          "c_name": "Customer#023626387",
+          "revenue": 792129.6142000001,
+          "c_acctbal": 4047.44,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "aL1DUk8f ZzXh1uV8PfyV0",
+          "c_phone": "30-950-648-1181",
+          "c_comment": "lly unusual accounts. carefully regular pinto beans wake regularly about the fluffily ironic d"
+        },
+        {
+          "c_custkey": 44005624,
+          "c_name": "Customer#044005624",
+          "revenue": 772571.1214,
+          "c_acctbal": 1704.09,
+          "n_name": "MOROCCO",
+          "c_address": "T4sTPCV5lhCZ",
+          "c_phone": "25-408-510-2059",
+          "c_comment": "arefully alongside of the quickly special ideas. furiously ironic excuses against the blithely ev"
+        },
+        {
+          "c_custkey": 11412268,
+          "c_name": "Customer#011412268",
+          "revenue": 751875.5060999999,
+          "c_acctbal": 5700.71,
+          "n_name": "ALGERIA",
+          "c_address": "W0nk0B6OCyvKbt1bX RmUuTum",
+          "c_phone": "10-673-432-4349",
+          "c_comment": " carefully fluffily regular deposits. carefully ironic foxes against the blithely expr"
+        },
+        {
+          "c_custkey": 34541281,
+          "c_name": "Customer#034541281",
+          "revenue": 750721.9883999999,
+          "c_acctbal": -565.58,
+          "n_name": "EGYPT",
+          "c_address": "DgZtSbF19wELFiylAcrk0rx5NL3Wb8m6o2O7 G6",
+          "c_phone": "14-300-223-9701",
+          "c_comment": "ackages along the ironic dolphins wake slyly fluffily pending excuses. special dep"
+        },
+        {
+          "c_custkey": 11169961,
+          "c_name": "Customer#011169961",
+          "revenue": 741361.0914,
+          "c_acctbal": -130.85,
+          "n_name": "FRANCE",
+          "c_address": "YxL9bmPBCKqy,2atJ WnMNzEtHuERcbfV6",
+          "c_phone": "16-513-948-2671",
+          "c_comment": "usual accounts cajole quickly requests. ironic, regular packages solve slyly deposits. unusual, quiet dependen"
+        },
+        {
+          "c_custkey": 29510422,
+          "c_name": "Customer#029510422",
+          "revenue": 735457.6240000001,
+          "c_acctbal": 5883.1,
+          "n_name": "JAPAN",
+          "c_address": "YvUIUA2Tm4NeKmjunldTUY9BQ,Pv3",
+          "c_phone": "22-123-392-4151",
+          "c_comment": "counts. fluffily special deposits unwind about the furiously regular epitaphs."
+        },
+        {
+          "c_custkey": 37132390,
+          "c_name": "Customer#037132390",
+          "revenue": 734898.2434,
+          "c_acctbal": 9821.44,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "FMqieVEBQ6nc7VB9,1SBd IFYsg0 ",
+          "c_phone": "30-971-120-9827",
+          "c_comment": "s haggle bold, regular instructio"
+        },
+        {
+          "c_custkey": 11181646,
+          "c_name": "Customer#011181646",
+          "revenue": 725782.2477,
+          "c_acctbal": 3274.65,
+          "n_name": "IRAN",
+          "c_address": "y  TFHPRbJSL9FGpo1Fa6zHgxU0QyCS9ZfGfzg",
+          "c_phone": "20-878-632-4240",
+          "c_comment": "ess frets sleep blithely against the slyly final accounts. regular requests print fur"
+        },
+        {
+          "c_custkey": 29584792,
+          "c_name": "Customer#029584792",
+          "revenue": 721820.9881999999,
+          "c_acctbal": 1849.83,
+          "n_name": "BRAZIL",
+          "c_address": "tIEMhs2y06HmLFQVFn0K5988a8oaisUm6zA4zDq ",
+          "c_phone": "12-886-962-2760",
+          "c_comment": " requests are slyly. furiously express courts wake slyly. pending accounts affi"
+        },
+        {
+          "c_custkey": 37876916,
+          "c_name": "Customer#037876916",
+          "revenue": 720096.3557,
+          "c_acctbal": 3193.1,
+          "n_name": "IRAQ",
+          "c_address": "a7JjbiFpNCUMML",
+          "c_phone": "21-942-270-3725",
+          "c_comment": " blithely regular instructions haggle at the unusual, regular instructions. quickly even accounts through "
+        },
+        {
+          "c_custkey": 4703650,
+          "c_name": "Customer#004703650",
+          "revenue": 719140.5316999999,
+          "c_acctbal": 5057.98,
+          "n_name": "UNITED KINGDOM",
+          "c_address": "V c1mPGNdkthiUMl0EIVz6pGC2B9dPk2 iEd",
+          "c_phone": "33-918-243-9346",
+          "c_comment": "ealthy dinos. instructions haggle furiously. furiously final a"
+        },
+        {
+          "c_custkey": 13973338,
+          "c_name": "Customer#013973338",
+          "revenue": 718124.702,
+          "c_acctbal": 4700.82,
+          "n_name": "MOROCCO",
+          "c_address": "wmF8seCWEBQsUAdv14irSGyu",
+          "c_phone": "25-800-522-3304",
+          "c_comment": "are blithely regular, final deposits. ruthless, bold asym"
+        },
+        {
+          "c_custkey": 5299150,
+          "c_name": "Customer#005299150",
+          "revenue": 717817.1056,
+          "c_acctbal": 8132.7,
+          "n_name": "EGYPT",
+          "c_address": "9IE5E5JgbbhYRjViRm5Qb",
+          "c_phone": "14-359-961-3984",
+          "c_comment": "ckages are carefully behind the furiously final accounts. carefully i"
+        },
+        {
+          "c_custkey": 4483723,
+          "c_name": "Customer#004483723",
+          "revenue": 717143.722,
+          "c_acctbal": 6455.29,
+          "n_name": "KENYA",
+          "c_address": "9dpBKsrdAb8MyEosuj",
+          "c_phone": "24-972-426-3977",
+          "c_comment": "ithely even platelets haggle fluffily. silent, regular ideas wake blithe"
+        },
+        {
+          "c_custkey": 20644288,
+          "c_name": "Customer#020644288",
+          "revenue": 714835.3887,
+          "c_acctbal": 5296.82,
+          "n_name": "SAUDI ARABIA",
+          "c_address": "JIYZWp9Q0k",
+          "c_phone": "30-206-714-9135",
+          "c_comment": "lar dugouts haggle slyly. express ideas affix. fluffily bold deposits alongside of"
+        },
+        {
+          "c_custkey": 16720108,
+          "c_name": "Customer#016720108",
+          "revenue": 712917.2914999999,
+          "c_acctbal": 9979.69,
+          "n_name": "KENYA",
+          "c_address": "Fwx1aaa77mtQXDAUvV, EYdrcuORK,4e8xLZvBQ",
+          "c_phone": "24-312-188-8289",
+          "c_comment": "cross the slyly regular asymp"
+        },
+        {
+          "c_custkey": 19609774,
+          "c_name": "Customer#019609774",
+          "revenue": 710538.7396999999,
+          "c_acctbal": 5258.18,
+          "n_name": "CHINA",
+          "c_address": "rV3CCJp P2P4u3",
+          "c_phone": "28-673-755-1552",
+          "c_comment": "ly silent ideas are blithely unusual requests"
+        },
+        {
+          "c_custkey": 44504971,
+          "c_name": "Customer#044504971",
+          "revenue": 709194.2822,
+          "c_acctbal": 6374.27,
+          "n_name": "JAPAN",
+          "c_address": "qTe2G8c0inXWNKT,YrEfvbOKafjfEevE6MKUIU8",
+          "c_phone": "22-514-616-7658",
+          "c_comment": "ending dependencies are above th"
+        },
+        {
+          "c_custkey": 7476481,
+          "c_name": "Customer#007476481",
+          "revenue": 708883.2646999999,
+          "c_acctbal": 5533.55,
+          "n_name": "GERMANY",
+          "c_address": "aI2YXtt h2lKNYj4wIn8Cb,Ia",
+          "c_phone": "17-811-789-1621",
+          "c_comment": " across the carefully silent acc"
+        },
+        {
+          "c_custkey": 10116337,
+          "c_name": "Customer#010116337",
+          "revenue": 708706.1623,
+          "c_acctbal": 3233.61,
+          "n_name": "ALGERIA",
+          "c_address": "bRJ4tF1nF5d8P4SVZnlhdobd4",
+          "c_phone": "10-996-379-4737",
+          "c_comment": " packages detect around the special, regular theodolites. even, special deposits above the fi"
+        }
+      ],
+      "host_result_seconds": 13.499945044000924,
+      "action_started_at_utc": "2026-10-26T20:08:04.180434+00:00",
+      "action_ended_at_utc": "2026-10-26T20:08:17.680321+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:08:17.680391+00:00",
+      "action_start_monotonic_seconds": 23267.432902855,
+      "action_end_monotonic_seconds": 23280.9327755,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 12.82,
+            "system": 12.7,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2068461,
+            "write_count": 116,
+            "read_bytes": 0,
+            "write_bytes": 2629632,
+            "read_chars": 197013834,
+            "write_chars": 2623557
+          },
+          "minor_faults": 17065,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 1874.56,
+            "system": 514.28,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 18313046,
+            "write_count": 6692772,
+            "read_bytes": 827392,
+            "write_bytes": 215134920704,
+            "read_chars": 490480561715,
+            "write_chars": 214426502123
+          },
+          "minor_faults": 15538002,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 13.67,
+            "system": 13.89,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2254221,
+            "write_count": 116,
+            "read_bytes": 0,
+            "write_bytes": 2629632,
+            "read_chars": 213841034,
+            "write_chars": 2623557
+          },
+          "minor_faults": 17068,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2042.37,
+            "system": 566.76,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 20365402,
+            "write_count": 7427135,
+            "read_bytes": 942080,
+            "write_bytes": 242857885696,
+            "read_chars": 529155267311,
+            "write_chars": 241895180703
+          },
+          "minor_faults": 16835363,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:08:04.157297+00:00",
+      "ended_at_utc": "2026-10-26T20:08:17.732188+00:00",
+      "peak_process_tree_rss_bytes": 21047140352,
+      "plan": "plans/q10-measured-3.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuBroadcastExchange",
+        "GpuBroadcastHashJoin",
+        "GpuBuildRight",
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuTopN"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q01",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 4.3952627049984585,
+      "rows": [
+        {
+          "l_returnflag": "A",
+          "l_linestatus": "F",
+          "sum_qty": 11326496070.0,
+          "sum_base_price": 16983850073675.979,
+          "sum_disc_price": 16134638393105.715,
+          "sum_charge": 16780018679256.398,
+          "avg_qty": 25.499846629395265,
+          "avg_price": 38236.50044804906,
+          "avg_disc": 0.050002062839586615,
+          "count_order": 444178988
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "F",
+          "sum_qty": 295553717.0,
+          "sum_base_price": 443225142133.97,
+          "sum_disc_price": 421061190689.03,
+          "sum_charge": 437902785779.3547,
+          "avg_qty": 25.500054657694005,
+          "avg_price": 38240.985309890144,
+          "avg_disc": 0.050009112779227705,
+          "count_order": 11590317
+        },
+        {
+          "l_returnflag": "N",
+          "l_linestatus": "O",
+          "sum_qty": 22305732548.0,
+          "sum_base_price": 33447472970657.527,
+          "sum_disc_price": 31775099306536.418,
+          "sum_charge": 33046112599006.18,
+          "avg_qty": 25.50013062142964,
+          "avg_price": 38237.47675056649,
+          "avg_disc": 0.04999911717914546,
+          "count_order": 874730129
+        },
+        {
+          "l_returnflag": "R",
+          "l_linestatus": "F",
+          "sum_qty": 11326615383.0,
+          "sum_base_price": 16983950687632.008,
+          "sum_disc_price": 16134735974329.348,
+          "sum_charge": 16780124874816.938,
+          "avg_qty": 25.500243210608865,
+          "avg_price": 38236.91884705748,
+          "avg_disc": 0.050000135779278795,
+          "count_order": 444176759
+        }
+      ],
+      "host_result_seconds": 4.3952973279992875,
+      "action_started_at_utc": "2026-10-26T20:08:17.759864+00:00",
+      "action_ended_at_utc": "2026-10-26T20:08:22.155140+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:08:22.155173+00:00",
+      "action_start_monotonic_seconds": 23281.012332044,
+      "action_end_monotonic_seconds": 23285.407594749,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 13.69,
+            "system": 13.91,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2256507,
+            "write_count": 121,
+            "read_bytes": 0,
+            "write_bytes": 2891776,
+            "read_chars": 214060286,
+            "write_chars": 2884818
+          },
+          "minor_faults": 17086,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2042.39,
+            "system": 566.76,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 20365406,
+            "write_count": 7427142,
+            "read_bytes": 942080,
+            "write_bytes": 242857889792,
+            "read_chars": 529155269957,
+            "write_chars": 241895197181
+          },
+          "minor_faults": 16835370,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 13.95,
+            "system": 14.27,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2318186,
+            "write_count": 121,
+            "read_bytes": 0,
+            "write_bytes": 2891776,
+            "read_chars": 219649656,
+            "write_chars": 2884818
+          },
+          "minor_faults": 17090,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2098.22,
+            "system": 574.62,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 20411200,
+            "write_count": 7433107,
+            "read_bytes": 942080,
+            "write_bytes": 242877722624,
+            "read_chars": 546188013234,
+            "write_chars": 241901239072
+          },
+          "minor_faults": 16838751,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:08:17.735616+00:00",
+      "ended_at_utc": "2026-10-26T20:08:22.165504+00:00",
+      "peak_process_tree_rss_bytes": 19236352000,
+      "plan": "plans/q01-measured-3.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q14",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 4.360003328001767,
+      "rows": [
+        {
+          "promo_revenue": 16.659499618775108
+        }
+      ],
+      "host_result_seconds": 4.3600234590012406,
+      "action_started_at_utc": "2026-10-26T20:08:22.192632+00:00",
+      "action_ended_at_utc": "2026-10-26T20:08:26.552649+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:08:26.552668+00:00",
+      "action_start_monotonic_seconds": 23285.445100659,
+      "action_end_monotonic_seconds": 23289.805103987,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 13.98,
+            "system": 14.28,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2320472,
+            "write_count": 126,
+            "read_bytes": 0,
+            "write_bytes": 3162112,
+            "read_chars": 219868857,
+            "write_chars": 3148745
+          },
+          "minor_faults": 17099,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2098.24,
+            "system": 574.62,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 20411204,
+            "write_count": 7433113,
+            "read_bytes": 942080,
+            "write_bytes": 242877726720,
+            "read_chars": 546188015786,
+            "write_chars": 241901247446
+          },
+          "minor_faults": 16838757,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 14.24,
+            "system": 14.63,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2382151,
+            "write_count": 126,
+            "read_bytes": 0,
+            "write_bytes": 3162112,
+            "read_chars": 225458056,
+            "write_chars": 3148745
+          },
+          "minor_faults": 17101,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2148.11,
+            "system": 591.79,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 20827316,
+            "write_count": 7611384,
+            "read_bytes": 1097728,
+            "write_bytes": 245624991744,
+            "read_chars": 572192544811,
+            "write_chars": 244462777492
+          },
+          "minor_faults": 16923623,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:08:22.169134+00:00",
+      "ended_at_utc": "2026-10-26T20:08:26.563270+00:00",
+      "peak_process_tree_rss_bytes": 19244232704,
+      "plan": "plans/q14-measured-3.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q03",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 12.200933811996947,
+      "rows": [
+        {
+          "l_orderkey": 16050176,
+          "revenue": 489569.4989,
+          "o_orderdate": "1995-03-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1161663111,
+          "revenue": 477596.048,
+          "o_orderdate": "1995-03-06",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 257589767,
+          "revenue": 476019.89019999997,
+          "o_orderdate": "1995-02-20",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1557703747,
+          "revenue": 474467.13670000003,
+          "o_orderdate": "1995-03-12",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 725432482,
+          "revenue": 469324.8792999999,
+          "o_orderdate": "1995-03-08",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 173325283,
+          "revenue": 468533.46259999997,
+          "o_orderdate": "1995-02-18",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 162051301,
+          "revenue": 468482.1688,
+          "o_orderdate": "1995-03-11",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 1435113092,
+          "revenue": 467221.2564,
+          "o_orderdate": "1995-02-28",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 177643398,
+          "revenue": 466925.64900000003,
+          "o_orderdate": "1995-03-14",
+          "o_shippriority": 0
+        },
+        {
+          "l_orderkey": 914948229,
+          "revenue": 466240.6896,
+          "o_orderdate": "1995-03-10",
+          "o_shippriority": 0
+        }
+      ],
+      "host_result_seconds": 12.201223929998378,
+      "action_started_at_utc": "2026-10-26T20:08:26.590748+00:00",
+      "action_ended_at_utc": "2026-10-26T20:08:38.791695+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:08:38.791984+00:00",
+      "action_start_monotonic_seconds": 23289.843216378,
+      "action_end_monotonic_seconds": 23302.04415019,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 14.26,
+            "system": 14.64,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2384437,
+            "write_count": 131,
+            "read_bytes": 0,
+            "write_bytes": 3440640,
+            "read_chars": 225677330,
+            "write_chars": 3420149
+          },
+          "minor_faults": 17108,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2148.12,
+            "system": 591.79,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 20827320,
+            "write_count": 7611390,
+            "read_bytes": 1097728,
+            "write_bytes": 245624995840,
+            "read_chars": 572192547384,
+            "write_chars": 244462785800
+          },
+          "minor_faults": 16923623,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 14.98,
+            "system": 15.73,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2552149,
+            "write_count": 131,
+            "read_bytes": 0,
+            "write_bytes": 3440640,
+            "read_chars": 240869633,
+            "write_chars": 3420149
+          },
+          "minor_faults": 17110,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2325.41,
+            "system": 642.11,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 23178911,
+            "write_count": 8452696,
+            "read_bytes": 1159168,
+            "write_bytes": 275336433664,
+            "read_chars": 609596347860,
+            "write_chars": 273949274315
+          },
+          "minor_faults": 18337761,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:08:26.566947+00:00",
+      "ended_at_utc": "2026-10-26T20:08:38.847455+00:00",
+      "peak_process_tree_rss_bytes": 21241069568,
+      "plan": "plans/q03-measured-3.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuTopN"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    },
+    {
+      "query": "q12",
+      "phase": "measured",
+      "trial": 3,
+      "seconds": 7.948016012000153,
+      "rows": [
+        {
+          "l_shipmode": "MAIL",
+          "high_line_count": 1869877,
+          "low_line_count": 2802930
+        },
+        {
+          "l_shipmode": "SHIP",
+          "high_line_count": 1868954,
+          "low_line_count": 2804791
+        }
+      ],
+      "host_result_seconds": 7.948041687002842,
+      "action_started_at_utc": "2026-10-26T20:08:38.887786+00:00",
+      "action_ended_at_utc": "2026-10-26T20:08:46.835838+00:00",
+      "host_result_ended_at_utc": "2026-10-26T20:08:46.835862+00:00",
+      "action_start_monotonic_seconds": 23302.140276738,
+      "action_end_monotonic_seconds": 23310.08829275,
+      "process_counters_before": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 15.02,
+            "system": 15.75,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2555188,
+            "write_count": 136,
+            "read_bytes": 0,
+            "write_bytes": 3731456,
+            "read_chars": 241157115,
+            "write_chars": 3707452
+          },
+          "minor_faults": 17116,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2325.43,
+            "system": 642.11,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 23178915,
+            "write_count": 8452703,
+            "read_bytes": 1159168,
+            "write_bytes": 275336441856,
+            "read_chars": 609596350445,
+            "write_chars": 273949287837
+          },
+          "minor_faults": 18337764,
+          "major_faults": 0
+        }
+      },
+      "process_counters_after_host_result": {
+        "82477": {
+          "name": "python",
+          "created": 1793045120.17,
+          "cpu_times": {
+            "user": 15.46,
+            "system": 16.41,
+            "children_user": 0.0,
+            "children_system": 0.0,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 2666499,
+            "write_count": 136,
+            "read_bytes": 0,
+            "write_bytes": 3731456,
+            "read_chars": 251241194,
+            "write_chars": 3707452
+          },
+          "minor_faults": 17118,
+          "major_faults": 0
+        },
+        "82393": {
+          "name": "java",
+          "created": 1793045118.92,
+          "cpu_times": {
+            "user": 2405.99,
+            "system": 670.37,
+            "children_user": 0.19,
+            "children_system": 0.05,
+            "iowait": 0.0
+          },
+          "io_counters": {
+            "read_count": 24257397,
+            "write_count": 8830193,
+            "read_bytes": 1314816,
+            "write_bytes": 285995732992,
+            "read_chars": 632097821701,
+            "write_chars": 284397083106
+          },
+          "minor_faults": 18504096,
+          "major_faults": 0
+        }
+      },
+      "started_at_utc": "2026-10-26T20:08:38.852113+00:00",
+      "ended_at_utc": "2026-10-26T20:08:46.846829+00:00",
+      "peak_process_tree_rss_bytes": 19261153280,
+      "plan": "plans/q12-measured-3.txt",
+      "gpu_plan_observed": true,
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFileGpuScan",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuShuffleCoalesce",
+        "GpuShuffledSymmetricHashJoin",
+        "GpuSort"
+      ],
+      "cpu_core_operators": [],
+      "gpu_execution_class": "gpu_operators_present",
+      "peak_gpu_memory_bytes": 84376813568
+    }
+  ],
+  "query_errors": [],
+  "query_cleanup_policy": "none",
+  "cleanup_records": [],
+  "failure_policy": "raise",
+  "version": "3.5.9",
+  "spark_conf": {
+    "spark.eventLog.enabled": "true",
+    "spark.app.submitTime": "1793045120893",
+    "spark.rapids.sql.enabled": "true",
+    "spark.driver.memory": "96g",
+    "spark.master": "local[26]",
+    "spark.app.initial.jar.urls": "spark://localhost:38787/jars/rapids-4-spark_2.12-26.08.1.jar",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.sql.enabled": "true",
+    "spark.rapids.memory.pinnedPool.size": "2G",
+    "spark.jars": "file:///home/ubuntu/study/jars/rapids-4-spark_2.12-26.08.1.jar",
+    "spark.app.startTime": "1793045121462",
+    "spark.sql.extensions": "com.nvidia.spark.rapids.SQLExecPlugin,com.nvidia.spark.udf.Plugin,com.nvidia.spark.DFUDFPlugin,com.nvidia.spark.rapids.optimizer.SQLOptimizerPlugin",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.driver.user.timezone": "Z",
+    "spark.app.name": "three-engine-benchmark-spark_gpu",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.sql.explain": "NOT_ON_GPU",
+    "spark.repl.local.jars": "file:///home/ubuntu/study/jars/rapids-4-spark_2.12-26.08.1.jar",
+    "spark.eventLog.dir": "file:///home/ubuntu/study-h100-research-evidence-20261026/campaign-results/block-01-baseline-sf300-spark_gpu/attempt-001/run/sf300/spark_gpu-events",
+    "spark.serializer.objectStreamReset": "100",
+    "spark.submit.deployMode": "client",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.sql.variableFloatAgg.enabled": "true",
+    "spark.driver.port": "38787",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.sql.concurrentGpuTasks": "2",
+    "spark.rapids.driver.user.timezone": "Z",
+    "spark.driver.extraJavaOptions": "-Djava.net.preferIPv6Addresses=false -XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED -Djdk.reflect.useDirectMethodHandle=false",
+    "spark.sql.shuffle.partitions": "120",
+    "spark.sql.adaptive.enabled": "true",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.memory.pinnedPool.size": "2G",
+    "spark.executor.id": "driver",
+    "spark.driver.host": "localhost",
+    "spark.rapids.sql.multiThreadedRead.memoryLimit.size": "163967102484",
+    "spark.driver.maxResultSize": "1g",
+    "spark.plugins": "com.nvidia.spark.SQLPlugin",
+    "spark.app.id": "local-1793045121962",
+    "spark.rapids.sql.variableFloatAgg.enabled": "true",
+    "spark.rapids.sql.concurrentGpuTasks": "2",
+    "spark.rdd.compress": "True",
+    "spark.executor.extraJavaOptions": "-Djava.net.preferIPv6Addresses=false -XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED -Djdk.reflect.useDirectMethodHandle=false",
+    "spark.ui.enabled": "false",
+    "spark.submit.pyFiles": "",
+    "spark.sql.session.timeZone": "UTC",
+    "spark.sql.files.maxPartitionBytes": "134217728",
+    "spark.rapids.sql.explain": "NOT_ON_GPU"
+  },
+  "cpu_threads": 26,
+  "spark_gpu_profile": "a100-parity",
+  "gpu_inventory": {
+    "device_index": 0,
+    "source": "pynvml",
+    "name": "NVIDIA H100 80GB HBM3",
+    "driver_version": "570.148.08",
+    "memory_total_bytes": 85520809984,
+    "cuda_driver_version": "12.8",
+    "cuda_runtime_version": "12.9"
+  },
+  "gpu_memory_sampler": {
+    "backend": "pynvml",
+    "interval_seconds": 0.1,
+    "device": 0,
+    "scope": "sum of device memory of the worker process tree (plus the SparkSubmit JVM parent), sampled through the host-result conversion endpoint; a sampled peak can miss short transients"
+  },
+  "session_and_table_setup_seconds": 16.946052602001146,
+  "launch_to_engine_ready_seconds": 18.286791801452637,
+  "active_query": null,
+  "query_execution_status": "complete",
+  "completed_at_utc": "2026-10-26T20:08:46.850764+00:00"
+}

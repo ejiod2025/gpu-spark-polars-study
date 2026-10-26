@@ -1,0 +1,31 @@
+== Polars optimized plan (CPU optimizer; executed by cudf-polars, executor=streaming) ==
+SORT BY [col("l_shipmode")]
+  AGGREGATE[maintain_order: false]
+    [col("__POLARS_CSER_0x100000003").strict_cast(Int64).sum().alias("high_line_count"), col("__POLARS_CSER_0x100000003").alias("o_orderpriority").not().strict_cast(Int64).sum().alias("low_line_count")] BY [col("l_shipmode")]
+    FROM
+     WITH_COLUMNS:
+     [col("o_orderpriority").is_in([["1-URGENT", "2-HIGH"]]).alias("__POLARS_CSER_0x100000003")] 
+      simple π 2/2 ["l_shipmode", ... 1 other column]
+        INNER JOIN:
+        LEFT PLAN ON: [col("l_orderkey")]
+          simple π 2/2 ["l_shipmode", "l_orderkey"]
+            Parquet SCAN [/home/ubuntu/study/data/sf1/lineitem/data_0.parquet, ... 29 other sources]
+            PROJECT 5/16 COLUMNS
+            SELECTION: (((col("l_commitdate") < col("l_receiptdate")) & ((col("l_receiptdate") >= 1994-01-01) & (col("l_receiptdate") < 1995-01-01))) & (col("l_shipdate") < col("l_commitdate"))) & col("l_shipmode").is_in([["MAIL", "SHIP"]])
+            ESTIMATED ROWS: 5997687
+        RIGHT PLAN ON: [col("o_orderkey")]
+          Parquet SCAN [/home/ubuntu/study/data/sf1/orders/data_0.parquet, ... 12 other sources]
+          PROJECT 2/9 COLUMNS
+          ESTIMATED ROWS: 1500000
+        END INNER JOIN
+== cudf-polars physical plan ==
+SORT ('l_shipmode',) ('l_shipmode', 'high_line_count', 'low_line_count') [1]
+  SELECT ('l_shipmode', 'high_line_count', 'low_line_count') [1]
+    GROUPBY ('l_shipmode',) ('l_shipmode', 'high_line_count', 'low_line_count') [1]
+      HSTACK ('l_shipmode', 'o_orderpriority', '__POLARS_CSER_0x100000003') [1]
+        PROJECTION ('l_shipmode', 'o_orderpriority') [1]
+          JOIN Inner ('l_orderkey',) ('o_orderkey',) ('l_shipmode', 'l_orderkey', 'o_orderpriority') [1]
+            PROJECTION ('l_shipmode', 'l_orderkey') [1]
+              STREAMINGSCAN ('l_shipmode', 'l_orderkey', 'l_commitdate', 'l_receiptdate', 'l_shipdate') [1]
+            STREAMINGSCAN ('o_orderpriority', 'o_orderkey') [1]
+

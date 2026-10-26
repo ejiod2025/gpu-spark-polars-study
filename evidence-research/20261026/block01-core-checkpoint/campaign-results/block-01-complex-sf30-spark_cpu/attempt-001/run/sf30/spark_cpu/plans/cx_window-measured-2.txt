@@ -1,0 +1,33 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   TakeOrderedAndProject(limit=100, orderBy=[custkey#559L ASC NULLS LAST,row_num#564 ASC NULLS FIRST,orderkey#560L ASC NULLS LAST], output=[custkey#559L,orderkey#560L,orderdate#561,totalprice#562,previous_totalprice#563,row_num#564])
+   +- *(4) Project [custkey#559L, orderkey#560L, orderdate#561, totalprice#562, previous_totalprice#563, row_num#564]
+      +- *(4) Filter (row_num#564 <= 3)
+         +- Window [row_number() windowspecdefinition(o_custkey#136L, o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS row_num#564], [o_custkey#136L], [o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST]
+            +- WindowGroupLimit [o_custkey#136L], [o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], row_number(), 3, Final
+               +- *(3) Sort [o_custkey#136L ASC NULLS FIRST, o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], false, 0
+                  +- Window [lag(o_totalprice#153, -1, null) windowspecdefinition(o_custkey#136L, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST, specifiedwindowframe(RowFrame, -1, -1)) AS previous_totalprice#563], [o_custkey#136L], [o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST]
+                     +- *(2) Sort [o_custkey#136L ASC NULLS FIRST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], false, 0
+                        +- AQEShuffleRead coalesced
+                           +- ShuffleQueryStage 0
+                              +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=8402]
+                                 +- *(1) Project [o_custkey#136L AS custkey#559L, o_orderkey#135L AS orderkey#560L, o_orderdate#139 AS orderdate#561, o_totalprice#153 AS totalprice#562, o_totalprice#153, o_custkey#136L, o_orderdate#139, o_orderkey#135L]
+                                    +- *(1) Project [o_orderkey#135L, o_custkey#136L, cast(o_totalprice#138 as double) AS o_totalprice#153, o_orderdate#139]
+                                       +- *(1) Filter ((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1994-01-01)) AND (o_orderdate#139 < 1996-01-01))
+                                          +- *(1) ColumnarToRow
+                                             +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_totalprice#138,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1994-01-01), (o_orderdate#139 < 1996-01-01)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1994-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_totalprice:decimal(15,2),o_orderdate:date>
++- == Initial Plan ==
+   TakeOrderedAndProject(limit=100, orderBy=[custkey#559L ASC NULLS LAST,row_num#564 ASC NULLS FIRST,orderkey#560L ASC NULLS LAST], output=[custkey#559L,orderkey#560L,orderdate#561,totalprice#562,previous_totalprice#563,row_num#564])
+   +- Project [custkey#559L, orderkey#560L, orderdate#561, totalprice#562, previous_totalprice#563, row_num#564]
+      +- Filter (row_num#564 <= 3)
+         +- Window [row_number() windowspecdefinition(o_custkey#136L, o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS row_num#564], [o_custkey#136L], [o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST]
+            +- WindowGroupLimit [o_custkey#136L], [o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], row_number(), 3, Final
+               +- Sort [o_custkey#136L ASC NULLS FIRST, o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], false, 0
+                  +- Window [lag(o_totalprice#153, -1, null) windowspecdefinition(o_custkey#136L, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST, specifiedwindowframe(RowFrame, -1, -1)) AS previous_totalprice#563], [o_custkey#136L], [o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST]
+                     +- Sort [o_custkey#136L ASC NULLS FIRST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], false, 0
+                        +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=8366]
+                           +- Project [o_custkey#136L AS custkey#559L, o_orderkey#135L AS orderkey#560L, o_orderdate#139 AS orderdate#561, o_totalprice#153 AS totalprice#562, o_totalprice#153, o_custkey#136L, o_orderdate#139, o_orderkey#135L]
+                              +- Project [o_orderkey#135L, o_custkey#136L, cast(o_totalprice#138 as double) AS o_totalprice#153, o_orderdate#139]
+                                 +- Filter ((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1994-01-01)) AND (o_orderdate#139 < 1996-01-01))
+                                    +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_totalprice#138,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1994-01-01), (o_orderdate#139 < 1996-01-01)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1994-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_totalprice:decimal(15,2),o_orderdate:date>
+

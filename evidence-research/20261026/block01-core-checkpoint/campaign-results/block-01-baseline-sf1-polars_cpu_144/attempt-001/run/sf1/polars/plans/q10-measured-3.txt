@@ -1,0 +1,40 @@
+SORT BY [slice: (0, 20), descending: [true, false]] [col("revenue"), col("c_custkey")]
+  simple π 8/8 ["c_custkey", "c_name", ... 6 other columns]
+    AGGREGATE[maintain_order: false]
+      [(col("l_extendedprice") * (1.0 - col("l_discount"))).sum().alias("revenue")] BY [col("c_custkey"), col("c_name"), col("c_acctbal"), col("n_name"), col("c_address"), col("c_phone"), col("c_comment")]
+      FROM
+      simple π 9/9 ["c_custkey", "c_name", ... 7 other columns]
+        INNER JOIN:
+        LEFT PLAN ON: [col("c_nationkey")]
+          simple π 9/9 ["c_custkey", "c_name", ... 7 other columns]
+            INNER JOIN:
+            LEFT PLAN ON: [col("o_orderkey")]
+              INNER JOIN:
+              LEFT PLAN ON: [col("c_custkey")]
+                 WITH_COLUMNS:
+                 [col("c_acctbal").strict_cast(Float64)] 
+                  Parquet SCAN [/home/ubuntu/study/data/sf1/customer/data_0.parquet, /home/ubuntu/study/data/sf1/customer/data_1.parquet]
+                  PROJECT 7/8 COLUMNS
+                  ESTIMATED ROWS: 150000
+              RIGHT PLAN ON: [col("o_custkey")]
+                simple π 2/2 ["o_orderkey", "o_custkey"]
+                  Parquet SCAN [/home/ubuntu/study/data/sf1/orders/data_0.parquet, ... 12 other sources]
+                  PROJECT 3/9 COLUMNS
+                  SELECTION: (col("o_orderdate") >= 1993-10-01) & (col("o_orderdate") < 1994-01-01)
+                  ESTIMATED ROWS: 1500000
+              END INNER JOIN
+            RIGHT PLAN ON: [col("l_orderkey")]
+              simple π 3/3 ["l_extendedprice", ... 2 other columns]
+                 WITH_COLUMNS:
+                 [col("l_extendedprice").strict_cast(Float64), col("l_discount").strict_cast(Float64)] 
+                  simple π 3/3 ["l_orderkey", ... 2 other columns]
+                    Parquet SCAN [/home/ubuntu/study/data/sf1/lineitem/data_0.parquet, ... 29 other sources]
+                    PROJECT 4/16 COLUMNS
+                    SELECTION: col("l_returnflag") == "R"
+                    ESTIMATED ROWS: 5997687
+            END INNER JOIN
+        RIGHT PLAN ON: [col("n_nationkey")]
+          Parquet SCAN [/home/ubuntu/study/data/sf1/nation/data_0.parquet]
+          PROJECT 2/4 COLUMNS
+          ESTIMATED ROWS: 25
+        END INNER JOIN
