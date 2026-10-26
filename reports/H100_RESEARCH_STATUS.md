@@ -1,11 +1,12 @@
 # H100 research campaign status
 
-Snapshot: **2026-10-26 18:28 UTC**. Data collection is in progress. No
+Snapshot: **2026-10-26 19:21 UTC**. Data collection is in progress. No
 confirmatory performance conclusion is available yet.
 
-The first **5 of 400 sessions** have passed their scientific gates. They cover
-all five configurations at baseline SF1, with **120 successful outputs**
-independently compared. The next session is CPU Spark on complex SF300.
+The first **9 of 400 sessions** have passed their scientific gates, with
+**208 successful outputs** independently compared. They cover baseline SF1
+and four configurations at complex SF300. GPU Spark is running complex SF300.
+These are partial block-one observations; no ten-block estimate is available.
 Both initial full-file integrity gates passed all **1,776 Parquet files**.
 See the [machine-readable snapshot](h100-confirmatory-launch-status.json).
 
@@ -18,7 +19,8 @@ cases remain visible; a partial GPU suite never gets a complete-suite score.
 Completed preparation:
 
 - H100 Linux functional tests: **300 passed, one fixture-dependent skip,
-  16 subtests passed**. Static reporting tests: **16 passed locally**.
+  16 subtests passed**. Offline replay, audit, rendering and packaging tests:
+  **70 passed locally**.
 - SF1 engine readiness: ten sessions and **116 agreeing output comparisons**.
 - Hand-checked join diagnostics pass on all configurations, including a
   nonempty anti exclusion. The saved Spark GPU final plan has `LeftAnti` on a
@@ -37,6 +39,13 @@ The shell is detached from SSH; local caffeinate prevents idle sleep.
 Remaining work is full data collection, final validation, ten-block uncertainty
 and Holm-adjusted comparisons, reproducible figures, the completed manuscript,
 and an artifact/claim audit. Repository visibility remains private.
+
+Portable replay, a stronger postcollection audit and raw-evidence bundling are
+implemented separately from the frozen experiment. The replay retains raw
+validation and records its path-only adapter. Final configuration/chronology
+checks, secondary-endpoint tables, figures and bundle hashes must still be
+produced from the completed real harvest; synthetic tooling tests do not satisfy
+those study gates.
 
 [Prospective protocol](../docs/H100_CONFIRMATORY_PROTOCOL.md) ·
 [runbook](../docs/H100_RESEARCH_RUNBOOK.md) ·

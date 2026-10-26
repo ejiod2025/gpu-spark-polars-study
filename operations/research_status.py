@@ -15,9 +15,18 @@ journal = json.loads(payload)
 counts = dict(Counter(item["status"] for item in journal["sessions"].values()))
 active = []
 validated = 0
+compared_outputs = 0
 for session_id, item in journal["sessions"].items():
     if item.get("scientific_validation", {}).get("status") == "PASS":
+        gate = item["scientific_validation"]
+        gate_bytes = Path(gate["path"]).read_bytes()
+        if hashlib.sha256(gate_bytes).hexdigest() != gate["sha256"]:
+            raise ValueError(f"Scientific gate changed: {session_id}")
+        checked = json.loads(gate_bytes)
+        if checked.get("status") != "PASS" or checked.get("session_id") != session_id:
+            raise ValueError(f"Scientific gate identity/status differs: {session_id}")
         validated += 1
+        compared_outputs += len(checked["comparisons"])
     if item["status"] != "running":
         continue
     attempt = item["attempts"][-1]
@@ -33,6 +42,7 @@ out = {"observed_at_utc": datetime.now(timezone.utc).isoformat(),
        "scope": "Operational progress snapshot; no confirmatory performance inference before all ten blocks",
        "campaign_sha256": journal["campaign_sha256"], "journal_snapshot_sha256": hashlib.sha256(payload).hexdigest(),
        "planned_sessions": 400, "status_counts": counts, "scientifically_validated_sessions": validated,
+       "successful_outputs_compared_in_completed_sessions": compared_outputs,
        "input_integrity_gates": journal.get("input_integrity_gates", []), "active_sessions": active,
        "campaign_completed_at_utc": journal.get("completed_at_utc"),
        "driver_pid": (args.evidence / "confirm-driver.pid").read_text().strip(),
