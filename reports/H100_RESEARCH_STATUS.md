@@ -1,12 +1,12 @@
 # H100 research campaign status
 
-Snapshot: **2026-10-26 19:21 UTC**. Data collection is in progress. No
+Snapshot: **2026-10-26 19:38 UTC**. Data collection is in progress. No
 confirmatory performance conclusion is available yet.
 
-The first **9 of 400 sessions** have passed their scientific gates, with
-**208 successful outputs** independently compared. They cover baseline SF1
-and four configurations at complex SF300. GPU Spark is running complex SF300.
-These are partial block-one observations; no ten-block estimate is available.
+The first **14 of 400 sessions** have passed their scientific gates, with
+**320 successful outputs** independently compared. All five configurations
+have completed the complex SF300 condition. These progress counts do not
+provide the ten-block performance estimates.
 Both initial full-file integrity gates passed all **1,776 Parquet files**.
 See the [machine-readable snapshot](h100-confirmatory-launch-status.json).
 
