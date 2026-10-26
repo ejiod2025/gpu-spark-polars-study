@@ -16,6 +16,8 @@ ten paired blocks (400 fresh engine sessions), independent SQL oracles, balanced
 execution order, and a common Python 3.11 build for both CPU Polars versions.
 The pilot observations are kept separate from those new measurements. See
 [the research runbook](docs/H100_RESEARCH_RUNBOOK.md) for execution and validation.
+The [campaign status](reports/H100_RESEARCH_STATUS.md) records the latest saved
+progress snapshot; confirmatory conclusions remain pending full collection.
 
 Branch `H100_main_dev` extends the experiment to four engines: Polars CPU, Polars GPU with cuDF, CPU Spark, and GPU Spark. The H100 host has one 80 GB H100, 26 Intel Xeon vCPUs, and about 221 GiB RAM. Both Polars engines use 1.44.2 with `cudf-polars-cu12==26.10.2` on Python 3.11; the A100 record below used Polars 2.0.0 on Python 3.10. Within-H100 comparisons are the primary result. Hardware, CPU allocation, and software differences prevent interpreting A100/H100 ratios as an isolated GPU upgrade effect.
 
