@@ -316,6 +316,16 @@ analysis. Synthetic test exports are excluded. Copied artifacts preserve
 hashed JSON bytes and use path remapping. Final harvested-archive replay is
 required.
 
+The one-command replay retains the frozen validator's raw relocated output and
+records a path-only adapter for Spark GPU plan-source identities before running
+the frozen analyzer. It changes no original result or scientific gate. A
+separate complete-evidence audit checks chronological pre/post byte gates,
+all effective configurations, cache inventories, strict rejection diagnostics,
+and exact action/cleanup totals. It also exports descriptive host-result
+sensitivity tables. Raw evidence is packaged with per-file, per-part and joined
+archive hashes after collection ends. These tools have passed synthetic
+workflow tests; their final execution on the harvested study remains pending.
+
 Development remains private. Authorship, availability, attribution and unresolved
 [notice/provenance items](../NOTICE_RESEARCH.md) require the separate release
 process. This draft supplies no publication clearance or legal conclusion.
