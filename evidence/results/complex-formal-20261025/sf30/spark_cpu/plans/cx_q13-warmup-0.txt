@@ -1,0 +1,48 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(7) Sort [custdist#255L DESC NULLS LAST, c_count#254L DESC NULLS LAST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 3
+         +- Exchange rangepartitioning(custdist#255L DESC NULLS LAST, c_count#254L DESC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=1652]
+            +- *(6) HashAggregate(keys=[c_count#254L], functions=[count(1)], output=[c_count#254L, custdist#255L])
+               +- AQEShuffleRead coalesced
+                  +- ShuffleQueryStage 2
+                     +- Exchange hashpartitioning(c_count#254L, 120), ENSURE_REQUIREMENTS, [plan_id=1606]
+                        +- *(5) HashAggregate(keys=[c_count#254L], functions=[partial_count(1)], output=[c_count#254L, count#261L])
+                           +- *(5) HashAggregate(keys=[c_custkey#0L], functions=[count(o_orderkey#135L)], output=[c_count#254L])
+                              +- *(5) HashAggregate(keys=[c_custkey#0L], functions=[partial_count(o_orderkey#135L)], output=[c_custkey#0L, count#263L])
+                                 +- *(5) Project [c_custkey#0L, o_orderkey#135L]
+                                    +- *(5) SortMergeJoin [c_custkey#0L], [o_custkey#136L], LeftOuter
+                                       :- *(3) Sort [c_custkey#0L ASC NULLS FIRST], false, 0
+                                       :  +- AQEShuffleRead coalesced
+                                       :     +- ShuffleQueryStage 0
+                                       :        +- Exchange hashpartitioning(c_custkey#0L, 120), ENSURE_REQUIREMENTS, [plan_id=1452]
+                                       :           +- *(1) ColumnarToRow
+                                       :              +- FileScan parquet [c_custkey#0L] Batched: true, DataFilters: [], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/customer], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<c_custkey:bigint>
+                                       +- *(4) Sort [o_custkey#136L ASC NULLS FIRST], false, 0
+                                          +- AQEShuffleRead coalesced
+                                             +- ShuffleQueryStage 1
+                                                +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=1469]
+                                                   +- *(2) Project [o_custkey#136L, o_orderkey#135L]
+                                                      +- *(2) Filter ((isnotnull(o_comment#143) AND NOT o_comment#143 LIKE %special%requests%) AND isnotnull(o_custkey#136L))
+                                                         +- *(2) ColumnarToRow
+                                                            +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_comment#143] Batched: true, DataFilters: [isnotnull(o_comment#143), NOT o_comment#143 LIKE %special%requests%, isnotnull(o_custkey#136L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_comment), IsNotNull(o_custkey)], ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_comment:string>
++- == Initial Plan ==
+   Sort [custdist#255L DESC NULLS LAST, c_count#254L DESC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(custdist#255L DESC NULLS LAST, c_count#254L DESC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=1415]
+      +- HashAggregate(keys=[c_count#254L], functions=[count(1)], output=[c_count#254L, custdist#255L])
+         +- Exchange hashpartitioning(c_count#254L, 120), ENSURE_REQUIREMENTS, [plan_id=1412]
+            +- HashAggregate(keys=[c_count#254L], functions=[partial_count(1)], output=[c_count#254L, count#261L])
+               +- HashAggregate(keys=[c_custkey#0L], functions=[count(o_orderkey#135L)], output=[c_count#254L])
+                  +- HashAggregate(keys=[c_custkey#0L], functions=[partial_count(o_orderkey#135L)], output=[c_custkey#0L, count#263L])
+                     +- Project [c_custkey#0L, o_orderkey#135L]
+                        +- SortMergeJoin [c_custkey#0L], [o_custkey#136L], LeftOuter
+                           :- Sort [c_custkey#0L ASC NULLS FIRST], false, 0
+                           :  +- Exchange hashpartitioning(c_custkey#0L, 120), ENSURE_REQUIREMENTS, [plan_id=1402]
+                           :     +- FileScan parquet [c_custkey#0L] Batched: true, DataFilters: [], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/customer], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<c_custkey:bigint>
+                           +- Sort [o_custkey#136L ASC NULLS FIRST], false, 0
+                              +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=1403]
+                                 +- Project [o_custkey#136L, o_orderkey#135L]
+                                    +- Filter ((isnotnull(o_comment#143) AND NOT o_comment#143 LIKE %special%requests%) AND isnotnull(o_custkey#136L))
+                                       +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_comment#143] Batched: true, DataFilters: [isnotnull(o_comment#143), NOT o_comment#143 LIKE %special%requests%, isnotnull(o_custkey#136L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_comment), IsNotNull(o_custkey)], ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_comment:string>
+

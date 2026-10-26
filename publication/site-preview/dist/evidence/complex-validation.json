@@ -1,0 +1,477 @@
+{
+  "suite": "complex",
+  "status": "complete",
+  "pending_scales": [],
+  "validation": {
+    "outputs": 216,
+    "gpu_plans": 72,
+    "measured_outputs": 162,
+    "warmup_outputs": 54,
+    "relative_tolerance": 1e-08,
+    "absolute_tolerance": 1e-06,
+    "scope": "Cross-engine agreement with saved Polars warmup; includes warmups and baseline self-comparisons, not independent full-scale oracle proofs"
+  },
+  "protocol": {
+    "id": "verified_gc",
+    "label": "Verified cleanup after every query",
+    "description": "The revised complex suite requests Python garbage collection for Polars and Python/JVM garbage collection for Spark after each query returns. Spark then waits until the observed owned shuffle files and bytes are zero, outside the query timer.",
+    "timing_note": "Explicit garbage collection may alter the next query's heap state. All displayed complex scales and engines use this same protocol; the earlier attempt is excluded. Query medians exclude cleanup, while process wall time includes it. Cleanup totals cover the warmup and all three measured actions: adding them to a sum of query medians would not produce an end-to-end runtime."
+  },
+  "cleanup": {
+    "status": "verified",
+    "scope": "Session totals cover all saved warmup and measured barriers, including any cases excluded from the displayed performance comparison. Process wall time also includes startup, setup and other process overhead; it is not a cleanup-only measure.",
+    "sessions": [
+      {
+        "scale": "sf30",
+        "engine": "polars",
+        "barrier_count": 24,
+        "cleanup_seconds": 0.1443988810024166,
+        "process_wall_seconds": 24.76560511000025
+      },
+      {
+        "scale": "sf30",
+        "engine": "spark_cpu",
+        "barrier_count": 24,
+        "cleanup_seconds": 67.47264322799856,
+        "process_wall_seconds": 280.58261404099903
+      },
+      {
+        "scale": "sf30",
+        "engine": "spark_gpu",
+        "barrier_count": 24,
+        "cleanup_seconds": 69.13267625000117,
+        "process_wall_seconds": 167.72525974199925
+      },
+      {
+        "scale": "sf100",
+        "engine": "polars",
+        "barrier_count": 24,
+        "cleanup_seconds": 0.15495609900244744,
+        "process_wall_seconds": 90.46671589300058
+      },
+      {
+        "scale": "sf100",
+        "engine": "spark_cpu",
+        "barrier_count": 24,
+        "cleanup_seconds": 92.81159814100101,
+        "process_wall_seconds": 670.0055457960007
+      },
+      {
+        "scale": "sf100",
+        "engine": "spark_gpu",
+        "barrier_count": 24,
+        "cleanup_seconds": 96.40994200700334,
+        "process_wall_seconds": 353.56479783800023
+      },
+      {
+        "scale": "sf300",
+        "engine": "polars",
+        "barrier_count": 24,
+        "cleanup_seconds": 0.15885654800149496,
+        "process_wall_seconds": 290.3980182289997
+      },
+      {
+        "scale": "sf300",
+        "engine": "spark_cpu",
+        "barrier_count": 24,
+        "cleanup_seconds": 155.17824952199408,
+        "process_wall_seconds": 1489.0233625609999
+      },
+      {
+        "scale": "sf300",
+        "engine": "spark_gpu",
+        "barrier_count": 24,
+        "cleanup_seconds": 166.07387664700036,
+        "process_wall_seconds": 979.7236196430003
+      }
+    ],
+    "cases": [
+      {
+        "scale": "sf30",
+        "query": "cx_q09",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.02594423399932566
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_q09",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 15.34817945299801
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_q09",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 14.80310180700144
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_q13",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.02360602699991432
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_q13",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 9.938374971001394
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_q13",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 10.338006018002488
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_semi_anti",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.022229623999010073
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_semi_anti",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 9.914155621001555
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_semi_anti",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 10.179375407999032
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_window",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.023864815000706585
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_window",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 9.816589113999726
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_window",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 10.269428059998972
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_distinct",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.025891713001328753
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_distinct",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 12.524495643998307
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_distinct",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 13.234592566999709
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_self_join",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.02286246800213121
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_self_join",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 9.930848424999567
+      },
+      {
+        "scale": "sf30",
+        "query": "cx_self_join",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 10.308172389999527
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_q09",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.031088308998732828
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_q09",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 28.206688939000742
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_q09",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 30.616751875000773
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_q13",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.02365376799934893
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_q13",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 11.246424425000441
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_q13",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 11.164137604999269
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_semi_anti",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.025020791001225007
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_semi_anti",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 10.045548502999736
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_semi_anti",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 10.33887346800293
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_window",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.023031526001432212
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_window",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 11.922574731999703
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_window",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 12.131529543001307
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_distinct",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.028642060000493075
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_distinct",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 20.377958448001664
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_distinct",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 20.982048665999173
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_self_join",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.023519645001215395
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_self_join",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 11.012403093998728
+      },
+      {
+        "scale": "sf100",
+        "query": "cx_self_join",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 11.176600849999886
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_q09",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.02688017599757586
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_q09",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 56.52092104499752
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_q09",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 67.39742380099779
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_q13",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.023810564001905732
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_q13",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 15.057323987997734
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_q13",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 15.4278930770015
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_semi_anti",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.024343256000065594
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_semi_anti",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 11.304447381999125
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_semi_anti",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 12.34563330200217
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_window",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.02956845200060343
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_window",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 15.955535613000393
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_window",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 16.432368158997633
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_distinct",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.0300397660012095
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_distinct",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 42.07293141599803
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_distinct",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 39.94137763099934
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_self_join",
+        "engine": "polars",
+        "barrier_count": 4,
+        "cleanup_seconds": 0.02421433400013484
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_self_join",
+        "engine": "spark_cpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 14.267090078001274
+      },
+      {
+        "scale": "sf300",
+        "query": "cx_self_join",
+        "engine": "spark_gpu",
+        "barrier_count": 4,
+        "cleanup_seconds": 14.529180677001932
+      }
+    ]
+  },
+  "excluded_cases": [],
+  "independent_oracle_scope": {
+    "formal_verified_cases": 0,
+    "formal_uncovered_cases": 18,
+    "note": "Independent DuckDB checks apply only to matching covered cases; a small-scale oracle does not establish independent full-scale oracle correctness"
+  },
+  "private_validation_source_sha256": "1e1dd3eb7f8e4763a70aab03368f7752b16251041d6d38ab7bcd09014c0b0c66",
+  "source_csv_sha256": "2aa103e25c7ab75c285b1ed79fe883c0015ccb1d42b22de3143dace2affd0d2b"
+}

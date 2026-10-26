@@ -1,0 +1,80 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(10) Sort [n_name#128 ASC NULLS LAST, o_orderpriority#140 ASC NULLS LAST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 6
+         +- Exchange rangepartitioning(n_name#128 ASC NULLS LAST, o_orderpriority#140 ASC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=8827]
+            +- *(9) HashAggregate(keys=[n_name#128, o_orderpriority#140], functions=[count(orders.o_orderkey#569L), count(orders.o_custkey#570L), count(lineitem.l_partkey#571L)], output=[n_name#128, o_orderpriority#140, distinct_orders#557L, distinct_customers#558L, distinct_parts#559L])
+               +- AQEShuffleRead coalesced
+                  +- ShuffleQueryStage 5
+                     +- Exchange hashpartitioning(n_name#128, o_orderpriority#140, 120), ENSURE_REQUIREMENTS, [plan_id=8797]
+                        +- *(8) HashAggregate(keys=[n_name#128, o_orderpriority#140], functions=[partial_count(orders.o_orderkey#569L) FILTER (WHERE (gid#568 = 1)), partial_count(orders.o_custkey#570L) FILTER (WHERE (gid#568 = 2)), partial_count(lineitem.l_partkey#571L) FILTER (WHERE (gid#568 = 3))], output=[n_name#128, o_orderpriority#140, count#575L, count#576L, count#577L])
+                           +- *(8) HashAggregate(keys=[n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568], functions=[], output=[n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568])
+                              +- AQEShuffleRead coalesced
+                                 +- ShuffleQueryStage 4
+                                    +- Exchange hashpartitioning(n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568, 120), ENSURE_REQUIREMENTS, [plan_id=8724]
+                                       +- *(7) HashAggregate(keys=[n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568], functions=[], output=[n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568])
+                                          +- *(7) Expand [[n_name#128, o_orderpriority#140, o_orderkey#135L, null, null, 1], [n_name#128, o_orderpriority#140, null, o_custkey#136L, null, 2], [n_name#128, o_orderpriority#140, null, null, l_partkey#27L, 3]], [n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568]
+                                             +- *(7) Project [l_partkey#27L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140, n_name#128]
+                                                +- *(7) BroadcastHashJoin [s_nationkey#213], [n_nationkey#127], Inner, BuildRight, false
+                                                   :- *(7) Project [l_partkey#27L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140, s_nationkey#213]
+                                                   :  +- *(7) BroadcastHashJoin [l_suppkey#28L], [s_suppkey#210L], Inner, BuildRight, false
+                                                   :     :- *(7) Project [l_partkey#27L, l_suppkey#28L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140]
+                                                   :     :  +- *(7) SortMergeJoin [l_orderkey#26L], [o_orderkey#135L], Inner
+                                                   :     :     :- *(5) Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                                                   :     :     :  +- AQEShuffleRead coalesced
+                                                   :     :     :     +- ShuffleQueryStage 0
+                                                   :     :     :        +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=8336]
+                                                   :     :     :           +- *(1) Filter (isnotnull(l_orderkey#26L) AND isnotnull(l_suppkey#28L))
+                                                   :     :     :              +- *(1) ColumnarToRow
+                                                   :     :     :                 +- FileScan parquet [l_orderkey#26L,l_partkey#27L,l_suppkey#28L] Batched: true, DataFilters: [isnotnull(l_orderkey#26L), isnotnull(l_suppkey#28L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_orderkey), IsNotNull(l_suppkey)], ReadSchema: struct<l_orderkey:bigint,l_partkey:bigint,l_suppkey:bigint>
+                                                   :     :     +- *(6) Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+                                                   :     :        +- AQEShuffleRead coalesced
+                                                   :     :           +- ShuffleQueryStage 1
+                                                   :     :              +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=8355]
+                                                   :     :                 +- *(2) Project [o_orderkey#135L, o_custkey#136L, o_orderpriority#140]
+                                                   :     :                    +- *(2) Filter (((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1995-01-01)) AND (o_orderdate#139 < 1996-01-01)) AND isnotnull(o_orderkey#135L))
+                                                   :     :                       +- *(2) ColumnarToRow
+                                                   :     :                          +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139,o_orderpriority#140] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1995-01-01), (o_orderdate#139 < 1996-01-01), isn..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1995-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date,o_orderpriority:string>
+                                                   :     +- BroadcastQueryStage 2
+                                                   :        +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, false]),false), [plan_id=8376]
+                                                   :           +- *(3) Filter (isnotnull(s_suppkey#210L) AND isnotnull(s_nationkey#213))
+                                                   :              +- *(3) ColumnarToRow
+                                                   :                 +- FileScan parquet [s_suppkey#210L,s_nationkey#213] Batched: true, DataFilters: [isnotnull(s_suppkey#210L), isnotnull(s_nationkey#213)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/supplier], PartitionFilters: [], PushedFilters: [IsNotNull(s_suppkey), IsNotNull(s_nationkey)], ReadSchema: struct<s_suppkey:bigint,s_nationkey:int>
+                                                   +- BroadcastQueryStage 3
+                                                      +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=8393]
+                                                         +- *(4) Filter isnotnull(n_nationkey#127)
+                                                            +- *(4) ColumnarToRow
+                                                               +- FileScan parquet [n_nationkey#127,n_name#128] Batched: true, DataFilters: [isnotnull(n_nationkey#127)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/nation], PartitionFilters: [], PushedFilters: [IsNotNull(n_nationkey)], ReadSchema: struct<n_nationkey:int,n_name:string>
++- == Initial Plan ==
+   Sort [n_name#128 ASC NULLS LAST, o_orderpriority#140 ASC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(n_name#128 ASC NULLS LAST, o_orderpriority#140 ASC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=8275]
+      +- HashAggregate(keys=[n_name#128, o_orderpriority#140], functions=[count(orders.o_orderkey#569L), count(orders.o_custkey#570L), count(lineitem.l_partkey#571L)], output=[n_name#128, o_orderpriority#140, distinct_orders#557L, distinct_customers#558L, distinct_parts#559L])
+         +- Exchange hashpartitioning(n_name#128, o_orderpriority#140, 120), ENSURE_REQUIREMENTS, [plan_id=8272]
+            +- HashAggregate(keys=[n_name#128, o_orderpriority#140], functions=[partial_count(orders.o_orderkey#569L) FILTER (WHERE (gid#568 = 1)), partial_count(orders.o_custkey#570L) FILTER (WHERE (gid#568 = 2)), partial_count(lineitem.l_partkey#571L) FILTER (WHERE (gid#568 = 3))], output=[n_name#128, o_orderpriority#140, count#575L, count#576L, count#577L])
+               +- HashAggregate(keys=[n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568], functions=[], output=[n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568])
+                  +- Exchange hashpartitioning(n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568, 120), ENSURE_REQUIREMENTS, [plan_id=8268]
+                     +- HashAggregate(keys=[n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568], functions=[], output=[n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568])
+                        +- Expand [[n_name#128, o_orderpriority#140, o_orderkey#135L, null, null, 1], [n_name#128, o_orderpriority#140, null, o_custkey#136L, null, 2], [n_name#128, o_orderpriority#140, null, null, l_partkey#27L, 3]], [n_name#128, o_orderpriority#140, orders.o_orderkey#569L, orders.o_custkey#570L, lineitem.l_partkey#571L, gid#568]
+                           +- Project [l_partkey#27L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140, n_name#128]
+                              +- BroadcastHashJoin [s_nationkey#213], [n_nationkey#127], Inner, BuildRight, false
+                                 :- Project [l_partkey#27L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140, s_nationkey#213]
+                                 :  +- BroadcastHashJoin [l_suppkey#28L], [s_suppkey#210L], Inner, BuildRight, false
+                                 :     :- Project [l_partkey#27L, l_suppkey#28L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140]
+                                 :     :  +- SortMergeJoin [l_orderkey#26L], [o_orderkey#135L], Inner
+                                 :     :     :- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                                 :     :     :  +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=8251]
+                                 :     :     :     +- Filter (isnotnull(l_orderkey#26L) AND isnotnull(l_suppkey#28L))
+                                 :     :     :        +- FileScan parquet [l_orderkey#26L,l_partkey#27L,l_suppkey#28L] Batched: true, DataFilters: [isnotnull(l_orderkey#26L), isnotnull(l_suppkey#28L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_orderkey), IsNotNull(l_suppkey)], ReadSchema: struct<l_orderkey:bigint,l_partkey:bigint,l_suppkey:bigint>
+                                 :     :     +- Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+                                 :     :        +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=8252]
+                                 :     :           +- Project [o_orderkey#135L, o_custkey#136L, o_orderpriority#140]
+                                 :     :              +- Filter (((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1995-01-01)) AND (o_orderdate#139 < 1996-01-01)) AND isnotnull(o_orderkey#135L))
+                                 :     :                 +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139,o_orderpriority#140] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1995-01-01), (o_orderdate#139 < 1996-01-01), isn..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1995-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date,o_orderpriority:string>
+                                 :     +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, false]),false), [plan_id=8258]
+                                 :        +- Filter (isnotnull(s_suppkey#210L) AND isnotnull(s_nationkey#213))
+                                 :           +- FileScan parquet [s_suppkey#210L,s_nationkey#213] Batched: true, DataFilters: [isnotnull(s_suppkey#210L), isnotnull(s_nationkey#213)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/supplier], PartitionFilters: [], PushedFilters: [IsNotNull(s_suppkey), IsNotNull(s_nationkey)], ReadSchema: struct<s_suppkey:bigint,s_nationkey:int>
+                                 +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=8262]
+                                    +- Filter isnotnull(n_nationkey#127)
+                                       +- FileScan parquet [n_nationkey#127,n_name#128] Batched: true, DataFilters: [isnotnull(n_nationkey#127)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/nation], PartitionFilters: [], PushedFilters: [IsNotNull(n_nationkey)], ReadSchema: struct<n_nationkey:int,n_name:string>
+

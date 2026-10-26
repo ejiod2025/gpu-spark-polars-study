@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A local draft of a bounded, single-host comparison of Polars, CPU Spark and GPU-accelerated Spark, with checked measurements and reproducibility evidence.">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Does GPU-accelerated Spark beat Polars?</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to measurements</a>
+  <div class="draft-banner" role="note" aria-label="Publication status">
+    <div class="wrap">
+      <strong class="draft-label" id="draft-banner-text">Draft: complex results/public release/notices pending</strong>
+      <span class="draft-detail">Local-only preview · not cleared for publication or redistribution</span>
+    </div>
+  </div>
+  <header class="site-header wrap">
+    <a class="wordmark" href="#main" aria-label="Systems field notes, top of study">Systems <span>/ field notes</span></a>
+    <span class="header-meta">Single-host research draft</span>
+  </header>
+  <main id="main" class="wrap">
+    <section class="hero" aria-labelledby="study-title">
+      <p class="eyebrow">An experiment in query execution</p>
+      <h1 id="study-title">Does GPU-accelerated Spark beat Polars?</h1>
+      <p class="hero-deck" id="study-subtitle">A bounded comparison of CPU Polars, CPU Spark, and Spark with a GPU plugin on one A100 host.</p>
+      <p class="hero-finding" id="baseline-finding">The original six-query baseline finds no overall GPU Spark win over Polars through SF300 on one A100 host. This result applies to the measured workload and configuration.</p>
+      <div class="study-strip" aria-label="Study at a glance">
+        <div class="strip-item"><span class="strip-value">1 A100</span><span class="strip-label">40 GB GPU, one host</span></div>
+        <div class="strip-item"><span class="strip-value">30 vCPU</span><span class="strip-label">same host for all engines</span></div>
+        <div class="strip-item"><span class="strip-value">6 queries</span><span class="strip-label">in the original suite</span></div>
+        <div class="strip-item"><span class="strip-value">3 trials</span><span class="strip-label">within each engine session</span></div>
+      </div>
+    </section>
+
+    <section class="section-block explorer" aria-labelledby="measurements-heading">
+      <div class="section-head">
+        <span class="section-number" aria-hidden="true">01</span>
+        <div><h2 id="measurements-heading">Read the measurements</h2><p class="section-intro">Choose a suite, then inspect its aggregate or an individual query.</p></div>
+      </div>
+      <div class="suite-tabs" role="tablist" aria-label="Query suite">
+        <button id="tab-original" type="button" role="tab" aria-selected="true" aria-controls="explorer-panel" tabindex="0" class="is-active" data-suite="original">Original six</button>
+        <button id="tab-complex" type="button" role="tab" aria-selected="false" aria-controls="explorer-panel" tabindex="-1" data-suite="complex">Complex queries <span aria-hidden="true">↗</span></button>
+      </div>
+      <div id="explorer-panel" role="tabpanel" aria-labelledby="tab-original">
+        <div class="suite-status" aria-live="polite"><span class="status-chip is-pending" id="suite-status-chip">Loading evidence</span><p id="suite-status-text">Measurements are read from the local evidence snapshot.</p></div>
+        <div class="explorer-controls">
+          <label class="control-label" for="query-selector">View</label>
+          <select id="query-selector" disabled aria-describedby="result-definition"><option value="__suite__">Suite aggregate</option></select>
+        </div>
+        <p class="scope-note" id="result-definition">Suite aggregate = sum of six per-query medians, not a directly measured suite runtime. Three measured trials within one session; preheated filesystem policy; startup excluded. Stored Parquet bytes are not bytes scanned by a query.</p>
+        <section id="protocol-disclosure" class="protocol-note" aria-labelledby="protocol-heading">
+          <span class="protocol-label">Suite protocol</span>
+          <h3 id="protocol-heading">Original within-session measurements</h3>
+          <p id="protocol-description">The original six-query suite retains its recorded protocol and is displayed separately from the complex suite.</p>
+          <p id="protocol-timing-note">Query medians exclude startup and setup.</p>
+        </section>
+        <div class="legend" aria-label="Engine colors">
+          <span class="legend-item"><span class="swatch polars" aria-hidden="true"></span>Polars CPU</span>
+          <span class="legend-item"><span class="swatch spark" aria-hidden="true"></span>CPU Spark</span>
+          <span class="legend-item"><span class="swatch gpu" aria-hidden="true"></span>Spark + GPU plugin</span>
+        </div>
+        <p id="loading-state" class="small-note" role="status">Loading checked measurements…</p>
+        <div id="load-error" class="error-state" role="alert" hidden></div>
+        <div id="summary-metrics" class="summary-grid" hidden></div>
+        <div id="query-detail" class="query-detail" hidden></div>
+        <div id="pending-state" class="empty-state" hidden></div>
+        <figure id="report-figure" hidden>
+          <div class="chart-frame"><img id="report-chart" alt="" loading="lazy" decoding="async"></div>
+          <figcaption id="chart-caption"></figcaption>
+        </figure>
+        <div id="results-table-wrapper" class="table-scroll" tabindex="0" role="region" aria-label="Measurement table, scroll horizontally on narrow screens" hidden><table id="results-table"></table></div>
+        <p id="ratio-definition" class="small-note" hidden>Ratios divide the named CPU engine’s time by GPU-plugin Spark time. Above 1× favors the GPU-plugin session; below 1× favors that CPU engine. Plan coverage describes operators, not the fraction of runtime spent on GPU.</p>
+        <p id="validation-summary" class="small-note"></p>
+        <section id="cleanup-section" class="cleanup-section" aria-labelledby="cleanup-heading" hidden>
+          <h3 id="cleanup-heading" class="cleanup-heading">Cleanup &amp; process observations</h3>
+          <p id="cleanup-status" class="cleanup-status" aria-live="polite">Cleanup evidence pending</p>
+          <p id="cleanup-scope" class="cleanup-explanation"></p>
+          <p id="cleanup-pending" class="cleanup-pending">Verified cleanup observations will appear here when evidence is supplied.</p>
+          <div id="cleanup-sessions-wrapper" class="table-scroll" tabindex="0" role="region" aria-label="All saved session cleanup barriers and process wall times, scroll horizontally on narrow screens" hidden><table id="cleanup-sessions-table" class="cleanup-table"></table></div>
+          <details id="cleanup-cases-details" hidden><summary id="cleanup-cases-summary">Inspect cleanup observations by query and engine</summary><div class="table-scroll" tabindex="0" role="region" aria-label="Saved cleanup barriers by query and engine, scroll horizontally on narrow screens"><table id="cleanup-cases-table" class="cleanup-table"></table></div></details>
+        </section>
+      </div>
+    </section>
+
+    <section class="section-block" aria-labelledby="queries-heading">
+      <div class="section-head"><span class="section-number" aria-hidden="true">02</span><div><h2 id="queries-heading">The work behind the numbers</h2><p id="catalog-intro" class="section-intro">The original suite already includes four join queries. The complex suite adds other join shapes, windows, and exact distinct counts.</p></div></div>
+      <div id="query-catalog" class="query-catalog"></div>
+    </section>
+
+    <section class="section-block" aria-labelledby="methods-heading">
+      <div class="section-head"><span class="section-number" aria-hidden="true">03</span><div><h2 id="methods-heading">Scope &amp; methods</h2><p class="section-intro">One configuration, one host, selected TPC-H-derived queries. No distributed scaling or equivalent-cost conclusion.</p></div></div>
+      <div class="methods-grid">
+        <div class="method-block"><h3>The machine</h3><dl id="hardware-facts" class="fact-list"></dl></div>
+        <div class="method-block"><h3>The software</h3><dl id="software-facts" class="fact-list"></dl></div>
+      </div>
+      <article id="incident-card" class="incident-card" aria-labelledby="incident-title" hidden>
+        <span id="incident-status" class="incident-status">Incident documentation pending</span>
+        <h3 id="incident-title" class="incident-title">Method incident</h3>
+        <p id="incident-summary" class="incident-summary"></p>
+        <p id="incident-exclusion" class="incident-exclusion">Excluded from performance comparisons</p>
+        <div id="incident-resources" class="incident-resources evidence-grid"></div>
+      </article>
+      <div class="article-copy"><p>Each engine reads the same generated Parquet inputs under a preheated filesystem policy, without an application DataFrame cache. Preheating does not guarantee that every page stays resident. Query timings include construction, optimization, reads, execution and collected results; startup and setup are excluded.</p><p>The original six queries already contain four join queries: Q03, Q10, Q12 and Q14. The complex suite is evaluated separately. Monetary and quantity inputs use Float64/DOUBLE arithmetic, with tolerance-checked parallel reductions. These are selected, non-certified TPC-H-derived workloads.</p></div>
+      <ul id="limitations" class="limitations-list"></ul>
+      <div id="study-sources" class="article-copy"></div>
+    </section>
+
+    <section class="section-block" aria-labelledby="evidence-heading">
+      <div class="section-head"><span class="section-number" aria-hidden="true">04</span><div><h2 id="evidence-heading">Inspect the evidence</h2><p class="section-intro">Validation, query definitions, and provenance make the scope reviewable.</p></div></div>
+      <p class="scope-note">Draft archives are for local review. They are <strong>not cleared for external redistribution</strong>; venue details and notices remain pending. A disabled resource is pending, not a working download.</p>
+      <div id="evidence-resources" class="evidence-grid"></div>
+      <details id="excluded-details" hidden><summary>Excluded and unselected cases</summary><div id="excluded-cases" class="excluded-list"></div></details>
+    </section>
+  </main>
+  <footer><div class="footer-inner wrap"><p>Research draft · local preview</p><p>Measured observations support a bounded conclusion. No complex performance finding is inferred from smoke checks.</p></div></footer>
+  <noscript><p class="wrap error-state">JavaScript is required to load the local evidence snapshot and measurement controls.</p></noscript>
+</body>
+</html>

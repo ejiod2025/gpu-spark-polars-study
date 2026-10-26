@@ -1,0 +1,309 @@
+{
+  "all_pass": true,
+  "before_blockmgr_dirs": [],
+  "completed_at_utc": "2026-10-25T20:17:04.642663+00:00",
+  "expected_rows": [
+    {
+      "k": 0,
+      "sum_id": 499500000
+    },
+    {
+      "k": 1,
+      "sum_id": 499501000
+    },
+    {
+      "k": 2,
+      "sum_id": 499502000
+    },
+    {
+      "k": 3,
+      "sum_id": 499503000
+    },
+    {
+      "k": 4,
+      "sum_id": 499504000
+    },
+    {
+      "k": 5,
+      "sum_id": 499505000
+    },
+    {
+      "k": 6,
+      "sum_id": 499506000
+    },
+    {
+      "k": 7,
+      "sum_id": 499507000
+    },
+    {
+      "k": 8,
+      "sum_id": 499508000
+    },
+    {
+      "k": 9,
+      "sum_id": 499509000
+    }
+  ],
+  "expected_sha256": "dacf54512f009dd626d07faddb2feece55227c9a5611531956e9af2c32e7c87c",
+  "held_control": {
+    "cleanup": {
+      "after": {
+        "active_job_ids": [],
+        "root_free_bytes": 344579305472,
+        "shuffle_bytes": 8240166,
+        "shuffle_files": 162
+      },
+      "before": {
+        "active_job_ids": [],
+        "root_free_bytes": 344579305472,
+        "shuffle_bytes": 8240166,
+        "shuffle_files": 162
+      },
+      "ended_at_utc": "2026-10-25T20:16:55.491808+00:00",
+      "engine": "spark_cpu",
+      "gc_requests": 1,
+      "owned_blockmgr_dirs": [
+        "<BLOCKMGR_DIR_1>"
+      ],
+      "python_gc_collected": 121,
+      "python_gc_runs": 1,
+      "seconds": 1.5002139120006177,
+      "spark_cleanup_applicable": true,
+      "started_at_utc": "2026-10-25T20:16:53.991594+00:00",
+      "status": "timeout"
+    },
+    "matches_expected": true,
+    "plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   TakeOrderedAndProject(limit=10, orderBy=[k#2L ASC NULLS FIRST], output=[k#2L,sum_id#8L])\n   +- *(2) HashAggregate(keys=[k#2L], functions=[sum(id#0L)], output=[k#2L, sum_id#8L])\n      +- *(2) HashAggregate(keys=[k#2L], functions=[partial_sum(id#0L)], output=[k#2L, sum#12L])\n         +- ShuffleQueryStage 0\n            +- Exchange hashpartitioning(k#2L, 24), REPARTITION_BY_NUM, [plan_id=28]\n               +- *(1) Project [(id#0L % 1000) AS k#2L, id#0L]\n                  +- *(1) Range (0, 1000000, step=1, splits=30)\n+- == Initial Plan ==\n   TakeOrderedAndProject(limit=10, orderBy=[k#2L ASC NULLS FIRST], output=[k#2L,sum_id#8L])\n   +- HashAggregate(keys=[k#2L], functions=[sum(id#0L)], output=[k#2L, sum_id#8L])\n      +- HashAggregate(keys=[k#2L], functions=[partial_sum(id#0L)], output=[k#2L, sum#12L])\n         +- Exchange hashpartitioning(k#2L, 24), REPARTITION_BY_NUM, [plan_id=17]\n            +- Project [(id#0L % 1000) AS k#2L, id#0L]\n               +- Range (0, 1000000, step=1, splits=30)\n",
+    "rows": [
+      {
+        "k": 0,
+        "sum_id": 499500000
+      },
+      {
+        "k": 1,
+        "sum_id": 499501000
+      },
+      {
+        "k": 2,
+        "sum_id": 499502000
+      },
+      {
+        "k": 3,
+        "sum_id": 499503000
+      },
+      {
+        "k": 4,
+        "sum_id": 499504000
+      },
+      {
+        "k": 5,
+        "sum_id": 499505000
+      },
+      {
+        "k": 6,
+        "sum_id": 499506000
+      },
+      {
+        "k": 7,
+        "sum_id": 499507000
+      },
+      {
+        "k": 8,
+        "sum_id": 499508000
+      },
+      {
+        "k": 9,
+        "sum_id": 499509000
+      }
+    ],
+    "rows_sha256": "dacf54512f009dd626d07faddb2feece55227c9a5611531956e9af2c32e7c87c",
+    "status": "expected_timeout"
+  },
+  "owned_blockmgr_dirs": [
+    "<BLOCKMGR_DIR_1>"
+  ],
+  "passes": [
+    {
+      "cleanup": {
+        "after": {
+          "active_job_ids": [],
+          "root_free_bytes": 344588111872,
+          "shuffle_bytes": 0,
+          "shuffle_files": 0
+        },
+        "before": {
+          "active_job_ids": [],
+          "root_free_bytes": 344579305472,
+          "shuffle_bytes": 8240166,
+          "shuffle_files": 162
+        },
+        "ended_at_utc": "2026-10-25T20:17:01.146051+00:00",
+        "engine": "spark_cpu",
+        "gc_requests": 2,
+        "owned_blockmgr_dirs": [
+          "<BLOCKMGR_DIR_1>"
+        ],
+        "python_gc_collected": 366,
+        "python_gc_runs": 1,
+        "seconds": 2.41418904099919,
+        "spark_cleanup_applicable": true,
+        "started_at_utc": "2026-10-25T20:16:58.731861+00:00",
+        "status": "passed"
+      },
+      "matches_expected": true,
+      "plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   TakeOrderedAndProject(limit=10, orderBy=[k#15L ASC NULLS FIRST], output=[k#15L,sum_id#21L])\n   +- *(2) HashAggregate(keys=[k#15L], functions=[sum(id#13L)], output=[k#15L, sum_id#21L])\n      +- *(2) HashAggregate(keys=[k#15L], functions=[partial_sum(id#13L)], output=[k#15L, sum#25L])\n         +- ShuffleQueryStage 0\n            +- Exchange hashpartitioning(k#15L, 24), REPARTITION_BY_NUM, [plan_id=77]\n               +- *(1) Project [(id#13L % 1000) AS k#15L, id#13L]\n                  +- *(1) Range (0, 1000000, step=1, splits=30)\n+- == Initial Plan ==\n   TakeOrderedAndProject(limit=10, orderBy=[k#15L ASC NULLS FIRST], output=[k#15L,sum_id#21L])\n   +- HashAggregate(keys=[k#15L], functions=[sum(id#13L)], output=[k#15L, sum_id#21L])\n      +- HashAggregate(keys=[k#15L], functions=[partial_sum(id#13L)], output=[k#15L, sum#25L])\n         +- Exchange hashpartitioning(k#15L, 24), REPARTITION_BY_NUM, [plan_id=66]\n            +- Project [(id#13L % 1000) AS k#15L, id#13L]\n               +- Range (0, 1000000, step=1, splits=30)\n",
+      "rows": [
+        {
+          "k": 0,
+          "sum_id": 499500000
+        },
+        {
+          "k": 1,
+          "sum_id": 499501000
+        },
+        {
+          "k": 2,
+          "sum_id": 499502000
+        },
+        {
+          "k": 3,
+          "sum_id": 499503000
+        },
+        {
+          "k": 4,
+          "sum_id": 499504000
+        },
+        {
+          "k": 5,
+          "sum_id": 499505000
+        },
+        {
+          "k": 6,
+          "sum_id": 499506000
+        },
+        {
+          "k": 7,
+          "sum_id": 499507000
+        },
+        {
+          "k": 8,
+          "sum_id": 499508000
+        },
+        {
+          "k": 9,
+          "sum_id": 499509000
+        }
+      ],
+      "rows_sha256": "dacf54512f009dd626d07faddb2feece55227c9a5611531956e9af2c32e7c87c",
+      "trial": 1
+    },
+    {
+      "cleanup": {
+        "after": {
+          "active_job_ids": [],
+          "root_free_bytes": 344588111872,
+          "shuffle_bytes": 0,
+          "shuffle_files": 0
+        },
+        "before": {
+          "active_job_ids": [],
+          "root_free_bytes": 344579305472,
+          "shuffle_bytes": 8240166,
+          "shuffle_files": 162
+        },
+        "ended_at_utc": "2026-10-25T20:17:04.144317+00:00",
+        "engine": "spark_cpu",
+        "gc_requests": 2,
+        "owned_blockmgr_dirs": [
+          "<BLOCKMGR_DIR_1>"
+        ],
+        "python_gc_collected": 366,
+        "python_gc_runs": 1,
+        "seconds": 2.4108425499998702,
+        "spark_cleanup_applicable": true,
+        "started_at_utc": "2026-10-25T20:17:01.733475+00:00",
+        "status": "passed"
+      },
+      "matches_expected": true,
+      "plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   TakeOrderedAndProject(limit=10, orderBy=[k#28L ASC NULLS FIRST], output=[k#28L,sum_id#34L])\n   +- *(2) HashAggregate(keys=[k#28L], functions=[sum(id#26L)], output=[k#28L, sum_id#34L])\n      +- *(2) HashAggregate(keys=[k#28L], functions=[partial_sum(id#26L)], output=[k#28L, sum#38L])\n         +- ShuffleQueryStage 0\n            +- Exchange hashpartitioning(k#28L, 24), REPARTITION_BY_NUM, [plan_id=126]\n               +- *(1) Project [(id#26L % 1000) AS k#28L, id#26L]\n                  +- *(1) Range (0, 1000000, step=1, splits=30)\n+- == Initial Plan ==\n   TakeOrderedAndProject(limit=10, orderBy=[k#28L ASC NULLS FIRST], output=[k#28L,sum_id#34L])\n   +- HashAggregate(keys=[k#28L], functions=[sum(id#26L)], output=[k#28L, sum_id#34L])\n      +- HashAggregate(keys=[k#28L], functions=[partial_sum(id#26L)], output=[k#28L, sum#38L])\n         +- Exchange hashpartitioning(k#28L, 24), REPARTITION_BY_NUM, [plan_id=115]\n            +- Project [(id#26L % 1000) AS k#28L, id#26L]\n               +- Range (0, 1000000, step=1, splits=30)\n",
+      "rows": [
+        {
+          "k": 0,
+          "sum_id": 499500000
+        },
+        {
+          "k": 1,
+          "sum_id": 499501000
+        },
+        {
+          "k": 2,
+          "sum_id": 499502000
+        },
+        {
+          "k": 3,
+          "sum_id": 499503000
+        },
+        {
+          "k": 4,
+          "sum_id": 499504000
+        },
+        {
+          "k": 5,
+          "sum_id": 499505000
+        },
+        {
+          "k": 6,
+          "sum_id": 499506000
+        },
+        {
+          "k": 7,
+          "sum_id": 499507000
+        },
+        {
+          "k": 8,
+          "sum_id": 499508000
+        },
+        {
+          "k": 9,
+          "sum_id": 499509000
+        }
+      ],
+      "rows_sha256": "dacf54512f009dd626d07faddb2feece55227c9a5611531956e9af2c32e7c87c",
+      "trial": 2
+    }
+  ],
+  "proof_version": "spark-shuffle-cleanup-v1",
+  "released": {
+    "after": {
+      "active_job_ids": [],
+      "root_free_bytes": 344588111872,
+      "shuffle_bytes": 0,
+      "shuffle_files": 0
+    },
+    "before": {
+      "active_job_ids": [],
+      "root_free_bytes": 344579305472,
+      "shuffle_bytes": 8240166,
+      "shuffle_files": 162
+    },
+    "ended_at_utc": "2026-10-25T20:16:57.936018+00:00",
+    "engine": "spark_cpu",
+    "gc_requests": 2,
+    "owned_blockmgr_dirs": [
+      "<BLOCKMGR_DIR_1>"
+    ],
+    "python_gc_collected": 102,
+    "python_gc_runs": 1,
+    "seconds": 2.443987446000392,
+    "spark_cleanup_applicable": true,
+    "started_at_utc": "2026-10-25T20:16:55.492030+00:00",
+    "status": "passed"
+  },
+  "source_sha256": {
+    "prove_query_cleanup.py": "e8460922ff0e30f47970e86ce6ac1bb424c80cd29b37312bb0b3de1ce1b9aac5",
+    "query_cleanup.py": "f94ec62502294f4f92d7b377466b8afcbcd23ff94132b2fa1476459bf90bb027"
+  },
+  "spark_master": "local[30]",
+  "spark_version": "3.5.9",
+  "started_at_utc": "2026-10-25T20:16:48.455024+00:00"
+}

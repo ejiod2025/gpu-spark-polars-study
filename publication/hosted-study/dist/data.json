@@ -1,0 +1,2843 @@
+{
+  "schema_version": 2,
+  "publication": {
+    "status": "public_research_study",
+    "banner": "Public research study \u00b7 original and complex-query results verified",
+    "local_only": false,
+    "external_hosting": true,
+    "hosting": "public",
+    "public_release": true
+  },
+  "study": {
+    "title": "Does GPU-accelerated Spark beat Polars?",
+    "subtitle": "A fixed-configuration, single-host experiment from 6 million to 1.8 billion line items.",
+    "hardware": [
+      {
+        "label": "GPU",
+        "value": "One NVIDIA A100-SXM4-40GB"
+      },
+      {
+        "label": "CPU allocation",
+        "value": "30-vCPU AMD EPYC 7J13 host; Spark local[30], Polars pool 30"
+      },
+      {
+        "label": "Host memory",
+        "value": "Approximately 216 GiB RAM; Spark driver heap 96 GiB"
+      }
+    ],
+    "software": [
+      {
+        "label": "Polars CPU",
+        "value": "2.0.0 \u00b7 streaming"
+      },
+      {
+        "label": "Spark / PySpark",
+        "value": "3.5.9"
+      },
+      {
+        "label": "cuDF / RAPIDS plugin",
+        "value": "26.08.1"
+      },
+      {
+        "label": "Python / Java",
+        "value": "3.10.12 / OpenJDK 17.0.20.1"
+      },
+      {
+        "label": "Generator",
+        "value": "DuckDB 1.5.6 \u00b7 Snappy Parquet"
+      },
+      {
+        "label": "NVIDIA driver",
+        "value": "580.105.08"
+      }
+    ],
+    "limitations": [
+      "Six selected original queries, with four join queries already present; this is not a complete or certified TPC-H result.",
+      "Scores sum six per-query medians. They are not once-through suite runtimes or physical throughput measurements of the full 108 GB dataset.",
+      "One recorded warmup and three measured trials within one engine session per scale; descriptive ranges, not independent statistical experiments.",
+      "Filesystem preheating is attempted before each engine; residency is not guaranteed. No application DataFrame cache is used. Startup is excluded from query medians.",
+      "Monetary and quantity inputs use Float64/DOUBLE. Outputs are tolerance-checked against saved Polars warmups; these are not independent full-scale oracle proofs.",
+      "A single A100 host with different native memory budgets does not establish distributed scaling, equivalent-cost performance, energy use, or a universal product winner.",
+      "Final-plan operator names show selected GPU, hybrid, or CPU-fallback work; they do not measure runtime fractions. The complex suite remains separate from the original score.",
+      "The revised complex suite observes explicit cleanup outside each query timer. Garbage collection can affect the next query's heap state; all displayed complex cases use one uniform protocol, separate from the earlier attempt. Cleanup totals over warmup plus three actions cannot be added to a sum of medians to estimate end-to-end time.",
+      "This study is publicly accessible. Review the included notices before redistributing code or adapted workload definitions."
+    ],
+    "sources": [
+      {
+        "label": "NVIDIA cuDF plugin for Apache Spark overview",
+        "url": "https://docs.nvidia.com/cudf-spark/latest/overview.html"
+      },
+      {
+        "label": "DuckDB 1.5 TPC-H extension and generation parameters",
+        "url": "https://duckdb.org/docs/1.5/core_extensions/tpch"
+      }
+    ]
+  },
+  "suites": {
+    "original": {
+      "id": "original",
+      "label": "Original six queries",
+      "status": "verified",
+      "status_text": "Verified observations at five scales; no overall GPU-plugin Spark win was observed on this six-query workload.",
+      "queries": [
+        {
+          "id": "q01",
+          "description": "Broad scan, arithmetic, and grouped aggregates",
+          "category": "Broad grouped aggregation",
+          "sql": "SELECT l_returnflag, l_linestatus,\n            SUM(l_quantity) AS sum_qty,\n            SUM(l_extendedprice) AS sum_base_price,\n            SUM(l_extendedprice * (1 - l_discount)) AS sum_disc_price,\n            SUM(l_extendedprice * (1 - l_discount) * (1 + l_tax)) AS sum_charge,\n            AVG(l_quantity) AS avg_qty,\n            AVG(l_extendedprice) AS avg_price,\n            AVG(l_discount) AS avg_disc,\n            COUNT(*) AS count_order\n        FROM lineitem\n        WHERE l_shipdate <= DATE '1998-09-02'\n        GROUP BY l_returnflag, l_linestatus\n        ORDER BY l_returnflag, l_linestatus",
+          "tables": [
+            "lineitem"
+          ],
+          "join_count": 0
+        },
+        {
+          "id": "q03",
+          "description": "Selective three-table join, aggregation, and top 10",
+          "category": "Three-table join + top 10",
+          "sql": "SELECT l_orderkey,\n            SUM(l_extendedprice * (1 - l_discount)) AS revenue,\n            o_orderdate, o_shippriority\n        FROM lineitem\n        JOIN orders ON l_orderkey = o_orderkey\n        JOIN customer ON o_custkey = c_custkey\n        WHERE c_mktsegment = 'BUILDING'\n            AND o_orderdate < DATE '1995-03-15'\n            AND l_shipdate > DATE '1995-03-15'\n        GROUP BY l_orderkey, o_orderdate, o_shippriority\n        ORDER BY revenue DESC, o_orderdate, l_orderkey, o_shippriority\n        LIMIT 10",
+          "tables": [
+            "lineitem",
+            "orders",
+            "customer"
+          ],
+          "join_count": 2
+        },
+        {
+          "id": "q06",
+          "description": "Selective scan and scalar revenue aggregation",
+          "category": "Selective scalar aggregation",
+          "sql": "SELECT SUM(l_extendedprice * l_discount) AS revenue\n        FROM lineitem\n        WHERE l_shipdate >= DATE '1994-01-01'\n            AND l_shipdate < DATE '1995-01-01'\n            AND l_discount BETWEEN 0.05 AND 0.07\n            AND l_quantity < 24",
+          "tables": [
+            "lineitem"
+          ],
+          "join_count": 0
+        },
+        {
+          "id": "q10",
+          "description": "Four-table join, customer aggregation, and top 20",
+          "category": "Four-table join + top 20",
+          "sql": "SELECT c_custkey, c_name,\n            SUM(l_extendedprice * (1 - l_discount)) AS revenue,\n            c_acctbal, n_name, c_address, c_phone, c_comment\n        FROM customer\n        JOIN orders ON c_custkey = o_custkey\n        JOIN lineitem ON o_orderkey = l_orderkey\n        JOIN nation ON c_nationkey = n_nationkey\n        WHERE o_orderdate >= DATE '1993-10-01'\n            AND o_orderdate < DATE '1994-01-01'\n            AND l_returnflag = 'R'\n        GROUP BY c_custkey, c_name, c_acctbal, n_name,\n            c_address, c_phone, c_comment\n        ORDER BY revenue DESC, c_custkey\n        LIMIT 20",
+          "tables": [
+            "lineitem",
+            "orders",
+            "customer",
+            "nation"
+          ],
+          "join_count": 3
+        },
+        {
+          "id": "q12",
+          "description": "Join and conditional grouped counts",
+          "category": "Join + conditional counts",
+          "sql": "SELECT l_shipmode,\n            SUM(CASE WHEN o_orderpriority IN ('1-URGENT', '2-HIGH')\n                THEN 1 ELSE 0 END) AS high_line_count,\n            SUM(CASE WHEN o_orderpriority NOT IN ('1-URGENT', '2-HIGH')\n                THEN 1 ELSE 0 END) AS low_line_count\n        FROM lineitem\n        JOIN orders ON l_orderkey = o_orderkey\n        WHERE l_shipmode IN ('MAIL', 'SHIP')\n            AND l_commitdate < l_receiptdate\n            AND l_shipdate < l_commitdate\n            AND l_receiptdate >= DATE '1994-01-01'\n            AND l_receiptdate < DATE '1995-01-01'\n        GROUP BY l_shipmode\n        ORDER BY l_shipmode",
+          "tables": [
+            "lineitem",
+            "orders"
+          ],
+          "join_count": 1
+        },
+        {
+          "id": "q14",
+          "description": "Part join and conditional revenue ratio",
+          "category": "Join + revenue ratio",
+          "sql": "SELECT 100.0 * SUM(CASE WHEN p_type LIKE 'PROMO%'\n            THEN l_extendedprice * (1 - l_discount) ELSE 0.0 END)\n            / SUM(l_extendedprice * (1 - l_discount)) AS promo_revenue\n        FROM lineitem\n        JOIN part ON l_partkey = p_partkey\n        WHERE l_shipdate >= DATE '1995-09-01'\n            AND l_shipdate < DATE '1995-10-01'",
+          "tables": [
+            "lineitem",
+            "part"
+          ],
+          "join_count": 1
+        }
+      ],
+      "rows": [
+        {
+          "scale": "sf1",
+          "scale_factor": 1.0,
+          "query": "q01",
+          "description": "Broad scan, arithmetic, and grouped aggregates",
+          "category": "Broad grouped aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.051664148999861936,
+              "median": 0.05260984200003804,
+              "max": 0.053710728999931234
+            },
+            "spark_cpu": {
+              "min": 0.26774115199987136,
+              "median": 0.26811219100000017,
+              "max": 0.4898271189999832
+            },
+            "spark_gpu": {
+              "min": 0.46116325999992114,
+              "median": 0.4672994969998854,
+              "max": 0.4887877720000233
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.11258270624684825,
+            "spark_cpu_over_gpu": 0.5737480838762082
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf1",
+          "scale_factor": 1.0,
+          "query": "q03",
+          "description": "Selective three-table join, aggregation, and top 10",
+          "category": "Three-table join + top 10",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.038393341999835684,
+              "median": 0.03846982499999285,
+              "max": 0.04210284100008721
+            },
+            "spark_cpu": {
+              "min": 0.4740705209999305,
+              "median": 0.5516946940001617,
+              "max": 0.721326739999995
+            },
+            "spark_gpu": {
+              "min": 0.6748776990000351,
+              "median": 0.6818570880000152,
+              "max": 0.7582213610000963
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.05641919058556739,
+            "spark_cpu_over_gpu": 0.8091060483339133
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf1",
+          "scale_factor": 1.0,
+          "query": "q06",
+          "description": "Selective scan and scalar revenue aggregation",
+          "category": "Selective scalar aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.010588415000029272,
+              "median": 0.010916471999962596,
+              "max": 0.011871035000012853
+            },
+            "spark_cpu": {
+              "min": 0.07701278700005787,
+              "median": 0.0926550330000282,
+              "max": 0.22785962500006463
+            },
+            "spark_gpu": {
+              "min": 0.30895915700011756,
+              "median": 0.32441280700004427,
+              "max": 0.327708475999998
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.033649941569542,
+            "spark_cpu_over_gpu": 0.285608431605524
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf1",
+          "scale_factor": 1.0,
+          "query": "q10",
+          "description": "Four-table join, customer aggregation, and top 20",
+          "category": "Four-table join + top 20",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.06425882200005617,
+              "median": 0.06829148899987558,
+              "max": 0.07957280000005085
+            },
+            "spark_cpu": {
+              "min": 0.9620709060000081,
+              "median": 0.9911584440001207,
+              "max": 1.642182837000064
+            },
+            "spark_gpu": {
+              "min": 1.1469579520000934,
+              "median": 1.1796431969999048,
+              "max": 1.249433851999811
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.057891648231902695,
+            "spark_cpu_over_gpu": 0.8402188445801724
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf1",
+          "scale_factor": 1.0,
+          "query": "q12",
+          "description": "Join and conditional grouped counts",
+          "category": "Join + conditional counts",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.019039408000026015,
+              "median": 0.019233552000059717,
+              "max": 0.021280841000134387
+            },
+            "spark_cpu": {
+              "min": 0.4883636150000257,
+              "median": 0.5026355060001606,
+              "max": 0.7529027190000761
+            },
+            "spark_gpu": {
+              "min": 0.6035974089998035,
+              "median": 0.6184940360001292,
+              "max": 0.6526626960001067
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.03109739282927491,
+            "spark_cpu_over_gpu": 0.8126763990333055
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf1",
+          "scale_factor": 1.0,
+          "query": "q14",
+          "description": "Part join and conditional revenue ratio",
+          "category": "Join + revenue ratio",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.012048019999838289,
+              "median": 0.012653224000132468,
+              "max": 0.01410620799993012
+            },
+            "spark_cpu": {
+              "min": 0.2575056069999846,
+              "median": 0.25884483900017585,
+              "max": 0.320075787000178
+            },
+            "spark_gpu": {
+              "min": 0.43535981000013635,
+              "median": 0.4489747590000661,
+              "max": 0.4513758059999873
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.028182484085103335,
+            "spark_cpu_over_gpu": 0.5765242562336065
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf10",
+          "scale_factor": 10.0,
+          "query": "q01",
+          "description": "Broad scan, arithmetic, and grouped aggregates",
+          "category": "Broad grouped aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.3338059909999629,
+              "median": 0.4520941610001046,
+              "max": 0.4638039930000559
+            },
+            "spark_cpu": {
+              "min": 1.2519654579998587,
+              "median": 1.500714804999916,
+              "max": 1.9538520300000073
+            },
+            "spark_gpu": {
+              "min": 0.5057684609998887,
+              "median": 0.5568910380000034,
+              "max": 0.5734593870001845
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.8118179861966136,
+            "spark_cpu_over_gpu": 2.6948086835613734
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf10",
+          "scale_factor": 10.0,
+          "query": "q03",
+          "description": "Selective three-table join, aggregation, and top 10",
+          "category": "Three-table join + top 10",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.19606185100019502,
+              "median": 0.19778170200015666,
+              "max": 0.22201519400005054
+            },
+            "spark_cpu": {
+              "min": 2.2125220959999297,
+              "median": 2.8268545349999386,
+              "max": 3.083085561999951
+            },
+            "spark_gpu": {
+              "min": 1.4790603569999803,
+              "median": 1.512740453999868,
+              "max": 1.5473135440001897
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.13074397625659975,
+            "spark_cpu_over_gpu": 1.8686976523470333
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf10",
+          "scale_factor": 10.0,
+          "query": "q06",
+          "description": "Selective scan and scalar revenue aggregation",
+          "category": "Selective scalar aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.05366230799995719,
+              "median": 0.055744549999872106,
+              "max": 0.057977582000148686
+            },
+            "spark_cpu": {
+              "min": 0.20930272699979469,
+              "median": 0.2183995479999794,
+              "max": 0.49622129099998347
+            },
+            "spark_gpu": {
+              "min": 0.3419690289999835,
+              "median": 0.3490230590000465,
+              "max": 0.3871984549998615
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.15971595160382993,
+            "spark_cpu_over_gpu": 0.6257453264712528
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf10",
+          "scale_factor": 10.0,
+          "query": "q10",
+          "description": "Four-table join, customer aggregation, and top 20",
+          "category": "Four-table join + top 20",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.24483274299996083,
+              "median": 0.24827766299995346,
+              "max": 0.27305354899999656
+            },
+            "spark_cpu": {
+              "min": 2.096697231999997,
+              "median": 2.6099284729998544,
+              "max": 2.671145344000024
+            },
+            "spark_gpu": {
+              "min": 2.120812062000141,
+              "median": 2.177220206000129,
+              "max": 2.179974960999971
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.11403424528016655,
+            "spark_cpu_over_gpu": 1.198743455442513
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf10",
+          "scale_factor": 10.0,
+          "query": "q12",
+          "description": "Join and conditional grouped counts",
+          "category": "Join + conditional counts",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.06786415999999917,
+              "median": 0.07562199600010899,
+              "max": 0.08390237599996908
+            },
+            "spark_cpu": {
+              "min": 1.1482127059998675,
+              "median": 1.2390633279999292,
+              "max": 1.5142044389999683
+            },
+            "spark_gpu": {
+              "min": 0.8513059060001069,
+              "median": 0.9056820610001068,
+              "max": 0.913865708000003
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.08349728812846617,
+            "spark_cpu_over_gpu": 1.3680996691396132
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf10",
+          "scale_factor": 10.0,
+          "query": "q14",
+          "description": "Part join and conditional revenue ratio",
+          "category": "Join + revenue ratio",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.06774235699981546,
+              "median": 0.07664384100007737,
+              "max": 0.07906244900004822
+            },
+            "spark_cpu": {
+              "min": 0.6940984959999241,
+              "median": 0.817180123000071,
+              "max": 0.9308197529999234
+            },
+            "spark_gpu": {
+              "min": 0.6911581020001449,
+              "median": 0.7007400909999433,
+              "max": 0.7242733460000181
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.1093755616161593,
+            "spark_cpu_over_gpu": 1.1661672187671894
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "q01",
+          "description": "Broad scan, arithmetic, and grouped aggregates",
+          "category": "Broad grouped aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 1.1133044349999182,
+              "median": 1.1823651409999911,
+              "max": 1.1838941159999194
+            },
+            "spark_cpu": {
+              "min": 2.431645231999937,
+              "median": 2.6410864650001713,
+              "max": 3.323298297999827
+            },
+            "spark_gpu": {
+              "min": 0.9182715399999779,
+              "median": 0.9626214519998939,
+              "max": 1.0104915619999701
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 1.2282763266324148,
+            "spark_cpu_over_gpu": 2.743639734511612
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "q03",
+          "description": "Selective three-table join, aggregation, and top 10",
+          "category": "Three-table join + top 10",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.6051240940000753,
+              "median": 0.6204224410000734,
+              "max": 0.6222252850000132
+            },
+            "spark_cpu": {
+              "min": 5.331178954000052,
+              "median": 5.417909386000019,
+              "max": 5.504863458999807
+            },
+            "spark_gpu": {
+              "min": 2.6517441309999867,
+              "median": 2.6560771940000905,
+              "max": 2.834885629999917
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.2335859975762633,
+            "spark_cpu_over_gpu": 2.0398162366058985
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "q06",
+          "description": "Selective scan and scalar revenue aggregation",
+          "category": "Selective scalar aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.15002664500002538,
+              "median": 0.16078090399992107,
+              "max": 0.18096279799988224
+            },
+            "spark_cpu": {
+              "min": 0.4581941219998953,
+              "median": 0.4592383469998822,
+              "max": 0.49047960200005036
+            },
+            "spark_gpu": {
+              "min": 0.6044985099999849,
+              "median": 0.620517953999979,
+              "max": 0.654641010999967
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.2591075777316292,
+            "spark_cpu_over_gpu": 0.7400887339996253
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "q10",
+          "description": "Four-table join, customer aggregation, and top 20",
+          "category": "Four-table join + top 20",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.5811875310000687,
+              "median": 0.5998727880000843,
+              "max": 0.6854250289998163
+            },
+            "spark_cpu": {
+              "min": 4.231920277999961,
+              "median": 6.182284530000061,
+              "max": 6.20258856800001
+            },
+            "spark_gpu": {
+              "min": 3.543956956000102,
+              "median": 3.6094907879999028,
+              "max": 3.916768273000116
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.1661931899076786,
+            "spark_cpu_over_gpu": 1.7127857897722463
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "q12",
+          "description": "Join and conditional grouped counts",
+          "category": "Join + conditional counts",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.20724057799998263,
+              "median": 0.21396411799992165,
+              "max": 0.2162844330000553
+            },
+            "spark_cpu": {
+              "min": 2.412978492000093,
+              "median": 2.5193081439999787,
+              "max": 2.736524505000034
+            },
+            "spark_gpu": {
+              "min": 1.4857902340002056,
+              "median": 1.490193581000085,
+              "max": 1.6777747260000524
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.14358142507655147,
+            "spark_cpu_over_gpu": 1.6905911930644901
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "q14",
+          "description": "Part join and conditional revenue ratio",
+          "category": "Join + revenue ratio",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.20566826999993282,
+              "median": 0.22849725499986562,
+              "max": 0.2531980190001377
+            },
+            "spark_cpu": {
+              "min": 1.1039748130001499,
+              "median": 1.8048299750000751,
+              "max": 1.9448705340000743
+            },
+            "spark_gpu": {
+              "min": 1.209717506999823,
+              "median": 1.2179920650000895,
+              "max": 1.2592974659999072
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.187601595745904,
+            "spark_cpu_over_gpu": 1.4818076626795944
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "q01",
+          "description": "Broad scan, arithmetic, and grouped aggregates",
+          "category": "Broad grouped aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 3.0791326199996547,
+              "median": 3.1312097169998196,
+              "max": 3.146757742999853
+            },
+            "spark_cpu": {
+              "min": 9.129014906000066,
+              "median": 9.140912813999876,
+              "max": 9.932672368000112
+            },
+            "spark_gpu": {
+              "min": 2.336061299999983,
+              "median": 2.3768216990001747,
+              "max": 2.4222687500000575
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 1.3173936094226097,
+            "spark_cpu_over_gpu": 3.845855504367475
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "q03",
+          "description": "Selective three-table join, aggregation, and top 10",
+          "category": "Three-table join + top 10",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 2.173932288999822,
+              "median": 2.17554380699994,
+              "max": 2.1907173619997593
+            },
+            "spark_cpu": {
+              "min": 14.882414385000175,
+              "median": 15.397754233999876,
+              "max": 16.168281196999942
+            },
+            "spark_gpu": {
+              "min": 6.610296768999888,
+              "median": 6.616127920000054,
+              "max": 6.749367222999808
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.3288243264498312,
+            "spark_cpu_over_gpu": 2.3273060043856817
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "q06",
+          "description": "Selective scan and scalar revenue aggregation",
+          "category": "Selective scalar aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.5596197250001751,
+              "median": 0.5620470610001576,
+              "max": 0.6279718430000685
+            },
+            "spark_cpu": {
+              "min": 1.1715140999999676,
+              "median": 1.3709565220001423,
+              "max": 1.469025220000276
+            },
+            "spark_gpu": {
+              "min": 1.6151050210000903,
+              "median": 1.6190510780002114,
+              "max": 1.6512993470000765
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.3471459725003711,
+            "spark_cpu_over_gpu": 0.8467654545485336
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "q10",
+          "description": "Four-table join, customer aggregation, and top 20",
+          "category": "Four-table join + top 20",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 1.9671724380000342,
+              "median": 1.9811248050000358,
+              "max": 1.9879167099998085
+            },
+            "spark_cpu": {
+              "min": 10.528925449000326,
+              "median": 10.674203513000066,
+              "max": 11.67860246600003
+            },
+            "spark_gpu": {
+              "min": 6.68842391499993,
+              "median": 6.8804259469998215,
+              "max": 6.944404158999987
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.2879363603737202,
+            "spark_cpu_over_gpu": 1.5513870209815286
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "q12",
+          "description": "Join and conditional grouped counts",
+          "category": "Join + conditional counts",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.6709467900000163,
+              "median": 0.6819605660002708,
+              "max": 0.7345901050002794
+            },
+            "spark_cpu": {
+              "min": 7.853336973999831,
+              "median": 7.990735508999933,
+              "max": 9.444857481999861
+            },
+            "spark_gpu": {
+              "min": 3.3532494060000317,
+              "median": 3.3681902359999185,
+              "max": 3.5930137350001132
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.20247091708518547,
+            "spark_cpu_over_gpu": 2.3724121706646164
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "q14",
+          "description": "Part join and conditional revenue ratio",
+          "category": "Join + revenue ratio",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.6938828540000941,
+              "median": 0.7259573279998222,
+              "max": 0.7781489859999056
+            },
+            "spark_cpu": {
+              "min": 2.852957497999796,
+              "median": 3.161326853999981,
+              "max": 3.2905779319999056
+            },
+            "spark_gpu": {
+              "min": 2.4969175880000876,
+              "median": 2.5713842789996306,
+              "max": 2.688159815999825
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.2823216016091722,
+            "spark_cpu_over_gpu": 1.2294260643258894
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "q01",
+          "description": "Broad scan, arithmetic, and grouped aggregates",
+          "category": "Broad grouped aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 8.358796348999931,
+              "median": 8.601279618999797,
+              "max": 8.622534000999622
+            },
+            "spark_cpu": {
+              "min": 25.90067162899959,
+              "median": 27.090175263999754,
+              "max": 27.417349967000064
+            },
+            "spark_gpu": {
+              "min": 6.398982759000319,
+              "median": 6.41537582500041,
+              "max": 6.420196109999779
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 1.3407288760045866,
+            "spark_cpu_over_gpu": 4.222694975784684
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "q03",
+          "description": "Selective three-table join, aggregation, and top 10",
+          "category": "Three-table join + top 10",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 6.6752806849999615,
+              "median": 6.786167619000025,
+              "max": 6.914006582999718
+            },
+            "spark_cpu": {
+              "min": 37.85142715600023,
+              "median": 38.782445284999994,
+              "max": 42.21922434199996
+            },
+            "spark_gpu": {
+              "min": 19.599816415000532,
+              "median": 20.266474388999995,
+              "max": 24.04318513399994
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.3348469738122455,
+            "spark_cpu_over_gpu": 1.913625652918195
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "q06",
+          "description": "Selective scan and scalar revenue aggregation",
+          "category": "Selective scalar aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 1.6858043199999884,
+              "median": 1.7185103409997282,
+              "max": 1.7609691759998896
+            },
+            "spark_cpu": {
+              "min": 3.6327327919998424,
+              "median": 3.6841703939999206,
+              "max": 4.465434620999986
+            },
+            "spark_gpu": {
+              "min": 4.368285067000215,
+              "median": 4.407392301999607,
+              "max": 4.444624038000256
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.38991544733153216,
+            "spark_cpu_over_gpu": 0.835907071927415
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "q10",
+          "description": "Four-table join, customer aggregation, and top 20",
+          "category": "Four-table join + top 20",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 6.140781378000156,
+              "median": 6.180515408999781,
+              "max": 6.256021969000358
+            },
+            "spark_cpu": {
+              "min": 29.040567522999936,
+              "median": 29.58567149299961,
+              "max": 30.3944179719997
+            },
+            "spark_gpu": {
+              "min": 17.02770192099979,
+              "median": 18.06742227400082,
+              "max": 19.511927964999813
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.34208064190172816,
+            "spark_cpu_over_gpu": 1.6375148067233505
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "q12",
+          "description": "Join and conditional grouped counts",
+          "category": "Join + conditional counts",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 2.0476804509999056,
+              "median": 2.318832442999792,
+              "max": 2.536779251000098
+            },
+            "spark_cpu": {
+              "min": 18.136955224999838,
+              "median": 18.425320311999712,
+              "max": 20.56586850800022
+            },
+            "spark_gpu": {
+              "min": 8.903805187999751,
+              "median": 9.618476908999583,
+              "max": 9.896318862000044
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.24108104276157935,
+            "spark_cpu_over_gpu": 1.9156172527440345
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "q14",
+          "description": "Part join and conditional revenue ratio",
+          "category": "Join + revenue ratio",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 2.571199892000095,
+              "median": 2.581286155000271,
+              "max": 2.7158166310000524
+            },
+            "spark_cpu": {
+              "min": 8.013558019999891,
+              "median": 8.233770042000288,
+              "max": 11.525824026999999
+            },
+            "spark_gpu": {
+              "min": 6.157436800999676,
+              "median": 6.262292730000809,
+              "max": 6.427654690999589
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.4121950643785918,
+            "spark_cpu_over_gpu": 1.314817175913018
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "none",
+          "cleanup": {}
+        }
+      ],
+      "totals": [
+        {
+          "scale": "sf1",
+          "scale_factor": 1.0,
+          "lineitem_rows": 6001215,
+          "parquet_bytes": 325716220,
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "sum_medians_seconds": 0.20217440400006126
+            },
+            "spark_cpu": {
+              "sum_medians_seconds": 2.665100707000647
+            },
+            "spark_gpu": {
+              "sum_medians_seconds": 3.720681384000045
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.05433800509483744,
+            "spark_cpu_over_gpu": 0.7162937193335915
+          }
+        },
+        {
+          "scale": "sf10",
+          "scale_factor": 10.0,
+          "lineitem_rows": 59986052,
+          "parquet_bytes": 3442803048,
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "sum_medians_seconds": 1.1061639130002732
+            },
+            "spark_cpu": {
+              "sum_medians_seconds": 9.212140811999689
+            },
+            "spark_gpu": {
+              "sum_medians_seconds": 6.202296909000097
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.17834746211441904,
+            "spark_cpu_over_gpu": 1.4852789131445858
+          }
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "lineitem_rows": 179998372,
+          "parquet_bytes": 10568904879,
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "sum_medians_seconds": 3.005902646999857
+            },
+            "spark_cpu": {
+              "sum_medians_seconds": 19.024656847000188
+            },
+            "spark_gpu": {
+              "sum_medians_seconds": 10.55689303400004
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.2847336462838926,
+            "spark_cpu_over_gpu": 1.8021075695025475
+          }
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "lineitem_rows": 600037902,
+          "parquet_bytes": 35652242574,
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "sum_medians_seconds": 9.257843284000046
+            },
+            "spark_cpu": {
+              "sum_medians_seconds": 47.735889445999874
+            },
+            "spark_gpu": {
+              "sum_medians_seconds": 23.43200115899981
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.39509400930719374,
+            "spark_cpu_over_gpu": 2.037209247391377
+          }
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "lineitem_rows": 1799989091,
+          "parquet_bytes": 107978166411,
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "sum_medians_seconds": 28.186591585999395
+            },
+            "spark_cpu": {
+              "sum_medians_seconds": 125.80155278999928
+            },
+            "spark_gpu": {
+              "sum_medians_seconds": 65.03743442900122
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.4333902749003664,
+            "spark_cpu_over_gpu": 1.9342945166038463
+          }
+        }
+      ],
+      "validation": {
+        "outputs": 360,
+        "gpu_plans": 120,
+        "measured_outputs": 270,
+        "warmup_outputs": 90,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerance": 1e-06,
+        "scope": "Cross-engine agreement with saved Polars warmup; includes warmups and baseline self-comparisons, not independent full-scale oracle proofs"
+      },
+      "datasets": [
+        {
+          "scale": "sf1",
+          "total_parquet_bytes": 325716220,
+          "lineitem_rows": 6001215,
+          "orders_rows": 1500000,
+          "total_rows": 8661245,
+          "manifest_sha256": "d685f459ef1e0c21be598bedbf3d4549e36c4520781dc73b3aa7e33a5039b1e5",
+          "scale_factor": 1.0
+        },
+        {
+          "scale": "sf10",
+          "total_parquet_bytes": 3442803048,
+          "lineitem_rows": 59986052,
+          "orders_rows": 15000000,
+          "total_rows": 86586082,
+          "manifest_sha256": "b77e1d8e6569d073e2d89f91f40a3902db2c3353dc6a0d29c594919f60d88a26",
+          "scale_factor": 10.0
+        },
+        {
+          "scale": "sf30",
+          "total_parquet_bytes": 10568904879,
+          "lineitem_rows": 179998372,
+          "orders_rows": 45000000,
+          "total_rows": 259798402,
+          "manifest_sha256": "36cce11e9ebe4fe8b0ccdc4eef2aa21bf502079fd13640e0266bf592e0b73cb6",
+          "scale_factor": 30.0
+        },
+        {
+          "scale": "sf100",
+          "total_parquet_bytes": 35652242574,
+          "lineitem_rows": 600037902,
+          "orders_rows": 150000000,
+          "total_rows": 866037932,
+          "manifest_sha256": "39746a70b6c916741db8a2d368b1339d907034f94453c54109a3b2e68f12b820",
+          "scale_factor": 100.0
+        },
+        {
+          "scale": "sf300",
+          "total_parquet_bytes": 107978166411,
+          "lineitem_rows": 1799989091,
+          "orders_rows": 450000000,
+          "total_rows": 2597989121,
+          "manifest_sha256": "73ef108184f2d4b9f4b54f8dc944ce0b79dec658b42d6cc5dd1662ceb55700b7",
+          "scale_factor": 300.0
+        }
+      ],
+      "excluded_cases": [],
+      "not_selected_cases": [],
+      "chart": {
+        "url": "assets/original-crossover.png",
+        "alt": "Verified original workload scores and per-query relative GPU/Polars times across scale factors 1, 10, 30, 100, and 300"
+      },
+      "evidence": [
+        {
+          "label": "Original query medians & ranges (CSV)",
+          "url": "evidence/original-summary.csv",
+          "enabled": true,
+          "note": ""
+        },
+        {
+          "label": "Portable validation summary (JSON)",
+          "url": "evidence/original-validation.json",
+          "enabled": true,
+          "note": ""
+        }
+      ]
+    },
+    "complex": {
+      "id": "complex",
+      "label": "Complex query extension",
+      "status": "complete",
+      "status_text": "Complete for the formal cases in the supplied report; no claim is made about unreported scales.",
+      "queries": [
+        {
+          "id": "cx_q09",
+          "description": "Six-table join with a composite partsupp key and profit by nation/year",
+          "category": "Six-table join and composite join keys",
+          "sql": "SELECT nation, o_year, SUM(amount) AS sum_profit\n        FROM (\n            SELECT n_name AS nation, YEAR(o_orderdate) AS o_year,\n                l_extendedprice * (1.0 - l_discount)\n                    - ps_supplycost * l_quantity AS amount\n            FROM lineitem\n            JOIN part ON l_partkey = p_partkey\n            JOIN supplier ON l_suppkey = s_suppkey\n            JOIN partsupp ON l_partkey = ps_partkey AND l_suppkey = ps_suppkey\n            JOIN orders ON l_orderkey = o_orderkey\n            JOIN nation ON s_nationkey = n_nationkey\n            WHERE p_name LIKE '%green%'\n        ) AS profit\n        GROUP BY nation, o_year\n        ORDER BY nation, o_year DESC",
+          "tables": [
+            "part",
+            "supplier",
+            "lineitem",
+            "partsupp",
+            "orders",
+            "nation"
+          ],
+          "join_count": 5
+        },
+        {
+          "id": "cx_q13",
+          "description": "Left outer join and nested aggregation, including zero-order customers",
+          "category": "Left outer join and nested aggregation",
+          "sql": "SELECT c_count, COUNT(*) AS custdist\n        FROM (\n            SELECT c_custkey, COUNT(o_orderkey) AS c_count\n            FROM customer\n            LEFT JOIN (\n                SELECT o_custkey, o_orderkey\n                FROM orders\n                WHERE o_comment NOT LIKE '%special%requests%'\n            ) AS eligible_orders ON c_custkey = o_custkey\n            GROUP BY c_custkey\n        ) AS customer_orders\n        GROUP BY c_count\n        ORDER BY custdist DESC, c_count DESC",
+          "tables": [
+            "customer",
+            "orders"
+          ],
+          "join_count": 1
+        },
+        {
+          "id": "cx_semi_anti",
+          "description": "Correlated EXISTS/NOT EXISTS input design",
+          "category": "Correlated subquery input",
+          "sql": "SELECT c.c_custkey, c.c_name, c.c_nationkey\n        FROM customer AS c\n        WHERE EXISTS (\n            SELECT 1\n            FROM orders AS o\n            WHERE o.o_custkey = c.c_custkey\n                AND o.o_orderdate >= DATE '1995-01-01'\n                AND o.o_orderdate < DATE '1996-01-01'\n                AND EXISTS (\n                    SELECT 1\n                    FROM lineitem AS l\n                    WHERE l.l_orderkey = o.o_orderkey\n                        AND l.l_receiptdate > l.l_commitdate\n                        AND l.l_shipmode IN ('AIR', 'SHIP')\n                )\n        )\n        AND NOT EXISTS (\n            SELECT 1\n            FROM orders AS o\n            WHERE o.o_custkey = c.c_custkey\n                AND o.o_orderdate >= DATE '1996-01-01'\n                AND o.o_orderdate < DATE '1997-01-01'\n                AND o.o_orderstatus = 'F'\n        )\n        ORDER BY c.c_custkey\n        LIMIT 100",
+          "tables": [
+            "customer",
+            "orders",
+            "lineitem"
+          ],
+          "join_count": null,
+          "plan_note": "The SQL expresses correlated EXISTS and NOT EXISTS conditions. Saved SF30/SF100 plans from the earlier v1 attempt removed the LeftAnti branch and retained two LeftSemi joins. This input design is not evidence of observed GPU anti-join execution; final plans determine the executed operator coverage."
+        },
+        {
+          "id": "cx_window",
+          "description": "Two customer windows over 1994\u20131995 orders and top three per customer",
+          "category": "Two window orderings: LAG and ROW_NUMBER",
+          "sql": "WITH windowed AS (\n            SELECT o_custkey AS custkey, o_orderkey AS orderkey,\n                o_orderdate AS orderdate, o_totalprice AS totalprice,\n                LAG(o_totalprice) OVER (\n                    PARTITION BY o_custkey\n                    ORDER BY o_orderdate ASC NULLS LAST,\n                        o_orderkey ASC NULLS LAST\n                ) AS previous_totalprice,\n                ROW_NUMBER() OVER (\n                    PARTITION BY o_custkey\n                    ORDER BY o_totalprice DESC NULLS LAST,\n                        o_orderdate ASC NULLS LAST,\n                        o_orderkey ASC NULLS LAST\n                ) AS row_num\n            FROM orders\n            WHERE o_orderdate >= DATE '1994-01-01'\n                AND o_orderdate < DATE '1996-01-01'\n        )\n        SELECT custkey, orderkey, orderdate, totalprice, previous_totalprice, row_num\n        FROM windowed\n        WHERE row_num <= 3\n        ORDER BY custkey ASC NULLS LAST, row_num, orderkey ASC NULLS LAST\n        LIMIT 100",
+          "tables": [
+            "orders"
+          ],
+          "join_count": 0
+        },
+        {
+          "id": "cx_distinct",
+          "description": "Four-table join with three exact distinct counts for 1995 orders",
+          "category": "Four-table join and three exact distinct counts",
+          "sql": "SELECT n_name, o_orderpriority,\n            COUNT(DISTINCT o_orderkey) AS distinct_orders,\n            COUNT(DISTINCT o_custkey) AS distinct_customers,\n            COUNT(DISTINCT l_partkey) AS distinct_parts\n        FROM lineitem\n        JOIN orders ON l_orderkey = o_orderkey\n        JOIN supplier ON l_suppkey = s_suppkey\n        JOIN nation ON s_nationkey = n_nationkey\n        WHERE o_orderdate >= DATE '1995-01-01'\n            AND o_orderdate < DATE '1996-01-01'\n        GROUP BY n_name, o_orderpriority\n        ORDER BY n_name ASC NULLS LAST, o_orderpriority ASC NULLS LAST",
+          "tables": [
+            "lineitem",
+            "orders",
+            "supplier",
+            "nation"
+          ],
+          "join_count": 3
+        },
+        {
+          "id": "cx_self_join",
+          "description": "1994 lineitem equijoin with a residual line-number inequality",
+          "category": "Fact self-join with an inequality condition",
+          "sql": "SELECT left_item.l_shipmode AS left_shipmode,\n            right_item.l_shipmode AS right_shipmode,\n            COUNT(*) AS pair_count\n        FROM lineitem AS left_item\n        JOIN lineitem AS right_item\n            ON left_item.l_orderkey = right_item.l_orderkey\n            AND left_item.l_linenumber < right_item.l_linenumber\n        WHERE left_item.l_shipdate >= DATE '1994-01-01'\n            AND left_item.l_shipdate < DATE '1995-01-01'\n            AND right_item.l_shipdate >= DATE '1994-01-01'\n            AND right_item.l_shipdate < DATE '1995-01-01'\n        GROUP BY left_item.l_shipmode, right_item.l_shipmode\n        ORDER BY left_shipmode ASC NULLS LAST, right_shipmode ASC NULLS LAST",
+          "tables": [
+            "lineitem"
+          ],
+          "join_count": 1
+        }
+      ],
+      "rows": [
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "cx_q09",
+          "description": "Six-table join with a composite partsupp key and profit by nation/year",
+          "category": "Six-table join and composite join keys",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.9959156549994077,
+              "median": 1.0442877790010243,
+              "max": 1.0645337750011095
+            },
+            "spark_cpu": {
+              "min": 14.646444202999191,
+              "median": 16.066668126999502,
+              "max": 17.069805095999982
+            },
+            "spark_gpu": {
+              "min": 6.5298234290003165,
+              "median": 6.9749948129992845,
+              "max": 7.1388012309998885
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.14971878933225688,
+            "spark_cpu_over_gpu": 2.303466677431227
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.02594423399932566
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 15.34817945299801
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 14.80310180700144
+            }
+          }
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "cx_q13",
+          "description": "Left outer join and nested aggregation, including zero-order customers",
+          "category": "Left outer join and nested aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.6978671209999447,
+              "median": 0.7405740159993002,
+              "max": 0.7594953499992698
+            },
+            "spark_cpu": {
+              "min": 4.91857452899967,
+              "median": 5.294812682999691,
+              "max": 6.2562323920010385
+            },
+            "spark_gpu": {
+              "min": 1.8693899370009603,
+              "median": 1.904737496000962,
+              "max": 1.953011356999923
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.388806340797171,
+            "spark_cpu_over_gpu": 2.7798122807558867
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.02360602699991432
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 9.938374971001394
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 10.338006018002488
+            }
+          }
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "cx_semi_anti",
+          "description": "Correlated EXISTS/NOT EXISTS input design",
+          "category": "Correlated subquery input",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.34836965599970426,
+              "median": 0.3574733639998158,
+              "max": 0.35849378000057186
+            },
+            "spark_cpu": {
+              "min": 3.9889753480001673,
+              "median": 4.0359391439997125,
+              "max": 4.185666036999464
+            },
+            "spark_gpu": {
+              "min": 1.999296019999747,
+              "median": 2.0584057420001045,
+              "max": 2.104981101998419
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.173665160714363,
+            "spark_cpu_over_gpu": 1.9607111764457503
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.022229623999010073
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 9.914155621001555
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 10.179375407999032
+            }
+          }
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "cx_window",
+          "description": "Two customer windows over 1994\u20131995 orders and top three per customer",
+          "category": "Two window orderings: LAG and ROW_NUMBER",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.9630524550011614,
+              "median": 1.0238418560002174,
+              "max": 1.1212684090005496
+            },
+            "spark_cpu": {
+              "min": 3.068822960000034,
+              "median": 3.850982040999952,
+              "max": 3.8784208060005767
+            },
+            "spark_gpu": {
+              "min": 0.9043900349988689,
+              "median": 0.9266667810006766,
+              "max": 0.9573586789992987
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 1.1048651759099475,
+            "spark_cpu_over_gpu": 4.155735502724512
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.023864815000706585
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 9.816589113999726
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 10.269428059998972
+            }
+          }
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "cx_distinct",
+          "description": "Four-table join with three exact distinct counts for 1995 orders",
+          "category": "Four-table join and three exact distinct counts",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 2.00480952199905,
+              "median": 2.073943354000221,
+              "max": 2.0764860459985357
+            },
+            "spark_cpu": {
+              "min": 13.471766089000084,
+              "median": 15.020216445998813,
+              "max": 15.69966519299851
+            },
+            "spark_gpu": {
+              "min": 4.781104554000194,
+              "median": 4.987463515000854,
+              "max": 5.014878755999234
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.4158312833291705,
+            "spark_cpu_over_gpu": 3.0115942504285647
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.025891713001328753
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 12.524495643998307
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 13.234592566999709
+            }
+          }
+        },
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "query": "cx_self_join",
+          "description": "1994 lineitem equijoin with a residual line-number inequality",
+          "category": "Fact self-join with an inequality condition",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 0.4750301709991618,
+              "median": 0.5390267689999746,
+              "max": 0.5394956019990786
+            },
+            "spark_cpu": {
+              "min": 4.6191886289998365,
+              "median": 4.962861054998939,
+              "max": 5.564016557000286
+            },
+            "spark_gpu": {
+              "min": 1.3107253449998097,
+              "median": 1.3110952240003826,
+              "max": 1.3636145959990245
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.4111270936944678,
+            "spark_cpu_over_gpu": 3.78527887536374
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.02286246800213121
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 9.930848424999567
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 10.308172389999527
+            }
+          }
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "cx_q09",
+          "description": "Six-table join with a composite partsupp key and profit by nation/year",
+          "category": "Six-table join and composite join keys",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 4.275399127998753,
+              "median": 4.284956727000463,
+              "max": 4.365137337001215
+            },
+            "spark_cpu": {
+              "min": 41.47977216700019,
+              "median": 42.5726579229995,
+              "max": 46.511277886000244
+            },
+            "spark_gpu": {
+              "min": 27.09846876499978,
+              "median": 29.181686113999604,
+              "max": 29.232520690000456
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.14683718789452677,
+            "spark_cpu_over_gpu": 1.458882730651253
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.031088308998732828
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 28.206688939000742
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 30.616751875000773
+            }
+          }
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "cx_q13",
+          "description": "Left outer join and nested aggregation, including zero-order customers",
+          "category": "Left outer join and nested aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 2.456333995998648,
+              "median": 2.485827116001019,
+              "max": 3.061952388999998
+            },
+            "spark_cpu": {
+              "min": 16.13507970399951,
+              "median": 16.312858062001396,
+              "max": 16.434560548999798
+            },
+            "spark_gpu": {
+              "min": 2.724745642999551,
+              "median": 2.8535959540004114,
+              "max": 2.883964360000391
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.8711209141280766,
+            "spark_cpu_over_gpu": 5.716596997249263
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.02365376799934893
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 11.246424425000441
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 11.164137604999269
+            }
+          }
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "cx_semi_anti",
+          "description": "Correlated EXISTS/NOT EXISTS input design",
+          "category": "Correlated subquery input",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 1.3402834110002004,
+              "median": 1.3807752760003495,
+              "max": 1.3874399649994302
+            },
+            "spark_cpu": {
+              "min": 8.820674868000424,
+              "median": 9.768994505000592,
+              "max": 10.18981632500072
+            },
+            "spark_gpu": {
+              "min": 3.617228476001401,
+              "median": 3.6943443449999904,
+              "max": 3.7922937969997292
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.37375381043435274,
+            "spark_cpu_over_gpu": 2.644310760642053
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.025020791001225007
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 10.045548502999736
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 10.33887346800293
+            }
+          }
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "cx_window",
+          "description": "Two customer windows over 1994\u20131995 orders and top three per customer",
+          "category": "Two window orderings: LAG and ROW_NUMBER",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 4.20344673800173,
+              "median": 4.399314478998349,
+              "max": 4.628817621000053
+            },
+            "spark_cpu": {
+              "min": 8.709199200999137,
+              "median": 9.2396091899991,
+              "max": 9.684125155999936
+            },
+            "spark_gpu": {
+              "min": 1.7855503179998777,
+              "median": 1.9069151889998466,
+              "max": 1.9583899859990197
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 2.3070320611928916,
+            "spark_cpu_over_gpu": 4.84531731840951
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.023031526001432212
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 11.922574731999703
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 12.131529543001307
+            }
+          }
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "cx_distinct",
+          "description": "Four-table join with three exact distinct counts for 1995 orders",
+          "category": "Four-table join and three exact distinct counts",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 7.240715882000586,
+              "median": 7.246684534999076,
+              "max": 7.397578173999136
+            },
+            "spark_cpu": {
+              "min": 46.783185191001394,
+              "median": 46.78938621999987,
+              "max": 47.042104566999114
+            },
+            "spark_gpu": {
+              "min": 15.523915091998788,
+              "median": 15.589222302000053,
+              "max": 16.447367830000076
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.46485221614097755,
+            "spark_cpu_over_gpu": 3.0013932262674143
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.028642060000493075
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 20.377958448001664
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 20.982048665999173
+            }
+          }
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "query": "cx_self_join",
+          "description": "1994 lineitem equijoin with a residual line-number inequality",
+          "category": "Fact self-join with an inequality condition",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 1.6353014189990063,
+              "median": 1.647876102999362,
+              "max": 1.701189195000552
+            },
+            "spark_cpu": {
+              "min": 11.910142773000189,
+              "median": 13.626863018000222,
+              "max": 15.214492331999281
+            },
+            "spark_gpu": {
+              "min": 2.954031389001102,
+              "median": 2.966955230000167,
+              "max": 3.015163501999268
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.5554098310405814,
+            "spark_cpu_over_gpu": 4.592877870287061
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.023519645001215395
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 11.012403093998728
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 11.176600849999886
+            }
+          }
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "cx_q09",
+          "description": "Six-table join with a composite partsupp key and profit by nation/year",
+          "category": "Six-table join and composite join keys",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 12.994329416000255,
+              "median": 13.274122221999278,
+              "max": 13.71691280199957
+            },
+            "spark_cpu": {
+              "min": 106.56418251799914,
+              "median": 112.25795558600112,
+              "max": 114.90973567500077
+            },
+            "spark_gpu": {
+              "min": 115.18404965800073,
+              "median": 116.7068826020004,
+              "max": 116.76667404
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.11373898373472409,
+            "spark_cpu_over_gpu": 0.9618794803116176
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.02688017599757586
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 56.52092104499752
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 67.39742380099779
+            }
+          }
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "cx_q13",
+          "description": "Left outer join and nested aggregation, including zero-order customers",
+          "category": "Left outer join and nested aggregation",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 9.061021548999634,
+              "median": 9.1439033630013,
+              "max": 10.119414546999906
+            },
+            "spark_cpu": {
+              "min": 32.50645441099914,
+              "median": 34.11555781599964,
+              "max": 34.37464170599924
+            },
+            "spark_gpu": {
+              "min": 7.061895513999843,
+              "median": 7.249909284999376,
+              "max": 7.265021410999907
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 1.2612438312739642,
+            "spark_cpu_over_gpu": 4.705653060595857
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.023810564001905732
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 15.057323987997734
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 15.4278930770015
+            }
+          }
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "cx_semi_anti",
+          "description": "Correlated EXISTS/NOT EXISTS input design",
+          "category": "Correlated subquery input",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 4.20786428700012,
+              "median": 4.435301572000753,
+              "max": 4.457949527000892
+            },
+            "spark_cpu": {
+              "min": 21.713696635000815,
+              "median": 24.059242403998724,
+              "max": 24.271691940999517
+            },
+            "spark_gpu": {
+              "min": 9.321101370998804,
+              "median": 9.51237118499921,
+              "max": 9.801847074999387
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.46626666324744787,
+            "spark_cpu_over_gpu": 2.529258156151391
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.024343256000065594
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 11.304447381999125
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 12.34563330200217
+            }
+          }
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "cx_window",
+          "description": "Two customer windows over 1994\u20131995 orders and top three per customer",
+          "category": "Two window orderings: LAG and ROW_NUMBER",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 14.461013385000115,
+              "median": 14.976773521000723,
+              "max": 16.250976125000307
+            },
+            "spark_cpu": {
+              "min": 18.0837910070004,
+              "median": 18.195397238001533,
+              "max": 18.637582530000145
+            },
+            "spark_gpu": {
+              "min": 5.602602835000653,
+              "median": 5.669175768000059,
+              "max": 6.170240171999467
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 2.6417902943736293,
+            "spark_cpu_over_gpu": 3.209531329175988
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.02956845200060343
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 15.955535613000393
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 16.432368158997633
+            }
+          }
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "cx_distinct",
+          "description": "Four-table join with three exact distinct counts for 1995 orders",
+          "category": "Four-table join and three exact distinct counts",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 22.576667863000694,
+              "median": 22.896689089000574,
+              "max": 23.280192569000064
+            },
+            "spark_cpu": {
+              "min": 113.65428041700034,
+              "median": 114.26011954000023,
+              "max": 117.4432978599998
+            },
+            "spark_gpu": {
+              "min": 45.53922371800036,
+              "median": 45.77808751900011,
+              "max": 45.98493898800007
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.5001670084949998,
+            "spark_cpu_over_gpu": 2.495956596976158
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.0300397660012095
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 42.07293141599803
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 39.94137763099934
+            }
+          }
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "query": "cx_self_join",
+          "description": "1994 lineitem equijoin with a residual line-number inequality",
+          "category": "Fact self-join with an inequality condition",
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "min": 5.221665331999247,
+              "median": 5.937343951000003,
+              "max": 7.182533846998922
+            },
+            "spark_cpu": {
+              "min": 21.91426187199977,
+              "median": 22.336711567999373,
+              "max": 24.88868954999998
+            },
+            "spark_gpu": {
+              "min": 7.577758438001183,
+              "median": 7.735680899999352,
+              "max": 7.846807841000555
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.7675269995948902,
+            "spark_cpu_over_gpu": 2.887491334861194
+          },
+          "coverage": "gpu_operators_present",
+          "query_cleanup_policy": "verified_gc",
+          "cleanup": {
+            "polars": {
+              "barrier_count": 4,
+              "cleanup_seconds": 0.02421433400013484
+            },
+            "spark_cpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 14.267090078001274
+            },
+            "spark_gpu": {
+              "barrier_count": 4,
+              "cleanup_seconds": 14.529180677001932
+            }
+          }
+        }
+      ],
+      "totals": [
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "lineitem_rows": 179998372,
+          "parquet_bytes": 10568904879,
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "sum_medians_seconds": 5.779147138000553
+            },
+            "spark_cpu": {
+              "sum_medians_seconds": 49.23147949599661
+            },
+            "spark_gpu": {
+              "sum_medians_seconds": 18.163363571002265
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.3181760424168868,
+            "spark_cpu_over_gpu": 2.7104825217832706
+          }
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "lineitem_rows": 600037902,
+          "parquet_bytes": 35652242574,
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "sum_medians_seconds": 21.44543423599862
+            },
+            "spark_cpu": {
+              "sum_medians_seconds": 138.31036891800068
+            },
+            "spark_gpu": {
+              "sum_medians_seconds": 56.19271913400007
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.38164079913731747,
+            "spark_cpu_over_gpu": 2.461357468539271
+          }
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "lineitem_rows": 1799989091,
+          "parquet_bytes": 107978166411,
+          "measured_trials": 3,
+          "times": {
+            "polars": {
+              "sum_medians_seconds": 70.66413371800263
+            },
+            "spark_cpu": {
+              "sum_medians_seconds": 325.2249841520006
+            },
+            "spark_gpu": {
+              "sum_medians_seconds": 192.6521072589985
+            }
+          },
+          "ratios": {
+            "polars_over_gpu": 0.3667965781604603,
+            "spark_cpu_over_gpu": 1.6881465185053657
+          }
+        }
+      ],
+      "validation": {
+        "outputs": 216,
+        "gpu_plans": 72,
+        "measured_outputs": 162,
+        "warmup_outputs": 54,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerance": 1e-06,
+        "scope": "Cross-engine agreement with saved Polars warmup; includes warmups and baseline self-comparisons, not independent full-scale oracle proofs"
+      },
+      "protocol": {
+        "id": "verified_gc",
+        "label": "Verified cleanup after every query",
+        "description": "The revised complex suite requests Python garbage collection for Polars and Python/JVM garbage collection for Spark after each query returns. Spark then waits until the observed owned shuffle files and bytes are zero, outside the query timer.",
+        "timing_note": "Explicit garbage collection may alter the next query's heap state. All displayed complex scales and engines use this same protocol; the earlier attempt is excluded. Query medians exclude cleanup, while process wall time includes it. Cleanup totals cover the warmup and all three measured actions: adding them to a sum of query medians would not produce an end-to-end runtime."
+      },
+      "cleanup": {
+        "status": "verified",
+        "scope": "Session totals cover all saved warmup and measured barriers, including any cases excluded from the displayed performance comparison. Process wall time also includes startup, setup and other process overhead; it is not a cleanup-only measure.",
+        "sessions": [
+          {
+            "scale": "sf30",
+            "engine": "polars",
+            "barrier_count": 24,
+            "cleanup_seconds": 0.1443988810024166,
+            "process_wall_seconds": 24.76560511000025
+          },
+          {
+            "scale": "sf30",
+            "engine": "spark_cpu",
+            "barrier_count": 24,
+            "cleanup_seconds": 67.47264322799856,
+            "process_wall_seconds": 280.58261404099903
+          },
+          {
+            "scale": "sf30",
+            "engine": "spark_gpu",
+            "barrier_count": 24,
+            "cleanup_seconds": 69.13267625000117,
+            "process_wall_seconds": 167.72525974199925
+          },
+          {
+            "scale": "sf100",
+            "engine": "polars",
+            "barrier_count": 24,
+            "cleanup_seconds": 0.15495609900244744,
+            "process_wall_seconds": 90.46671589300058
+          },
+          {
+            "scale": "sf100",
+            "engine": "spark_cpu",
+            "barrier_count": 24,
+            "cleanup_seconds": 92.81159814100101,
+            "process_wall_seconds": 670.0055457960007
+          },
+          {
+            "scale": "sf100",
+            "engine": "spark_gpu",
+            "barrier_count": 24,
+            "cleanup_seconds": 96.40994200700334,
+            "process_wall_seconds": 353.56479783800023
+          },
+          {
+            "scale": "sf300",
+            "engine": "polars",
+            "barrier_count": 24,
+            "cleanup_seconds": 0.15885654800149496,
+            "process_wall_seconds": 290.3980182289997
+          },
+          {
+            "scale": "sf300",
+            "engine": "spark_cpu",
+            "barrier_count": 24,
+            "cleanup_seconds": 155.17824952199408,
+            "process_wall_seconds": 1489.0233625609999
+          },
+          {
+            "scale": "sf300",
+            "engine": "spark_gpu",
+            "barrier_count": 24,
+            "cleanup_seconds": 166.07387664700036,
+            "process_wall_seconds": 979.7236196430003
+          }
+        ],
+        "cases": [
+          {
+            "scale": "sf30",
+            "query": "cx_q09",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.02594423399932566
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_q09",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 15.34817945299801
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_q09",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 14.80310180700144
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_q13",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.02360602699991432
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_q13",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 9.938374971001394
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_q13",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 10.338006018002488
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_semi_anti",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.022229623999010073
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_semi_anti",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 9.914155621001555
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_semi_anti",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 10.179375407999032
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_window",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.023864815000706585
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_window",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 9.816589113999726
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_window",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 10.269428059998972
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_distinct",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.025891713001328753
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_distinct",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 12.524495643998307
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_distinct",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 13.234592566999709
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_self_join",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.02286246800213121
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_self_join",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 9.930848424999567
+          },
+          {
+            "scale": "sf30",
+            "query": "cx_self_join",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 10.308172389999527
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_q09",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.031088308998732828
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_q09",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 28.206688939000742
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_q09",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 30.616751875000773
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_q13",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.02365376799934893
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_q13",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 11.246424425000441
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_q13",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 11.164137604999269
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_semi_anti",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.025020791001225007
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_semi_anti",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 10.045548502999736
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_semi_anti",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 10.33887346800293
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_window",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.023031526001432212
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_window",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 11.922574731999703
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_window",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 12.131529543001307
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_distinct",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.028642060000493075
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_distinct",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 20.377958448001664
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_distinct",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 20.982048665999173
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_self_join",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.023519645001215395
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_self_join",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 11.012403093998728
+          },
+          {
+            "scale": "sf100",
+            "query": "cx_self_join",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 11.176600849999886
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_q09",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.02688017599757586
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_q09",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 56.52092104499752
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_q09",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 67.39742380099779
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_q13",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.023810564001905732
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_q13",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 15.057323987997734
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_q13",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 15.4278930770015
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_semi_anti",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.024343256000065594
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_semi_anti",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 11.304447381999125
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_semi_anti",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 12.34563330200217
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_window",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.02956845200060343
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_window",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 15.955535613000393
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_window",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 16.432368158997633
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_distinct",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.0300397660012095
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_distinct",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 42.07293141599803
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_distinct",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 39.94137763099934
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_self_join",
+            "engine": "polars",
+            "barrier_count": 4,
+            "cleanup_seconds": 0.02421433400013484
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_self_join",
+            "engine": "spark_cpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 14.267090078001274
+          },
+          {
+            "scale": "sf300",
+            "query": "cx_self_join",
+            "engine": "spark_gpu",
+            "barrier_count": 4,
+            "cleanup_seconds": 14.529180677001932
+          }
+        ]
+      },
+      "chart": {
+        "url": "assets/complex-sf300.png",
+        "scope": "This figure covers SF300 only; other supplied scale figures are linked in the evidence section.",
+        "alt": "Verified SF300 complex-query medians, trial ranges, and CPU-to-GPU-plugin ratios; only this observed scale is shown"
+      },
+      "excluded_cases": [],
+      "not_selected_cases": [],
+      "functional_smoke_cases": 0,
+      "pending_scales": [],
+      "evidence": [
+        {
+          "label": "Formal complex timings (CSV)",
+          "url": "evidence/complex-formal-summary.csv",
+          "enabled": true,
+          "note": ""
+        },
+        {
+          "label": "Complex validation summary (JSON)",
+          "url": "evidence/complex-validation.json",
+          "enabled": true,
+          "note": ""
+        },
+        {
+          "label": "Observed cleanup and process costs (CSV)",
+          "url": "evidence/complex-cleanup-sessions.csv",
+          "enabled": true,
+          "note": "All saved session barriers; separate from query medians. Process wall also includes startup, setup, warmups and query work."
+        },
+        {
+          "label": "Complex SF30 figure (PNG)",
+          "url": "assets/complex-sf30.png",
+          "enabled": true,
+          "note": "Observed SF30 cases only; separate from the original workload and from any pending scale."
+        },
+        {
+          "label": "Complex SF100 figure (PNG)",
+          "url": "assets/complex-sf100.png",
+          "enabled": true,
+          "note": "Observed SF100 cases only; separate from the original workload and from any pending scale."
+        },
+        {
+          "label": "Complex SF300 figure (PNG)",
+          "url": "assets/complex-sf300.png",
+          "enabled": true,
+          "note": "Observed SF300 cases only; separate from the original workload and from any pending scale."
+        }
+      ],
+      "datasets": [
+        {
+          "scale": "sf30",
+          "scale_factor": 30.0,
+          "total_parquet_bytes": 10568904879,
+          "lineitem_rows": 179998372,
+          "manifest_sha256": "36cce11e9ebe4fe8b0ccdc4eef2aa21bf502079fd13640e0266bf592e0b73cb6"
+        },
+        {
+          "scale": "sf100",
+          "scale_factor": 100.0,
+          "total_parquet_bytes": 35652242574,
+          "lineitem_rows": 600037902,
+          "manifest_sha256": "39746a70b6c916741db8a2d368b1339d907034f94453c54109a3b2e68f12b820"
+        },
+        {
+          "scale": "sf300",
+          "scale_factor": 300.0,
+          "total_parquet_bytes": 107978166411,
+          "lineitem_rows": 1799989091,
+          "manifest_sha256": "73ef108184f2d4b9f4b54f8dc944ce0b79dec658b42d6cc5dd1662ceb55700b7"
+        }
+      ],
+      "independent_oracle_scope": {
+        "formal_verified_cases": 0,
+        "formal_uncovered_cases": 18,
+        "note": "Independent DuckDB checks apply only to matching covered cases; a small-scale oracle does not establish independent full-scale oracle correctness"
+      }
+    }
+  },
+  "incident": {
+    "status": "documented",
+    "title": "Earlier complex attempt: incident evidence",
+    "summary": "The earlier complex-suite attempt recorded disk-space errors in the SF300 GPU Spark session before completion. The attempt is preserved separately in the draft evidence bundle. Its timing records do not enter the displayed complex comparisons.",
+    "performance_use": "Excluded from performance comparisons",
+    "evidence": [
+      {
+        "label": "Prior-attempt incident summary (JSON)",
+        "url": "evidence/prior-attempt-incident.json",
+        "enabled": true,
+        "note": "Portable nonperformance summary; original saved outputs and errors remain in their separate draft-bundle namespace."
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "label": "Draft reproducibility ZIP",
+      "url": "downloads/reproducibility-draft.zip",
+      "enabled": true,
+      "note": "Research evidence snapshot; source provenance and applicable-notice references are included.",
+      "sha256": "60d9c9cab914300e47c99303cc24874f50826febd3a23ac3b7c5ba91a85f084b"
+    },
+    {
+      "label": "ZIP checksum",
+      "url": "downloads/reproducibility-draft.zip.sha256",
+      "enabled": true,
+      "note": "Research evidence snapshot; source provenance and applicable-notice references are included."
+    },
+    {
+      "label": "Attached draft-bundle scope (JSON)",
+      "url": "evidence/attached-bundle-scope.json",
+      "enabled": true,
+      "note": "Only the listed runs and sessions are included in the attached ZIP; source reports may cover additional cases."
+    },
+    {
+      "label": "Post-run input checksums (JSON)",
+      "url": "evidence/postrun-input-integrity.json",
+      "enabled": true,
+      "note": "All 1,773 Parquet files across five scales matched their original manifests after the final run."
+    }
+  ]
+}

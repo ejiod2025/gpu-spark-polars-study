@@ -1,0 +1,83 @@
+{
+  "evidence_kind": "nonperformance_incident_index",
+  "incidents": [
+    {
+      "eligible_for_complete_performance_summary": false,
+      "evidence_kind": "nonperformance_resource_or_incomplete_run_incident",
+      "interpretation": "Recorded failures or missing evidence are not performance bounds or completed-suite results. All raw saved timings/outputs remain in this run's namespace; the run is excluded from SUMMARY.csv.",
+      "observations": [
+        {
+          "engine": "polars",
+          "kind": "failed_or_incomplete_schedule_entry",
+          "scale": "300"
+        },
+        {
+          "engine": "spark_cpu",
+          "kind": "missing_engine_session",
+          "scale": "sf300"
+        },
+        {
+          "cleanup_failure": null,
+          "engine": "spark_gpu",
+          "failure": null,
+          "kind": "recorded_disk_space_failure",
+          "query_error_count": 6,
+          "query_errors": [
+            {
+              "failed_at_utc": "2026-10-25T19:54:14.355447+00:00",
+              "message": "An error occurred while calling o303.collectToPython.\n: org.apache.spark.SparkException: Job aborted due to stage failure: Task 88 in stage 317.0 failed 1 times, most recent failure: Lost task 88.0 in stage 317.0 (TID 11020) (localhost executor driver): java.lang.RuntimeException: java.lang.RuntimeException: java.io.IOException: No space left on device\n\tat com.nvidia.spark.rapids.jni.kudo.KudoSerializer.writeToStreamWithMetrics(KudoSerializer.java:275)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$10(GpuColumnarBatchSerializer.scala:457)\n\tat scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)\n\tat com.nvidia.spark.rapids.NvtxId.apply(NvtxRangeWithDoc.scala:84)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$7(GpuColumnarBatchSerializer.scala:447)\n\tat com.nvidia.spark.rapids.Arm$.withResource(Arm.scala:66)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$6(GpuColumnarBatchSerializer.scala:420)\n\tat com.nvidia.spark.rapids.GpuMetric.ns(GpuMetrics.scala:502)\n\tat com.nvidia.spark.rapids.GpuMetric.ns(GpuMetrics.scala:490)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.writeValue(GpuColumnarBatchSerializer.scala:404)\n\tat org.apache.spark.storage.DiskBlockObjectWriter.write(DiskBlockObjectWriter.scala:334)\n\tat org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter.write(BypassMergeSortShuffleWriter.java:171)\n\tat org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)\n\tat org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:141)\n\tat org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:621)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:6",
+              "phase": "measured",
+              "query": "cx_q09",
+              "trial": 2,
+              "type": "Py4JJavaError"
+            },
+            {
+              "failed_at_utc": "2026-10-25T19:54:19.680775+00:00",
+              "message": "An error occurred while calling o310.collectToPython.\n: org.apache.spark.SparkException: Job aborted due to stage failure: Task 11 in stage 318.0 failed 1 times, most recent failure: Lost task 11.0 in stage 318.0 (TID 11048) (localhost executor driver): java.io.IOException: No space left on device\n\tat java.base/sun.nio.ch.FileDispatcherImpl.write0(Native Method)\n\tat java.base/sun.nio.ch.FileDispatcherImpl.write(FileDispatcherImpl.java:63)\n\tat java.base/sun.nio.ch.IOUtil.writeFromNativeBuffer(IOUtil.java:132)\n\tat java.base/sun.nio.ch.IOUtil.write(IOUtil.java:76)\n\tat java.base/sun.nio.ch.IOUtil.write(IOUtil.java:67)\n\tat java.base/sun.nio.ch.FileChannelImpl.write(FileChannelImpl.java:288)\n\tat java.base/sun.nio.ch.FileChannelImpl.transferToTrustedChannel(FileChannelImpl.java:605)\n\tat java.base/sun.nio.ch.FileChannelImpl.transferTo(FileChannelImpl.java:699)\n\tat org.apache.spark.util.Utils$.copyFileStreamNIO(Utils.scala:346)\n\tat org.apache.spark.util.Utils.copyFileStreamNIO(Utils.scala)\n\tat org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter.writePartitionedDataWithChannel(BypassMergeSortShuffleWriter.java:246)\n\tat org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter.writePartitionedData(BypassMergeSortShuffleWriter.java:218)\n\tat org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter.write(BypassMergeSortShuffleWriter.java:180)\n\tat org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)\n\tat org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:141)\n\tat org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:621)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61",
+              "phase": "measured",
+              "query": "cx_semi_anti",
+              "trial": 2,
+              "type": "Py4JJavaError"
+            },
+            {
+              "failed_at_utc": "2026-10-25T19:54:20.431517+00:00",
+              "message": "An error occurred while calling o315.collectToPython.\n: org.apache.spark.SparkException: Job aborted due to stage failure: Task 24 in stage 322.0 failed 1 times, most recent failure: Lost task 24.0 in stage 322.0 (TID 11082) (localhost executor driver): java.lang.RuntimeException: java.lang.RuntimeException: java.io.IOException: No space left on device\n\tat com.nvidia.spark.rapids.jni.kudo.KudoSerializer.writeToStreamWithMetrics(KudoSerializer.java:275)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$10(GpuColumnarBatchSerializer.scala:457)\n\tat scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)\n\tat com.nvidia.spark.rapids.NvtxId.apply(NvtxRangeWithDoc.scala:84)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$7(GpuColumnarBatchSerializer.scala:447)\n\tat com.nvidia.spark.rapids.Arm$.withResource(Arm.scala:66)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$6(GpuColumnarBatchSerializer.scala:420)\n\tat com.nvidia.spark.rapids.GpuMetric.ns(GpuMetrics.scala:502)\n\tat com.nvidia.spark.rapids.GpuMetric.ns(GpuMetrics.scala:490)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.writeValue(GpuColumnarBatchSerializer.scala:404)\n\tat org.apache.spark.storage.DiskBlockObjectWriter.write(DiskBlockObjectWriter.scala:334)\n\tat org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter.write(BypassMergeSortShuffleWriter.java:171)\n\tat org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)\n\tat org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:141)\n\tat org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:621)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:6",
+              "phase": "measured",
+              "query": "cx_distinct",
+              "trial": 2,
+              "type": "Py4JJavaError"
+            },
+            {
+              "failed_at_utc": "2026-10-25T19:54:24.725567+00:00",
+              "message": "An error occurred while calling o322.collectToPython.\n: org.apache.spark.SparkException: Multiple failures in stage materialization.\n\tat org.apache.spark.sql.errors.QueryExecutionErrors$.multiFailuresInStageMaterializationError(QueryExecutionErrors.scala:2076)\n\tat org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec.cleanUpAndThrowException(AdaptiveSparkPlanExec.scala:821)\n\tat org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec.$anonfun$getFinalPhysicalPlan$1(AdaptiveSparkPlanExec.scala:335)\n\tat org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:900)\n\tat org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec.getFinalPhysicalPlan(AdaptiveSparkPlanExec.scala:272)\n\tat org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec.withFinalPlanUpdate(AdaptiveSparkPlanExec.scala:419)\n\tat org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec.executeCollect(AdaptiveSparkPlanExec.scala:392)\n\tat org.apache.spark.sql.Dataset.$anonfun$collectToPython$1(Dataset.scala:4149)\n\tat org.apache.spark.sql.Dataset.$anonfun$withAction$2(Dataset.scala:4323)\n\tat org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:546)\n\tat org.apache.spark.sql.Dataset.$anonfun$withAction$1(Dataset.scala:4321)\n\tat org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId$6(SQLExecution.scala:125)\n\tat org.apache.spark.sql.execution.SQLExecution$.withSQLConfPropagated(SQLExecution.scala:201)\n\tat org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId$1(SQLExecution.scala:108)\n\tat org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:900)\n\tat org.apache.spark.sql.execution.SQLExecution$.withNewExecutionId(SQLExecution.scala:66)\n\tat org.apache.spark.sql.Dataset.withAction(Dataset.scala:4321)\n\tat org.apache.spark.sql.Dataset.collectToPython(Dataset.scala:4146)\n\tat jdk.internal.reflect.GeneratedMethodAccessor156.invoke(Unknown Source)\n\tat java.base/jdk.internal.reflect.DelegatingMethodAccessorI",
+              "phase": "measured",
+              "query": "cx_self_join",
+              "trial": 2,
+              "type": "Py4JJavaError"
+            },
+            {
+              "failed_at_utc": "2026-10-25T19:54:25.160469+00:00",
+              "message": "An error occurred while calling o329.collectToPython.\n: org.apache.spark.SparkException: Job aborted due to stage failure: Task 28 in stage 327.0 failed 1 times, most recent failure: Lost task 28.0 in stage 327.0 (TID 11350) (localhost executor driver): java.lang.RuntimeException: java.io.IOException: No space left on device\n\tat com.nvidia.spark.rapids.jni.kudo.KudoSerializer.writeToStreamWithMetrics(KudoSerializer.java:275)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$10(GpuColumnarBatchSerializer.scala:457)\n\tat scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)\n\tat com.nvidia.spark.rapids.NvtxId.apply(NvtxRangeWithDoc.scala:84)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$7(GpuColumnarBatchSerializer.scala:447)\n\tat com.nvidia.spark.rapids.Arm$.withResource(Arm.scala:66)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$6(GpuColumnarBatchSerializer.scala:420)\n\tat com.nvidia.spark.rapids.GpuMetric.ns(GpuMetrics.scala:502)\n\tat com.nvidia.spark.rapids.GpuMetric.ns(GpuMetrics.scala:490)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.writeValue(GpuColumnarBatchSerializer.scala:404)\n\tat org.apache.spark.storage.DiskBlockObjectWriter.write(DiskBlockObjectWriter.scala:334)\n\tat org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter.write(BypassMergeSortShuffleWriter.java:171)\n\tat org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)\n\tat org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:141)\n\tat org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:621)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)\n\tat org.apache.spark.util",
+              "phase": "measured",
+              "query": "cx_q13",
+              "trial": 2,
+              "type": "Py4JJavaError"
+            },
+            {
+              "failed_at_utc": "2026-10-25T19:54:25.610777+00:00",
+              "message": "An error occurred while calling o335.collectToPython.\n: org.apache.spark.SparkException: Job aborted due to stage failure: Task 21 in stage 329.0 failed 1 times, most recent failure: Lost task 21.0 in stage 329.0 (TID 11374) (localhost executor driver): java.lang.RuntimeException: java.io.IOException: No space left on device\n\tat com.nvidia.spark.rapids.jni.kudo.KudoSerializer.writeToStreamWithMetrics(KudoSerializer.java:275)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$10(GpuColumnarBatchSerializer.scala:457)\n\tat scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)\n\tat com.nvidia.spark.rapids.NvtxId.apply(NvtxRangeWithDoc.scala:84)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$7(GpuColumnarBatchSerializer.scala:447)\n\tat com.nvidia.spark.rapids.Arm$.withResource(Arm.scala:66)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.$anonfun$writeValue$6(GpuColumnarBatchSerializer.scala:420)\n\tat com.nvidia.spark.rapids.GpuMetric.ns(GpuMetrics.scala:502)\n\tat com.nvidia.spark.rapids.GpuMetric.ns(GpuMetrics.scala:490)\n\tat com.nvidia.spark.rapids.KudoSerializerInstance$$anon$3.writeValue(GpuColumnarBatchSerializer.scala:404)\n\tat org.apache.spark.storage.DiskBlockObjectWriter.write(DiskBlockObjectWriter.scala:334)\n\tat org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter.write(BypassMergeSortShuffleWriter.java:171)\n\tat org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)\n\tat org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)\n\tat org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:141)\n\tat org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:621)\n\tat org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)\n\tat org.apache.spark.util",
+              "phase": "measured",
+              "query": "cx_window",
+              "trial": 3,
+              "type": "Py4JJavaError"
+            }
+          ],
+          "query_execution_status": "partial",
+          "saved_result_records": 13,
+          "scale": "sf300"
+        }
+      ],
+      "run": "complex-formal-20261025"
+    }
+  ]
+}

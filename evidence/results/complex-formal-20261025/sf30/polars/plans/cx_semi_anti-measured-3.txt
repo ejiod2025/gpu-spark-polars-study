@@ -1,0 +1,33 @@
+SORT BY [slice: (0, 100, dynamic_pred: a8761706-9b43-4078-a141-fae504670c3e)] [col("c_custkey")]
+  ANTI JOIN:
+  LEFT PLAN ON: [col("c_custkey")]
+    SEMI JOIN:
+    LEFT PLAN ON: [col("c_custkey")]
+      Parquet SCAN [<DATA_ROOT>/sf30/customer/data_0.parquet, ... 29 other sources]
+      PROJECT 3/8 COLUMNS
+      SELECTION: col("c_custkey").dynamic_predicate()
+      ESTIMATED ROWS: 4499701
+    RIGHT PLAN ON: [col("o_custkey")]
+      simple π 1/1 ["o_custkey"]
+        SEMI JOIN:
+        LEFT PLAN ON: [col("o_orderkey")]
+          simple π 2/2 ["o_custkey", "o_orderkey"]
+            Parquet SCAN [<DATA_ROOT>/sf30/orders/data_0.parquet, ... 29 other sources]
+            PROJECT 3/9 COLUMNS
+            SELECTION: col("o_custkey").dynamic_predicate() & ((col("o_orderdate") >= 1995-01-01) & (col("o_orderdate") < 1996-01-01))
+            ESTIMATED ROWS: 44999239
+        RIGHT PLAN ON: [col("l_orderkey")]
+          simple π 1/1 ["l_orderkey"]
+            Parquet SCAN [<DATA_ROOT>/sf30/lineitem/data_0.parquet, ... 59 other sources]
+            PROJECT 4/16 COLUMNS
+            SELECTION: (col("l_receiptdate") > col("l_commitdate")) & col("l_shipmode").is_in([["AIR", "SHIP"]])
+            ESTIMATED ROWS: 179995110
+        END SEMI JOIN
+    END SEMI JOIN
+  RIGHT PLAN ON: [col("o_custkey")]
+    simple π 1/1 ["o_custkey"]
+      Parquet SCAN [<DATA_ROOT>/sf30/orders/data_0.parquet, ... 29 other sources]
+      PROJECT 3/9 COLUMNS
+      SELECTION: (col("o_custkey").dynamic_predicate() & ((col("o_orderdate") >= 1996-01-01) & (col("o_orderdate") < 1997-01-01))) & (col("o_orderstatus") == "F")
+      ESTIMATED ROWS: 44999239
+  END ANTI JOIN

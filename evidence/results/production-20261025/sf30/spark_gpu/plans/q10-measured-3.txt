@@ -1,0 +1,80 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=219]
+   +- GpuTopN(limit=20, orderBy=[revenue#5138 DESC NULLS LAST,c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,revenue#5138,c_acctbal#16,n_name#128,c_address#2,c_phone#4,c_comment#7], offset=0)
+      +- GpuShuffleCoalesce 1073741824, [loreId=217]
+         +- GpuColumnarExchange gpusinglepartitioning$(), ENSURE_REQUIREMENTS, [plan_id=12811], [loreId=216]
+            +- GpuTopN(limit=20, orderBy=[revenue#5138 DESC NULLS LAST,c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,revenue#5138,c_acctbal#16,n_name#128,c_address#2,c_phone#4,c_comment#7], offset=0)
+               +- GpuHashAggregate (keys=[c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7], functions=[gpubasicsum((l_extendedprice#76 * (1.0 - l_discount#93)), DoubleType, false)], output=[c_custkey#0L, c_name#1, revenue#5138, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7]) [loreId=214]
+                  +- GpuShuffleCoalesce 1073741824, [loreId=213]
+                     +- GpuCustomShuffleReader coalesced
+                        +- ShuffleQueryStage 5
+                           +- GpuColumnarExchange gpuhashpartitioning(c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=12750], [loreId=202]
+                              +- GpuHashAggregate (keys=[c_custkey#0L, c_name#1, gpuknownfloatingpointnormalized(gpunormalizenanandzero(c_acctbal#16)) AS c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7], functions=[partial_gpubasicsum((l_extendedprice#76 * (1.0 - l_discount#93)), DoubleType, false)], output=[c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7, sum#5149]) [loreId=201]
+                                 +- GpuProject [c_custkey#0L, c_name#1, c_address#2, c_phone#4, c_acctbal#16, c_comment#7, l_extendedprice#76, l_discount#93, n_name#128], true, [loreId=200]
+                                    +- GpuBroadcastHashJoin [c_nationkey#3], [n_nationkey#127], Inner, GpuBuildRight, false, [loreId=199]
+                                       :- GpuProject [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, c_acctbal#16, c_comment#7, l_extendedprice#76, l_discount#93], true, [loreId=198]
+                                       :  +- GpuShuffledSymmetricHashJoin Inner, [o_orderkey#135L], [l_orderkey#26L], false, 1073741824, 1.0, CoalesceReadOption(true,GPU,Never,None,false), false, [loreId=197]
+                                       :     :- GpuCustomShuffleReader coalesced
+                                       :     :  +- ShuffleQueryStage 4
+                                       :     :     +- GpuColumnarExchange gpuhashpartitioning(o_orderkey#135L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=12509], [loreId=166]
+                                       :     :        +- GpuProject [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, c_acctbal#16, c_comment#7, o_orderkey#135L], true, [loreId=165]
+                                       :     :           +- GpuShuffledSymmetricHashJoin Inner, [c_custkey#0L], [o_custkey#136L], false, 1073741824, 1.0, CoalesceReadOption(true,GPU,Never,None,false), false, [loreId=164]
+                                       :     :              :- GpuCustomShuffleReader coalesced
+                                       :     :              :  +- ShuffleQueryStage 0
+                                       :     :              :     +- GpuColumnarExchange gpuhashpartitioning(c_custkey#0L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=12004], [loreId=92]
+                                       :     :              :        +- GpuProject [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, cast(c_acctbal#5 as double) AS c_acctbal#16, c_comment#7], true, [loreId=91]
+                                       :     :              :           +- GpuCoalesceBatches targetsize(1073741824), [loreId=90]
+                                       :     :              :              +- GpuFilter (gpuisnotnull(c_custkey#0L) AND gpuisnotnull(c_nationkey#3)), [loreId=89]
+                                       :     :              :                 +- GpuFileGpuScan parquet [c_custkey#0L,c_name#1,c_address#2,c_nationkey#3,c_phone#4,c_acctbal#5,c_comment#7] Batched: true, DataFilters: [isnotnull(c_custkey#0L), isnotnull(c_nationkey#3)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:<DATA_ROOT>/sf30/customer], PartitionFilters: [], PushedFilters: [IsNotNull(c_custkey), IsNotNull(c_nationkey)], ReadSchema: struct<c_custkey:bigint,c_name:string,c_address:string,c_nationkey:int,c_phone:string,c_acctbal:d...
+                                       :     :              +- GpuCustomShuffleReader coalesced
+                                       :     :                 +- ShuffleQueryStage 1
+                                       :     :                    +- GpuColumnarExchange gpuhashpartitioning(o_custkey#136L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=12043], [loreId=101]
+                                       :     :                       +- GpuProject [o_orderkey#135L, o_custkey#136L], true, [loreId=100]
+                                       :     :                          +- GpuCoalesceBatches targetsize(1073741824), [loreId=99]
+                                       :     :                             +- GpuFilter ((((gpuisnotnull(o_orderdate#139) AND (o_orderdate#139 >= 8674)) AND (o_orderdate#139 < 8766)) AND gpuisnotnull(o_custkey#136L)) AND gpuisnotnull(o_orderkey#135L)), [loreId=98]
+                                       :     :                                +- GpuFileGpuScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1993-10-01), (o_orderdate#139 < 1994-01-01), isn..., Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:<DATA_ROOT>/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1993-10-01), LessThan(o_orderdate,1994-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date>
+                                       :     +- GpuCustomShuffleReader coalesced
+                                       :        +- ShuffleQueryStage 2
+                                       :           +- GpuColumnarExchange gpuhashpartitioning(l_orderkey#26L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=12086], [loreId=110]
+                                       :              +- GpuProject [l_orderkey#26L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93], true, [loreId=109]
+                                       :                 +- GpuCoalesceBatches targetsize(1073741824), [loreId=108]
+                                       :                    +- GpuFilter ((gpuisnotnull(l_returnflag#34) AND (l_returnflag#34 = R)) AND gpuisnotnull(l_orderkey#26L)), [loreId=107]
+                                       :                       +- GpuFileGpuScan parquet [l_orderkey#26L,l_extendedprice#31,l_discount#32,l_returnflag#34] Batched: true, DataFilters: [isnotnull(l_returnflag#34), (l_returnflag#34 = R), isnotnull(l_orderkey#26L)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:<DATA_ROOT>/sf30/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_returnflag), EqualTo(l_returnflag,R), IsNotNull(l_orderkey)], ReadSchema: struct<l_orderkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_returnflag:string>
+                                       +- BroadcastQueryStage 3
+                                          +- GpuBroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=12118], [loreId=117]
+                                             +- GpuCoalesceBatches targetsize(1073741824), [loreId=116]
+                                                +- GpuFilter gpuisnotnull(n_nationkey#127), [loreId=115]
+                                                   +- GpuFileGpuScan parquet [n_nationkey#127,n_name#128] Batched: true, DataFilters: [isnotnull(n_nationkey#127)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:<DATA_ROOT>/sf30/nation], PartitionFilters: [], PushedFilters: [IsNotNull(n_nationkey)], ReadSchema: struct<n_nationkey:int,n_name:string>
++- == Initial Plan ==
+   TakeOrderedAndProject(limit=20, orderBy=[revenue#5138 DESC NULLS LAST,c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,revenue#5138,c_acctbal#16,n_name#128,c_address#2,c_phone#4,c_comment#7])
+   +- HashAggregate(keys=[c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7], functions=[sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[c_custkey#0L, c_name#1, revenue#5138, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7])
+      +- Exchange hashpartitioning(c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7, 120), ENSURE_REQUIREMENTS, [plan_id=11601]
+         +- HashAggregate(keys=[c_custkey#0L, c_name#1, knownfloatingpointnormalized(normalizenanandzero(c_acctbal#16)) AS c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7], functions=[partial_sum((l_extendedprice#76 * (1.0 - l_discount#93)))], output=[c_custkey#0L, c_name#1, c_acctbal#16, n_name#128, c_address#2, c_phone#4, c_comment#7, sum#5149])
+            +- Project [c_custkey#0L, c_name#1, c_address#2, c_phone#4, c_acctbal#16, c_comment#7, l_extendedprice#76, l_discount#93, n_name#128]
+               +- BroadcastHashJoin [c_nationkey#3], [n_nationkey#127], Inner, BuildRight, false
+                  :- Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, c_acctbal#16, c_comment#7, l_extendedprice#76, l_discount#93]
+                  :  +- SortMergeJoin [o_orderkey#135L], [l_orderkey#26L], Inner
+                  :     :- Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+                  :     :  +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=11589]
+                  :     :     +- Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, c_acctbal#16, c_comment#7, o_orderkey#135L]
+                  :     :        +- SortMergeJoin [c_custkey#0L], [o_custkey#136L], Inner
+                  :     :           :- Sort [c_custkey#0L ASC NULLS FIRST], false, 0
+                  :     :           :  +- Exchange hashpartitioning(c_custkey#0L, 120), ENSURE_REQUIREMENTS, [plan_id=11581]
+                  :     :           :     +- Project [c_custkey#0L, c_name#1, c_address#2, c_nationkey#3, c_phone#4, cast(c_acctbal#5 as double) AS c_acctbal#16, c_comment#7]
+                  :     :           :        +- Filter (isnotnull(c_custkey#0L) AND isnotnull(c_nationkey#3))
+                  :     :           :           +- FileScan parquet [c_custkey#0L,c_name#1,c_address#2,c_nationkey#3,c_phone#4,c_acctbal#5,c_comment#7] Batched: true, DataFilters: [isnotnull(c_custkey#0L), isnotnull(c_nationkey#3)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/customer], PartitionFilters: [], PushedFilters: [IsNotNull(c_custkey), IsNotNull(c_nationkey)], ReadSchema: struct<c_custkey:bigint,c_name:string,c_address:string,c_nationkey:int,c_phone:string,c_acctbal:d...
+                  :     :           +- Sort [o_custkey#136L ASC NULLS FIRST], false, 0
+                  :     :              +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=11582]
+                  :     :                 +- Project [o_orderkey#135L, o_custkey#136L]
+                  :     :                    +- Filter ((((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1993-10-01)) AND (o_orderdate#139 < 1994-01-01)) AND isnotnull(o_custkey#136L)) AND isnotnull(o_orderkey#135L))
+                  :     :                       +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1993-10-01), (o_orderdate#139 < 1994-01-01), isn..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1993-10-01), LessThan(o_orderdate,1994-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date>
+                  :     +- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                  :        +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=11590]
+                  :           +- Project [l_orderkey#26L, cast(l_extendedprice#31 as double) AS l_extendedprice#76, cast(l_discount#32 as double) AS l_discount#93]
+                  :              +- Filter ((isnotnull(l_returnflag#34) AND (l_returnflag#34 = R)) AND isnotnull(l_orderkey#26L))
+                  :                 +- FileScan parquet [l_orderkey#26L,l_extendedprice#31,l_discount#32,l_returnflag#34] Batched: true, DataFilters: [isnotnull(l_returnflag#34), (l_returnflag#34 = R), isnotnull(l_orderkey#26L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_returnflag), EqualTo(l_returnflag,R), IsNotNull(l_orderkey)], ReadSchema: struct<l_orderkey:bigint,l_extendedprice:decimal(15,2),l_discount:decimal(15,2),l_returnflag:string>
+                  +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=11596]
+                     +- Filter isnotnull(n_nationkey#127)
+                        +- FileScan parquet [n_nationkey#127,n_name#128] Batched: true, DataFilters: [isnotnull(n_nationkey#127)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/nation], PartitionFilters: [], PushedFilters: [IsNotNull(n_nationkey)], ReadSchema: struct<n_nationkey:int,n_name:string>
+

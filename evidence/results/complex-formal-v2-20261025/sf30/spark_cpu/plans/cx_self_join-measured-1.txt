@@ -1,0 +1,44 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(7) Sort [left_shipmode#475 ASC NULLS LAST, right_shipmode#476 ASC NULLS LAST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 4
+         +- Exchange rangepartitioning(left_shipmode#475 ASC NULLS LAST, right_shipmode#476 ASC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=6278]
+            +- *(6) HashAggregate(keys=[l_shipmode#40, l_shipmode#492], functions=[count(1)], output=[left_shipmode#475, right_shipmode#476, pair_count#477L])
+               +- AQEShuffleRead coalesced
+                  +- ShuffleQueryStage 3
+                     +- Exchange hashpartitioning(l_shipmode#40, l_shipmode#492, 120), ENSURE_REQUIREMENTS, [plan_id=6236]
+                        +- *(5) HashAggregate(keys=[l_shipmode#40, l_shipmode#492], functions=[partial_count(1)], output=[l_shipmode#40, l_shipmode#492, count#504L])
+                           +- *(5) Project [l_shipmode#40, l_shipmode#492]
+                              +- *(5) SortMergeJoin [l_orderkey#26L], [l_orderkey#478L], Inner, (l_linenumber#29L < l_linenumber#481L)
+                                 :- *(3) Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                                 :  +- AQEShuffleRead coalesced
+                                 :     +- ShuffleQueryStage 0
+                                 :        +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=6129]
+                                 :           +- *(1) Project [l_orderkey#26L, l_linenumber#29L, l_shipmode#40]
+                                 :              +- *(1) Filter ((((isnotnull(l_shipdate#36) AND (l_shipdate#36 >= 1994-01-01)) AND (l_shipdate#36 < 1995-01-01)) AND isnotnull(l_orderkey#26L)) AND isnotnull(l_linenumber#29L))
+                                 :                 +- *(1) ColumnarToRow
+                                 :                    +- FileScan parquet [l_orderkey#26L,l_linenumber#29L,l_shipdate#36,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 >= 1994-01-01), (l_shipdate#36 < 1995-01-01), isnotnull..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1994-01-01), LessThan(l_shipdate,1995-01-01..., ReadSchema: struct<l_orderkey:bigint,l_linenumber:bigint,l_shipdate:date,l_shipmode:string>
+                                 +- *(4) Sort [l_orderkey#478L ASC NULLS FIRST], false, 0
+                                    +- AQEShuffleRead coalesced
+                                       +- ShuffleQueryStage 2
+                                          +- ReusedExchange [l_orderkey#478L, l_linenumber#481L, l_shipmode#492], Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=6129]
++- == Initial Plan ==
+   Sort [left_shipmode#475 ASC NULLS LAST, right_shipmode#476 ASC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(left_shipmode#475 ASC NULLS LAST, right_shipmode#476 ASC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=6088]
+      +- HashAggregate(keys=[l_shipmode#40, l_shipmode#492], functions=[count(1)], output=[left_shipmode#475, right_shipmode#476, pair_count#477L])
+         +- Exchange hashpartitioning(l_shipmode#40, l_shipmode#492, 120), ENSURE_REQUIREMENTS, [plan_id=6085]
+            +- HashAggregate(keys=[l_shipmode#40, l_shipmode#492], functions=[partial_count(1)], output=[l_shipmode#40, l_shipmode#492, count#504L])
+               +- Project [l_shipmode#40, l_shipmode#492]
+                  +- SortMergeJoin [l_orderkey#26L], [l_orderkey#478L], Inner, (l_linenumber#29L < l_linenumber#481L)
+                     :- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                     :  +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=6077]
+                     :     +- Project [l_orderkey#26L, l_linenumber#29L, l_shipmode#40]
+                     :        +- Filter ((((isnotnull(l_shipdate#36) AND (l_shipdate#36 >= 1994-01-01)) AND (l_shipdate#36 < 1995-01-01)) AND isnotnull(l_orderkey#26L)) AND isnotnull(l_linenumber#29L))
+                     :           +- FileScan parquet [l_orderkey#26L,l_linenumber#29L,l_shipdate#36,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_shipdate#36), (l_shipdate#36 >= 1994-01-01), (l_shipdate#36 < 1995-01-01), isnotnull..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1994-01-01), LessThan(l_shipdate,1995-01-01..., ReadSchema: struct<l_orderkey:bigint,l_linenumber:bigint,l_shipdate:date,l_shipmode:string>
+                     +- Sort [l_orderkey#478L ASC NULLS FIRST], false, 0
+                        +- Exchange hashpartitioning(l_orderkey#478L, 120), ENSURE_REQUIREMENTS, [plan_id=6078]
+                           +- Project [l_orderkey#478L, l_linenumber#481L, l_shipmode#492]
+                              +- Filter ((((isnotnull(l_shipdate#488) AND (l_shipdate#488 >= 1994-01-01)) AND (l_shipdate#488 < 1995-01-01)) AND isnotnull(l_orderkey#478L)) AND isnotnull(l_linenumber#481L))
+                                 +- FileScan parquet [l_orderkey#478L,l_linenumber#481L,l_shipdate#488,l_shipmode#492] Batched: true, DataFilters: [isnotnull(l_shipdate#488), (l_shipdate#488 >= 1994-01-01), (l_shipdate#488 < 1995-01-01), isnotn..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:<DATA_ROOT>/sf30/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_shipdate), GreaterThanOrEqual(l_shipdate,1994-01-01), LessThan(l_shipdate,1995-01-01..., ReadSchema: struct<l_orderkey:bigint,l_linenumber:bigint,l_shipdate:date,l_shipmode:string>
+
