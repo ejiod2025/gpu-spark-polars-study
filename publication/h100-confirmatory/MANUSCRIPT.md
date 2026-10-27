@@ -111,8 +111,10 @@ standard benchmark. [Polars](https://docs.pola.rs/user-guide/gpu-support/),
 
 The replacement Linux KVM host exposes one H100 80 GB HBM3 GPU, 26 Xeon Platinum
 8480+ vCPUs and 237,490,843,648 RAM bytes, approximately 221 GiB. Its driver is
-580.105.08 and kernel is 6.8.0-1046-nvidia. The complete archived replacement
-inventory must establish the remaining runtime details before publication.
+580.105.08 and kernel is 6.8.0-1046-nvidia. Archived readiness inventory records
+OpenJDK 17.0.20.1, CUDA driver API 13.0 and CUDA runtime 12.9. The CUDA 12
+package closure is pinned; the driver's advertised compatibility level does
+not change the runtime version used by these environments.
 The lost host used driver 570.148.08 and a different kernel; its incomplete
 campaign cannot establish the replacement host's performance.
 
@@ -124,15 +126,17 @@ campaign cannot establish the replacement host's performance.
 | `spark_cpu` | Spark CPU, `local[26]` | Spark 3.5.9 |
 | `spark_gpu` | Spark with RAPIDS plugin, `local[26]` | Spark 3.5.9; plugin 26.08.1 |
 
-All are specified to use the same CPython 3.11.13 base executable/build; auxiliary non-GPU
-package pins match. GPU dependencies differ because the selected
+The frozen replacement inventories verify the same CPython 3.11.13 base
+executable/build (Clang 20.1.4) and matching common non-GPU package pins in
+both environments. GPU dependencies differ because the selected
 cuDF-Polars release requires older Polars. The historical CPU control used
 Python 3.10.12 and remains separate.
 
 Spark retains the `a100-parity` settings, including a 96 GiB driver heap,
 120 shuffle partitions, adaptive query execution, and UTC session time zone.
-GPU Spark uses two concurrent GPU tasks and a 2 GiB pinned-memory pool. Effective
-replacement settings and the plugin JAR hash must be archived and audited. Polars uses the
+GPU Spark uses two concurrent GPU tasks and a 2 GiB pinned-memory pool. The plan
+archives these settings and the plugin JAR SHA256; the complete audit must still
+check their effective values in every final session. Polars uses the
 allocated 26-thread setting without an equivalent fixed host-memory limit.
 Consequently, common hardware does not imply equal memory budgets. Spark AQE
 can change joins and partitioning using runtime statistics; final plans are
@@ -158,16 +162,18 @@ all tables, not scan volume or query working set.
 The replacement inputs are freshly generated using the pinned recipe. Their
 new manifest and file identities must be used throughout the replacement
 oracles, plan and byte gates. No claim of physical-byte identity with the lost
-instance is made. The replacement physical inventory is pending its archive;
-historical byte totals are deliberately omitted from this table.
+instance is made. The archived replacement inventory covers 1,654 Parquet files.
+Generation uses 30 export threads, a 64 GB memory setting, Snappy compression,
+122,880-row groups, per-thread output and a 128 MB target file size. Generation
+and export are outside competitor timings; timed configurations use 26 vCPUs.
 
-| Nominal scale factor | Replacement physical Parquet bytes | Performance suites |
-| ---: | ---: | --- |
-| 1 | Pending archived inventory | Baseline |
-| 10 | Pending archived inventory | Baseline |
-| 30 | Pending archived inventory | Baseline and complex |
-| 100 | Pending archived inventory | Baseline and complex |
-| 300 | Pending archived inventory | Baseline and complex |
+| SF | Line-item rows | Parquet files | Stored bytes, all tables | Suites |
+| ---: | ---: | ---: | ---: | --- |
+| 1 | 6,001,215 | 57 | 325,716,220 | Baseline |
+| 10 | 59,986,052 | 123 | 3,442,803,044 | Baseline |
+| 30 | 179,998,372 | 185 | 10,568,904,874 | Baseline, complex |
+| 100 | 600,037,902 | 371 | 35,650,816,651 | Baseline, complex |
+| 300 | 1,799,989,091 | 918 | 107,973,376,582 | Baseline, complex |
 
 The baseline contains Q01, Q03, Q06, Q10, Q12, and Q14 adaptations. The
 `complex-v1` suite contains a six-table Q9-derived join, Q13-derived outer join
@@ -203,11 +209,18 @@ input-byte verification and a complete raw telemetry archive, and contributes
 no timings to the replacement sample.
 
 The October 27 replacement uses the same frozen source, schedule design, seed,
-queries, settings and inferential method. It receives a new campaign ID and
-campaign/pre-start hashes, new runtime inventories, regenerated input manifests,
-new readiness evidence and all eight new independent oracles. Those exact
-replacement identities must be inserted from its privately committed pre-start
-archive before final reporting. They are pending in this preparation draft.
+queries, settings and inferential method. Its campaign ID is
+`h100-confirmatory-replacement-20261027`, with campaign SHA256
+`0dabe0d40c5adda0a087508e3f95ceb0636815f5133a3b401071612e3f24c145` and
+pre-start manifest SHA256
+`a758ceea7d16a6c726221db5db2cb99502ac4f640131341b456e9b63ed459b2a`.
+All 358 files in the pre-start archive were preserved off-host and verified;
+private Git commit `b94372deebcf3503c115fd9cc396dec3666ce85b` preceded the
+first confirmatory action. This archive includes fresh runtime inventories,
+all five input manifests, ten SF1 readiness sessions with 116 successful SQL
+output comparisons, five semantic fixture runs, and all eight independent
+full-scale oracle outputs. Readiness and oracle execution are outside the
+confirmatory performance sample.
 
 The design is ten blocks by eight suite/scale conditions by five
 configurations, yielding 400 fresh sessions. Each supported query has one
@@ -301,8 +314,9 @@ performance query. A regression preserves a null-ordering mismatch observed in
 the original Polars 1.44.2 window port: with prices 100, 100, null, 50, its
 top-three keys are 3, 1, 2 instead of SQL's 1, 2, 4. The earlier cohort's full-scale
 input-domain checks find no null price/date/order/customer keys in the generated
-`orders` table at all five scales. The replacement repeats those domain checks
-against its fresh inputs before confirmation. Original-port claims are bounded
+`orders` table at all five scales. The replacement repeated these SQL counts
+against all five fresh inputs before confirmation and likewise found zero
+nulls in those fields. Original-port claims are bounded
 to the archived tested domain; the adversarial limitation remains disclosed.
 
 ### 4.4 Estimands, uncertainty, and multiplicity
