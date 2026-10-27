@@ -1,7 +1,11 @@
 # CPU and GPU dataframe execution on one H100 host: a prospective blocked comparison of Polars and Spark
 
-**Technical draft — confirmatory results pending, 2026-10-26.** The 400-session
-campaign is in progress. Ten-block estimates, superiority findings, crossover
+**Technical draft — replacement campaign preparing, 2026-10-27.** The original
+instance was lost before completion; its three surviving blocks are not pooled
+with the fresh replacement. The
+[prospective operational addendum](../../docs/H100_REPLACEMENT_20261027.md)
+records the new host, regenerated files and off-host backup pauses. Ten-block
+estimates, superiority findings, crossover
 conclusions, authorship and publication metadata remain pending. This draft is
 not ready for external publication.
 
@@ -40,9 +44,12 @@ A100/H100 comparisons also change CPU allocation, software and file layout.
 
 ### 2.1 Host and software
 
-The Linux KVM host exposes one H100 80 GB HBM3 GPU, 26 Xeon Platinum 8480+
-vCPUs and 237,490,950,144 RAM bytes, approximately 221 GiB. Inventory records
-driver 570.148.08, OpenJDK 17.0.20.1, CUDA driver API 12.8 and runtime 12.9.
+The replacement Linux KVM host exposes one H100 80 GB HBM3 GPU, 26 Xeon Platinum
+8480+ vCPUs and 237,490,843,648 RAM bytes, approximately 221 GiB. Its driver is
+580.105.08 and kernel is 6.8.0-1046-nvidia. The complete archived replacement
+inventory must establish the remaining runtime details before publication.
+The lost host used driver 570.148.08 and a different kernel; its incomplete
+campaign cannot establish the replacement host's performance.
 
 | Configuration ID | Execution path | Principal version |
 | --- | --- | --- |
@@ -83,7 +90,10 @@ full SHA256 checks run before/after the campaign outside measurements. Nominal
 scale factors are generator settings. Physical compressed bytes below describe
 all tables, not scan volume or query working set.
 
-| Nominal scale factor | Physical Parquet bytes | Performance suites |
+The table below describes the lost instance's historical files. Replace it with
+the newly archived physical inventory before reporting replacement results.
+
+| Nominal scale factor | Historical physical Parquet bytes | Performance suites |
 | ---: | ---: | --- |
 | 1 | 325,716,220 | Baseline |
 | 10 | 3,442,803,045 | Baseline |
