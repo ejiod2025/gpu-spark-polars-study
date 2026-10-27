@@ -1,0 +1,26 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(4) Sort [group_name#18 ASC NULLS LAST, row_num#57 ASC NULLS FIRST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 1
+         +- Exchange rangepartitioning(group_name#18 ASC NULLS LAST, row_num#57 ASC NULLS FIRST, 2), ENSURE_REQUIREMENTS, [plan_id=832]
+            +- Window [lag(score#20, -1, null) windowspecdefinition(group_name#18, item_id#19L ASC NULLS FIRST, specifiedwindowframe(RowFrame, -1, -1)) AS previous_score#59], [group_name#18], [item_id#19L ASC NULLS FIRST]
+               +- *(3) Sort [group_name#18 ASC NULLS FIRST, item_id#19L ASC NULLS FIRST], false, 0
+                  +- Window [rank(score#20) windowspecdefinition(group_name#18, score#20 DESC NULLS LAST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS score_rank#58], [group_name#18], [score#20 DESC NULLS LAST]
+                     +- Window [row_number() windowspecdefinition(group_name#18, score#20 DESC NULLS LAST, item_id#19L ASC NULLS LAST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS row_num#57], [group_name#18], [score#20 DESC NULLS LAST, item_id#19L ASC NULLS LAST]
+                        +- *(2) Sort [group_name#18 ASC NULLS FIRST, score#20 DESC NULLS LAST, item_id#19L ASC NULLS LAST], false, 0
+                           +- AQEShuffleRead coalesced
+                              +- ShuffleQueryStage 0
+                                 +- Exchange hashpartitioning(group_name#18, 2), ENSURE_REQUIREMENTS, [plan_id=770]
+                                    +- *(1) Scan ExistingRDD[group_name#18,item_id#19L,score#20]
++- == Initial Plan ==
+   Sort [group_name#18 ASC NULLS LAST, row_num#57 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(group_name#18 ASC NULLS LAST, row_num#57 ASC NULLS FIRST, 2), ENSURE_REQUIREMENTS, [plan_id=752]
+      +- Window [lag(score#20, -1, null) windowspecdefinition(group_name#18, item_id#19L ASC NULLS FIRST, specifiedwindowframe(RowFrame, -1, -1)) AS previous_score#59], [group_name#18], [item_id#19L ASC NULLS FIRST]
+         +- Sort [group_name#18 ASC NULLS FIRST, item_id#19L ASC NULLS FIRST], false, 0
+            +- Window [rank(score#20) windowspecdefinition(group_name#18, score#20 DESC NULLS LAST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS score_rank#58], [group_name#18], [score#20 DESC NULLS LAST]
+               +- Window [row_number() windowspecdefinition(group_name#18, score#20 DESC NULLS LAST, item_id#19L ASC NULLS LAST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS row_num#57], [group_name#18], [score#20 DESC NULLS LAST, item_id#19L ASC NULLS LAST]
+                  +- Sort [group_name#18 ASC NULLS FIRST, score#20 DESC NULLS LAST, item_id#19L ASC NULLS LAST], false, 0
+                     +- Exchange hashpartitioning(group_name#18, 2), ENSURE_REQUIREMENTS, [plan_id=744]
+                        +- Scan ExistingRDD[group_name#18,item_id#19L,score#20]
+

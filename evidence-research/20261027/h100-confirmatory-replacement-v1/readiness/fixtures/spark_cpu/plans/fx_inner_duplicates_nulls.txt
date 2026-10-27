@@ -1,0 +1,34 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(4) Sort [left_id#0L ASC NULLS FIRST, right_id#4L ASC NULLS FIRST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 3
+         +- Exchange rangepartitioning(left_id#0L ASC NULLS FIRST, right_id#4L ASC NULLS FIRST, 2), ENSURE_REQUIREMENTS, [plan_id=181]
+            +- *(3) Project [left_id#0L, right_id#4L]
+               +- *(3) BroadcastHashJoin [join_key#1L], [join_key#5L], Inner, BuildLeft, false
+                  :- BroadcastQueryStage 2
+                  :  +- BroadcastExchange HashedRelationBroadcastMode(List(input[1, bigint, false]),false), [plan_id=127]
+                  :     +- AQEShuffleRead local
+                  :        +- ShuffleQueryStage 0
+                  :           +- Exchange hashpartitioning(join_key#1L, 2), ENSURE_REQUIREMENTS, [plan_id=83]
+                  :              +- *(1) Filter isnotnull(join_key#1L)
+                  :                 +- *(1) Scan ExistingRDD[left_id#0L,join_key#1L]
+                  +- AQEShuffleRead local
+                     +- ShuffleQueryStage 1
+                        +- Exchange hashpartitioning(join_key#5L, 2), ENSURE_REQUIREMENTS, [plan_id=90]
+                           +- *(2) Filter isnotnull(join_key#5L)
+                              +- *(2) Scan ExistingRDD[right_id#4L,join_key#5L]
++- == Initial Plan ==
+   Sort [left_id#0L ASC NULLS FIRST, right_id#4L ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(left_id#0L ASC NULLS FIRST, right_id#4L ASC NULLS FIRST, 2), ENSURE_REQUIREMENTS, [plan_id=60]
+      +- Project [left_id#0L, right_id#4L]
+         +- SortMergeJoin [join_key#1L], [join_key#5L], Inner
+            :- Sort [join_key#1L ASC NULLS FIRST], false, 0
+            :  +- Exchange hashpartitioning(join_key#1L, 2), ENSURE_REQUIREMENTS, [plan_id=53]
+            :     +- Filter isnotnull(join_key#1L)
+            :        +- Scan ExistingRDD[left_id#0L,join_key#1L]
+            +- Sort [join_key#5L ASC NULLS FIRST], false, 0
+               +- Exchange hashpartitioning(join_key#5L, 2), ENSURE_REQUIREMENTS, [plan_id=54]
+                  +- Filter isnotnull(join_key#5L)
+                     +- Scan ExistingRDD[right_id#4L,join_key#5L]
+

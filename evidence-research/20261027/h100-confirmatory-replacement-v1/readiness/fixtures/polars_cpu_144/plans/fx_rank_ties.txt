@@ -1,0 +1,4 @@
+SORT BY [nulls_last: [true, true]] [col("group_name"), col("row_num")]
+   WITH_COLUMNS:
+   [col("item_id").cum_count().over(partition_by: [col("group_name")], order_by: col("score").is_null().alias("null_score_first_key").as_struct([col("score").negate().alias("descending_score_key"), col("item_id")])).cast(Int64).alias("row_num"), when(col("score").is_null()).then((col("score").len() - col("score").null_count()).over([col("group_name")]) + 1).otherwise(col("score").rank().over([col("group_name")])).cast(Int64).alias("score_rank"), col("score").shift([dyn int: 1]).over(partition_by: [col("group_name")], order_by: col("item_id")).alias("previous_score")] 
+    DF ["group_name", "item_id", "score"]; PROJECT */3 COLUMNS

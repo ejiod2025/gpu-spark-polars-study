@@ -1,0 +1,44 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=53]
+   +- GpuSort [entity_id#8L ASC NULLS LAST], true, com.nvidia.spark.rapids.OutOfCoreSort$@664ea9f5, [loreId=52]
+      +- GpuShuffleCoalesce 1073741824, [loreId=51]
+         +- GpuCustomShuffleReader coalesced
+            +- ShuffleQueryStage 5
+               +- GpuColumnarExchange gpurangepartitioning(entity_id#8L ASC NULLS LAST, 2), ENSURE_REQUIREMENTS, [plan_id=1646], [loreId=46]
+                  +- GpuBroadcastHashJoin [entity_id#8L], [entity_id#16L], LeftAnti, GpuBuildRight, false, [loreId=45]
+                     :- GpuBroadcastHashJoin [entity_id#8L], [entity_id#14L], LeftSemi, GpuBuildRight, false, [loreId=44]
+                     :  :- GpuRowToColumnar targetsize(1073741824), [loreId=43]
+                     :  :  +- AQEShuffleRead local
+                     :  :     +- ShuffleQueryStage 0
+                     :  :        +- Exchange hashpartitioning(entity_id#8L, 2), ENSURE_REQUIREMENTS, [plan_id=1271]
+                     :  :           +- *(1) Scan ExistingRDD[entity_id#8L]
+                     :  +- BroadcastQueryStage 3
+                     :     +- GpuBroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=1446], [loreId=23]
+                     :        +- GpuRowToColumnar targetsize(1073741824), [loreId=22]
+                     :           +- AQEShuffleRead local
+                     :              +- ShuffleQueryStage 1
+                     :                 +- Exchange hashpartitioning(entity_id#14L, 2), ENSURE_REQUIREMENTS, [plan_id=1282]
+                     :                    +- *(2) Scan ExistingRDD[entity_id#14L]
+                     +- BroadcastQueryStage 4
+                        +- GpuBroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=1524], [loreId=31]
+                           +- GpuRowToColumnar targetsize(1073741824), [loreId=30]
+                              +- AQEShuffleRead local
+                                 +- ShuffleQueryStage 2
+                                    +- Exchange hashpartitioning(entity_id#16L, 2), ENSURE_REQUIREMENTS, [plan_id=1294]
+                                       +- *(3) Scan ExistingRDD[entity_id#16L]
++- == Initial Plan ==
+   Sort [entity_id#8L ASC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(entity_id#8L ASC NULLS LAST, 2), ENSURE_REQUIREMENTS, [plan_id=1123]
+      +- SortMergeJoin [entity_id#8L], [entity_id#16L], LeftAnti
+         :- SortMergeJoin [entity_id#8L], [entity_id#14L], LeftSemi
+         :  :- Sort [entity_id#8L ASC NULLS FIRST], false, 0
+         :  :  +- Exchange hashpartitioning(entity_id#8L, 2), ENSURE_REQUIREMENTS, [plan_id=1112]
+         :  :     +- Scan ExistingRDD[entity_id#8L]
+         :  +- Sort [entity_id#14L ASC NULLS FIRST], false, 0
+         :     +- Exchange hashpartitioning(entity_id#14L, 2), ENSURE_REQUIREMENTS, [plan_id=1113]
+         :        +- Scan ExistingRDD[entity_id#14L]
+         +- Sort [entity_id#16L ASC NULLS FIRST], false, 0
+            +- Exchange hashpartitioning(entity_id#16L, 2), ENSURE_REQUIREMENTS, [plan_id=1119]
+               +- Scan ExistingRDD[entity_id#16L]
+

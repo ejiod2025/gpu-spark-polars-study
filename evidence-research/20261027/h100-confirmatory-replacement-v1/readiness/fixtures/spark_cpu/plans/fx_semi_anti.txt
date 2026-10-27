@@ -1,0 +1,39 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(5) Sort [entity_id#8L ASC NULLS LAST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 5
+         +- Exchange rangepartitioning(entity_id#8L ASC NULLS LAST, 2), ENSURE_REQUIREMENTS, [plan_id=701]
+            +- *(4) BroadcastHashJoin [entity_id#8L], [entity_id#16L], LeftAnti, BuildRight, false
+               :- *(4) BroadcastHashJoin [entity_id#8L], [entity_id#14L], LeftSemi, BuildRight, false
+               :  :- AQEShuffleRead local
+               :  :  +- ShuffleQueryStage 0
+               :  :     +- Exchange hashpartitioning(entity_id#8L, 2), ENSURE_REQUIREMENTS, [plan_id=510]
+               :  :        +- *(1) Scan ExistingRDD[entity_id#8L]
+               :  +- BroadcastQueryStage 3
+               :     +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=608]
+               :        +- AQEShuffleRead local
+               :           +- ShuffleQueryStage 1
+               :              +- Exchange hashpartitioning(entity_id#14L, 2), ENSURE_REQUIREMENTS, [plan_id=517]
+               :                 +- *(2) Scan ExistingRDD[entity_id#14L]
+               +- BroadcastQueryStage 4
+                  +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=645]
+                     +- AQEShuffleRead local
+                        +- ShuffleQueryStage 2
+                           +- Exchange hashpartitioning(entity_id#16L, 2), ENSURE_REQUIREMENTS, [plan_id=525]
+                              +- *(3) Scan ExistingRDD[entity_id#16L]
++- == Initial Plan ==
+   Sort [entity_id#8L ASC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(entity_id#8L ASC NULLS LAST, 2), ENSURE_REQUIREMENTS, [plan_id=486]
+      +- SortMergeJoin [entity_id#8L], [entity_id#16L], LeftAnti
+         :- SortMergeJoin [entity_id#8L], [entity_id#14L], LeftSemi
+         :  :- Sort [entity_id#8L ASC NULLS FIRST], false, 0
+         :  :  +- Exchange hashpartitioning(entity_id#8L, 2), ENSURE_REQUIREMENTS, [plan_id=475]
+         :  :     +- Scan ExistingRDD[entity_id#8L]
+         :  +- Sort [entity_id#14L ASC NULLS FIRST], false, 0
+         :     +- Exchange hashpartitioning(entity_id#14L, 2), ENSURE_REQUIREMENTS, [plan_id=476]
+         :        +- Scan ExistingRDD[entity_id#14L]
+         +- Sort [entity_id#16L ASC NULLS FIRST], false, 0
+            +- Exchange hashpartitioning(entity_id#16L, 2), ENSURE_REQUIREMENTS, [plan_id=482]
+               +- Scan ExistingRDD[entity_id#16L]
+
