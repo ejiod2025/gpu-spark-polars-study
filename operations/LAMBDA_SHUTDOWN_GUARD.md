@@ -127,8 +127,10 @@ the recorded decisions and exact files; it does not assess paper quality.
 
 The deployed web receipt has schema `h100-public-web-deployment-v1`,
 `status:succeeded`, `audience:public`, nonempty `version`, `campaign_sha256`,
-`paper_pdf_sha256`, `version_url`, and `page_sha256`. Use a direct immutable
-HTTPS version URL without a query or fragment. The mutation path fetches it
+`paper_pdf_sha256`, `version_url`, and `page_sha256`. Use the native deployment's
+direct public HTTPS URL without a query or fragment, with its deployed version
+ID recorded separately. A stable production URL is acceptable when Sites does
+not provide an immutable version URL. The mutation path fetches it
 without credentials or redirects, requires HTTP 200, and compares its actual
 body SHA256. The page must be built from the final paper and genuine replay.
 The webpage builder's local `PUBLICATION_MANIFEST.json` is useful provenance
