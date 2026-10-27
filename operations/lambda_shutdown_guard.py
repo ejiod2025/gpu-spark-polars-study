@@ -243,7 +243,7 @@ def verify_completion(manifest_path, expected, now=None):
     campaign = sha(paths["campaign"])
     require(manifest.get("campaign_sha256") == campaign, "Completion manifest campaign differs")
     plan, journal = read_json(paths["campaign"]), read_json(paths["journal"])
-    require(plan.get("synthetic") is False and plan.get("campaign_id") == RECOVERY_CAMPAIGN_ID
+    require(plan.get("synthetic") is not True and plan.get("campaign_id") == RECOVERY_CAMPAIGN_ID
             and journal.get("campaign_sha256") == campaign,
             "Only the genuine recovery campaign can permit termination")
     verify_posthash(plan, journal)

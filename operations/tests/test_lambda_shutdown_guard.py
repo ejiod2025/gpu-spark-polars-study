@@ -39,7 +39,8 @@ def complete(tmp_path, monkeypatch):
     stamp = datetime.now(timezone.utc).isoformat()
     end, post = "2026-10-01T01:00:00Z", "2026-10-01T01:01:00Z"
     sessions = [{"session_id": f"session-{i:03d}"} for i in range(400)]
-    campaign_path = write(base / "campaign.json", {"synthetic": False, "campaign_id": guard.RECOVERY_CAMPAIGN_ID,
+    # Frozen C84 make_plan omits the synthetic field for genuine campaigns.
+    campaign_path = write(base / "campaign.json", {"campaign_id": guard.RECOVERY_CAMPAIGN_ID,
                           "sessions": sessions, "datasets": {"1": {}, "10": {}}})
     campaign = guard.sha(campaign_path)
     prestart = base / "prestart"
@@ -177,6 +178,15 @@ def test_full_local_verification_is_offline(complete, monkeypatch):
     result = guard.verify_completion(complete["path"], complete["expected"])
     assert result["campaign_sha256"] == complete["manifest"]["campaign_sha256"]
 
+
+
+def test_explicit_synthetic_plan_refuses_before_any_api_call(complete):
+    changed(complete, "campaign", lambda value: value.update(synthetic=True))
+    complete["manifest"]["campaign_sha256"] = guard.sha(complete["paths"]["campaign"])
+    write(complete["path"], complete["manifest"])
+    with pytest.raises(ValueError, match="genuine recovery"):
+        guard.terminate(complete["path"], complete["expected"], "fixture-secret-only",
+                        api=lambda *args: pytest.fail("API called"))
 
 @pytest.mark.parametrize("name", ["campaign", "journal", "complete_audit", "replay_manifest", "paper_pdf", "paper_source",
                                     "publication_receipt", "web_receipt", "private_git_receipt", "identity_idle_receipt"])
