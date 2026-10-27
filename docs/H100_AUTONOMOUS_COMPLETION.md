@@ -57,6 +57,16 @@ execution-profile SHA256 is
 New preparation PID 87058 repeats all five SF1 readiness configurations and
 freezes fresh genuine campaign/prestart identities before any recovery timing.
 
+Recovery readiness is now PASS: 116 successful output comparisons, all five
+semantic fixture configurations and four actual Spark readiness JVM flag
+checks. The registered recovery campaign SHA256 is
+`3142874b918a2df2d66c8dfb32c26f59a09353edcb4cb73e51c4ba46ff387641`;
+the canonical 346-file prestart manifest SHA256 is
+`ea57fa1221b905e8ee287fe7860285c7a37535b084f13ce3dbbbca5ac4e29ace`.
+Private prestart commit `6dbca2fbd4de1be8aa4408a639954bc9076bfa38` preceded
+the first recovery session. Supervisor PID 92406 launched block 01; the first
+1,654-file byte gate passed at 2026-10-27 21:47:43 UTC. Do not restart it.
+
 The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
 same 1,654 input files, oracles and Python environments remain unchanged.
 Both Spark paths use fixed `SPARK_SUBMIT_OPTS` with unlocked diagnostic options,
