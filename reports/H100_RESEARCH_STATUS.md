@@ -12,6 +12,15 @@ and 16 subtests**, with one fixture-dependent skip. SF1/SF10/SF30 are rebuilt;
 SF100 is generating. No confirmatory timing has started. See the
 [replacement preparation snapshot](h100-replacement-preparation-status.json).
 
+At **15:15 UTC**, local continuation controller PID **85571** was verified live
+and waiting for preparation. It will validate the new fixed plan, record input
+domains, launch the gated supervisor, preserve and privately push the exact
+prestart archive, then acknowledge it and watch block backups. Its current
+state/events/log live under ignored `rerun/replacement-20261027/raw-backups/`.
+See the [controller](../operations/continue_h100_replacement.py) and
+[backup runbook](../operations/H100_BACKUP_RUNBOOK.md). Do not restart the remote
+supervisor on an SSH timeout; inspect persistent markers and controller state.
+
 The durable surviving timed evidence is blocks 01–03: **120 sessions and 2,808
 successful outputs** with locally reverified core evidence. Their raw telemetry,
 events and complete logs were not in these core backups. No final input hash or
