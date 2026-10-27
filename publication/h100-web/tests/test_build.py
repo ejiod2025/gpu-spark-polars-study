@@ -45,9 +45,10 @@ class PublicationGateTests(unittest.TestCase):
 
     def test_synthetic_and_previous_cohort_are_rejected(self):
         for changes in ({"synthetic": True}, {"campaign_id": "SYNTHETIC-TEST"},
-                        {"campaign_id": "h100-confirmatory-v1"}, {"synthetic": None}):
+                        {"campaign_id": "h100-confirmatory-v1"},
+                        {"campaign_id": "h100-confirmatory-replacement-20261027"}, {"synthetic": None}):
             replay = self.replay_manifest(**changes)
-            with self.assertRaisesRegex(ValueError, "genuine replacement"):
+            with self.assertRaisesRegex(ValueError, "genuine recovery"):
                 builder.validate_replay(replay)
 
     def test_changed_source_map_is_rejected_before_registry_lookup(self):
@@ -58,7 +59,8 @@ class PublicationGateTests(unittest.TestCase):
 
     def test_missing_final_pdf_never_creates_output(self):
         output = self.root / "public"
-        with patch.object(builder, "validate_replay", return_value=({"campaign_sha256": "0" * 64}, {}, {}, None)):
+        with patch.object(builder, "validate_replay", return_value=({"campaign_sha256": "0" * 64},
+                         {"execution_profile": {"sha256": "a" * 64}}, {}, None)):
             replay = self.replay_manifest()
             with self.assertRaisesRegex(ValueError, "final paper PDF"):
                 builder.build(replay, self.root / "absent.pdf", self.root / "absent.json", output)
@@ -71,6 +73,27 @@ class PublicationGateTests(unittest.TestCase):
         manifest.write_text(json.dumps({"schema_version": "h100-paper-build-v1", "status": "PASS_DRAFT", "final": False}))
         with self.assertRaisesRegex(ValueError, "Final paper manifest"):
             builder.validate_paper(paper, manifest, "0" * 64, "1" * 64)
+
+    def test_registered_aborted_v1_hash_cannot_be_relabelled_as_recovery(self):
+        source = json.loads((builder.ROOT / "evidence-research/20261026/h100-confirmatory-v1/campaign.json").read_text())["source"]
+        replay = self.replay_manifest(source_commit=builder.SOURCE_COMMIT, source_tree_sha256=builder.SOURCE_TREE,
+                                      source_files_sha256=source["files_sha256"],
+                                      campaign_sha256="0dabe0d40c5adda0a087508e3f95ceb0636815f5133a3b401071612e3f24c145",
+                                      prestart_sha256="a758ceea7d16a6c726221db5db2cb99502ac4f640131341b456e9b63ed459b2a")
+        with self.assertRaisesRegex(ValueError, "registered recovery campaign/profile"):
+            builder.validate_replay(replay)
+
+    def test_profile_proof_requires_exact_registered_hash_and_all_driver_gates(self):
+        identity = {"execution_profile_sha256": "a" * 64}
+        proof = {"path": "EXECUTION_PROFILE.json", "sha256": "a" * 64,
+                 "spark_driver_logs": 160, "profile_gates": 24, "status": "PASS"}
+        builder.validate_recovery_profile({"execution_profile": proof}, identity)
+        for change in ({"sha256": "b" * 64}, {"spark_driver_logs": 159}, {"profile_gates": 23},
+                       {"status": "FAIL"}, {"path": "other.json"}):
+            with self.assertRaisesRegex(ValueError, "160 Spark drivers and 24 profile gates"):
+                builder.validate_recovery_profile({"execution_profile": {**proof, **change}}, identity)
+        with self.assertRaises(ValueError):
+            builder.validate_recovery_profile({}, identity)
 
     def test_preview_has_no_result_payload_or_release_manifest(self):
         output = self.root / "preview"

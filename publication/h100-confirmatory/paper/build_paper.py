@@ -13,8 +13,9 @@ from datetime import datetime, timezone
 import hashlib
 import html
 import ipaddress
+import importlib.util
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
@@ -24,7 +25,14 @@ import textwrap
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE.parent / "MANUSCRIPT.md"
 REFERENCES = HERE.parent / "references.md"
+ROOT = HERE.parents[2]
+REPORTING = ROOT / "research_reporting"
 AUTHOR = "Daniel Ejiofor"
+CAMPAIGN_ID = "h100-confirmatory-gclocker100-20261027"
+SOURCE_TREE = "9514f0f7ce384763d0a675a9075666707e0edabcc003c729a3e0735a52ea25d8"
+EXPECTED_COUNTS = {"sessions": 400, "successful_outputs": 9360, "warmup_outputs": 2340,
+                   "measured_outputs": 7020, "translation_rejections": 60,
+                   "successful_complex_cleanups": 3360, "failed_complex_cleanups": 60}
 C84 = "c84ef6a07341f350dae6636ab709c1b65fd894e0"
 OLD_CAMPAIGN = "69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0"
 REVIEW_FIELDS = ("all_26_primary_rows", "all_40_coverage_cells", "all_32_secondary_pairs",
@@ -49,11 +57,34 @@ def read_json(path):
 
 
 def contained(root, relative):
+    relative = PurePosixPath(str(relative))
+    if relative.is_absolute() or ".." in relative.parts or "\\" in str(relative):
+        raise ValueError(f"Unsafe artifact: {relative}")
     root = Path(root).resolve()
-    path = (root / relative).resolve()
-    if not path.is_relative_to(root) or not path.is_file():
-        raise ValueError(f"Missing/escaping artifact: {relative}")
+    path = root.joinpath(*relative.parts)
+    if (not path.resolve().is_relative_to(root) or not path.is_file() or
+            any(part.is_symlink() for part in (path, *path.parents) if part != root and root in part.parents)):
+        raise ValueError(f"Missing/escaping/symlink artifact: {relative}")
     return path
+
+
+def registered_identity(manifest):
+    spec = importlib.util.spec_from_file_location("h100_paper_campaign_identity", REPORTING / "campaign_identity.py")
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    identity = helper.registered_identity(manifest.get("campaign_sha256"), manifest.get("prestart_sha256"))
+    if (identity.get("campaign_id") != CAMPAIGN_ID or
+            not re.fullmatch(r"[0-9a-f]{64}", identity.get("execution_profile_sha256", "")) or
+            manifest.get("registered_campaign_identity") != identity):
+        raise ValueError("Final paper requires the exact registered recovery campaign/profile")
+    return identity
+
+
+def verify_recovery_profile(audit, identity):
+    expected = {"path": "EXECUTION_PROFILE.json", "sha256": identity["execution_profile_sha256"],
+                "spark_driver_logs": 160, "profile_gates": 24, "status": "PASS"}
+    if audit.get("execution_profile") != expected:
+        raise ValueError("Recovery profile audit must verify all 160 Spark drivers and 24 profile gates")
 
 
 def verify_replay(root):
@@ -65,9 +96,23 @@ def verify_replay(root):
     if (manifest.get("schema_version") != "research-artifact-replay-v1" or
             manifest.get("status") != "PASS" or manifest.get("phase") != "complete" or
             manifest.get("synthetic") is not False or manifest.get("source_commit") != C84 or
-            not re.fullmatch(r"[0-9a-f]{64}", campaign or "") or campaign == OLD_CAMPAIGN or
-            "replacement" not in manifest.get("campaign_id", "").lower()):
-        raise ValueError("Final paper requires a completed genuine replacement replay")
+            manifest.get("campaign_id") != CAMPAIGN_ID or
+            not re.fullmatch(r"[0-9a-f]{64}", campaign or "") or campaign == OLD_CAMPAIGN):
+        raise ValueError("Final paper requires a completed genuine recovery replay")
+    source_map = manifest.get("source_files_sha256", {})
+    if (len(source_map) != 52 or manifest.get("source_tree_sha256") != SOURCE_TREE or
+            hashlib.sha256((json.dumps(source_map, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()).hexdigest()
+            != SOURCE_TREE):
+        raise ValueError("Final paper requires the exact frozen 52-file C84 source identity")
+    identity = registered_identity(manifest)
+    for field, filename in (("replay_code_sha256", "replay.py"), ("auditor_source_sha256", "audit_complete.py"),
+                            ("renderer_sha256", "render.py")):
+        if manifest.get(field) != sha256(REPORTING / filename):
+            raise ValueError(f"Reporting source differs: {filename}")
+    commands = manifest.get("commands", [])
+    if ([entry.get("name") for entry in commands] != ["validation", "analysis", "complete_audit", "rendering"] or
+            any(entry.get("status") != "PASS" or entry.get("returncode") != 0 for entry in commands)):
+        raise ValueError("Final paper requires all complete replay commands to succeed")
     inventory = manifest.get("output_files_sha256", {})
     critical = {"validation.json", "analysis/analysis.json", "analysis/block_ratios.csv",
                 "complete-audit/AUDIT_COMPLETE.json", "complete-audit/HOST_RESULT_SENSITIVITY.csv",
@@ -76,22 +121,39 @@ def verify_replay(root):
     if not critical <= inventory.keys():
         raise ValueError("Replay is missing required complete paper artifacts")
     for relative, digest in inventory.items():
-        if sha256(contained(root, relative)) != digest:
+        if not re.fullmatch(r"[0-9a-f]{64}", digest or "") or sha256(contained(root, relative)) != digest:
             raise ValueError(f"Replay artifact hash differs: {relative}")
     validation = read_json(root / "validation.json")
     audit = read_json(root / "complete-audit/AUDIT_COMPLETE.json")
     analysis = read_json(root / "analysis/analysis.json")
     figures = read_json(root / "figures/RENDER_MANIFEST.json")
+    audit_ref, render_ref = manifest.get("complete_audit", {}), manifest.get("render_manifest", {})
+    if (audit_ref != {"path": "complete-audit/AUDIT_COMPLETE.json", "status": "PASS",
+                      "sha256": sha256(root / "complete-audit/AUDIT_COMPLETE.json")} or
+            render_ref.get("path") != "figures/RENDER_MANIFEST.json" or
+            render_ref.get("sha256") != sha256(root / "figures/RENDER_MANIFEST.json")):
+        raise ValueError("Replay audit/render manifest binding differs")
     if (any(value.get("campaign_sha256") != campaign for value in (validation, audit, analysis, figures)) or
-            validation.get("status") != "PASS" or validation.get("audited_sessions") != 400 or
-            audit.get("status") != "PASS" or audit.get("findings") or audit.get("synthetic") is not False or
-            audit.get("counts", {}).get("sessions") != 400 or
-            audit.get("counts", {}).get("successful_outputs") != 9360 or
-            analysis.get("primary_family_status") != "complete" or
+            validation.get("status") != "PASS" or
+            validation.get("planned_sessions") != validation.get("audited_sessions") or
+            validation.get("audited_sessions") != 400 or validation.get("successful_outputs_compared") != 9360 or
+            validation.get("pending_sessions") or validation.get("failed_sessions") or
+            validation.get("journal_sha256") != audit.get("journal_sha256") or
+            audit.get("schema_version") != "research-complete-audit-v1" or
+            audit.get("status") != "PASS" or audit.get("findings") != [] or audit.get("synthetic") is not False or
+            audit.get("counts") != EXPECTED_COUNTS or audit.get("registered_campaign_identity") != identity or
+            audit.get("source_sha256") != manifest["auditor_source_sha256"] or
+            len(audit.get("sessions", [])) != 400 or any(row.get("status") != "PASS" for row in audit["sessions"]) or
+            analysis.get("campaign_id") != CAMPAIGN_ID or analysis.get("primary_family_status") != "complete" or
+            analysis.get("validation_sha256") != sha256(root / "validation.json") or
+            analysis.get("analysis_source_sha256") != source_map["research_analysis.py"] or
             len(analysis.get("sessions", [])) != 400 or len(analysis.get("primary", [])) != 26 or
-            figures.get("synthetic") is not False or
+            figures.get("synthetic") is not False or figures.get("campaign_id") != CAMPAIGN_ID or
+            figures.get("renderer_sha256") != manifest["renderer_sha256"] or
+            figures.get("primary_test_family_size") != 26 or
             any(row.get("status") != "complete" or row.get("n_blocks") != 10 for row in analysis["primary"])):
         raise ValueError("Replay must retain complete matching validation, audit, analysis and figures")
+    verify_recovery_profile(audit, identity)
     for relative, count in (("figures/primary_contrasts.csv", 26),
                             ("figures/complete_case_scores.csv", 40),
                             ("complete-audit/HOST_RESULT_SENSITIVITY.csv", 32)):
@@ -393,6 +455,7 @@ def build(output, replay_root=None, review_path=None):
                 "builder_sha256": sha256(Path(__file__)), "replay_manifest_sha256": replay_hash,
                 "campaign_id": replay.get("campaign_id") if replay else None,
                 "campaign_sha256": replay.get("campaign_sha256") if replay else None,
+                "execution_profile_sha256": replay["registered_campaign_identity"]["execution_profile_sha256"] if replay else None,
                 "started_at_utc": datetime.now(timezone.utc).isoformat()}
     try:
         if review_path:

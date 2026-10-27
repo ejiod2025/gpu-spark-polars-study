@@ -44,10 +44,16 @@ the historical homepage link and handles packaging and deployment.
 
 All of these gates must pass before any output file is created:
 
-- Exact replacement campaign ID `h100-confirmatory-replacement-20261027`;
+- Exact recovery campaign ID `h100-confirmatory-gclocker100-20261027`;
   `synthetic: false`; complete genuine replay PASS.
-- Registered campaign/prestart identity from the committed registry; unchanged
-  C84 source commit and exact 52-file source-map checksum.
+- Registered campaign/prestart identity and exact `EXECUTION_PROFILE.json` hash
+  from the committed registry; unchanged C84 source commit and exact 52-file
+  source-map checksum. Registration occurs only after the actual artifacts exist.
+- Complete recovery profile audit proving all 160 actual Spark driver logs and
+  24 profile receipts (readiness before/after, ten block pairs, final pair). The
+  driver logs prove diagnostic unlocking, GCLocker retry count 100, a
+  103,079,215,104-byte maximum heap, and G1; profile receipts prove the Java
+  executable/runtime hashes outside timed queries.
 - Current replay, complete-audit and renderer source hashes; every replay output
   checksum; all validation, analysis, audit and render commands successful.
 - Final validation PASS for all 400 sessions and 9,360 successful outputs;
@@ -58,16 +64,21 @@ All of these gates must pass before any output file is created:
   all PNG/SVG/PDF figure identities.
 - Final paper manifest `h100-paper-build-v1`, PASS, `final: true`, author Daniel
   Ejiofor, no affiliation, sanitization PASS, and exact campaign, replay, PDF,
-  paper-builder, manuscript and reference hashes. Draft paper builds are rejected.
+  execution-profile, paper-builder, manuscript and reference hashes. Draft paper
+  builds are rejected.
 
 There is no `--allow-synthetic`, `--skip-audit` or incomplete-data override.
 The lost cohort's surviving 120 sessions / 2,808 core comparisons, earlier
 readiness checks, and synthetic fixtures can never satisfy this release gate.
+The aborted replacement v1 cohort (88 passed sessions before the SF100 Spark CPU
+warmup failure) remains historical evidence. Neither its timings nor the separate
+SF100 recovery diagnostic enter recovery estimates, and a forged PASS or changed
+campaign label cannot promote it through the registry/profile gate.
 
 ## Public data boundary
 
 `data.json` has schema `h100-publication-data-v1`. It contains only fixed labels,
-exact hashes, counts, allowlisted primary estimates, paired block ratios,
+exact campaign/prestart/profile hashes, counts, allowlisted primary estimates, paired block ratios,
 descriptive CPU Polars 2.0 query ratios and complete-case scores. Unsupported
 Polars GPU complex-suite scores remain null/N/A, never partial sums.
 
@@ -79,7 +90,7 @@ are not copied. Text/SVG downloads receive an additional private-path,
 address and credential-pattern scan.
 
 `PUBLICATION_MANIFEST.json` has schema `h100-publication-web-v1`, PASS,
-`final: true`, `synthetic: false`, campaign ID/hash, author, replay hash, paper
+`final: true`, `synthetic: false`, campaign ID/hash, execution-profile hash, author, replay hash, paper
 hash, builder hash and a checksum map whose keys are only relative public files.
 It proves a local build, not an actual deployment. The separate native Site
 deployment receipt must establish public hosting before the shutdown guard runs.

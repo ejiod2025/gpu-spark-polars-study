@@ -23,16 +23,28 @@ Draft builds have `status: PASS_DRAFT`, `final: false`, and a visible
 artifact and cannot satisfy the finished paper deliverable or final webpage
 paper gate.
 
-For final builds, supply a completed genuine replacement replay and a separate
+For final builds, supply the completed genuine recovery replay for exactly
+`h100-confirmatory-gclocker100-20261027` and a separate
 editorial review JSON bound to the actual manuscript and references. The exact
 fields and finalization procedure are in the ledger. The builder rejects the
-lost campaign, synthetic/incomplete/modified replay outputs, missing complete
-tables, mismatched editorial review and pending/draft markers in the paper.
+lost campaign, aborted replacement v1 cohort, arbitrary campaign IDs,
+synthetic/incomplete/modified replay outputs, missing complete tables,
+mismatched editorial review and pending/draft markers in the paper. The actual
+campaign/prestart/profile hashes must be registered before use; the original
+historical identity anchors remain valid for archive verification only.
+
+The final gate verifies the exact 52-file C84 source map and current reporting
+code, all four successful replay commands, the bound complete audit, and exact
+counts for 400 sessions, 9,360 successful outputs and 60 translation rejections.
+The complete audit must prove the registered recovery profile in all 160 actual
+Spark driver logs and all 24 profile receipts (readiness before/after, ten block
+pairs, final pair). Separate diagnostics and aborted-campaign observations are
+excluded from the recovery analysis.
 It consumes the existing statistics and never recomputes a new analysis.
 
 ```sh
 python publication/h100-confirmatory/paper/build_paper.py \
-  --replay /absolute/replacement-replay \
+  --replay /absolute/gclocker100-recovery-replay \
   --final-review /absolute/FINAL_PAPER_REVIEW.json \
   --output /absolute/new-final-paper-build
 ```
@@ -52,7 +64,8 @@ home-directory or private host path is needed in the manuscript.
 
 `BUILD_MANIFEST.json` uses schema `h100-paper-build-v1`. A successful final
 build has `status: PASS`, `final: true`, `synthetic: false`, `author`,
-`campaign_id`, `campaign_sha256`, `replay_manifest_sha256`, `paper_sha256`,
+`campaign_id`, `campaign_sha256`, `execution_profile_sha256`,
+`replay_manifest_sha256`, `paper_sha256`,
 `paper_html_sha256`, `manuscript_sha256`, `references_sha256`,
 `editorial_review_sha256`, `embedded_figures_sha256`, and `output_files_sha256`.
 This is the integration contract for the separate H100 webpage builder.

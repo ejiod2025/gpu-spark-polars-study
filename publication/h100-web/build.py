@@ -21,7 +21,7 @@ import tempfile
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 REPORTING = ROOT / "research_reporting"
-CAMPAIGN_ID = "h100-confirmatory-replacement-20261027"
+CAMPAIGN_ID = "h100-confirmatory-gclocker100-20261027"
 SOURCE_COMMIT = "c84ef6a07341f350dae6636ab709c1b65fd894e0"
 SOURCE_TREE = "9514f0f7ce384763d0a675a9075666707e0edabcc003c729a3e0735a52ea25d8"
 CONFIGS = {"polars_cpu_144": "CPU Polars 1.44.2", "polars_cpu_200": "CPU Polars 2.0.0",
@@ -93,19 +93,22 @@ def validate_replay(replay):
     require(manifest.get("schema_version") == "research-artifact-replay-v1" and manifest.get("status") == "PASS"
             and manifest.get("phase") == "complete", "A complete replay PASS is required")
     require(manifest.get("synthetic") is False and manifest.get("campaign_id") == CAMPAIGN_ID,
-            "Only the genuine replacement campaign may be published")
+            "Only the genuine recovery campaign may be published")
     require(manifest.get("source_commit") == SOURCE_COMMIT and manifest.get("source_tree_sha256") == SOURCE_TREE
             and len(manifest.get("source_files_sha256", {})) == 52, "Frozen 52-file C84 identity differs")
     source_map = (json.dumps(manifest["source_files_sha256"], indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
     require(hashlib.sha256(source_map).hexdigest() == SOURCE_TREE, "Frozen source map checksum differs")
     identity_module = module("h100_web_campaign_identity", REPORTING / "campaign_identity.py")
     identity = identity_module.registered_identity(manifest.get("campaign_sha256"), manifest.get("prestart_sha256"))
+    require(identity.get("campaign_id") == CAMPAIGN_ID
+            and re.fullmatch(r"[0-9a-f]{64}", identity.get("execution_profile_sha256", "")),
+            "Only the registered recovery campaign/profile may be published")
     require(manifest.get("registered_campaign_identity") == identity, "Replay does not bind the current registered identity")
     for field, filename in (("replay_code_sha256", "replay.py"), ("auditor_source_sha256", "audit_complete.py"),
                             ("renderer_sha256", "render.py")):
         require(manifest.get(field) == sha(REPORTING / filename), f"Reporting source differs: {filename}")
     check_inventory(replay, manifest.get("output_files_sha256"))
-    require({c.get("name") for c in manifest.get("commands", [])} >= {"validation", "analysis", "complete_audit", "rendering"}
+    require([c.get("name") for c in manifest.get("commands", [])] == ["validation", "analysis", "complete_audit", "rendering"]
             and all(c.get("returncode") == 0 and c.get("status") == "PASS" for c in manifest["commands"]),
             "Replay commands did not all succeed")
     audit_ref = manifest.get("complete_audit", {})
@@ -120,6 +123,7 @@ def validate_replay(replay):
             and len(audit.get("sessions", [])) == 400 and all(s.get("status") == "PASS" for s in audit["sessions"]),
             "Complete audit must PASS all 400 sessions and exact output counts")
     require(audit.get("registered_campaign_identity") == identity, "Audit registered identity differs")
+    validate_recovery_profile(audit, identity)
     validation_path = safe_file(replay, "validation.json")
     validation = read_json(validation_path)
     require(validation.get("status") == "PASS" and validation.get("campaign_sha256") == manifest["campaign_sha256"]
@@ -152,7 +156,15 @@ def validate_replay(replay):
     return manifest, audit, data, renderer
 
 
-def validate_paper(paper, paper_manifest, replay_manifest, campaign_sha256):
+def validate_recovery_profile(audit, identity):
+    """Require the exact receipt/log proof produced by the current complete auditor."""
+    expected = {"path": "EXECUTION_PROFILE.json", "sha256": identity["execution_profile_sha256"],
+                "spark_driver_logs": 160, "profile_gates": 24, "status": "PASS"}
+    require(audit.get("execution_profile") == expected,
+            "Recovery profile audit must verify all 160 Spark drivers and 24 profile gates")
+
+
+def validate_paper(paper, paper_manifest, replay_manifest, campaign_sha256, execution_profile_sha256=None):
     paper = Path(paper).resolve()
     require(paper.is_file() and not paper.is_symlink() and paper.read_bytes().startswith(b"%PDF-"), "A final paper PDF is required")
     metadata = read_json(paper_manifest)
@@ -161,6 +173,8 @@ def validate_paper(paper, paper_manifest, replay_manifest, campaign_sha256):
             and metadata.get("campaign_id") == CAMPAIGN_ID and metadata.get("author") == "Daniel Ejiofor"
             and not metadata.get("affiliation") and metadata.get("paper_sha256") == sha(paper)
             and metadata.get("campaign_sha256") == campaign_sha256
+            and re.fullmatch(r"[0-9a-f]{64}", execution_profile_sha256 or "")
+            and metadata.get("execution_profile_sha256") == execution_profile_sha256
             and metadata.get("replay_manifest_sha256") == replay_manifest
             and metadata.get("public_sanitization", {}).get("status") == "PASS",
             "Final paper manifest must bind the author, sanitized PDF and exact real replay")
@@ -194,6 +208,7 @@ def public_data(manifest, audit, data, renderer):
     return {"schema_version": "h100-publication-data-v1", "status": "PASS", "final": True, "synthetic": False,
             "author": "Daniel Ejiofor", "campaign_id": CAMPAIGN_ID,
             "campaign_sha256": manifest["campaign_sha256"], "prestart_sha256": manifest["prestart_sha256"],
+            "execution_profile_sha256": audit["execution_profile"]["sha256"],
             "source_commit": SOURCE_COMMIT, "source_tree_sha256": SOURCE_TREE,
             "analysis_sha256": data["inputs"]["analysis.json"], "counts": audit["counts"], "configs": CONFIGS,
             "primary": [select(row, primary_fields) for row in report["primary"]],
@@ -225,7 +240,8 @@ def build(replay, paper, paper_manifest, output):
     require(not output.exists(), "Refusing to overwrite publication output; build into a fresh directory")
     manifest, audit, data, renderer = validate_replay(replay)
     replay_sha = sha(Path(replay) / "REPLAY_MANIFEST.json")
-    validate_paper(paper, paper_manifest, replay_sha, manifest["campaign_sha256"])
+    validate_paper(paper, paper_manifest, replay_sha, manifest["campaign_sha256"],
+                   audit["execution_profile"]["sha256"])
     payload = public_data(manifest, audit, data, renderer)
     # Create no visible output until every gate and allowlisted public asset passes.
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -248,7 +264,7 @@ def build(replay, paper, paper_manifest, output):
         shutil.copyfile(paper, downloads / "h100-study.pdf")
         # Raw replay/audit JSON contains local paths and environment observations;
         # publish a narrow provenance statement instead of copying those artifacts.
-        provenance = {key: payload[key] for key in ("campaign_id", "campaign_sha256", "prestart_sha256", "source_commit",
+        provenance = {key: payload[key] for key in ("campaign_id", "campaign_sha256", "prestart_sha256", "execution_profile_sha256", "source_commit",
                                                    "source_tree_sha256", "analysis_sha256", "counts")}
         provenance.update(replay_status="PASS", complete_audit_status="PASS", replay_manifest_sha256=replay_sha,
                           paper_sha256=sha(paper), public_scope="Sanitized numerical tables, figures, paper and provenance; private source and raw infrastructure artifacts are excluded.")
@@ -258,6 +274,7 @@ def build(replay, paper, paper_manifest, output):
                 scan_public_text(path.read_text(), str(path.relative_to(stage)))
         public_manifest = {"schema_version": "h100-publication-web-v1", "status": "PASS", "final": True, "synthetic": False,
                            "campaign_id": CAMPAIGN_ID, "campaign_sha256": manifest["campaign_sha256"],
+                           "execution_profile_sha256": audit["execution_profile"]["sha256"],
                            "author": "Daniel Ejiofor", "replay_manifest_sha256": replay_sha,
                            "paper_sha256": sha(paper), "builder_sha256": sha(Path(__file__)),
                            "output_files_sha256": {p.relative_to(stage).as_posix(): sha(p) for p in sorted(stage.rglob("*")) if p.is_file()}}

@@ -15,16 +15,55 @@ class PaperGates(unittest.TestCase):
     def test_incomplete_synthetic_and_lost_cohorts_cannot_make_final_paper(self):
         base = {"schema_version": "research-artifact-replay-v1", "status": "PASS", "phase": "complete",
                 "synthetic": False, "source_commit": builder.C84,
-                "campaign_sha256": "a" * 64, "campaign_id": "replacement-SYNTHETIC-TEST"}
+                "campaign_sha256": "a" * 64, "campaign_id": builder.CAMPAIGN_ID}
         cases = [{**base, "status": "RUNNING"}, {**base, "synthetic": True},
                  {**base, "campaign_sha256": builder.OLD_CAMPAIGN},
-                 {**base, "source_commit": "drifted"}, {**base, "output_files_sha256": {}}]
+                 {**base, "source_commit": "drifted"},
+                 {**base, "campaign_id": "h100-confirmatory-replacement-20261027"},
+                 {**base, "campaign_id": "arbitrary-replacement-cohort"}, {**base, "output_files_sha256": {}}]
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for payload in cases:
                 (root / "REPLAY_MANIFEST.json").write_text(json.dumps(payload))
                 with self.assertRaises(ValueError):
                     builder.verify_replay(root)
+
+    def test_registered_aborted_v1_hash_cannot_be_relabelled_as_recovery(self):
+        archive = builder.ROOT / "evidence-research/20261026/h100-confirmatory-v1/campaign.json"
+        source = json.loads(archive.read_text())["source"]
+        payload = {"schema_version": "research-artifact-replay-v1", "status": "PASS", "phase": "complete",
+                   "synthetic": False, "source_commit": builder.C84, "source_tree_sha256": builder.SOURCE_TREE,
+                   "source_files_sha256": source["files_sha256"], "campaign_id": builder.CAMPAIGN_ID,
+                   "campaign_sha256": "0dabe0d40c5adda0a087508e3f95ceb0636815f5133a3b401071612e3f24c145",
+                   "prestart_sha256": "a758ceea7d16a6c726221db5db2cb99502ac4f640131341b456e9b63ed459b2a"}
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "REPLAY_MANIFEST.json").write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "registered recovery campaign/profile"):
+                builder.verify_replay(root)
+
+    def test_profile_proof_requires_exact_registered_hash_and_all_driver_gates(self):
+        identity = {"execution_profile_sha256": "a" * 64}
+        proof = {"path": "EXECUTION_PROFILE.json", "sha256": "a" * 64,
+                 "spark_driver_logs": 160, "profile_gates": 24, "status": "PASS"}
+        builder.verify_recovery_profile({"execution_profile": proof}, identity)
+        for change in ({"sha256": "b" * 64}, {"spark_driver_logs": 159}, {"profile_gates": 23},
+                       {"status": "FAIL"}, {"path": "other.json"}):
+            with self.assertRaisesRegex(ValueError, "160 Spark drivers and 24 profile gates"):
+                builder.verify_recovery_profile({"execution_profile": {**proof, **change}}, identity)
+        with self.assertRaises(ValueError):
+            builder.verify_recovery_profile({}, identity)
+
+    def test_missing_or_modified_source_map_fails_before_registry_lookup(self):
+        payload = {"schema_version": "research-artifact-replay-v1", "status": "PASS", "phase": "complete",
+                   "synthetic": False, "source_commit": builder.C84, "campaign_id": builder.CAMPAIGN_ID,
+                   "campaign_sha256": "a" * 64, "source_tree_sha256": builder.SOURCE_TREE,
+                   "source_files_sha256": {str(number): "0" * 64 for number in range(52)}}
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "REPLAY_MANIFEST.json").write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "52-file C84"):
+                builder.verify_replay(root)
 
     def test_completed_review_cannot_clear_pending_source(self):
         replay = {"campaign_sha256": "a" * 64}
