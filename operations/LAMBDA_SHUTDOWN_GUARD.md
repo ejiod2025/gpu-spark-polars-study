@@ -4,7 +4,11 @@ The user authorized termination **after** the full paper and public shareable
 webpage are complete and all results/raw backups are safely offhost. There is
 no second approval prompt. `lambda_shutdown_guard.py` enforces those conditions;
 creating or committing this tool does not authorize terminating an incomplete run.
-No completion manifest is supplied with this tool.
+No completion manifest is supplied with this tool. Completion is limited to
+`h100-confirmatory-gclocker100-20261027`, registered only after its actual new
+campaign, prestart and execution profile exist. Historical archive verification
+remains available, but the lost original cohort and aborted replacement v1
+cohort cannot permit termination, even when presented with a forged PASS.
 
 The fixed target is Lambda instance `8809d4738226458a80a100bb4eb2f906`, IP
 `68.209.73.247`, type `gpu_1x_h100_sxm5`, physical GPU
@@ -92,7 +96,7 @@ Top-level schema:
 | `status` | `COMPLETE`, only after every gate below actually passes |
 | `offhost` | `true`; root verifies these are durable local copies outside the H100 |
 | `instance` | Exact keys `instance_id`, `ip`, `gpu_uuid`, `gpu_name`, `driver_version`, `api_instance_type`, `api_gpu_description`; values equal explicit CLI identity |
-| `campaign_sha256` | Actual campaign-file SHA256, already registered with its exact prestart SHA in the committed campaign registry |
+| `campaign_sha256` | Actual campaign-file SHA256, already registered with its exact prestart and execution-profile SHA in the committed campaign registry |
 | `artifacts` | File references for every role below |
 | `raw_backups` | Entries `final` and `completion`, each with `archive`, `control`, `receipt` file references and `directory` pointing to its verified extracted local tree |
 
@@ -100,9 +104,9 @@ Top-level schema:
 
 | Role | Required evidence |
 |---|---|
-| `campaign` | Exact genuine registered campaign JSON with all 400 sessions |
+| `campaign` | Exact genuine registered recovery campaign JSON with all 400 sessions and campaign ID `h100-confirmatory-gclocker100-20261027` |
 | `journal` | Matching final journal: all 400 succeeded exactly once, return code 0, completed time, full passing input-byte gate strictly after the last action |
-| `complete_audit` | Actual `AUDIT_COMPLETE.json`: genuine `synthetic:false`, PASS/no findings, matching campaign/journal, 400 sessions, 9360 successful outputs, 2340 warmups, 7020 measured outputs, 60 translation rejections, 3360 successful and 60 failed complex cleanups; every auditor input hash is checked again |
+| `complete_audit` | Actual `AUDIT_COMPLETE.json`: genuine `synthetic:false`, PASS/no findings, matching campaign/journal, 400 sessions, 9360 successful outputs, 2340 warmups, 7020 measured outputs, 60 translation rejections, 3360 successful and 60 failed complex cleanups; every auditor input hash is checked again; current auditor source hash and exact registered recovery identity/profile summary (160 Spark drivers, 24 profile gates) are required |
 | `replay_manifest` | Actual portable `REPLAY_MANIFEST.json`: PASS, phase complete, synthetic false, same audit hash; validation/analysis/complete-audit/rendering commands all exited 0; original archive, harvested raw and rendered output inventories are rehashed |
 | `paper_pdf` | Complete research paper PDF, preserved offhost; header and exact hash checked |
 | `paper_source` | Complete paper source file, or an archive containing all source/assets for a multifile paper; exact hash checked |
@@ -115,6 +119,18 @@ Final and completion backups use the existing `h100-offhost-backup-v1` control
 and `OFFHOST_SHA256_VERIFIED` receipt formats. The guard hashes each tar again,
 checks its size, verifies every extracted file through `research_backup.py`,
 and checks the full replay raw inventory against the final raw snapshot.
+The archive's `PRESTART_MANIFEST.json` must have the registered prestart hash
+and seal the registered `EXECUTION_PROFILE.json` plus the readiness prefix of
+`EXECUTION_PROFILE_GATES.jsonl`. The profile must identify the fixed recovery
+cohort and unchanged C84 source. The full 24-record log must retain the exact
+sealed readiness prefix, then ten ordered block pairs and the final pair; every
+record must report PASS for the same profile hash. The sealed profile,
+prestart manifest, archived readiness prefix and full receipt log must each be
+explicit exact-path inputs of the matching complete audit. The raw final and
+completion roots must retain byte-identical profile/full receipt logs. Copied
+raw backup paths need not be separate audit inputs; their bytes must match the
+actual full log that the auditor read.
+
 The completion snapshot must contain the identical final journal,
 `confirm-driver.exit` equal to `0`, and `confirm-driver.ended-utc`. A final raw
 tar alone does not establish that the real supervisor exited successfully.

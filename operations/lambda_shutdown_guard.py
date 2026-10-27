@@ -32,6 +32,12 @@ AUTHORIZED_INSTANCE_TYPE = "gpu_1x_h100_sxm5"
 AUTHORIZED_GPU_UUID = "GPU-aa9e9485-5551-d7be-dfc9-9e433a7284da"
 AUTHORIZED_GPU_NAME = "NVIDIA H100 80GB HBM3"
 AUTHORIZED_DRIVER = "580.105.08"
+RECOVERY_CAMPAIGN_ID = "h100-confirmatory-gclocker100-20261027"
+PROFILE_NAME = "EXECUTION_PROFILE.json"
+PROFILE_GATES_NAME = "EXECUTION_PROFILE_GATES.jsonl"
+PROFILE_GATE_PHASES = ("readiness-before", "readiness-after", *[f"block-{n:02d}-{edge}" for n in range(1, 11)
+                                                           for edge in ("before", "after")], "final-before", "final-after")
+AUDITOR_PATH = Path(__file__).resolve().parents[1] / "research_reporting/audit_complete.py"
 COUNTS = {"sessions": 400, "successful_outputs": 9360, "warmup_outputs": 2340,
           "measured_outputs": 7020, "translation_rejections": 60,
           "successful_complex_cleanups": 3360, "failed_complex_cleanups": 60}
@@ -57,15 +63,19 @@ def sha(path):
     return backup.sha(path)
 
 
-def read_json(path):
+def strict_json(data):
     def pairs(entries):
         result = {}
         for key, value in entries:
             require(key not in result, "Duplicate JSON key")
             result[key] = value
         return result
-    return json.loads(Path(path).read_bytes(), object_pairs_hook=pairs,
+    return json.loads(data, object_pairs_hook=pairs,
                       parse_constant=lambda _: (_ for _ in ()).throw(ValueError("Nonfinite JSON")))
+
+
+def read_json(path):
+    return strict_json(Path(path).read_bytes())
 
 
 def local_path(base, name, directory=False):
@@ -161,6 +171,62 @@ def verify_posthash(plan, journal):
     require(gates, "No passing full post-final-action hash gate")
 
 
+def verify_recovery_profile(base, plan, campaign, audit, replay, identity, raw):
+    """Bind the sealed profile and final receipts to the actual complete-audit inputs."""
+    require(plan.get("campaign_id") == replay.get("campaign_id") == identity.get("campaign_id") == RECOVERY_CAMPAIGN_ID
+            and campaign not in {campaign_identity.ORIGINAL_CAMPAIGN_SHA256,
+                                 campaign_identity.ABORTED_V1_CAMPAIGN_SHA256}
+            and SHA.fullmatch(identity.get("execution_profile_sha256", "")),
+            "Only the exact registered recovery campaign/profile can permit termination")
+    require(audit.get("registered_campaign_identity") == replay.get("registered_campaign_identity") == identity,
+            "Audit/replay registered recovery identity differs")
+    profile_sha = identity["execution_profile_sha256"]
+    require(audit.get("execution_profile") == {"path": PROFILE_NAME, "sha256": profile_sha,
+                "spark_driver_logs": 160, "profile_gates": 24, "status": "PASS"},
+            "Complete recovery profile proof requires all 160 Spark drivers and 24 gates")
+    require(audit.get("source_sha256") == replay.get("auditor_source_sha256") == sha(AUDITOR_PATH),
+            "Complete recovery audit source differs from the current auditor")
+    archive = local_path(base, replay["archive"], directory=True)
+    profile_path = local_path(base, str(archive / PROFILE_NAME))
+    prestart_path = local_path(base, str(archive / "PRESTART_MANIFEST.json"))
+    archived_gates = local_path(base, str(archive / PROFILE_GATES_NAME))
+    artifacts = local_path(base, replay["artifacts_root"], directory=True)
+    full_gates = local_path(base, str(artifacts.parent / PROFILE_GATES_NAME))
+    prestart = read_json(prestart_path)
+    require(sha(prestart_path) == replay.get("prestart_sha256") == identity.get("prestart_sha256")
+            and prestart.get("schema_version") == "h100-confirmatory-prestart-archive-v1"
+            and prestart.get("status") == "PASS" and prestart.get("campaign_sha256") == campaign
+            and prestart.get("files_sha256", {}).get(PROFILE_NAME) == profile_sha
+            and prestart.get("files_sha256", {}).get(PROFILE_GATES_NAME) == sha(archived_gates)
+            and sha(profile_path) == profile_sha,
+            "Registered prestart does not seal the exact recovery profile/readiness receipts")
+    profile = read_json(profile_path)
+    require(profile.get("schema_version") == "h100-jvm-execution-profile-v1"
+            and profile.get("campaign_id") == RECOVERY_CAMPAIGN_ID
+            and profile.get("source_commit") == identity.get("source_commit")
+            and profile.get("source_tree_sha256") == identity.get("source_tree_sha256"),
+            "Sealed recovery profile source/campaign identity differs")
+    inputs = audit["input_files_sha256"]
+    for path in (profile_path, prestart_path, archived_gates, full_gates):
+        require(inputs.get(str(path.resolve())) == sha(path),
+                "Recovery profile/prestart/receipts are missing from exact complete-audit inputs")
+    prefix, full = archived_gates.read_bytes(), full_gates.read_bytes()
+    require(prefix.endswith(b"\n") and full.endswith(b"\n") and full.startswith(prefix),
+            "Final profile receipts do not preserve the sealed readiness prefix")
+    sealed = [strict_json(line) for line in prefix.splitlines()]
+    gates = [strict_json(line) for line in full.splitlines()]
+    require(all(isinstance(g, dict) for g in sealed + gates), "Profile receipts must be JSON objects")
+    require([g.get("phase") for g in sealed] == list(PROFILE_GATE_PHASES[:2])
+            and [g.get("phase") for g in gates] == list(PROFILE_GATE_PHASES)
+            and all(g.get("schema_version") == "h100-jvm-execution-profile-gate-v1"
+                    and g.get("profile_sha256") == profile_sha and g.get("status") == "PASS" for g in gates),
+            "Exactly 24 ordered passing recovery profile receipts are required")
+    for root in raw.values():
+        require(sha(local_path(base, str(root / PROFILE_NAME))) == profile_sha
+                and sha(local_path(base, str(root / PROFILE_GATES_NAME))) == sha(full_gates),
+                "Raw final/completion profile or receipts differ from the audited recovery bytes")
+
+
 def verify_completion(manifest_path, expected, now=None):
     manifest_path = Path(manifest_path).absolute()
     require(not manifest_path.is_symlink(), "Manifest cannot be a symlink")
@@ -177,8 +243,9 @@ def verify_completion(manifest_path, expected, now=None):
     campaign = sha(paths["campaign"])
     require(manifest.get("campaign_sha256") == campaign, "Completion manifest campaign differs")
     plan, journal = read_json(paths["campaign"]), read_json(paths["journal"])
-    require(plan.get("synthetic") is not True and journal.get("campaign_sha256") == campaign,
-            "Synthetic or mismatched campaign cannot permit termination")
+    require(plan.get("synthetic") is False and plan.get("campaign_id") == RECOVERY_CAMPAIGN_ID
+            and journal.get("campaign_sha256") == campaign,
+            "Only the genuine recovery campaign can permit termination")
     verify_posthash(plan, journal)
     audit = read_json(paths["complete_audit"])
     require(audit.get("schema_version") == "research-complete-audit-v1" and audit.get("status") == "PASS"
@@ -196,7 +263,7 @@ def verify_completion(manifest_path, expected, now=None):
             and replay.get("campaign_sha256") == campaign
             and replay.get("complete_audit", {}).get("sha256") == sha(paths["complete_audit"]),
             "Real portable replay must PASS for the same complete audit")
-    campaign_identity.registered_identity(campaign, replay.get("prestart_sha256"))
+    identity = campaign_identity.registered_identity(campaign, replay.get("prestart_sha256"))
     commands = replay.get("commands", [])
     require([c.get("name") for c in commands] == ["validation", "analysis", "complete_audit", "rendering"]
             and all(c.get("status") == "PASS" and c.get("returncode") == 0 for c in commands),
@@ -207,6 +274,7 @@ def verify_completion(manifest_path, expected, now=None):
     raw = {phase: verify_backup(base, manifest["raw_backups"][phase], phase, campaign)
            for phase in ("final", "completion")}
     inventory(base, raw["final"] / "campaign-results", replay["artifact_files_sha256"])
+    verify_recovery_profile(base, plan, campaign, audit, replay, identity, raw)
     require(sha(raw["completion"] / "campaign-results/journal.json") == sha(paths["journal"])
             and (raw["completion"] / "confirm-driver.exit").read_text().strip() == "0"
             and (raw["completion"] / "confirm-driver.ended-utc").is_file(),

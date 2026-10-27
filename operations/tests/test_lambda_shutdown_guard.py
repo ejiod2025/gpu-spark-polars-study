@@ -39,18 +39,42 @@ def complete(tmp_path, monkeypatch):
     stamp = datetime.now(timezone.utc).isoformat()
     end, post = "2026-10-01T01:00:00Z", "2026-10-01T01:01:00Z"
     sessions = [{"session_id": f"session-{i:03d}"} for i in range(400)]
-    campaign_path = write(base / "campaign.json", {"synthetic": False, "sessions": sessions, "datasets": {"1": {}, "10": {}}})
+    campaign_path = write(base / "campaign.json", {"synthetic": False, "campaign_id": guard.RECOVERY_CAMPAIGN_ID,
+                          "sessions": sessions, "datasets": {"1": {}, "10": {}}})
     campaign = guard.sha(campaign_path)
+    prestart = base / "prestart"
+    write(prestart / "source.txt", b"fixture frozen source\n")
+    profile_path = write(prestart / guard.PROFILE_NAME, {"schema_version": "h100-jvm-execution-profile-v1",
+        "campaign_id": guard.RECOVERY_CAMPAIGN_ID, "source_commit": guard.campaign_identity.SOURCE_COMMIT,
+        "source_tree_sha256": guard.campaign_identity.SOURCE_TREE_SHA256, "fixture_only": True})
+    profile_sha = guard.sha(profile_path)
+    gates = [{"schema_version": "h100-jvm-execution-profile-gate-v1", "phase": phase, "status": "PASS",
+              "profile_sha256": profile_sha, "fixture_only": True} for phase in guard.PROFILE_GATE_PHASES]
+    def gate_bytes(selected):
+        return b"".join((json.dumps(gate, sort_keys=True) + "\n").encode() for gate in selected)
+    archived_gates = write(prestart / guard.PROFILE_GATES_NAME, gate_bytes(gates[:2]))
+    prestart_path = write(prestart / "PRESTART_MANIFEST.json", {
+        "schema_version": "h100-confirmatory-prestart-archive-v1", "status": "PASS", "campaign_sha256": campaign,
+        "files_sha256": {"source.txt": guard.sha(prestart / "source.txt"), guard.PROFILE_NAME: profile_sha,
+                         guard.PROFILE_GATES_NAME: guard.sha(archived_gates)}})
+    registered = {"fixture_only": True, "campaign_id": guard.RECOVERY_CAMPAIGN_ID,
+                  "campaign_sha256": campaign, "prestart_sha256": guard.sha(prestart_path),
+                  "execution_profile_sha256": profile_sha, "source_commit": guard.campaign_identity.SOURCE_COMMIT,
+                  "source_tree_sha256": guard.campaign_identity.SOURCE_TREE_SHA256}
     journal = {"campaign_sha256": campaign, "completed_at_utc": post,
                "sessions": {s["session_id"]: {"status": "succeeded", "attempts": [{"status": "succeeded", "returncode": 0,
                              "ended_at_utc": end}]} for s in sessions},
                "input_integrity_gates": [{"completed_at_utc": post,
                    "checks": [{"scale": scale, "files": 3, "status": "pass"} for scale in (1, 10)]}]}
     raw_final = base / "raw/final"
+    write(raw_final / guard.PROFILE_NAME, profile_path.read_bytes())
+    full_gates = write(raw_final / guard.PROFILE_GATES_NAME, gate_bytes(gates))
     journal_path = write(raw_final / "campaign-results/journal.json", journal)
     for session in sessions:
         write(raw_final / f"campaign-results/{session['session_id']}/results.json", {"fixture": session["session_id"]})
     raw_completion = base / "raw/completion"
+    write(raw_completion / guard.PROFILE_NAME, profile_path.read_bytes())
+    write(raw_completion / guard.PROFILE_GATES_NAME, gate_bytes(gates))
     write(raw_completion / "campaign-results/journal.json", journal)
     write(raw_completion / "confirm-driver.exit", b"0\n")
     write(raw_completion / "confirm-driver.ended-utc", (post + "\n").encode())
@@ -77,16 +101,21 @@ def complete(tmp_path, monkeypatch):
     audit_path = write(base / "replay/complete-audit/AUDIT_COMPLETE.json", {
         "schema_version": "research-complete-audit-v1", "status": "PASS", "synthetic": False,
         "campaign_sha256": campaign, "journal_sha256": guard.sha(journal_path), "counts": guard.COUNTS,
-        "findings": [], "checks_evaluated": 42,
-        "input_files_sha256": {str(campaign_path): guard.sha(campaign_path), str(journal_path): guard.sha(journal_path)}})
-    prestart = base / "prestart"
-    write(prestart / "source.txt", b"fixture frozen source\n")
+        "findings": [], "checks_evaluated": 42, "source_sha256": guard.sha(guard.AUDITOR_PATH),
+        "registered_campaign_identity": registered,
+        "execution_profile": {"path": guard.PROFILE_NAME, "sha256": profile_sha,
+                              "spark_driver_logs": 160, "profile_gates": 24, "status": "PASS"},
+        "input_files_sha256": {str(path): guard.sha(path) for path in
+            (campaign_path, journal_path, profile_path, prestart_path, archived_gates, full_gates)}})
     replay_path = write(base / "replay/REPLAY_MANIFEST.json", {
         "schema_version": "research-artifact-replay-v1", "status": "PASS", "phase": "complete", "synthetic": False,
-        "campaign_sha256": campaign, "prestart_sha256": "a" * 64, "complete_audit": {"sha256": guard.sha(audit_path)},
+        "campaign_sha256": campaign, "campaign_id": guard.RECOVERY_CAMPAIGN_ID,
+        "registered_campaign_identity": registered, "auditor_source_sha256": guard.sha(guard.AUDITOR_PATH),
+        "prestart_sha256": guard.sha(prestart_path), "complete_audit": {"sha256": guard.sha(audit_path)},
         "commands": [{"name": name, "status": "PASS", "returncode": 0}
                      for name in ("validation", "analysis", "complete_audit", "rendering")],
-        "archive": str(prestart), "archive_files_sha256": {"source.txt": guard.sha(prestart / "source.txt")},
+        "archive": str(prestart), "archive_files_sha256": {str(path.relative_to(prestart)): guard.sha(path)
+                                                          for path in prestart.iterdir()},
         "artifacts_root": str(raw_final / "campaign-results"),
         "artifact_files_sha256": {str(p.relative_to(raw_final / "campaign-results")): guard.sha(p)
                                   for p in (raw_final / "campaign-results").rglob("*") if p.is_file()},
@@ -128,9 +157,11 @@ def complete(tmp_path, monkeypatch):
                 "campaign_sha256": campaign, "artifacts": {name: ref(base, path) for name, path in paths.items()},
                 "raw_backups": raw_refs}
     manifest_path = write(base / "COMPLETION.json", manifest)
-    monkeypatch.setattr(guard.campaign_identity, "registered_identity", lambda *a: {"fixture_only": True})
+    monkeypatch.setattr(guard.campaign_identity, "registered_identity", lambda *a: registered)
     monkeypatch.setattr(guard.time, "sleep", lambda _: None)
-    return {"base": base, "path": manifest_path, "manifest": manifest, "paths": paths, "expected": expected, "page": page}
+    return {"base": base, "path": manifest_path, "manifest": manifest, "paths": paths, "expected": expected, "page": page, "registered": registered,
+            "profile_path": profile_path, "prestart_path": prestart_path, "archived_gates": archived_gates,
+            "full_gates": full_gates, "raw_final": raw_final, "raw_completion": raw_completion}
 
 
 def changed(complete, name, alter):
@@ -158,6 +189,14 @@ def test_each_missing_artifact_fails_closed(complete, name):
 @pytest.mark.parametrize("name,alter", [
     ("complete_audit", lambda v: v["counts"].update(successful_outputs=9359)),
     ("complete_audit", lambda v: v.update(synthetic=True)),
+    ("complete_audit", lambda v: v["execution_profile"].update(spark_driver_logs=159)),
+    ("complete_audit", lambda v: v["execution_profile"].update(profile_gates=23)),
+    ("complete_audit", lambda v: v["execution_profile"].update(sha256="0" * 64)),
+    ("complete_audit", lambda v: v.update(source_sha256="0" * 64)),
+    ("complete_audit", lambda v: v.update(registered_campaign_identity={})),
+    ("replay_manifest", lambda v: v.update(auditor_source_sha256="0" * 64)),
+    ("replay_manifest", lambda v: v.update(registered_campaign_identity={})),
+    ("replay_manifest", lambda v: v.update(campaign_id="h100-confirmatory-replacement-20261027")),
     ("replay_manifest", lambda v: v.update(status="FAIL")),
     ("journal", lambda v: v.update(input_integrity_gates=[])),
     ("journal", lambda v: v["sessions"]["session-000"].update(status="running")),
@@ -175,6 +214,86 @@ def test_incomplete_gate_refuses_before_any_api_call(complete, name, alter):
     changed(complete, name, alter)
     with pytest.raises(ValueError):
         guard.terminate(complete["path"], complete["expected"], "fixture-secret-only", api=lambda *a: pytest.fail("API called"))
+
+
+@pytest.mark.parametrize("campaign_id", ["h100-confirmatory-v1", "h100-confirmatory-replacement-20261027",
+                                         "arbitrary-replacement-cohort"])
+def test_historical_or_arbitrary_campaign_cannot_permit_termination(complete, campaign_id):
+    changed(complete, "campaign", lambda value: value.update(campaign_id=campaign_id))
+    # Keep the outer digest honest: the recovery-ID rule must still refuse the
+    # relabelled fabricated evidence before any transport is considered.
+    complete["manifest"]["campaign_sha256"] = guard.sha(complete["paths"]["campaign"])
+    write(complete["path"], complete["manifest"])
+    with pytest.raises(ValueError, match="genuine recovery"):
+        guard.terminate(complete["path"], complete["expected"], "fixture-secret-only",
+                        api=lambda *args: pytest.fail("API called"))
+
+
+@pytest.mark.parametrize("name", ["profile_path", "prestart_path", "archived_gates", "full_gates"])
+def test_profile_prestart_and_receipts_must_be_exact_auditor_inputs(complete, name):
+    changed(complete, "complete_audit", lambda value: value["input_files_sha256"].pop(str(complete[name])))
+    changed(complete, "replay_manifest", lambda value: (
+        value["complete_audit"].update(sha256=guard.sha(complete["paths"]["complete_audit"])),
+        value["output_files_sha256"].update({"complete-audit/AUDIT_COMPLETE.json": guard.sha(complete["paths"]["complete_audit"])})))
+    with pytest.raises(ValueError, match="missing from exact complete-audit inputs"):
+        guard.terminate(complete["path"], complete["expected"], "fixture-secret-only",
+                        api=lambda *args: pytest.fail("API called"))
+
+
+def test_profile_bytes_must_match_actual_registered_prestart_seal(complete):
+    replay = guard.read_json(complete["paths"]["replay_manifest"])
+    audit = guard.read_json(complete["paths"]["complete_audit"])
+    plan = guard.read_json(complete["paths"]["campaign"])
+    complete["profile_path"].write_bytes(b'{"fixture_only":"changed"}\n')
+    with pytest.raises(ValueError, match="Registered prestart"):
+        guard.verify_recovery_profile(complete["base"], plan, complete["manifest"]["campaign_sha256"], audit,
+                                      replay, complete["registered"],
+                                      {"final": complete["raw_final"], "completion": complete["raw_completion"]})
+
+
+@pytest.mark.parametrize("name", [guard.PROFILE_NAME, guard.PROFILE_GATES_NAME])
+def test_raw_completion_profile_and_receipts_must_equal_audited_bytes(complete, name):
+    replay = guard.read_json(complete["paths"]["replay_manifest"])
+    audit = guard.read_json(complete["paths"]["complete_audit"])
+    plan = guard.read_json(complete["paths"]["campaign"])
+    (complete["raw_completion"] / name).write_bytes(b"changed fabricated raw completion bytes\n")
+    with pytest.raises(ValueError, match="Raw final/completion profile or receipts differ"):
+        guard.verify_recovery_profile(complete["base"], plan, complete["manifest"]["campaign_sha256"], audit,
+                                      replay, complete["registered"],
+                                      {"final": complete["raw_final"], "completion": complete["raw_completion"]})
+
+
+@pytest.mark.parametrize("campaign", [guard.campaign_identity.ORIGINAL_CAMPAIGN_SHA256,
+                                       guard.campaign_identity.ABORTED_V1_CAMPAIGN_SHA256])
+def test_registered_historical_hash_cannot_be_promoted_by_profile_claim(complete, campaign):
+    replay = guard.read_json(complete["paths"]["replay_manifest"])
+    audit = guard.read_json(complete["paths"]["complete_audit"])
+    plan = guard.read_json(complete["paths"]["campaign"])
+    with pytest.raises(ValueError, match="exact registered recovery campaign/profile"):
+        guard.verify_recovery_profile(complete["base"], plan, campaign, audit, replay, complete["registered"], {})
+
+
+@pytest.mark.parametrize("kind", ["missing", "duplicate", "wrong_profile", "failed", "nonobject"])
+def test_full_profile_receipts_cannot_be_replaced_by_summary_counts(complete, kind):
+    replay = guard.read_json(complete["paths"]["replay_manifest"])
+    audit = guard.read_json(complete["paths"]["complete_audit"])
+    plan = guard.read_json(complete["paths"]["campaign"])
+    records = [guard.strict_json(line) for line in complete["full_gates"].read_bytes().splitlines()]
+    if kind == "missing":
+        records.pop()
+    elif kind == "duplicate":
+        records[-1] = records[-2]
+    elif kind == "wrong_profile":
+        records[-1]["profile_sha256"] = "0" * 64
+    elif kind == "nonobject":
+        records[-1] = []
+    else:
+        records[-1]["status"] = "FAIL"
+    complete["full_gates"].write_bytes(b"".join((json.dumps(record, sort_keys=True) + "\n").encode() for record in records))
+    audit["input_files_sha256"][str(complete["full_gates"])] = guard.sha(complete["full_gates"])
+    with pytest.raises(ValueError, match="24 ordered passing|JSON objects"):
+        guard.verify_recovery_profile(complete["base"], plan, complete["manifest"]["campaign_sha256"], audit,
+                                      replay, complete["registered"], {})
 
 
 def cloud(complete):
