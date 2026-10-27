@@ -18,11 +18,14 @@ fixed research campaign; they do not reduce the experiment to a pilot or draft.
 - Physical GPU UUID: `GPU-aa9e9485-5551-d7be-dfc9-9e433a7284da`, from SSH inventory.
 - Frozen experimental source:
   `c84ef6a07341f350dae6636ab709c1b65fd894e0` (52 files).
-- New campaign ID: `h100-confirmatory-replacement-20261027`.
-- Remote evidence: `/home/ubuntu/study-h100-research-evidence-20261027`.
+- Current recovery campaign ID: `h100-confirmatory-gclocker100-20261027`.
+- Current remote evidence:
+  `/home/ubuntu/study-h100-research-evidence-20261027-gclocker100`.
+- Current canonical prestart:
+  `evidence-research/20261027/h100-confirmatory-gclocker100-v1`.
 - Local controller state/log/events:
-  `rerun/replacement-20261027/raw-backups/` (ignored operational storage).
-- Initial local controller PID: `85571`, creation time `1793114100.637303`.
+  `rerun/gclocker100-20261027/raw-backups/` (ignored operational storage).
+- Current local controller PID: `76437`, creation time `1793137268.510692`.
   Verify command and process identity; do not infer liveness from a PID alone.
 - Local caffeinate PID `20389` prevents idle system sleep while work continues.
 
@@ -34,6 +37,34 @@ Operational credential location:
 `/Users/danielejiofor/.codex/secrets/lambda-h100-20261027.key` (mode 0600).
 The initial read-only API identity receipt is in ignored
 `rerun/replacement-20261027/shutdown/target-identity.json`.
+
+## Preserved default-profile failure and fixed recovery
+
+The original replacement campaign `h100-confirmatory-replacement-20261027`
+halted at 88 validated sessions plus one Spark CPU warmup JVM allocation failure.
+Its 3,349-file raw evidence, including the original journal and failed attempt,
+is verified off-host under ignored
+`rerun/replacement-20261027/incidents/aborted-20261027T202748Z/`.
+Do not resume its supervisor or rewrite its failed journal. The original local
+controller PID 85571 exited as designed; it is not the current controller.
+
+The [prospective recovery protocol](H100_GCLOCKER100_RECOVERY_PROTOCOL.md)
+specifies exactly one separately named SF100 feasibility diagnostic and one new
+fixed 400-session cohort if readiness passes. The diagnostic completed with 12
+oracle-valid outputs, verified cleanup and actual driver flags. The captured
+execution-profile SHA256 is
+`a07569ffa3be9cd138ed63084ff59ed668b8bceeef355b5a4f63adef53464c69`.
+New preparation PID 87058 repeats all five SF1 readiness configurations and
+freezes fresh genuine campaign/prestart identities before any recovery timing.
+
+The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
+same 1,654 input files, oracles and Python environments remain unchanged.
+Both Spark paths use fixed `SPARK_SUBMIT_OPTS` with unlocked diagnostic options,
+`GCLockerRetryAllocationCount=100` and startup `PrintFlagsFinal`. Verify all 24
+idle profile receipts, 160 actual formal Spark JVM logs and four readiness logs.
+This profile choice is disclosed, and no causal cure or speed benefit is claimed.
+No prior timing is pooled and no further clean restart is automatic if recovery
+fails. The final paper/web builders accept only this registered recovery cohort.
 
 ## Required completion gates
 
