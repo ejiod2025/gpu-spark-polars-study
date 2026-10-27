@@ -38,6 +38,11 @@ import subprocess
 import sys
 import time
 
+try:
+    from .campaign_identity import registered_identity
+except ImportError:  # Direct script execution.
+    from campaign_identity import registered_identity
+
 HERE = Path(__file__).resolve().parent
 SOURCE_COMMIT = "c84ef6a07341f350dae6636ab709c1b65fd894e0"
 SOURCE_TREE_SHA256 = "9514f0f7ce384763d0a675a9075666707e0edabcc003c729a3e0735a52ea25d8"
@@ -124,12 +129,13 @@ def verify_archive(archive, allow_synthetic=False):
     campaign_path = safe_file(archive, "campaign.json")
     plan = read_json(campaign_path)
     synthetic = manifest.get("synthetic") is True or plan.get("synthetic") is True
+    identity = None
     if synthetic:
         if (not allow_synthetic or manifest.get("synthetic") is not True or plan.get("synthetic") is not True
                 or "SYNTHETIC" not in plan.get("campaign_id", "")):
             raise ValueError("Synthetic replay requires explicit --allow-synthetic and matching SYNTHETIC labels")
-    elif (sha256(manifest_path) != REAL_PRESTART_SHA256 or sha256(campaign_path) != REAL_CAMPAIGN_SHA256):
-        raise ValueError("Not the genuine frozen H100 v1 prestart archive/campaign")
+    else:
+        identity = registered_identity(sha256(campaign_path), sha256(manifest_path))
     if (manifest.get("schema_version") != "h100-confirmatory-prestart-archive-v1"
             or manifest.get("status") != "PASS" or manifest.get("phase") != "before-first-confirmatory-session"
             or manifest.get("source_commit") != SOURCE_COMMIT or manifest.get("source_tree_sha256") != SOURCE_TREE_SHA256
@@ -173,7 +179,7 @@ def verify_archive(archive, allow_synthetic=False):
             raise ValueError(f"Frozen oracle checksum differs: {cell}")
     return {"plan": plan, "synthetic": synthetic, "archive": archive, "snapshot": snapshot,
             "campaign_sha256": campaign_digest, "prestart_sha256": sha256(manifest_path), "source_files_sha256": files,
-            "archive_files_sha256": actual}
+            "archive_files_sha256": actual, "registered_campaign_identity": identity}
 
 
 def artifacts_directory(path):
@@ -302,6 +308,7 @@ def replay(archive, artifacts_root, output, allow_synthetic=False, timeout_secon
     try:
         checked = verify_archive(archive, allow_synthetic)
         manifest.update({key: checked[key] for key in ("synthetic", "campaign_sha256", "prestart_sha256", "source_files_sha256", "archive_files_sha256")})
+        manifest["registered_campaign_identity"] = checked["registered_campaign_identity"]
         manifest["phase"] = "harvest-identification"
         root = artifacts_directory(artifacts_root)
         plan, snapshot = checked["plan"], checked["snapshot"]
@@ -369,6 +376,9 @@ def replay(archive, artifacts_root, output, allow_synthetic=False, timeout_secon
         manifest["render_manifest"] = {"path": str(rendered_path.relative_to(output)), "sha256": sha256(rendered_path)}
         if inventory(root) != manifest["artifact_files_sha256"] or inventory(archive) != checked["archive_files_sha256"]:
             raise ValueError("Immutable archive or harvested inputs changed during replay")
+        if (checked["registered_campaign_identity"] is not None and
+                registered_identity(checked["campaign_sha256"], checked["prestart_sha256"]) != checked["registered_campaign_identity"]):
+            raise ValueError("Committed campaign identity registry changed during replay")
         manifest.update(status="PASS", phase="complete")
     except BaseException as exc:
         manifest.update(status="FAIL", error={"type": type(exc).__name__, "message": str(exc)})

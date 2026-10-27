@@ -19,6 +19,11 @@ import sys
 import tarfile
 import zlib
 
+try:
+    from .campaign_identity import registered_identity
+except ImportError:  # Direct script execution.
+    from campaign_identity import registered_identity
+
 FORBIDDEN_SUFFIXES = {".parquet", ".jar", ".pem", ".key", ".duckdb"}
 FORBIDDEN_NAMES = {".env", ".git", ".venv", "venv", "id_rsa", "id_ed25519"}
 REAL_CAMPAIGN_SHA256 = "69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0"
@@ -196,7 +201,8 @@ def check_completion(evidence, audit_path, allow_synthetic):
         raise ValueError("Confirmation driver has not finished writing its terminal record")
     campaign_path = evidence / "campaign.json"
     digest = sha256(campaign_path)
-    if digest != REAL_CAMPAIGN_SHA256 or (evidence / "campaign.json.sha256").read_text().strip() != digest:
+    identity = registered_identity(digest, sha256(evidence / "PRESTART_MANIFEST.json"))
+    if (evidence / "campaign.json.sha256").read_text().strip() != digest:
         raise ValueError("Campaign checksum differs")
     plan = json_file(campaign_path)
     journal_path = evidence / "campaign-results" / "journal.json"
@@ -232,6 +238,7 @@ def check_completion(evidence, audit_path, allow_synthetic):
         if not path.is_absolute() or not path.is_file() or sha256(path) != expected_hash:
             raise ValueError(f"Audited input changed or is unavailable: {name}")
     return {"synthetic": False, "campaign_sha256": digest, "source_commit": plan["source"]["git_head"],
+            "registered_campaign_identity": identity,
             "journal_sha256": sha256(journal_path), "validation_sha256": sha256(validation_path),
             "audit_sha256": sha256(audit_path), "audit_path": str(Path(audit_path).resolve()),
             "successful_outputs_compared": validation["successful_outputs_compared"]}

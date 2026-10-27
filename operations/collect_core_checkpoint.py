@@ -10,9 +10,11 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import sys
 import tarfile
 
-CAMPAIGN = "69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from research_reporting.campaign_identity import registered_identity
 
 
 def main():
@@ -26,12 +28,17 @@ def main():
     if output.exists() or output.resolve().is_relative_to(root):
         parser.error("output must be new and outside the original evidence tree")
     plan_bytes = (root / "campaign.json").read_bytes()
-    if hashlib.sha256(plan_bytes).hexdigest() != CAMPAIGN:
-        parser.error("not the frozen H100 v1 campaign")
+    campaign_sha = hashlib.sha256(plan_bytes).hexdigest()
+    try:
+        identity = registered_identity(campaign_sha, hashlib.sha256((root / "PRESTART_MANIFEST.json").read_bytes()).hexdigest())
+    except ValueError as exc:
+        parser.error(str(exc))
+    if (root / "campaign.json.sha256").read_text().strip() != campaign_sha:
+        parser.error("campaign checksum sidecar differs")
     plan = json.loads(plan_bytes)
     journal_bytes = (root / "campaign-results/journal.json").read_bytes()
     journal = json.loads(journal_bytes)
-    if journal.get("campaign_sha256") != CAMPAIGN:
+    if journal.get("campaign_sha256") != campaign_sha:
         parser.error("journal campaign differs")
     selected = [session for session in plan["sessions"] if session["block_id"] == args.block]
     if len(selected) != 40:
@@ -61,7 +68,8 @@ def main():
             parser.error(f"unsafe or absent core evidence path: {path}")
         sizes[str(path.relative_to(root))] = path.stat().st_size
     index = {"schema_version": "h100-completed-block-core-checkpoint-v1",
-             "status": "PARTIAL_CAMPAIGN_CORE_CHECKPOINT", "campaign_sha256": CAMPAIGN,
+             "status": "PARTIAL_CAMPAIGN_CORE_CHECKPOINT", "campaign_sha256": campaign_sha,
+             "registered_campaign_identity": identity,
              "block_id": args.block, "checkpoint_sessions": 40, "planned_sessions": 400,
              "created_at_utc": datetime.now(timezone.utc).isoformat(),
              "collector_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),

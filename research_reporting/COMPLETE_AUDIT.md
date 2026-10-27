@@ -23,6 +23,11 @@ the raw relocated validation and adapter manifest remain separate evidence.
 The output directory must be new. An ordinary audit failure produces a
 reviewable `AUDIT_COMPLETE.json` and a nonzero exit status.
 
+Real campaigns must match an exact campaign/prestart checksum pair in the
+committed `campaign_identities.json` registry and the unchanged C84 source.
+The report binds the registry and identity-helper hashes among its actual read
+inputs. Unknown campaigns are refused; synthetic test opt-in remains separate.
+
 The gate reconciles 400 unique sessions with one successful attempt each,
 9,360 successful outputs (2,340 warmups and 7,020 measured actions), 60 specific
 translation rejections, 3,360 successful complex cleanup records and 60 failed

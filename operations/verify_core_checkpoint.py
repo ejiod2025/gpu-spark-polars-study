@@ -14,6 +14,9 @@ from pathlib import Path, PurePosixPath
 import sys
 import tarfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from research_reporting.replay import verify_archive
+
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -31,6 +34,7 @@ def main():
     parser.add_argument("--checkpoint-tar", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    verified_archive = verify_archive(args.archive)
     output = args.output.absolute()
     if output.exists():
         parser.error("refusing to overwrite a core-checkpoint directory")
@@ -57,7 +61,8 @@ def main():
                 raise ValueError(f"checkpoint size differs: {member.name}")
     plan = json.loads((output / "campaign.json").read_text())
     digest = sha(output / "campaign.json")
-    if digest != index["campaign_sha256"] or digest != (args.archive / "campaign.json.sha256").read_text().strip():
+    if (digest != index["campaign_sha256"] or digest != verified_archive["campaign_sha256"]
+            or digest != (args.archive / "campaign.json.sha256").read_text().strip()):
         raise ValueError("checkpoint campaign differs from immutable archive")
     journal = json.loads((output / "JOURNAL_SNAPSHOT.json").read_text())
     if sha(output / "JOURNAL_SNAPSHOT.json") != index["journal_snapshot_sha256"]:

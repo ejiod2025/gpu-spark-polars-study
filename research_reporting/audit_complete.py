@@ -19,6 +19,11 @@ from pathlib import Path
 import re
 import sys
 
+try:
+    from .campaign_identity import registered_identity
+except ImportError:  # Direct script execution.
+    from campaign_identity import registered_identity
+
 REAL_CAMPAIGN = "69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0"
 SOURCE_TREE = "9514f0f7ce384763d0a675a9075666707e0edabcc003c729a3e0735a52ea25d8"
 SOURCE_COMMIT = "c84ef6a07341f350dae6636ab709c1b65fd894e0"
@@ -368,8 +373,11 @@ def audit_complete(campaign, artifacts_root, evidence_root, validation, analysis
         if report["synthetic"]:
             if not allow_synthetic or "SYNTHETIC" not in plan["campaign_id"]:
                 raise ValueError("SYNTHETIC audit requires explicit opt-in and a SYNTHETIC campaign label")
-        elif campaign_sha != REAL_CAMPAIGN:
-            raise ValueError("Auditor is scoped to the genuine frozen C84 H100 campaign")
+        else:
+            identity = registered_identity(campaign_sha, inputs.sha(evidence_root / "PRESTART_MANIFEST.json"))
+            inputs.record(identity["registry_path"], identity["registry_sha256"])
+            inputs.record(identity["identity_helper_path"], identity["identity_helper_sha256"])
+            report["registered_campaign_identity"] = identity
         checks.test(inputs.read(str(campaign) + ".sha256").decode().strip() == campaign_sha,
                     "campaign_sidecar", "Campaign checksum sidecar differs")
         source = plan["source"]

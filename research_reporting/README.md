@@ -59,11 +59,21 @@ python research_reporting/replay.py \
 
 The archive contains `PRESTART_MANIFEST.json`, `campaign.json`, its `.sha256`
 sidecar, the complete 52-file `campaign.json.source/`, and `oracles/`, together
-with every file listed in the prestart checksum inventory. Normal replay anchors
-the exact real H100 v1 prestart/campaign checksums, C84 commit and source-tree
-identity. Every archived checksum, source file, protocol and oracle is checked
-before any archived code runs. A future campaign needs an explicitly reviewed
-identity update; this command cannot silently substitute another experiment.
+with every file listed in the prestart checksum inventory. Normal replay accepts
+only exact campaign/prestart SHA256 pairs in the committed
+[`campaign_identities.json`](campaign_identities.json) registry, with the unchanged
+52-file C84 commit and source-tree identity. The original pair remains fixed.
+A replacement run needs its actual new campaign and prestart hashes committed
+before it can pass these tools; there is no arbitrary trust flag. Every archived
+checksum, source file, protocol and oracle is checked before any archived code
+runs. Registry and helper hashes are recorded in derived provenance.
+
+`operations/collect_core_checkpoint.py` uses the same registry. Execute that
+script from a checkout retaining both `operations/` and `research_reporting/`,
+rather than copying its single file to a flat staging directory. The copied
+block verifier validates the registered complete prestart archive before loading
+its frozen helper. An incomplete earlier campaign remains separately preserved;
+registration does not make it eligible for complete-study analysis.
 
 The harvested root contains `journal.json` and all session attempt directories,
 results, schedules, plans and scientific gates. A harvest parent containing one

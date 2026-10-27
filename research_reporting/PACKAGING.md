@@ -20,9 +20,10 @@ python research_reporting/package_evidence.py \
   --output /absolute/new-bundle
 ```
 
-Use the actual audit output path from replay. The real bundle is anchored to
-the frozen H100 v1 campaign SHA256; this command does not silently generalize
-to a different study or accept an incomplete/replacement sample. It requires
+Use the actual audit output path from replay. A real bundle requires an exact
+campaign/prestart pair in the committed identity registry and the unchanged
+C84 source; unknown runs cannot be treated as genuine. Registration does not
+permit incomplete samples or unreviewed replacement attempts. It requires
 the original final `validation.json` and `analysis/analysis.json` inside the
 evidence tree. Preserve replay outputs and figures alongside the raw bundle as
 separate derived artifacts; the raw tree is never rewritten to contain them.
