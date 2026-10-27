@@ -1,0 +1,87 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=248]
+   +- GpuSort [n_name#128 ASC NULLS LAST, o_orderpriority#140 ASC NULLS LAST], true, com.nvidia.spark.rapids.OutOfCoreSort$@5c334e25, [loreId=247]
+      +- GpuShuffleCoalesce 1073741824, [loreId=246]
+         +- GpuCustomShuffleReader coalesced
+            +- ShuffleQueryStage 7
+               +- GpuColumnarExchange gpurangepartitioning(n_name#128 ASC NULLS LAST, o_orderpriority#140 ASC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=10870], [loreId=241]
+                  +- GpuHashAggregate (keys=[n_name#128, o_orderpriority#140], functions=[gpucount(orders.o_orderkey#968L, false), gpucount(orders.o_custkey#969L, false), gpucount(lineitem.l_partkey#970L, false)], output=[n_name#128, o_orderpriority#140, distinct_orders#956L, distinct_customers#957L, distinct_parts#958L]) [loreId=240]
+                     +- GpuShuffleCoalesce 1073741824, [loreId=239]
+                        +- GpuCustomShuffleReader coalesced
+                           +- ShuffleQueryStage 6
+                              +- GpuColumnarExchange gpuhashpartitioning(n_name#128, o_orderpriority#140, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=10812], [loreId=231]
+                                 +- GpuHashAggregate (keys=[n_name#128, o_orderpriority#140], functions=[partial_gpucount(orders.o_orderkey#968L, false), partial_gpucount(orders.o_custkey#969L, false), partial_gpucount(lineitem.l_partkey#970L, false)], output=[n_name#128, o_orderpriority#140, count#974L, count#975L, count#976L]) [loreId=230]
+                                    +- GpuHashAggregate (keys=[n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967], functions=[], output=[n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967]) [loreId=229]
+                                       +- GpuShuffleCoalesce 1073741824, [loreId=228]
+                                          +- GpuCustomShuffleReader coalesced
+                                             +- ShuffleQueryStage 5
+                                                +- GpuColumnarExchange gpuhashpartitioning(n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=10710], [loreId=216]
+                                                   +- GpuHashAggregate (keys=[n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967], functions=[], output=[n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967]) [loreId=215]
+                                                      +- GpuCoalesceBatches targetsize(1073741824), [loreId=214]
+                                                         +- GpuExpand [[n_name#128, o_orderpriority#140, o_orderkey#135L, null, null, 1], [n_name#128, o_orderpriority#140, null, o_custkey#136L, null, 2], [n_name#128, o_orderpriority#140, null, null, l_partkey#27L, 3]], [n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967], [loreId=213]
+                                                            +- GpuProject [l_partkey#27L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140, n_name#128], true, [loreId=212]
+                                                               +- GpuBroadcastHashJoin [s_nationkey#213], [n_nationkey#127], Inner, GpuBuildRight, false, [loreId=211]
+                                                                  :- GpuProject [l_partkey#27L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140, s_nationkey#213], true, [loreId=210]
+                                                                  :  +- GpuBroadcastHashJoin [l_suppkey#28L], [s_suppkey#210L], Inner, GpuBuildRight, false, [loreId=209]
+                                                                  :     :- GpuProject [l_partkey#27L, l_suppkey#28L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140], true, [loreId=208]
+                                                                  :     :  +- GpuBroadcastHashJoin [l_orderkey#26L], [o_orderkey#135L], Inner, GpuBuildRight, false, [loreId=207]
+                                                                  :     :     :- GpuShuffleCoalesce 1073741824, [loreId=206]
+                                                                  :     :     :  +- GpuCustomShuffleReader local
+                                                                  :     :     :     +- ShuffleQueryStage 0
+                                                                  :     :     :        +- GpuColumnarExchange gpuhashpartitioning(l_orderkey#26L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=9812], [loreId=90]
+                                                                  :     :     :           +- GpuCoalesceBatches targetsize(1073741824), [loreId=89]
+                                                                  :     :     :              +- GpuFilter (gpuisnotnull(l_orderkey#26L) AND gpuisnotnull(l_suppkey#28L)), [loreId=88]
+                                                                  :     :     :                 +- GpuFileGpuScan parquet [l_orderkey#26L,l_partkey#27L,l_suppkey#28L] Batched: true, DataFilters: [isnotnull(l_orderkey#26L), isnotnull(l_suppkey#28L)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_orderkey), IsNotNull(l_suppkey)], ReadSchema: struct<l_orderkey:bigint,l_partkey:bigint,l_suppkey:bigint>
+                                                                  :     :     +- BroadcastQueryStage 4
+                                                                  :     :        +- GpuBroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=10479], [loreId=179]
+                                                                  :     :           +- GpuShuffleCoalesce 1073741824, [loreId=178]
+                                                                  :     :              +- GpuCustomShuffleReader
+                                                                  :     :                 +- ShuffleQueryStage 1
+                                                                  :     :                    +- GpuColumnarExchange gpuhashpartitioning(o_orderkey#135L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=9849], [loreId=99]
+                                                                  :     :                       +- GpuProject [o_orderkey#135L, o_custkey#136L, o_orderpriority#140], true, [loreId=98]
+                                                                  :     :                          +- GpuCoalesceBatches targetsize(1073741824), [loreId=97]
+                                                                  :     :                             +- GpuFilter (((gpuisnotnull(o_orderdate#139) AND (o_orderdate#139 >= 9131)) AND (o_orderdate#139 < 9496)) AND gpuisnotnull(o_orderkey#135L)), [loreId=96]
+                                                                  :     :                                +- GpuFileGpuScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139,o_orderpriority#140] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1995-01-01), (o_orderdate#139 < 1996-01-01), isn..., Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1995-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date,o_orderpriority:string>
+                                                                  :     +- BroadcastQueryStage 2
+                                                                  :        +- GpuBroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, false]),false), [plan_id=9881], [loreId=106]
+                                                                  :           +- GpuCoalesceBatches targetsize(1073741824), [loreId=105]
+                                                                  :              +- GpuFilter (gpuisnotnull(s_suppkey#210L) AND gpuisnotnull(s_nationkey#213)), [loreId=104]
+                                                                  :                 +- GpuFileGpuScan parquet [s_suppkey#210L,s_nationkey#213] Batched: true, DataFilters: [isnotnull(s_suppkey#210L), isnotnull(s_nationkey#213)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/supplier], PartitionFilters: [], PushedFilters: [IsNotNull(s_suppkey), IsNotNull(s_nationkey)], ReadSchema: struct<s_suppkey:bigint,s_nationkey:int>
+                                                                  +- BroadcastQueryStage 3
+                                                                     +- GpuBroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=9906], [loreId=113]
+                                                                        +- GpuCoalesceBatches targetsize(1073741824), [loreId=112]
+                                                                           +- GpuFilter gpuisnotnull(n_nationkey#127), [loreId=111]
+                                                                              +- GpuFileGpuScan parquet [n_nationkey#127,n_name#128] Batched: true, DataFilters: [isnotnull(n_nationkey#127)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf1/nation], PartitionFilters: [], PushedFilters: [IsNotNull(n_nationkey)], ReadSchema: struct<n_nationkey:int,n_name:string>
++- == Initial Plan ==
+   Sort [n_name#128 ASC NULLS LAST, o_orderpriority#140 ASC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(n_name#128 ASC NULLS LAST, o_orderpriority#140 ASC NULLS LAST, 120), ENSURE_REQUIREMENTS, [plan_id=9396]
+      +- HashAggregate(keys=[n_name#128, o_orderpriority#140], functions=[count(orders.o_orderkey#968L), count(orders.o_custkey#969L), count(lineitem.l_partkey#970L)], output=[n_name#128, o_orderpriority#140, distinct_orders#956L, distinct_customers#957L, distinct_parts#958L])
+         +- Exchange hashpartitioning(n_name#128, o_orderpriority#140, 120), ENSURE_REQUIREMENTS, [plan_id=9393]
+            +- HashAggregate(keys=[n_name#128, o_orderpriority#140], functions=[partial_count(orders.o_orderkey#968L) FILTER (WHERE (gid#967 = 1)), partial_count(orders.o_custkey#969L) FILTER (WHERE (gid#967 = 2)), partial_count(lineitem.l_partkey#970L) FILTER (WHERE (gid#967 = 3))], output=[n_name#128, o_orderpriority#140, count#974L, count#975L, count#976L])
+               +- HashAggregate(keys=[n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967], functions=[], output=[n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967])
+                  +- Exchange hashpartitioning(n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967, 120), ENSURE_REQUIREMENTS, [plan_id=9389]
+                     +- HashAggregate(keys=[n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967], functions=[], output=[n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967])
+                        +- Expand [[n_name#128, o_orderpriority#140, o_orderkey#135L, null, null, 1], [n_name#128, o_orderpriority#140, null, o_custkey#136L, null, 2], [n_name#128, o_orderpriority#140, null, null, l_partkey#27L, 3]], [n_name#128, o_orderpriority#140, orders.o_orderkey#968L, orders.o_custkey#969L, lineitem.l_partkey#970L, gid#967]
+                           +- Project [l_partkey#27L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140, n_name#128]
+                              +- BroadcastHashJoin [s_nationkey#213], [n_nationkey#127], Inner, BuildRight, false
+                                 :- Project [l_partkey#27L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140, s_nationkey#213]
+                                 :  +- BroadcastHashJoin [l_suppkey#28L], [s_suppkey#210L], Inner, BuildRight, false
+                                 :     :- Project [l_partkey#27L, l_suppkey#28L, o_orderkey#135L, o_custkey#136L, o_orderpriority#140]
+                                 :     :  +- SortMergeJoin [l_orderkey#26L], [o_orderkey#135L], Inner
+                                 :     :     :- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                                 :     :     :  +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=9372]
+                                 :     :     :     +- Filter (isnotnull(l_orderkey#26L) AND isnotnull(l_suppkey#28L))
+                                 :     :     :        +- FileScan parquet [l_orderkey#26L,l_partkey#27L,l_suppkey#28L] Batched: true, DataFilters: [isnotnull(l_orderkey#26L), isnotnull(l_suppkey#28L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_orderkey), IsNotNull(l_suppkey)], ReadSchema: struct<l_orderkey:bigint,l_partkey:bigint,l_suppkey:bigint>
+                                 :     :     +- Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+                                 :     :        +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=9373]
+                                 :     :           +- Project [o_orderkey#135L, o_custkey#136L, o_orderpriority#140]
+                                 :     :              +- Filter (((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1995-01-01)) AND (o_orderdate#139 < 1996-01-01)) AND isnotnull(o_orderkey#135L))
+                                 :     :                 +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139,o_orderpriority#140] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1995-01-01), (o_orderdate#139 < 1996-01-01), isn..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1995-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date,o_orderpriority:string>
+                                 :     +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, false]),false), [plan_id=9379]
+                                 :        +- Filter (isnotnull(s_suppkey#210L) AND isnotnull(s_nationkey#213))
+                                 :           +- FileScan parquet [s_suppkey#210L,s_nationkey#213] Batched: true, DataFilters: [isnotnull(s_suppkey#210L), isnotnull(s_nationkey#213)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/supplier], PartitionFilters: [], PushedFilters: [IsNotNull(s_suppkey), IsNotNull(s_nationkey)], ReadSchema: struct<s_suppkey:bigint,s_nationkey:int>
+                                 +- BroadcastExchange HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)),false), [plan_id=9383]
+                                    +- Filter isnotnull(n_nationkey#127)
+                                       +- FileScan parquet [n_nationkey#127,n_name#128] Batched: true, DataFilters: [isnotnull(n_nationkey#127)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/nation], PartitionFilters: [], PushedFilters: [IsNotNull(n_nationkey)], ReadSchema: struct<n_nationkey:int,n_name:string>
+

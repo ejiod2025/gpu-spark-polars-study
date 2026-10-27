@@ -1,0 +1,25 @@
+== Polars optimized plan (CPU optimizer; executed by cudf-polars, executor=streaming) ==
+SORT BY [col("l_returnflag"), col("l_linestatus")]
+  AGGREGATE[maintain_order: false]
+    [col("l_quantity").sum().alias("sum_qty"), col("l_extendedprice").sum().alias("sum_base_price"), col("__POLARS_CSER_0x10000000b").sum().alias("sum_disc_price"), (col("__POLARS_CSER_0x10000000b") * (1.0 + col("l_tax"))).sum().alias("sum_charge"), col("l_quantity").mean().alias("avg_qty"), col("l_extendedprice").mean().alias("avg_price"), col("l_discount").mean().alias("avg_disc"), len().cast(Int64).alias("count_order")] BY [col("l_returnflag"), col("l_linestatus")]
+    FROM
+     WITH_COLUMNS:
+     [(col("l_extendedprice") * (1.0 - col("l_discount"))).alias("__POLARS_CSER_0x10000000b")] 
+      simple π 6/6 ["l_returnflag", "l_linestatus", ... 4 other columns]
+         WITH_COLUMNS:
+         [col("l_quantity").strict_cast(Float64), col("l_extendedprice").strict_cast(Float64), col("l_discount").strict_cast(Float64), col("l_tax").strict_cast(Float64)] 
+          simple π 6/6 ["l_quantity", ... 5 other columns]
+            Parquet SCAN [/home/ubuntu/study/data/sf1/lineitem/data_0.parquet, ... 29 other sources]
+            PROJECT 7/16 COLUMNS
+            SELECTION: col("l_shipdate") <= 1998-09-02
+            ESTIMATED ROWS: 5999695
+== cudf-polars physical plan ==
+SORT ('l_returnflag', 'l_linestatus') ('l_returnflag', 'l_linestatus', 'sum_qty', '...', 'avg_disc', 'count_order') [1]
+  SELECT ('l_returnflag', 'l_linestatus', 'sum_qty', '...', 'avg_disc', 'count_order') [1]
+    GROUPBY ('l_returnflag', 'l_linestatus') ('l_returnflag', 'l_linestatus', 'sum_qty', '...', 'avg_disc', '______________12') [1]
+      HSTACK ('l_returnflag', 'l_linestatus', 'l_quantity', '...', 'l_tax', '__POLARS_CSER_0x10000000b') [1]
+        SELECT ('l_returnflag', 'l_linestatus', 'l_quantity', 'l_extendedprice', 'l_discount', 'l_tax') [1]
+          HSTACK ('l_quantity', 'l_extendedprice', 'l_discount', 'l_tax', 'l_returnflag', 'l_linestatus') [1]
+            PROJECTION ('l_quantity', 'l_extendedprice', 'l_discount', 'l_tax', 'l_returnflag', 'l_linestatus') [1]
+              STREAMINGSCAN ('l_quantity', 'l_extendedprice', 'l_discount', '...', 'l_linestatus', 'l_shipdate') [1]
+

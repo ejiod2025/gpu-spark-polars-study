@@ -1,0 +1,49 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   TakeOrderedAndProject(limit=100, orderBy=[c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,c_nationkey#3])
+   +- *(7) BroadcastHashJoin [c_custkey#0L], [o_custkey#136L], LeftSemi, BuildRight, false
+      :- *(7) ColumnarToRow
+      :  +- FileScan parquet [c_custkey#0L,c_name#1,c_nationkey#3] Batched: true, DataFilters: [], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/customer], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<c_custkey:bigint,c_name:string,c_nationkey:int>
+      +- BroadcastQueryStage 3
+         +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=2989]
+            +- *(6) Project [o_custkey#136L]
+               +- *(6) SortMergeJoin [o_orderkey#135L], [l_orderkey#26L], LeftSemi
+                  :- *(4) Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+                  :  +- AQEShuffleRead coalesced
+                  :     +- ShuffleQueryStage 0
+                  :        +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=2820]
+                  :           +- *(1) Project [o_orderkey#135L, o_custkey#136L]
+                  :              +- *(1) Filter ((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1995-01-01)) AND (o_orderdate#139 < 1996-01-01))
+                  :                 +- *(1) ColumnarToRow
+                  :                    +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1995-01-01), (o_orderdate#139 < 1996-01-01)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1995-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date>
+                  +- *(5) Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+                     +- AQEShuffleRead coalesced
+                        +- ShuffleQueryStage 1
+                           +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=2841]
+                              +- *(2) Project [l_orderkey#26L]
+                                 +- *(2) Filter (((isnotnull(l_receiptdate#38) AND isnotnull(l_commitdate#37)) AND (l_receiptdate#38 > l_commitdate#37)) AND l_shipmode#40 IN (AIR,SHIP))
+                                    +- *(2) ColumnarToRow
+                                       +- FileScan parquet [l_orderkey#26L,l_commitdate#37,l_receiptdate#38,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_receiptdate#38), isnotnull(l_commitdate#37), (l_receiptdate#38 > l_commitdate#37), l..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_receiptdate), IsNotNull(l_commitdate), In(l_shipmode, [AIR,SHIP])], ReadSchema: struct<l_orderkey:bigint,l_commitdate:date,l_receiptdate:date,l_shipmode:string>
++- == Initial Plan ==
+   TakeOrderedAndProject(limit=100, orderBy=[c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,c_nationkey#3])
+   +- BroadcastHashJoin [c_custkey#0L], [o_custkey#383L], LeftAnti, BuildRight, false
+      :- BroadcastHashJoin [c_custkey#0L], [o_custkey#136L], LeftSemi, BuildRight, false
+      :  :- FileScan parquet [c_custkey#0L,c_name#1,c_nationkey#3] Batched: true, DataFilters: [], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/customer], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<c_custkey:bigint,c_name:string,c_nationkey:int>
+      :  +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=2782]
+      :     +- Project [o_custkey#136L]
+      :        +- SortMergeJoin [o_orderkey#135L], [l_orderkey#26L], LeftSemi
+      :           :- Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+      :           :  +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=2775]
+      :           :     +- Project [o_orderkey#135L, o_custkey#136L]
+      :           :        +- Filter ((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1995-01-01)) AND (o_orderdate#139 < 1996-01-01))
+      :           :           +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1995-01-01), (o_orderdate#139 < 1996-01-01)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1995-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date>
+      :           +- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+      :              +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=2776]
+      :                 +- Project [l_orderkey#26L]
+      :                    +- Filter (((isnotnull(l_receiptdate#38) AND isnotnull(l_commitdate#37)) AND (l_receiptdate#38 > l_commitdate#37)) AND l_shipmode#40 IN (AIR,SHIP))
+      :                       +- FileScan parquet [l_orderkey#26L,l_commitdate#37,l_receiptdate#38,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_receiptdate#38), isnotnull(l_commitdate#37), (l_receiptdate#38 > l_commitdate#37), l..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_receiptdate), IsNotNull(l_commitdate), In(l_shipmode, [AIR,SHIP])], ReadSchema: struct<l_orderkey:bigint,l_commitdate:date,l_receiptdate:date,l_shipmode:string>
+      +- BroadcastExchange HashedRelationBroadcastMode(List(input[0, bigint, true]),false), [plan_id=2785]
+         +- Project [o_custkey#383L]
+            +- Filter ((((isnotnull(o_orderdate#386) AND isnotnull(o_orderstatus#384)) AND (o_orderdate#386 >= 1996-01-01)) AND (o_orderdate#386 < 1997-01-01)) AND (o_orderstatus#384 = F))
+               +- FileScan parquet [o_custkey#383L,o_orderstatus#384,o_orderdate#386] Batched: true, DataFilters: [isnotnull(o_orderdate#386), isnotnull(o_orderstatus#384), (o_orderdate#386 >= 1996-01-01), (o_or..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf1/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), IsNotNull(o_orderstatus), GreaterThanOrEqual(o_orderdate,1996-01-01), Le..., ReadSchema: struct<o_custkey:bigint,o_orderstatus:string,o_orderdate:date>
+

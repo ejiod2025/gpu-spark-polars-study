@@ -1,0 +1,426 @@
+{
+  "schema_version": "research-fixtures-v1",
+  "suite_version": "research-adversarial-v1",
+  "engine": "spark_gpu",
+  "started_at_utc": "2026-10-27T21:44:22.371783+00:00",
+  "status": "PASS",
+  "scope": "untimed semantic diagnostics; not performance observations",
+  "queries": {
+    "fx_inner_duplicates_nulls": {
+      "status": "PASS",
+      "rows": [
+        {
+          "left_id": 1,
+          "right_id": 101
+        },
+        {
+          "left_id": 1,
+          "right_id": 102
+        },
+        {
+          "left_id": 2,
+          "right_id": 101
+        },
+        {
+          "left_id": 2,
+          "right_id": 102
+        },
+        {
+          "left_id": 3,
+          "right_id": 103
+        }
+      ],
+      "expected_rows": [
+        {
+          "left_id": 1,
+          "right_id": 101
+        },
+        {
+          "left_id": 1,
+          "right_id": 102
+        },
+        {
+          "left_id": 2,
+          "right_id": 101
+        },
+        {
+          "left_id": 2,
+          "right_id": 102
+        },
+        {
+          "left_id": 3,
+          "right_id": 103
+        }
+      ],
+      "comparison": {
+        "passed": true,
+        "mismatch_count": 0,
+        "differences": [],
+        "max_absolute_numeric_difference": 0.0,
+        "max_relative_numeric_difference": 0.0
+      },
+      "plan": "plans/fx_inner_duplicates_nulls.txt",
+      "gpu_operators": [
+        "GpuBroadcastExchange",
+        "GpuBroadcastHashJoin",
+        "GpuBuildLeft",
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFilter",
+        "GpuProject",
+        "GpuRowToColumnar",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "left_anti_plan_lines": []
+    },
+    "fx_outer_counts": {
+      "status": "PASS",
+      "rows": [
+        {
+          "entity_id": 1,
+          "joined_rows": 2,
+          "nonnull_fact_ids": 1
+        },
+        {
+          "entity_id": 2,
+          "joined_rows": 2,
+          "nonnull_fact_ids": 2
+        },
+        {
+          "entity_id": 3,
+          "joined_rows": 1,
+          "nonnull_fact_ids": 0
+        },
+        {
+          "entity_id": 4,
+          "joined_rows": 1,
+          "nonnull_fact_ids": 0
+        },
+        {
+          "entity_id": null,
+          "joined_rows": 1,
+          "nonnull_fact_ids": 0
+        }
+      ],
+      "expected_rows": [
+        {
+          "entity_id": 1,
+          "joined_rows": 2,
+          "nonnull_fact_ids": 1
+        },
+        {
+          "entity_id": 2,
+          "joined_rows": 2,
+          "nonnull_fact_ids": 2
+        },
+        {
+          "entity_id": 3,
+          "joined_rows": 1,
+          "nonnull_fact_ids": 0
+        },
+        {
+          "entity_id": 4,
+          "joined_rows": 1,
+          "nonnull_fact_ids": 0
+        },
+        {
+          "entity_id": null,
+          "joined_rows": 1,
+          "nonnull_fact_ids": 0
+        }
+      ],
+      "comparison": {
+        "passed": true,
+        "mismatch_count": 0,
+        "differences": [],
+        "max_absolute_numeric_difference": 0.0,
+        "max_relative_numeric_difference": 0.0
+      },
+      "plan": "plans/fx_outer_counts.txt",
+      "gpu_operators": [
+        "GpuBroadcastExchange",
+        "GpuBroadcastHashJoin",
+        "GpuBuildRight",
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuRowToColumnar",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "left_anti_plan_lines": []
+    },
+    "fx_semi_anti": {
+      "status": "PASS",
+      "rows": [
+        {
+          "entity_id": 1
+        },
+        {
+          "entity_id": 3
+        }
+      ],
+      "expected_rows": [
+        {
+          "entity_id": 1
+        },
+        {
+          "entity_id": 3
+        }
+      ],
+      "comparison": {
+        "passed": true,
+        "mismatch_count": 0,
+        "differences": [],
+        "max_absolute_numeric_difference": 0.0,
+        "max_relative_numeric_difference": 0.0
+      },
+      "plan": "plans/fx_semi_anti.txt",
+      "gpu_operators": [
+        "GpuBroadcastExchange",
+        "GpuBroadcastHashJoin",
+        "GpuBuildRight",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuRowToColumnar",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "left_anti_plan_lines": [
+        "                  +- GpuBroadcastHashJoin [entity_id#8L], [entity_id#16L], LeftAnti, GpuBuildRight, false, [loreId=45]"
+      ]
+    },
+    "fx_rank_ties": {
+      "status": "PASS",
+      "rows": [
+        {
+          "group_name": "a",
+          "item_id": 1,
+          "score": 100.0,
+          "row_num": 1,
+          "score_rank": 1,
+          "previous_score": null
+        },
+        {
+          "group_name": "a",
+          "item_id": 2,
+          "score": 100.0,
+          "row_num": 2,
+          "score_rank": 1,
+          "previous_score": 100.0
+        },
+        {
+          "group_name": "a",
+          "item_id": 4,
+          "score": 50.0,
+          "row_num": 3,
+          "score_rank": 3,
+          "previous_score": null
+        },
+        {
+          "group_name": "a",
+          "item_id": 3,
+          "score": null,
+          "row_num": 4,
+          "score_rank": 4,
+          "previous_score": 100.0
+        },
+        {
+          "group_name": null,
+          "item_id": 5,
+          "score": 20.0,
+          "row_num": 1,
+          "score_rank": 1,
+          "previous_score": null
+        },
+        {
+          "group_name": null,
+          "item_id": 6,
+          "score": 20.0,
+          "row_num": 2,
+          "score_rank": 1,
+          "previous_score": 20.0
+        }
+      ],
+      "expected_rows": [
+        {
+          "group_name": "a",
+          "item_id": 1,
+          "score": 100.0,
+          "row_num": 1,
+          "score_rank": 1,
+          "previous_score": null
+        },
+        {
+          "group_name": "a",
+          "item_id": 2,
+          "score": 100.0,
+          "row_num": 2,
+          "score_rank": 1,
+          "previous_score": 100.0
+        },
+        {
+          "group_name": "a",
+          "item_id": 4,
+          "score": 50.0,
+          "row_num": 3,
+          "score_rank": 3,
+          "previous_score": null
+        },
+        {
+          "group_name": "a",
+          "item_id": 3,
+          "score": null,
+          "row_num": 4,
+          "score_rank": 4,
+          "previous_score": 100.0
+        },
+        {
+          "group_name": null,
+          "item_id": 5,
+          "score": 20.0,
+          "row_num": 1,
+          "score_rank": 1,
+          "previous_score": null
+        },
+        {
+          "group_name": null,
+          "item_id": 6,
+          "score": 20.0,
+          "row_num": 2,
+          "score_rank": 1,
+          "previous_score": 20.0
+        }
+      ],
+      "comparison": {
+        "passed": true,
+        "mismatch_count": 0,
+        "differences": [],
+        "max_absolute_numeric_difference": 0.0,
+        "max_relative_numeric_difference": 0.0
+      },
+      "plan": "plans/fx_rank_ties.txt",
+      "gpu_operators": [
+        "GpuBatchedBoundedWindow",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuRowToColumnar",
+        "GpuRunningWindow",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "left_anti_plan_lines": []
+    },
+    "fx_regex_distinct": {
+      "status": "PASS",
+      "rows": [
+        {
+          "group_name": "a",
+          "eligible_rows": 3,
+          "distinct_values": 1
+        },
+        {
+          "group_name": "b",
+          "eligible_rows": 1,
+          "distinct_values": 1
+        }
+      ],
+      "expected_rows": [
+        {
+          "group_name": "a",
+          "eligible_rows": 3,
+          "distinct_values": 1
+        },
+        {
+          "group_name": "b",
+          "eligible_rows": 1,
+          "distinct_values": 1
+        }
+      ],
+      "comparison": {
+        "passed": true,
+        "mismatch_count": 0,
+        "differences": [],
+        "max_absolute_numeric_difference": 0.0,
+        "max_relative_numeric_difference": 0.0
+      },
+      "plan": "plans/fx_regex_distinct.txt",
+      "gpu_operators": [
+        "GpuCoalesceBatches",
+        "GpuColumnarExchange",
+        "GpuColumnarToRow",
+        "GpuCustomShuffleReader",
+        "GpuFilter",
+        "GpuHashAggregate",
+        "GpuProject",
+        "GpuRowToColumnar",
+        "GpuShuffleCoalesce",
+        "GpuSort"
+      ],
+      "left_anti_plan_lines": []
+    }
+  },
+  "intermediate_expectations": {
+    "fx_semi_anti": {
+      "semi_entity_ids": [
+        1,
+        2,
+        3
+      ],
+      "excluded_entity_ids": [
+        2
+      ],
+      "result_entity_ids": [
+        1,
+        3
+      ]
+    }
+  },
+  "version": "3.5.9",
+  "spark_conf": {
+    "spark.app.submitTime": "1793137462259",
+    "spark.rapids.sql.enabled": "true",
+    "spark.rapids.sql.multiThreadedRead.memoryLimit.size": "165801236889",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.sql.enabled": "true",
+    "spark.jars": "file:///home/ubuntu/study/jars/rapids-4-spark_2.12-26.08.1.jar",
+    "spark.app.id": "local-1793137463335",
+    "spark.sql.extensions": "com.nvidia.spark.rapids.SQLExecPlugin,com.nvidia.spark.udf.Plugin,com.nvidia.spark.DFUDFPlugin,com.nvidia.spark.rapids.optimizer.SQLOptimizerPlugin",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.driver.user.timezone": "Z",
+    "spark.driver.memory": "8g",
+    "spark.repl.local.jars": "file:///home/ubuntu/study/jars/rapids-4-spark_2.12-26.08.1.jar",
+    "spark.serializer.objectStreamReset": "100",
+    "spark.submit.deployMode": "client",
+    "spark.plugins.internal.conf.com.nvidia.spark.SQLPlugin.spark.rapids.sql.variableFloatAgg.enabled": "true",
+    "spark.rapids.driver.user.timezone": "Z",
+    "spark.app.startTime": "1793137462823",
+    "spark.driver.extraJavaOptions": "-Djava.net.preferIPv6Addresses=false -XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED -Djdk.reflect.useDirectMethodHandle=false",
+    "spark.driver.port": "45511",
+    "spark.executor.id": "driver",
+    "spark.driver.host": "localhost",
+    "spark.app.initial.jar.urls": "spark://localhost:45511/jars/rapids-4-spark_2.12-26.08.1.jar",
+    "spark.app.name": "research-adversarial-fixtures",
+    "spark.sql.shuffle.partitions": "2",
+    "spark.plugins": "com.nvidia.spark.SQLPlugin",
+    "spark.rapids.sql.variableFloatAgg.enabled": "true",
+    "spark.rdd.compress": "True",
+    "spark.executor.extraJavaOptions": "-Djava.net.preferIPv6Addresses=false -XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED -Djdk.reflect.useDirectMethodHandle=false",
+    "spark.ui.enabled": "false",
+    "spark.submit.pyFiles": "",
+    "spark.sql.session.timeZone": "UTC",
+    "spark.master": "local[2]"
+  },
+  "supported_queries": 5,
+  "unsupported_queries": [],
+  "nonempty_anti_semantics_passed": true,
+  "gpu_left_anti_plan_observed": true,
+  "completed_at_utc": "2026-10-27T21:44:38.730850+00:00"
+}

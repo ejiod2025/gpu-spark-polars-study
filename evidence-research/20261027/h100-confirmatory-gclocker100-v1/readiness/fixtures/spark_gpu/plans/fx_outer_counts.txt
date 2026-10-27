@@ -1,0 +1,41 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=63]
+   +- GpuSort [entity_id#8L ASC NULLS LAST], true, com.nvidia.spark.rapids.OutOfCoreSort$@6482030e, [loreId=62]
+      +- GpuShuffleCoalesce 1073741824, [loreId=61]
+         +- GpuCustomShuffleReader coalesced
+            +- ShuffleQueryStage 3
+               +- GpuColumnarExchange gpurangepartitioning(entity_id#8L ASC NULLS LAST, 2), ENSURE_REQUIREMENTS, [plan_id=1047], [loreId=56]
+                  +- GpuHashAggregate (keys=[entity_id#8L], functions=[gpucount(1, false), gpucount(fact_id#10L, false)], output=[entity_id#8L, joined_rows#32L, nonnull_fact_ids#33L]) [loreId=55]
+                     +- GpuProject [entity_id#8L, fact_id#10L], true, [loreId=54]
+                        +- GpuBroadcastHashJoin [entity_id#8L], [entity_id#11L], LeftOuter, GpuBuildRight, false, [loreId=53]
+                           :- GpuRowToColumnar targetsize(1073741824), [loreId=52]
+                           :  +- AQEShuffleRead coalesced
+                           :     +- ShuffleQueryStage 0
+                           :        +- Exchange hashpartitioning(entity_id#8L, 2), ENSURE_REQUIREMENTS, [plan_id=722]
+                           :           +- *(1) Scan ExistingRDD[entity_id#8L]
+                           +- BroadcastQueryStage 2
+                              +- GpuBroadcastExchange HashedRelationBroadcastMode(List(input[1, bigint, false]),false), [plan_id=929], [loreId=42]
+                                 +- GpuShuffleCoalesce 1073741824, [loreId=41]
+                                    +- GpuCustomShuffleReader
+                                       +- ShuffleQueryStage 1
+                                          +- GpuColumnarExchange gpuhashpartitioning(entity_id#11L, 2, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=762], [loreId=26]
+                                             +- GpuCoalesceBatches targetsize(1073741824), [loreId=25]
+                                                +- GpuFilter gpuisnotnull(entity_id#11L), [loreId=24]
+                                                   +- GpuRowToColumnar targetsize(1073741824), [loreId=23]
+                                                      +- *(2) Scan ExistingRDD[fact_id#10L,entity_id#11L]
++- == Initial Plan ==
+   Sort [entity_id#8L ASC NULLS LAST], true, 0
+   +- Exchange rangepartitioning(entity_id#8L ASC NULLS LAST, 2), ENSURE_REQUIREMENTS, [plan_id=559]
+      +- HashAggregate(keys=[entity_id#8L], functions=[count(1), count(fact_id#10L)], output=[entity_id#8L, joined_rows#32L, nonnull_fact_ids#33L])
+         +- HashAggregate(keys=[entity_id#8L], functions=[partial_count(1), partial_count(fact_id#10L)], output=[entity_id#8L, count#41L, count#42L])
+            +- Project [entity_id#8L, fact_id#10L]
+               +- SortMergeJoin [entity_id#8L], [entity_id#11L], LeftOuter
+                  :- Sort [entity_id#8L ASC NULLS FIRST], false, 0
+                  :  +- Exchange hashpartitioning(entity_id#8L, 2), ENSURE_REQUIREMENTS, [plan_id=550]
+                  :     +- Scan ExistingRDD[entity_id#8L]
+                  +- Sort [entity_id#11L ASC NULLS FIRST], false, 0
+                     +- Exchange hashpartitioning(entity_id#11L, 2), ENSURE_REQUIREMENTS, [plan_id=551]
+                        +- Filter isnotnull(entity_id#11L)
+                           +- Scan ExistingRDD[fact_id#10L,entity_id#11L]
+
