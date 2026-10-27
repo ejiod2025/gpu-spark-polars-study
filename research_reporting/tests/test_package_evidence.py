@@ -12,6 +12,37 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from research_reporting import package_evidence as pack
 
+GENUINE_ARCHIVE = Path(__file__).resolve().parents[2] / "evidence-research/20261026/h100-confirmatory-v1"
+
+
+def test_separate_canonical_prestart_is_fully_verified_without_copying_seal(tmp_path):
+    harvest = tmp_path / "reconstructed"
+    harvest.mkdir()
+    campaign = pack.sha256(GENUINE_ARCHIVE / "campaign.json")
+    identity, reference = pack.prestart_identity(harvest, campaign, GENUINE_ARCHIVE)
+    assert identity["campaign_sha256"] == campaign
+    assert reference["prestart_manifest_sha256"] == pack.sha256(GENUINE_ARCHIVE / "PRESTART_MANIFEST.json")
+    assert reference["files"] == 333
+    assert list(harvest.iterdir()) == []
+    with pytest.raises(ValueError, match="different campaign"):
+        pack.prestart_identity(harvest, "a" * 64, GENUINE_ARCHIVE)
+
+
+def test_separate_prestart_rejects_changed_original_bytes(tmp_path):
+    import shutil
+    archive = tmp_path / "prestart"
+    shutil.copytree(GENUINE_ARCHIVE, archive)
+    path = archive / "campaign.json.source/research_validate.py"
+    path.write_bytes(path.read_bytes() + b"\n# TEST ONLY altered source\n")
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        pack.prestart_identity(tmp_path, pack.sha256(archive / "campaign.json"), archive)
+
+
+def test_synthetic_bundle_cannot_bind_genuine_prestart(tmp_path):
+    root = fixture(tmp_path / "input")
+    with pytest.raises(ValueError, match="cannot bind"):
+        pack.package(root, tmp_path / "bundle", allow_synthetic=True, prestart_archive=GENUINE_ARCHIVE)
+
 
 def fixture(root):
     root.mkdir()

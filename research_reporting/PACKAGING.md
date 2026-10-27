@@ -16,6 +16,7 @@ Package the complete raw tree into a new directory outside that tree:
 ```sh
 python research_reporting/package_evidence.py \
   --evidence /absolute/harvested-evidence \
+  --prestart-archive /absolute/sealed-prestart-archive \
   --audit-complete /absolute/replay/complete-audit/AUDIT_COMPLETE.json \
   --output /absolute/new-bundle
 ```
@@ -27,6 +28,15 @@ permit incomplete samples or unreviewed replacement attempts. It requires
 the original final `validation.json` and `analysis/analysis.json` inside the
 evidence tree. Preserve replay outputs and figures alongside the raw bundle as
 separate derived artifacts; the raw tree is never rewritten to contain them.
+
+For replacement evidence reconstructed from multiple backup phases, pass
+`--prestart-archive` explicitly. The complete canonical archive is reverified
+against its registered identity, source and file hashes, and must bind the same
+campaign as the harvest. Its path and manifest hash are recorded and checked
+again after packaging. Keep that original sealed archive separate: operational
+logs advance after prestart, so copying its seal into the merged evidence would
+misdescribe the bytes it covers. Older complete trees with an intact co-located
+seal remain supported when the option is omitted.
 
 The packager retains every regular raw file, including logs, event data,
 plans, telemetry, result rows, oracles and frozen source. It rejects symlinks,

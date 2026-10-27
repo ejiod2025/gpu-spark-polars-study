@@ -184,10 +184,29 @@ class HashingReader:
         return data
 
 
-def check_completion(evidence, audit_path, allow_synthetic):
+def prestart_identity(evidence, campaign_digest, prestart_archive=None):
+    """Keep the sealed prestart separate from advancing operational evidence."""
+    if prestart_archive is None:
+        return registered_identity(campaign_digest, sha256(evidence / "PRESTART_MANIFEST.json")), None
+    try:
+        from .replay import verify_archive
+    except ImportError:  # Direct script execution.
+        from replay import verify_archive
+    archive = Path(prestart_archive).resolve(strict=True)
+    verified = verify_archive(archive)
+    if verified["campaign_sha256"] != campaign_digest:
+        raise ValueError("Canonical prestart belongs to a different campaign")
+    return verified["registered_campaign_identity"], {
+        "path": str(archive), "prestart_manifest_sha256": verified["prestart_sha256"],
+        "files": len(verified["archive_files_sha256"])}
+
+
+def check_completion(evidence, audit_path, allow_synthetic, prestart_archive=None):
     synthetic_marker = evidence / "SYNTHETIC.json"
     synthetic = synthetic_marker.exists()
     if synthetic:
+        if prestart_archive is not None:
+            raise ValueError("Synthetic mechanism fixtures cannot bind a canonical prestart archive")
         if not allow_synthetic or json_file(synthetic_marker).get("synthetic") is not True:
             raise ValueError("Synthetic fixtures require explicit --allow-synthetic")
         return {"synthetic": True, "scope": "Synthetic archive mechanism test; no study observations"}
@@ -201,7 +220,7 @@ def check_completion(evidence, audit_path, allow_synthetic):
         raise ValueError("Confirmation driver has not finished writing its terminal record")
     campaign_path = evidence / "campaign.json"
     digest = sha256(campaign_path)
-    identity = registered_identity(digest, sha256(evidence / "PRESTART_MANIFEST.json"))
+    identity, prestart = prestart_identity(evidence, digest, prestart_archive)
     if (evidence / "campaign.json.sha256").read_text().strip() != digest:
         raise ValueError("Campaign checksum differs")
     plan = json_file(campaign_path)
@@ -239,12 +258,14 @@ def check_completion(evidence, audit_path, allow_synthetic):
             raise ValueError(f"Audited input changed or is unavailable: {name}")
     return {"synthetic": False, "campaign_sha256": digest, "source_commit": plan["source"]["git_head"],
             "registered_campaign_identity": identity,
+            "canonical_prestart_archive": prestart,
             "journal_sha256": sha256(journal_path), "validation_sha256": sha256(validation_path),
             "audit_sha256": sha256(audit_path), "audit_path": str(Path(audit_path).resolve()),
             "successful_outputs_compared": validation["successful_outputs_compared"]}
 
 
-def package(evidence, output, *, audit_complete=None, chunk_bytes=1024**3, allow_synthetic=False):
+def package(evidence, output, *, audit_complete=None, chunk_bytes=1024**3, allow_synthetic=False,
+            prestart_archive=None):
     evidence = Path(evidence).resolve(strict=True)
     output = Path(output).absolute()
     if output.resolve().is_relative_to(evidence):
@@ -253,7 +274,7 @@ def package(evidence, output, *, audit_complete=None, chunk_bytes=1024**3, allow
         raise FileExistsError(f"Refusing to overwrite bundle output: {output}")
     if isinstance(chunk_bytes, bool) or not isinstance(chunk_bytes, int) or chunk_bytes < 1:
         raise ValueError("chunk_bytes must be a positive integer")
-    eligibility = check_completion(evidence, audit_complete, allow_synthetic)
+    eligibility = check_completion(evidence, audit_complete, allow_synthetic, prestart_archive)
     output.mkdir(parents=True)
     try:
         before = inventory(evidence)
@@ -262,7 +283,7 @@ def package(evidence, output, *, audit_complete=None, chunk_bytes=1024**3, allow
         if before != after:
             raise ValueError("Evidence changed during packaging; incomplete bundle retained")
         # Recheck the terminal/audit identity too, including inputs outside the raw tree.
-        if eligibility != check_completion(evidence, audit_complete, allow_synthetic):
+        if eligibility != check_completion(evidence, audit_complete, allow_synthetic, prestart_archive):
             raise ValueError("Publication eligibility changed during packaging")
         if audit_complete is not None:
             with (output / "AUDIT_COMPLETE.json").open("xb") as handle:
@@ -302,11 +323,14 @@ def main():
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--audit-complete", type=Path)
+    parser.add_argument("--prestart-archive", type=Path,
+                        help="separately sealed canonical prestart for reconstructed evidence")
     parser.add_argument("--chunk-bytes", type=int, default=1024**3)
     parser.add_argument("--allow-synthetic", action="store_true", help="mechanism tests only; never a study bundle")
     args = parser.parse_args()
     value = package(args.evidence, args.output, audit_complete=args.audit_complete,
-                    chunk_bytes=args.chunk_bytes, allow_synthetic=args.allow_synthetic)
+                    chunk_bytes=args.chunk_bytes, allow_synthetic=args.allow_synthetic,
+                    prestart_archive=args.prestart_archive)
     print(json.dumps({key: value[key] for key in ("status", "file_count", "archive_bytes", "archive_sha256")}))
 
 
