@@ -117,11 +117,14 @@ analysis in that raw tree; portable replay outputs remain separate.
 ```sh
 python research_reporting/package_evidence.py \
   --evidence /absolute/recovery-harvest \
+  --prestart-archive /absolute/recovery-prestart-archive \
   --audit-complete /absolute/recovery-replay/complete-audit/AUDIT_COMPLETE.json \
   --output /absolute/recovery-raw-bundle
 ```
 
-Keep all parts, manifests and extraction/replay receipts off-host. A successful
+The canonical pre-start seal remains separate from the reconstructed harvest;
+do not copy it into a tree with advanced operational logs. Keep all parts,
+manifests and extraction/replay receipts off-host. A successful
 bundle is an integrity result, not an interpretation or publication decision.
 
 ## 3. Insert the full paper results, with these exact contracts
