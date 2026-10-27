@@ -467,7 +467,8 @@ value={'pid':p.pid,'started_at_utc':datetime.datetime.now(datetime.timezone.utc)
         helper = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(helper)
         profile = helper.validate_profile(status["execution_profile"])
-        if profile["settings"] != status["plan"]["settings"] or profile["source_files_sha256"] != status["plan"]["source"]["files_sha256"]:
+        if (profile["settings"] != status["plan"]["settings"] or profile["python_configs"] != status["plan"]["configs"]
+                or profile["source_files_sha256"] != status["plan"]["source"]["files_sha256"]):
             raise ValueError("Recovery plan differs from prediagnosed fixed execution profile")
         gates = status["execution_profile_gates"]
         if len(gates) < 2 or [gate.get("phase") for gate in gates[:2]] != ["readiness-before", "readiness-after"]:

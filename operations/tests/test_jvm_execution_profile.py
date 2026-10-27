@@ -40,7 +40,7 @@ def value():
                          home + "/" + name: "a" * 64 for name in ("bin/java", "lib/server/libjvm.so", "lib/modules", "release")}},
             "environment_sources": {"/original/h100-env.sh": "a" * 64}, "environment": environment,
             "launcher_files_sha256": {"/pyspark/bin/spark-class": "b" * 64},
-            "settings": plan["settings"], "spark_sql_settings": {"shuffle_partitions": 120, "adaptive_enabled": True},
+            "python_configs": plan["configs"], "settings": plan["settings"], "spark_sql_settings": {"shuffle_partitions": 120, "adaptive_enabled": True},
             "diagnostic": {"status": "PASS", "completed_at_utc": "2026-10-27T00:00:00Z", "driver_log_path": "/diag/spark_cpu.log",
                            "driver_log_sha256": "a" * 64, "validation_path": "/diag/validation.json", "validation_sha256": "b" * 64},
             "original_inputs": {"evidence_root": "/original/evidence", "files_sha256": {name: "c" * 64 for name in names},

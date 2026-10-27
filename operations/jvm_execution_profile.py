@@ -111,6 +111,12 @@ def validate_profile(value):
     if (len(value["source_files_sha256"]) != 52 or
             hashlib.sha256(canonical(value["source_files_sha256"])).hexdigest() != SOURCE_TREE):
         raise ValueError("Profile must retain the exact frozen 52-file C84 source")
+    configs = value.get("python_configs", [])
+    expected_configs = {"polars_cpu_144": "polars", "polars_cpu_200": "polars", "polars_gpu": "polars_gpu",
+                        "spark_cpu": "spark_cpu", "spark_gpu": "spark_gpu"}
+    if (len(configs) != 5 or {entry.get("id"): entry.get("engine") for entry in configs} != expected_configs
+            or any(not entry.get("python") or not entry.get("runtime", {}).get("distributions") for entry in configs)):
+        raise ValueError("Execution profile must retain all five original CPython runtime identities")
     settings = value.get("settings", {})
     if (settings.get("driver_memory") != "96g" or settings.get("cpus") != 26 or settings.get("runs") != 3
             or settings.get("spark_gpu_profile") != "a100-parity"
@@ -164,6 +170,7 @@ def check_local(value, source, *, original=False, data=False):
     identity = module.source_identity()
     if identity["files_sha256"] != value["source_files_sha256"]:
         raise ValueError("Frozen 52-file experimental source changed")
+    module.check_frozen_runtimes({"configs": value["python_configs"]})
     for field in ("driver_log", "validation"):
         if sha(value["diagnostic"][field + "_path"]) != value["diagnostic"][field + "_sha256"]:
             raise ValueError("SF100 diagnostic evidence changed")
@@ -241,7 +248,7 @@ def capture(args):
              "java": java_identity(), "environment": environment(),
              "environment_sources": {str(p.resolve()): sha(p) for p in args.env_file},
              "launcher_files_sha256": {str(p): sha(p) for p in launcher_files},
-             "settings": original["settings"], "spark_sql_settings": {"shuffle_partitions": 120, "adaptive_enabled": True},
+             "python_configs": original["configs"], "settings": original["settings"], "spark_sql_settings": {"shuffle_partitions": 120, "adaptive_enabled": True},
              "diagnostic": diagnostic, "original_inputs": {"evidence_root": str(args.original_evidence),
                  "files_sha256": {name: sha(args.original_evidence / name) for name in original_names},
                  "dataset_files_sha256": data}}
