@@ -1,6 +1,6 @@
 # Recovery paper: result insertion and completion ledger
 
-Status: preparation only, 2026-10-27. This is an editorial workflow, not new
+Status: recovery collection in progress, 2026-10-27. This is an editorial workflow, not new
 experimental source. It changes no C84 file, query, sample size, endpoint or
 statistical rule. This ledger does not itself satisfy the final publication or
 host-retirement gates.
@@ -8,7 +8,7 @@ host-retirement gates.
 The author is **Daniel Ejiofor**. Omit affiliation unless the author supplies
 one. The paper and public webpage must describe four separate roles: exploratory
 pilot; lost-host campaign; aborted default-profile replacement; and one
-conditionally planned fixed-JVM-profile recovery. Primary results can come
+ongoing fixed-JVM-profile recovery. Primary results can come
 only from the recovery's 400 fresh sessions. Never pool the lost cohort's 120
 sessions/2,808 outputs, the default-profile cohort's 88 validated sessions/2,056
 outputs, or the separate feasibility diagnostic into recovery inference.
@@ -18,10 +18,27 @@ outputs, or the separate feasibility diagnostic into recovery inference.
 Record the following exact values from files, never from a running status
 message. The October 26 SHA beginning `69669dfb` and default-profile October 27
 SHA beginning `0dabe0d4` are historical incomplete identities. Neither may
-satisfy the final recovery paper gate. The planned identity is
+satisfy the final recovery paper gate. The registered identity is
 `h100-confirmatory-gclocker100-20261027`, with canonical archive directory
-`evidence-research/20261027/h100-confirmatory-gclocker100-v1`; its actual new
-campaign/pre-start/profile hashes remain pending until sealed.
+`evidence-research/20261027/h100-confirmatory-gclocker100-v1`.
+Its exact registered hashes are:
+
+| Artifact | SHA256 |
+| --- | --- |
+| Recovery campaign | `3142874b918a2df2d66c8dfb32c26f59a09353edcb4cb73e51c4ba46ff387641` |
+| Pre-start manifest | `ea57fa1221b905e8ee287fe7860285c7a37535b084f13ce3dbbbca5ac4e29ace` |
+| Execution profile | `a07569ffa3be9cd138ed63084ff59ed668b8bceeef355b5a4f63adef53464c69` |
+
+The 346-file canonical snapshot passes all 345 listed file checksums. Pre-start
+private commit `6dbca2fbd4de1be8aa4408a639954bc9076bfa38` preceded the first
+recovery session, recorded at 21:47:44 UTC after the initial full 1,654-file byte
+gate at 21:47:43.892782 UTC. The separate twelve-output diagnostic and repeated
+116-output readiness both pass; all five semantic fixture configurations and
+four actual Spark readiness JVM flag logs are checked. The canonical pre-start
+contains two passing readiness-boundary profile receipts. Completion still
+requires the full 24-receipt/160-formal-Spark-log proof, all 400 sessions,
+post-final byte gates and genuine replay. No partial performance estimate is
+authorized by this collection milestone.
 
 | Binding | Source | Required check |
 | --- | --- | --- |
@@ -37,7 +54,7 @@ campaign/pre-start/profile hashes remain pending until sealed.
 | Final journal and backup receipts | Final raw tree; all ten full block manifests/receipts | Every 40-session block preserved off-host; actual collection interval and pacing |
 | Effective-profile chronology | Root `EXECUTION_PROFILE_GATES.jsonl` and all 160 Spark driver logs | Exactly 24 idle receipts: readiness before/after, ten block pairs, final before/after; same sealed Java/Python environment; receipts bracket actual sessions and completion |
 
-The diagnostic validation schema is
+The completed diagnostic validation schema is
 `h100-gclocker100-feasibility-validation-v1`. Require `status: PASS`, source C84,
 `engine: spark_cpu`, `suite: complex`, `scale: "100"`, `runs: 1`,
 `query_seed: 838471203`, exact `manifest_sha256`/`oracle_sha256`/`results_sha256`,
@@ -115,7 +132,7 @@ the paper workflow must not recompute a different statistic.
 
 | Paper item | Exact artifact and fields | Completeness/cross-check | Placement and interpretation |
 | --- | --- | --- | --- |
-| Campaign disposition and integrity table | Historical incident archive; recovery final `journal.json`; `P/validation.json`; complete audit; ten raw block backups and 24 profile receipts | Four unpooled roles; observed abort; one conditionally planned recovery; 400 fresh identities, all attempts/deviations and bracketing gates | §5.1; report failure and post-incident profile/pacing choice explicitly |
+| Campaign disposition and integrity table | Historical incident archive; recovery final `journal.json`; `P/validation.json`; complete audit; ten raw block backups and 24 profile receipts | Four unpooled roles; observed abort; one recovery collecting after passed diagnostic/readiness; final 400 fresh identities, all attempts/deviations and bracketing gates | §5.1; report failure and post-incident profile/pacing choice explicitly |
 | Reused input table | Same v1 manifests, new plan `.datasets`, profile-bound identity and full byte gates | Five scales and same 1,654 physical files; preserve exact actual v1 byte totals and oracle identities | §3.2; no regeneration; stored bytes do not establish scan volume, working set or out-of-core capacity |
 | Runtime/configuration and JVM profile | `.configs[].runtime`, `EXECUTION_PROFILE.json`, complete audit, 24 receipts and 160 actual Spark driver logs | All five Python configurations, exact JVM options, Java/runtime/launcher hashes, G1/96 GiB/retry 100 and unchanged settings | §3.1/§4; post-incident configuration choice, not a causal mitigation comparison |
 | Feasibility, readiness and semantic coverage | Separately preserved 12-slot diagnostic proof; repeated `readiness/READINESS.json`, fixtures and input-domain record; reused oracle bytes | Actual recovery pre-start PASS artifacts only; preserve original window-domain limitation and strict failures | §5.1–5.2; diagnostic timings excluded; feasibility is not a cure or guarantee |

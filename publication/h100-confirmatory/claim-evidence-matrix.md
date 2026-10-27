@@ -1,7 +1,7 @@
 # Claim and evidence matrix
 
-Status: conditional recovery manuscript preparation, 2026-10-27. Recovery
-feasibility, repeated readiness and primary performance results remain pending.
+Status: recovery collection in progress, 2026-10-27. The separate feasibility
+diagnostic and repeated readiness pass; primary performance results remain pending.
 All paths below are repository-relative unless explicitly
 marked remote. JSON selectors are machine-readable `jq` expressions.
 
@@ -21,11 +21,19 @@ Its preparation artifacts establish the reused host/input/oracle inventory;
 its 88 scientifically validated sessions and one failure do not complete a
 primary family and are excluded from recovery timing inference.
 
-`R` is the **planned recovery** archive directory
-`evidence-research/20261027/h100-confirmatory-gclocker100-v1`, with proposed ID
-`h100-confirmatory-gclocker100-20261027`. Its actual campaign/pre-start/profile
-hashes, separate feasibility diagnostic and repeated readiness remain pending.
-`P` is a genuine completed replay of that recovery, also pending. `B` is its
+`R` is the **registered recovery** archive directory
+`evidence-research/20261027/h100-confirmatory-gclocker100-v1`, ID
+`h100-confirmatory-gclocker100-20261027`. Its campaign SHA256 is
+`3142874b918a2df2d66c8dfb32c26f59a09353edcb4cb73e51c4ba46ff387641`,
+pre-start manifest SHA256 is
+`ea57fa1221b905e8ee287fe7860285c7a37535b084f13ce3dbbbca5ac4e29ace`, and
+execution-profile SHA256 is
+`a07569ffa3be9cd138ed63084ff59ed668b8bceeef355b5a4f63adef53464c69`.
+All 345 listed pre-start checksums match, for 346 canonical files including
+the manifest. Private commit `6dbca2fbd4de1be8aa4408a639954bc9076bfa38`
+preceded the first recovery session. Feasibility and repeated readiness are
+completed pre-start observations, excluded from primary inference.
+`P` denotes the future genuine completed recovery replay, which remains pending. `B` is its
 eventual final paper build output. Neither prior campaign can satisfy the
 recovery primary-results gate. Resolve the final raw/incident extraction paths
 and these output bindings to literal paths before final reporting.
@@ -52,7 +60,7 @@ Expand aliases before resolving files. Do not rewrite paths inside hashed JSON.
 | C17 | A recovery scale crossover is supported. | **Pending:** all same-family primary rows in `P/analysis/analysis.json`; `P/analysis/block_ratios.csv`. | Apply protocol bracket rule under the recorded recovery JVM profile; no exact unmeasured threshold. Lack of significance is not equivalence or a reversal. |
 | C18 | The recovery study is a complete paper with reproducible evidence. | **Pending:** `P/REPLAY_MANIFEST.json`; `P/validation.json`; `P/complete-audit/AUDIT_COMPLETE.json`; `P/analysis/`; final raw `journal.json`; `P/figures/RENDER_MANIFEST.json`; paper build manifest and final manuscript review. | Audit all 26 primary rows, 40 coverage cells, 32 secondary pairs, deviations, 160 Spark driver logs, 24 profile receipts and matching profile hashes. Disclose all four cohort roles and post-incident selection; private source/evidence preservation remains in force. |
 
-## Observed default-profile disposition and conditional recovery
+## Observed default-profile disposition and recovery pre-start evidence
 
 | ID | Permitted statement | Evidence binding | Scope and remaining gate |
 | --- | --- | --- | --- |
@@ -60,23 +68,25 @@ Expand aliases before resolving files. Do not rewrite paths inside hashed JSON.
 | D02 | `block-03-complex-sf100-spark_cpu` failed in first `cx_q09` warmup before any successful output or measured observation, with exit 52, Java heap-space error and preceding GCLocker warnings. | Retained failed-session results/stdout/stderr/event log and scientific gate in incident archive; protocol incident record. | Report actual error; no failure-time heap/RSS or GC-recovery data establish cause or a false-OOM diagnosis. |
 | D03 | Configured 96 GiB heap and nearest host resource sample are recorded. | Incident event-log BlockManager maximum on-heap 61,658,785,382 bytes; nearest host sample: available RAM 211,723,608,064 bytes, swap zero, free disk 2,713,801,965,568 bytes. | These corroborate the configured cap and observed host sample; host availability does not establish failure-time JVM occupancy or allocation feasibility. |
 | D04 | All 3,349 original incident files survive off-host without journal/attempt edits. | Incident gzip bytes 220,656,964; SHA256 `79c99819d272cc1af947d8e200976a940cd63a96be580112e4a6c5900adee6ff`; extraction/transfer receipt and separate block 1/2 backups. | Retain actual private location/receipt in final binding. Archive integrity and a reported failure do not complete a primary study. |
-| D05 | The recovery is one prospective fixed-profile cohort conditional on feasibility/readiness. | [Recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md); one separately retained full-complex-SF100 Spark CPU diagnostic, seed 838471203, one warmup plus one measurement per query; repeated five-configuration SF1 readiness. | Planned until all 12 diagnostic outputs, normal cleanup, process exit and effective options pass, followed by new readiness PASS. No diagnostic timing enters primary inference; no automatic escalation/retry until clean. |
+| D05 | The separate full-complex-SF100 Spark CPU feasibility diagnostic passes. | `R/diagnostic-sf100-validation.json`: `.status`, `.query_seed`, `.successful_outputs_compared`, `.cleanup_records_checked`, `.records`, `.driver_flags`; `R/EXECUTION_PROFILE.json`: `.diagnostic`; retained driver log/results hashes. | Observed PASS at 21:36:41.579958 UTC: six queries, twelve passing warmup/measured outputs and cleanup records, seed 838471203, exit success and five actual driver flags. Diagnostic timings are excluded; feasibility does not establish causal mitigation or robust future execution. |
+| D06 | Recovery repeated readiness passes before collection. | `R/readiness/READINESS.json`: `.status`, `.successful_outputs_compared`, `.sessions`, `.semantic_fixtures`, `.errors`; four actual Spark readiness logs; two pre-start `R/EXECUTION_PROFILE_GATES.jsonl` receipts. | PASS at 21:44:41.187289 UTC: ten smoke sessions, 116 successful output comparisons, five fixture configurations, no errors. Four Spark logs prove retry 100, G1, unlocked diagnostics, PrintFlagsFinal and 96 GiB maximum heap. This is preparation, not 400-session performance evidence. |
 
 ## Recovery binding and reporting gates
 
 | ID | Recovery statement or output | Exact recovery evidence | Remaining gate |
 | --- | --- | --- | --- |
-| R01 | New cohort identity with unchanged C84 source and sealed profile. | `R/PRESTART_MANIFEST.json`: `.campaign_sha256`, `.source_commit`; actual SHA256 of that file; `R/campaign.json`: `.campaign_id`, `.source.files_sha256`; `R/EXECUTION_PROFILE.json`; committed identity registry. | Exact recovery campaign/pre-start/profile hashes registered and 52-file source verified before timing; neither incomplete earlier pair is eligible for final recovery results. |
+| R01 | New cohort identity with unchanged C84 source and sealed profile. | `R/PRESTART_MANIFEST.json`: `.campaign_sha256`, `.source_commit`, `.files_sha256`; actual SHA256 of that file; `R/campaign.json`; `R/EXECUTION_PROFILE.json`; committed identity registry and pre-start private commit. | Exact recovery tuple above is registered; 346 canonical files and listed checksums checked. Neither incomplete earlier pair is eligible for final recovery results. All final performance gates remain pending. |
 | R02 | Same replacement VM and verified recovery runtime. | `V/` archived inventory; repeated `R/readiness/baseline-spark_gpu/environment.json`; `R/campaign.json`: `.configs[].runtime`; sealed profile and formal-session audit. | Confirm H100 80 GB HBM3, 26 vCPUs, RAM, driver 580.105.08, kernel 6.8.0-1046-nvidia, unchanged Java 17.0.20.1/Python environments, and effective new Spark driver profile. |
 | R03 | Same 1,654 physical replacement files and existing oracle bytes reused. | `V/manifests/`, `V/oracles/`; `R/campaign.json`: `.datasets`; `R/oracles/*.json`; profile-bound identities, raw journal byte gates and complete audit. | No recovery regeneration/mutation; preserve the actual v1 physical table. New recovery pre/post full SHA256 gates still required; old-host October 26 bytes remain distinct. |
-| R04 | Repeated recovery readiness and unchanged independent references. | `R/readiness/READINESS.json`: `.status`, `.successful_outputs_compared`, `.sessions`; fixtures; eight reused `R/oracles/*.json`; input-domain record; sealed diagnostic/readiness proof. | Default-profile readiness PASS is historical. Recovery repeat and the separate 12-output diagnostic are planned until their actual complete artifacts pass. |
+| R04 | Repeated recovery readiness and unchanged independent references. | `R/readiness/READINESS.json`; fixtures; eight reused `R/oracles/*.json`; input-domain record; sealed diagnostic/readiness proof. | Recovery repeat and the twelve-output diagnostic pass; all five manifests and eight complete oracle files are byte-identical to `V`. Full-campaign correctness, post-final byte gates and all formal-session profile checks remain pending. |
 | R05 | Full completed recovery campaign. | Raw final `journal.json`, block receipts and `EXECUTION_PROFILE_GATES.jsonl`; `P/complete-audit/AUDIT_COMPLETE.json`; `P/validation.json`. | 400 fresh sessions, 9,360 expected successful outputs, 60 expected translation rejections; all attempts/deviations, bracketing byte gates, 24 profile receipts and 160 effective Spark driver proofs. |
 | R06 | Complete results tables. | `P/figures/primary_contrasts.csv` (26 rows), `P/figures/complete_case_scores.csv` (40 rows), `P/analysis/analysis.json`, `P/analysis/block_ratios.csv`. | Exact cross-checks to the full primary family and raw block observations; unsupported cells retain N/A and zero complete suite scores. |
 | R07 | Secondary sensitivity and raw uncertainty. | `P/complete-audit/HOST_RESULT_SENSITIVITY.csv` (32 rows); `P/analysis/analysis.json`: `.secondary_direction_changes`; `P/analysis/session_query_medians.csv`; `P/analysis/block_ratios.csv`. | Report all available pairs, six unavailable complex Polars GPU pairs, direction changes and pointwise/model scope; no added primary claim. |
 | R08 | Auditable publication figures. | `P/figures/CAPTIONS.md`; `P/figures/RENDER_MANIFEST.json`: `.synthetic == false`, `.campaign_sha256`, `.input_files_sha256`, `.output_files_sha256`; `P/REPLAY_MANIFEST.json`. | PASS real-data replay; exact estimate/caption agreement. Synthetic or partial renderings cannot enter paper or webpage. |
 | R09 | Complete private raw evidence survives host shutdown. | Postcollection `BUNDLE_MANIFEST.json`, `CHUNKS.sha256`, `REASSEMBLE.md`, receipt, verified extracted raw files and replay manifests. | Final raw tree/off-host copies and reassembly/byte verification; bundle alone does not establish scientific conclusions. |
 | R10 | Final paper and webpage report the same completed findings. | `B/BUILD_MANIFEST.json` for final build; exact manuscript/table/figure hashes; webpage snapshot and source mapping. | Apply [RESULTS_FINALIZATION.md](RESULTS_FINALIZATION.md), inspect every PDF page and webpage, confirm Daniel Ejiofor author metadata and actual availability terms. |
-| R11 | The measured recovery uses exactly the sealed JVM profile. | `R/EXECUTION_PROFILE.json`; 24 `EXECUTION_PROFILE_GATES.jsonl` receipts; all 160 Spark driver logs; complete audit `.execution_profile`; final paper `.execution_profile_sha256` and webpage provenance. | Audit profile `{path: "EXECUTION_PROFILE.json", sha256: registry hash, spark_driver_logs: 160, profile_gates: 24, status: "PASS"}`; match Java/runtime/environment hashes, readiness/block/final chronology and max heap 103,079,215,104 bytes, retry 100, unlocked diagnostics and G1. No causal mitigation/reliability inference follows. |
+| R11 | The measured recovery uses exactly the sealed JVM profile. | `R/EXECUTION_PROFILE.json`; two canonical readiness receipts; final raw `EXECUTION_PROFILE_GATES.jsonl` with 24 required receipts; all 160 required formal Spark logs; complete audit `.execution_profile`; final paper/page profile SHA. | Two readiness receipts and four readiness driver logs are verified. The full final proof remains pending: `{path: "EXECUTION_PROFILE.json", sha256: registry hash, spark_driver_logs: 160, profile_gates: 24, status: "PASS"}`; match Java/runtime/environment hashes, chronology, max heap 103,079,215,104 bytes, retry 100, unlocked diagnostics and G1. No causal mitigation/reliability inference follows. |
+| R12 | Recovery collection has started after its initial full-input gate. | [Current execution record](../../docs/H100_AUTONOMOUS_COMPLETION.md), registered pre-start archive, retained operational start/journal evidence; first session recorded at 21:47:44 UTC after full 1,654-file gate at 21:47:43.892782 UTC. | Collection milestone only. No partial-session timing, effect estimate or completed primary comparison is asserted. Final journal and post-session byte gate remain required. |
 
 ## Historical and recovery artifact locations
 

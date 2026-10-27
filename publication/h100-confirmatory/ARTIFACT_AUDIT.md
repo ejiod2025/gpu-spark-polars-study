@@ -13,8 +13,8 @@ frozen campaign source hashes. The campaign SHA256 is
 lost. Its 120 surviving sessions and 2,808 successful output comparisons do not
 constitute the completed study and cannot be pooled with the replacement.
 The replacement VM uses driver 580.105.08 and kernel 6.8.0-1046-nvidia. Its
-default-profile campaign was then aborted, creating a fourth, conditionally
-planned recovery role after the pilot, lost-host campaign and default-profile
+default-profile campaign was then aborted, creating a fourth, now collecting
+recovery role after the pilot, lost-host campaign and default-profile
 replacement. The recovery reuses the same 1,654 replacement files/oracle bytes
 and C84 source but changes the fixed Spark driver startup profile. Its own
 genuine pre-start/profile/readiness evidence and 400 fresh sessions must pass
@@ -43,15 +43,25 @@ also have separate verified raw backups. No successful session is rerun within
 that campaign. This retained failure is scientifically reportable; it cannot
 supply the complete primary analysis or be silently relabeled as recovery.
 
-## Additional planned recovery proof
+## Verified recovery pre-start; final completeness proof pending
 
 The [prospective recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md)
-permits one proposed cohort, `h100-confirmatory-gclocker100-20261027`, only
-after one separate full-complex-SF100 Spark CPU feasibility diagnostic and
-repeated five-configuration SF1 readiness pass. No recovery readiness,
-collection or performance finding is asserted here.
+specified one fresh cohort after one separate full-complex-SF100 Spark CPU
+feasibility diagnostic and repeated five-configuration SF1 readiness pass.
+Those conditions have now passed, and `h100-confirmatory-gclocker100-20261027`
+has started. The checked canonical archive is
+`evidence-research/20261027/h100-confirmatory-gclocker100-v1`. Its campaign,
+pre-start and execution-profile SHA256 values are respectively
+`3142874b918a2df2d66c8dfb32c26f59a09353edcb4cb73e51c4ba46ff387641`,
+`ea57fa1221b905e8ee287fe7860285c7a37535b084f13ce3dbbbca5ac4e29ace` and
+`a07569ffa3be9cd138ed63084ff59ed668b8bceeef355b5a4f63adef53464c69`.
+All 345 listed file checksums match, yielding 346 canonical files including
+the manifest. Private commit `6dbca2fbd4de1be8aa4408a639954bc9076bfa38`
+preceded the first session. Collection started at 21:47:44 UTC after the
+recorded initial full 1,654-file gate at 21:47:43.892782 UTC. These observations
+do not establish a completed primary sample or any performance advantage.
 
-The sealed `EXECUTION_PROFILE.json` must bind driver `SPARK_SUBMIT_OPTS`
+The sealed `EXECUTION_PROFILE.json` binds driver `SPARK_SUBMIT_OPTS`
 `-XX:+UnlockDiagnosticVMOptions -XX:GCLockerRetryAllocationCount=100 -XX:+PrintFlagsFinal`,
 unchanged Java 17.0.20.1/G1/96 GiB heap, Java runtime/launcher hashes, startup
 environment, all five Python configurations and reused input/oracle identities.
@@ -64,9 +74,21 @@ uses schema `h100-gclocker100-feasibility-validation-v1`, `status: PASS`, C84
 source, `engine: spark_cpu`, `suite: complex`, `scale: "100"`, `runs: 1`, seed
 838471203, matching manifest/oracle/results hashes, six queries, twelve passing
 warmup/measured records and twelve checked cleanup records. Every record and
-its comparison must pass; a count alone is insufficient. Its actual driver
-flags and successful exit prove only diagnostic feasibility. Those timings
+its comparison passes; a count alone is insufficient. Its validation passed
+at 21:36:41.579958 UTC with twelve cleanup records checked. Retained results
+and driver-log hashes match the profile/validation bindings. Its effective
+flags are retry count 100, maximum heap 103,079,215,104 bytes, and true values
+for `PrintFlagsFinal`, `UnlockDiagnosticVMOptions` and `UseG1GC`. Successful
+exit and these results establish only diagnostic feasibility. Those timings
 never enter the primary sample.
+
+Repeated readiness passed at 21:44:41.187289 UTC with ten sessions, 116
+successful output comparisons, five semantic fixture configurations and no
+errors. All four Spark readiness driver logs independently show the five
+expected flags. The canonical pre-start preserves passing `readiness-before`
+and `readiness-after` profile receipts at 21:41:19.583719 and 21:44:41.539957
+UTC, both bound to the registered profile. All five data manifests and eight
+complete oracle files are byte-identical to the default-profile archive.
 
 The extended final audit must verify the four repeated SF1 Spark readiness
 driver logs, all 160 formal Spark driver logs and 24 idle profile receipts in
@@ -83,8 +105,9 @@ Allocation-retry/GC stalls occurring inside action timers remain measured;
 none is trimmed as an outlier. A passing diagnostic or completed cohort cannot
 establish a causal cure or reliability improvement from the before/after
 cohorts. Another failure does not permit automatic escalation, invisible retry
-or additional cohorts until a clean result appears. Actual recovery execution
-and these real-evidence proofs remain pending.
+or additional cohorts until a clean result appears. Recovery collection has
+started; its final 400-session, 24-receipt, 160-formal-driver proof remains
+pending. Verified pre-start readiness does not substitute for those gates.
 
 ## What the combined gates establish
 
@@ -157,7 +180,7 @@ not by themselves invalidate the collected action timings or require changing
 the frozen schedule. Final publication still requires the completed sample,
 post-run integrity evidence, full validation and harvested-archive replay.
 
-## Historical tooling resolution, recovery execution pending
+## Historical tooling resolution, final recovery replay pending
 
 The separate [portable replay](../../research_reporting/replay.py) now records
 the path-only adapter and preserves both validation outputs. The

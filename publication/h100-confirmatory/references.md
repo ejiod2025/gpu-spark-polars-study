@@ -98,7 +98,7 @@ runtime claims where rolling documentation differs.
 
 13. **OpenJDK.** JEP 423.
     [Official JEP](https://openjdk.org/jeps/423).
-    Addresses G1 JNI critical-region handling in JDK 22. The planned recovery
+    Addresses G1 JNI critical-region handling in JDK 22. The recovery
     retains Java 17.0.20.1; citing this JEP does not imply that its implementation
     is present in the study runtime or that the study upgrades Java.
 
