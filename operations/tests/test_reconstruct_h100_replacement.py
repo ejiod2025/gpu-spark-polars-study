@@ -152,7 +152,24 @@ def fabricated(tmp_path, monkeypatch):
 
 
 def run(fixture):
-    return reconstruct.reconstruct(fixture["archive"], fixture["raw"], fixture["output"])
+    return reconstruct.reconstruct(fixture["archive"], fixture["raw"], fixture["output"], "replacement")
+
+
+def test_default_recovery_never_relabels_historical_transport(fabricated):
+    with pytest.raises(ValueError, match="exact registered 400-session"):
+        reconstruct.reconstruct(fabricated["archive"], fabricated["raw"], fabricated["output"])
+    assert not fabricated["output"].exists()
+
+
+def test_cohort_selection_is_bounded(fabricated):
+    with pytest.raises(ValueError, match="Unknown reconstruction cohort"):
+        reconstruct.reconstruct(fabricated["archive"], fabricated["raw"], fabricated["output"], "arbitrary-retry")
+    assert reconstruct.session_prefixes(fabricated["plan"], "replacement")
+    recovery = copy.deepcopy(fabricated["plan"])
+    recovery["campaign_id"] = reconstruct.COHORTS["gclocker100"]
+    assert reconstruct.session_prefixes(recovery)
+    with pytest.raises(ValueError, match="exact registered 400-session"):
+        reconstruct.session_prefixes(recovery, "replacement")
 
 
 def repack_phase(fixture, phase, relative, body):

@@ -26,7 +26,10 @@ reviewable `AUDIT_COMPLETE.json` and a nonzero exit status.
 Real campaigns must match an exact campaign/prestart checksum pair in the
 committed `campaign_identities.json` registry and the unchanged C84 source.
 The report binds the registry and identity-helper hashes among its actual read
-inputs. Unknown campaigns are refused; synthetic test opt-in remains separate.
+inputs. Unknown campaigns are refused; synthetic test opt-in remains separate. The
+original and aborted v1 pairs remain fixed historical identities. The one allowed
+recovery identity, `h100-confirmatory-gclocker100-20261027`, additionally registers
+its actual `EXECUTION_PROFILE.json` SHA256. No placeholder hash is accepted.
 
 The gate reconciles 400 unique sessions with one successful attempt each,
 9,360 successful outputs (2,340 warmups and 7,020 measured actions), 60 specific
@@ -61,3 +64,28 @@ Synthetic replay tests require an explicitly tagged campaign and
 `--allow-synthetic`; their report identifies the synthetic scope, their CSV
 contains a synthetic flag, and their Markdown carries a visible warning. Such
 outputs are test artifacts and must never be presented as experimental results.
+
+The recovery audit also requires a sealed successful separate SF100 Spark CPU
+diagnostic and the unchanged 1,654 physical file identities, manifests and
+independent oracle JSON/log bytes. The diagnostic validation must retain all six
+complex queries and all 12 oracle comparisons (one warmup and one measured
+action per query), 12 verified cleanup records, the original SF100 manifest and
+oracle hashes, and the actual driver flags. These observations never enter the
+primary cohort. Its harvested parent directory must contain
+`EXECUTION_PROFILE_GATES.jsonl`: exactly 24 ordered idle-host receipts preserving
+the prestart readiness prefix. The readiness pair precedes timing, each block
+pair brackets all 40 sessions, and the final pair brackets journal completion.
+Each receipt records the actual Java binary/libjvm/module-image/release hashes,
+version and inherited launcher environment, matching the frozen profile. Global
+Java-option variables must be absent; the fixed flags use `SPARK_SUBMIT_OPTS`.
+These probes run outside queries.
+
+Every one of the 160 Spark CPU/GPU session logs must contain one actual driver
+`PrintFlagsFinal` table showing `UnlockDiagnosticVMOptions=true`,
+`GCLockerRetryAllocationCount=100`, `MaxHeapSize=103079215104`, `UseG1GC=true` and
+`PrintFlagsFinal=true`. A block receipt cannot substitute for a missing child
+driver table. The audit hashes every inspected profile, receipt and driver log
+and records `execution_profile` with the registered SHA256, 160 driver logs, 24
+gates and PASS only when the complete audit passes. Old failed, diagnostic and
+recovery observations are never pooled. Historical archive verification does
+not authorize a final recovery paper or webpage.

@@ -1,9 +1,10 @@
 # Offline replacement evidence reconstruction
 
-Run only after the existing controller has preserved all 400 replacement
+Run only after the existing controller has preserved all 400 recovery
 sessions and the actual supervisor has exited zero. This operation never
 contacts the VM, reads source Parquet, executes a query or changes old archives.
-The October 26 incomplete campaign remains separate. An absent final or
+The October 26 lost-instance campaign and the aborted October 27 v1 campaign
+remain separately preserved; neither contributes observations to recovery. An absent final or
 completion backup is a hard stop, not permission to manufacture a PASS.
 
 The controller's local backup directory must contain each of `prestart`,
@@ -17,11 +18,11 @@ Use the existing analysis interpreter and a new output directory:
 ```sh
 cd /Users/danielejiofor/AIRFLOW/gpu-spark-polars-study
 RECON_PYTHON=/tmp/h100-analysis-audit-venv/bin/python
-RECON_CANONICAL="$PWD/evidence-research/20261027/h100-confirmatory-replacement-v1"
-RECON_RAW="$PWD/rerun/replacement-20261027/raw-backups"
-RECON_OUTPUT="$PWD/rerun/replacement-20261027/reconstruction-v1"
+RECON_CANONICAL="$PWD/evidence-research/20261027/h100-confirmatory-gclocker100-v1"
+RECON_RAW="$PWD/rerun/gclocker100-20261027/raw-backups"
+RECON_OUTPUT="$PWD/rerun/gclocker100-20261027/reconstruction-v1"
 "$RECON_PYTHON" -B operations/reconstruct_h100_replacement.py \
-  --archive "$RECON_CANONICAL" --raw-backups "$RECON_RAW" \
+  --cohort gclocker100 --archive "$RECON_CANONICAL" --raw-backups "$RECON_RAW" \
   --output "$RECON_OUTPUT"
 ```
 
@@ -35,8 +36,14 @@ Allow temporary disk space for one additional final snapshot plus the harvest.
 
 `harvest/` combines canonical prestart, final and completion bytes. All ten
 block session inventories must exactly match final. Overlapping immutable files
-must match. Only `confirm-driver.log` (append preserving its prefix) and
-`confirm-driver.phase` may advance. Preparation logs and all scientific data
+must match. Only `confirm-driver.log` and `EXECUTION_PROFILE_GATES.jsonl` (append preserving
+their prefixes), plus `confirm-driver.phase`, may advance. Recovery requires the
+registered `EXECUTION_PROFILE.json` sealed in prestart, the 24 ordered idle-host
+Java/environment receipts bracketing readiness, every block and final completion,
+and all 160 actual Spark driver logs with the fixed effective GCLocker100, 96g
+heap and G1 settings. The Java executable, libjvm, module image and release
+hashes in each receipt must match the profile. Missing or changed profile
+evidence stops reconstruction. Preparation logs and all scientific data
 remain immutable. The post-final journal must match completion, all 400 original
 sessions must have one successful attempt, and the byte gates must bracket
 timing. Completion must contain `confirm-driver.exit=0`, its end marker and
@@ -55,7 +62,7 @@ claim. Original absolute paths inside JSON are never rewritten.
 Next, run the genuine offline replay into another new directory:
 
 ```sh
-RECON_REPLAY="$PWD/rerun/replacement-20261027/replay-v1"
+RECON_REPLAY="$PWD/rerun/gclocker100-20261027/replay-v1"
 "$RECON_PYTHON" -B research_reporting/replay.py \
   --archive "$RECON_CANONICAL" \
   --artifacts-root "$RECON_OUTPUT/harvest/campaign-results" \
@@ -72,7 +79,7 @@ After replay and its complete audit PASS, package the raw harvest with an
 explicit reference to the separate canonical prestart:
 
 ```sh
-RECON_BUNDLE="$PWD/rerun/replacement-20261027/bundle-v1"
+RECON_BUNDLE="$PWD/rerun/gclocker100-20261027/bundle-v1"
 "$RECON_PYTHON" -B research_reporting/package_evidence.py \
   --evidence "$RECON_OUTPUT/harvest" \
   --prestart-archive "$RECON_CANONICAL" \
@@ -89,6 +96,11 @@ actual outputs before release. Only after all required evidence, derived
 artifacts, paper and page are preserved and their backups verified should the
 existing exact-instance shutdown guard be considered. This tool neither
 publishes nor shuts down the H100.
+
+The bounded `--cohort replacement` selector permits historical v1 transport
+inspection only. The default is `gclocker100`; arbitrary campaign IDs are refused.
+Historical registration cannot satisfy the final recovery paper/page gates, and
+the aborted v1 evidence cannot satisfy the 400 single-attempt requirement.
 
 Focused tests use visibly fabricated snapshots and a temporary mock registry;
 they cannot establish that the real replacement campaign has completed:

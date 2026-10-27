@@ -260,3 +260,230 @@ def test_sensitivity_refuses_missing_pair_or_invented_direction():
     value["secondary_host_result"].pop()
     with pytest.raises(ValueError, match="all 32"):
         audit.sensitivity_rows(value)
+
+
+# These temporary profile/log/receipt fixtures are visibly fabricated mechanism
+# tests. They reference copied manifest/oracle identities without reading data.
+RECOVERY_ARCHIVE = ROOT / 'evidence-research/20261027/h100-confirmatory-replacement-v1'
+FLAGS = '\n'.join((
+    '     uintx GCLockerRetryAllocationCount = 100 {product} {command line}',
+    '    size_t MaxHeapSize = 103079215104 {product} {command line}',
+    '      bool UseG1GC = true {product} {ergonomic}',
+    '      bool UnlockDiagnosticVMOptions = true {diagnostic} {command line}',
+    '      bool PrintFlagsFinal = true {product} {command line}',
+)) + '\n'
+
+
+def recovery_stamp(seconds):
+    return (datetime(2026, 10, 27, tzinfo=timezone.utc) + timedelta(seconds=seconds)).isoformat()
+
+
+@pytest.fixture
+def recovery_profile(tmp_path):
+    helper = audit.execution_profile_helpers()
+    archive = tmp_path / 'FABRICATED-prestart'
+    artifacts = tmp_path / 'FABRICATED-harvest/campaign-results'
+    artifacts.mkdir(parents=True)
+    plan = json_file(RECOVERY_ARCHIVE / 'campaign.json')
+    plan['campaign_id'] = audit.RECOVERY_CAMPAIGN_ID
+    original_names = ['campaign.json', 'INPUT_DOMAIN.json',
+                      *[f'manifests/sf{s}.json' for s in (1, 10, 30, 100, 300)]]
+    original_names += [f'oracles/{suite}-sf{s}.{suffix}'
+        for suite, scales in (('baseline', (1, 10, 30, 100, 300)), ('complex', (30, 100, 300)))
+        for s in scales for suffix in ('json', 'log')]
+    original_files = {}
+    for name in original_names:
+        source = RECOVERY_ARCHIVE / name
+        target = archive / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
+        original_files[name] = audit.digest(target.read_bytes())
+    physical = {}
+    for scale, dataset in plan['datasets'].items():
+        manifest = json_file(archive / f'manifests/sf{scale}.json')
+        physical.update({str(Path(dataset['path']) / name): entry['sha256']
+                         for name, entry in audit.manifest_files(manifest).items()})
+    diagnostic_validation = {
+        'schema_version': 'h100-gclocker100-feasibility-validation-v1', 'status': 'PASS',
+        'source_commit': audit.SOURCE_COMMIT, 'engine': 'spark_cpu', 'suite': 'complex', 'scale': '100',
+        'runs': 1, 'query_seed': 838471203,
+        'manifest_sha256': plan['datasets']['100']['manifest_sha256'],
+        'oracle_sha256': plan['oracles']['complex-sf100']['sha256'], 'results_sha256': 'e' * 64,
+        'successful_outputs_compared': 12, 'queries': list(audit.QUERIES['complex']), 'cleanup_records_checked': 12,
+        'records': [{'query': q, 'phase': phase, 'trial': trial, 'passed': True, 'comparison': {'passed': True}}
+                    for q in audit.QUERIES['complex'] for phase, trial in (('warmup', 0), ('measured', 1))],
+        'driver_flags': helper.parse_driver_flags(FLAGS), 'fabricated_test_only': True}
+    diagnostic_bytes = audit.canonical_bytes(diagnostic_validation)
+    java_home = '/FABRICATED-TEST/java17'
+    profile = {'schema_version': 'h100-jvm-execution-profile-v1',
+        'campaign_id': audit.RECOVERY_CAMPAIGN_ID, 'source_commit': audit.SOURCE_COMMIT,
+        'source_tree_sha256': audit.SOURCE_TREE, 'created_at_utc': recovery_stamp(10),
+        'spark_submit_opts': helper.SPARK_SUBMIT_OPTS,
+        'source_files_sha256': plan['source']['files_sha256'], 'settings': plan['settings'], 'python_configs': plan['configs'],
+        'spark_sql_settings': {'shuffle_partitions': 120, 'adaptive_enabled': True},
+        'java': {'binary': java_home + '/bin/java', 'java_home': java_home, 'version': '17.0.20.1',
+                 'version_output': 'FABRICATED Java 17.0.20.1\n',
+                 'files_sha256': {java_home + '/' + name: 'a' * 64 for name in
+                                  ('bin/java', 'lib/server/libjvm.so', 'lib/modules', 'release')}},
+        'environment_sources': {'/FABRICATED-TEST/env': 'b' * 64},
+        'launcher_files_sha256': {'/FABRICATED-TEST/spark-class': 'c' * 64},
+        'environment': {name: helper.SPARK_SUBMIT_OPTS if name == 'SPARK_SUBMIT_OPTS' else None
+                        for name in helper.ENV_NAMES},
+        'original_inputs': {'evidence_root': '/FABRICATED-TEST/original',
+                            'files_sha256': original_files, 'dataset_files_sha256': physical},
+        'diagnostic': {'status': 'PASS', 'completed_at_utc': recovery_stamp(5),
+                       'driver_log_path': '/FABRICATED-TEST/driver.log', 'driver_log_sha256': audit.digest(FLAGS.encode()),
+                       'validation_path': '/FABRICATED-TEST/validation.json',
+                       'validation_sha256': audit.digest(diagnostic_bytes)}}
+    (archive / 'diagnostic-sf100-driver_log.log').write_text(FLAGS)
+    (archive / 'diagnostic-sf100-validation.json').write_bytes(diagnostic_bytes)
+    (archive / audit.PROFILE_NAME).write_bytes(audit.canonical_bytes(profile))
+    profile_sha = audit.digest((archive / audit.PROFILE_NAME).read_bytes())
+    gates = []
+    times = [20, 30, *[value for block in range(10) for value in (99 + 120 * block, 219 + 120 * block)], 1300, 1500]
+    for phase, seconds in zip(helper.GATE_PHASES, times):
+        gates.append({'schema_version': 'h100-jvm-execution-profile-gate-v1', 'phase': phase,
+            'status': 'PASS', 'profile_sha256': profile_sha, 'completed_at_utc': recovery_stamp(seconds),
+            'java_files_sha256': profile['java']['files_sha256'], 'java_version': profile['java']['version_output'],
+            'environment_sources': profile['environment_sources'], 'environment': profile['environment'],
+            'exclusive_host': {'observed_at_utc': recovery_stamp(seconds - .1), 'nvidia_smi_returncode': 0,
+                               'gpu_compute_clients': '', 'nvidia_smi_stderr': '', 'benchmark_processes': [], 'eligible': True}})
+    def gate_bytes(selected):
+        return b''.join((json.dumps(gate, sort_keys=True) + '\n').encode() for gate in selected)
+    (archive / audit.PROFILE_GATES_NAME).write_bytes(gate_bytes(gates[:2]))
+    (artifacts.parent / audit.PROFILE_GATES_NAME).write_bytes(gate_bytes(gates))
+    identity = {'campaign_id': audit.RECOVERY_CAMPAIGN_ID, 'execution_profile_sha256': profile_sha}
+    prestart = {'files_sha256': {audit.PROFILE_NAME: profile_sha}}
+    attempts = [{'started_at_utc': recovery_stamp(100 + i * 3), 'ended_at_utc': recovery_stamp(101 + i * 3)}
+                for i in range(400)]
+    return {'archive': archive, 'artifacts': artifacts, 'plan': plan, 'profile': profile, 'gates': gates,
+            'identity': identity, 'prestart': prestart, 'attempts': attempts,
+            'journal': {'completed_at_utc': recovery_stamp(1400)}, 'gate_bytes': gate_bytes}
+
+
+def profile_context(fixture):
+    return audit.check_execution_profile(fixture['plan'], fixture['identity'], fixture['archive'],
+                                         fixture['artifacts'], fixture['prestart'], audit.Inputs())
+
+
+def test_recovery_profile_proves_24_idle_receipts_and_all_160_actual_spark_jvms(recovery_profile):
+    fixture = recovery_profile
+    context = profile_context(fixture)
+    for i, session in enumerate(fixture['plan']['sessions']):
+        run = fixture['artifacts'] / str(i)
+        if session['engine'].startswith('spark_'):
+            path = run / f"sf{session['scale']}/{session['engine']}.log"
+            path.parent.mkdir(parents=True)
+            path.write_text(FLAGS)
+        audit.check_spark_driver_profile(context, session, run, audit.Inputs())
+    assert context['driver_logs'] == 160 and len(context['gates']) == 24
+    audit.check_profile_chronology(context, fixture['plan'], fixture['journal'], fixture['attempts'])
+
+
+@pytest.mark.parametrize('bad', ['missing', 'java_hash', 'java_version', 'env_source', 'global_options', 'busy', 'duplicate', 'nonobject', 'prefix'])
+def test_recovery_profile_gate_drift_fails_closed(recovery_profile, bad):
+    fixture = recovery_profile
+    gates = copy.deepcopy(fixture['gates'])
+    if bad == 'missing':
+        gates.pop(4)
+    elif bad == 'java_hash':
+        gates[5]['java_files_sha256']['/FABRICATED-TEST/java17/lib/modules'] = 'd' * 64
+    elif bad == 'java_version':
+        gates[5]['java_version'] = 'different Java build'
+    elif bad == 'env_source':
+        gates[5]['environment_sources'] = {'/different': 'd' * 64}
+    elif bad == 'global_options':
+        gates[5]['environment']['JAVA_TOOL_OPTIONS'] = ''
+    elif bad == 'busy':
+        gates[5]['exclusive_host']['benchmark_processes'] = [{'pid': 123}]
+    elif bad == 'duplicate':
+        gates.insert(5, gates[5])
+    elif bad == 'nonobject':
+        gates[5] = []
+    else:
+        gates[0]['completed_at_utc'] = recovery_stamp(21)
+    (fixture['artifacts'].parent / audit.PROFILE_GATES_NAME).write_bytes(fixture['gate_bytes'](gates))
+    with pytest.raises(ValueError):
+        profile_context(fixture)
+
+
+@pytest.mark.parametrize('bad', ['unregistered', 'profile_hash', 'manifest', 'diagnostic', 'duplicate_json'])
+def test_recovery_seal_and_original_data_are_required(recovery_profile, bad):
+    fixture = recovery_profile
+    if bad == 'unregistered':
+        fixture['identity'].pop('campaign_id')
+    elif bad == 'profile_hash':
+        fixture['identity']['execution_profile_sha256'] = 'd' * 64
+    elif bad == 'manifest':
+        path = fixture['archive'] / 'manifests/sf1.json'
+        path.write_text(path.read_text() + '\n')
+    elif bad == 'diagnostic':
+        (fixture['archive'] / 'diagnostic-sf100-driver_log.log').write_text('missing actual flags\n')
+    else:
+        path = fixture['artifacts'].parent / audit.PROFILE_GATES_NAME
+        path.write_bytes(path.read_bytes().replace(b'"status": "PASS"', b'"status": "FAIL", "status": "PASS"'))
+    with pytest.raises(ValueError):
+        profile_context(fixture)
+
+
+@pytest.mark.parametrize('bad', ['missing_jvm', 'block_before', 'block_after', 'final_after'])
+def test_profile_chronology_cannot_replace_per_session_flags(recovery_profile, bad):
+    fixture = recovery_profile
+    context = profile_context(fixture)
+    context['driver_logs'] = 159 if bad == 'missing_jvm' else 160
+    if bad == 'block_before':
+        context['gates'][2]['completed_at_utc'] = recovery_stamp(101)
+    elif bad == 'block_after':
+        context['gates'][3]['completed_at_utc'] = recovery_stamp(217)
+    elif bad == 'final_after':
+        context['gates'][-1]['completed_at_utc'] = recovery_stamp(1399)
+    with pytest.raises(ValueError):
+        audit.check_profile_chronology(context, fixture['plan'], fixture['journal'], fixture['attempts'])
+
+
+@pytest.mark.parametrize('bad', ['heap', 'retry', 'collector', 'diagnostic', 'duplicate'])
+def test_each_actual_driver_log_must_show_fixed_effective_flags(tmp_path, bad):
+    text = FLAGS
+    if bad == 'heap':
+        text = text.replace('103079215104', '8589934592')
+    elif bad == 'retry':
+        text = text.replace('Count = 100', 'Count = 2')
+    elif bad == 'collector':
+        text = text.replace('UseG1GC = true', 'UseG1GC = false')
+    elif bad == 'diagnostic':
+        text = text.replace('UnlockDiagnosticVMOptions = true', 'UnlockDiagnosticVMOptions = false')
+    else:
+        text += FLAGS
+    path = tmp_path / 'sf100/spark_cpu.log'
+    path.parent.mkdir()
+    path.write_text(text)
+    context = {'helper': audit.execution_profile_helpers(), 'driver_logs': 0}
+    with pytest.raises(ValueError):
+        audit.check_spark_driver_profile(context, {'engine': 'spark_cpu', 'scale': '100'}, tmp_path, audit.Inputs())
+    assert context['driver_logs'] == 0
+
+
+@pytest.mark.parametrize('bad', ['subset', 'duplicate', 'comparison', 'cleanup', 'oracle', 'manifest', 'seed', 'measured_trial', 'flags'])
+def test_diagnostic_receipt_requires_full_sf100_workload_and_all_12_comparisons(recovery_profile, bad):
+    fixture = recovery_profile
+    validation = json_file(fixture['archive'] / 'diagnostic-sf100-validation.json')
+    if bad == 'subset':
+        validation['records'].pop()
+    elif bad == 'duplicate':
+        validation['records'][-1] = copy.deepcopy(validation['records'][0])
+    elif bad == 'comparison':
+        validation['records'][0]['comparison']['passed'] = False
+    elif bad == 'cleanup':
+        validation['cleanup_records_checked'] = 11
+    elif bad == 'oracle':
+        validation['oracle_sha256'] = 'f' * 64
+    elif bad == 'manifest':
+        validation['manifest_sha256'] = 'f' * 64
+    elif bad == 'seed':
+        validation['query_seed'] += 1
+    elif bad == 'measured_trial':
+        validation['records'][1]['trial'] = 3
+    else:
+        validation['driver_flags']['GCLockerRetryAllocationCount'] = 2
+    with pytest.raises(ValueError):
+        audit.check_diagnostic_validation(validation, fixture['plan'], audit.execution_profile_helpers().parse_driver_flags(FLAGS))

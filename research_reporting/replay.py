@@ -39,9 +39,9 @@ import sys
 import time
 
 try:
-    from .campaign_identity import registered_identity
+    from .campaign_identity import RECOVERY_CAMPAIGN_ID, registered_identity
 except ImportError:  # Direct script execution.
-    from campaign_identity import registered_identity
+    from campaign_identity import RECOVERY_CAMPAIGN_ID, registered_identity
 
 HERE = Path(__file__).resolve().parent
 SOURCE_COMMIT = "c84ef6a07341f350dae6636ab709c1b65fd894e0"
@@ -155,6 +155,18 @@ def verify_archive(archive, allow_synthetic=False):
     if (campaign_digest != manifest.get("campaign_sha256")
             or safe_file(archive, "campaign.json.sha256").read_text().strip() != campaign_digest):
         raise ValueError("Campaign checksum/sidecar differs")
+    if not synthetic and (plan.get("campaign_id") == RECOVERY_CAMPAIGN_ID
+                          or identity.get("execution_profile_sha256") is not None):
+        profile_hash = identity.get("execution_profile_sha256")
+        if (identity.get("campaign_id") != RECOVERY_CAMPAIGN_ID or plan.get("campaign_id") != RECOVERY_CAMPAIGN_ID
+                or expected.get("EXECUTION_PROFILE.json") != profile_hash
+                or sha256(safe_file(archive, "EXECUTION_PROFILE.json")) != profile_hash):
+            raise ValueError("Recovery prestart does not bind the exact registered execution profile")
+        profile = read_json(safe_file(archive, "EXECUTION_PROFILE.json"))
+        if (not isinstance(profile, dict) or profile.get("campaign_id") != RECOVERY_CAMPAIGN_ID
+                or profile.get("source_commit") != SOURCE_COMMIT
+                or profile.get("source_tree_sha256") != SOURCE_TREE_SHA256):
+            raise ValueError("Recovery execution profile campaign/source identity differs")
     source = plan["source"]
     files = source.get("files_sha256", {})
     tree = hashlib.sha256(canonical_bytes(files)).hexdigest()

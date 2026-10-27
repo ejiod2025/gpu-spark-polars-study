@@ -64,7 +64,12 @@ only exact campaign/prestart SHA256 pairs in the committed
 [`campaign_identities.json`](campaign_identities.json) registry, with the unchanged
 52-file C84 commit and source-tree identity. The original pair remains fixed.
 A replacement run needs its actual new campaign and prestart hashes committed
-before it can pass these tools; there is no arbitrary trust flag. Every archived
+before it can pass these tools; there is no arbitrary trust flag. The one fixed
+GCLocker100 recovery identity also registers its actual execution-profile hash,
+which replay checks against the sealed prestart before loading frozen code.
+The complete audit requires all 160 actual Spark JVM flag tables and 24 idle
+profile receipts. Original and aborted v1 archives remain historical evidence;
+final paper/page builders accept only the registered recovery cohort. Every archived
 checksum, source file, protocol and oracle is checked before any archived code
 runs. Registry and helper hashes are recorded in derived provenance.
 

@@ -27,6 +27,9 @@ except ImportError:  # Direct script execution.
 REAL_CAMPAIGN = "69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0"
 SOURCE_TREE = "9514f0f7ce384763d0a675a9075666707e0edabcc003c729a3e0735a52ea25d8"
 SOURCE_COMMIT = "c84ef6a07341f350dae6636ab709c1b65fd894e0"
+RECOVERY_CAMPAIGN_ID = "h100-confirmatory-gclocker100-20261027"
+PROFILE_NAME = "EXECUTION_PROFILE.json"
+PROFILE_GATES_NAME = "EXECUTION_PROFILE_GATES.jsonl"
 CONFIGS = {"polars_cpu_144": "polars", "polars_cpu_200": "polars", "polars_gpu": "polars_gpu",
            "spark_cpu": "spark_cpu", "spark_gpu": "spark_gpu"}
 QUERIES = {"baseline": ("q01", "q03", "q06", "q10", "q12", "q14"),
@@ -83,16 +86,155 @@ class Inputs:
         return self.record(path, value.hexdigest())
 
     def json(self, path):
-        def pairs(items):
-            result = {}
-            for key, value in items:
-                if key in result:
-                    raise ValueError(f"Duplicate JSON key {key}: {path}")
-                result[key] = value
-            return result
-        def nonfinite(value):
-            raise ValueError(f"Nonfinite JSON {value}: {path}")
-        return json.loads(self.read(path), object_pairs_hook=pairs, parse_constant=nonfinite)
+        return strict_json(self.read(path), path)
+
+
+def strict_json(data, path):
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError(f"Duplicate JSON key {key}: {path}")
+            result[key] = value
+        return result
+    def nonfinite(value):
+        raise ValueError(f"Nonfinite JSON {value}: {path}")
+    return json.loads(data, object_pairs_hook=pairs, parse_constant=nonfinite)
+
+
+def execution_profile_helpers(inputs=None):
+    path = Path(__file__).resolve().parents[1] / "operations/jvm_execution_profile.py"
+    if inputs is not None:
+        inputs.sha(path)
+    spec = importlib.util.spec_from_file_location("_complete_audit_jvm_profile", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def check_diagnostic_validation(value, plan, driver_flags):
+    """Retain the one separate full-six-query feasibility test outside inference."""
+    if (not isinstance(value, dict) or value.get("schema_version") != "h100-gclocker100-feasibility-validation-v1"
+            or value.get("status") != "PASS" or value.get("source_commit") != SOURCE_COMMIT
+            or value.get("engine") != "spark_cpu" or value.get("suite") != "complex" or value.get("scale") != "100"
+            or type(value.get("runs")) is not int or value["runs"] != 1
+            or type(value.get("query_seed")) is not int or value["query_seed"] != 838471203
+            or value.get("manifest_sha256") != plan["datasets"]["100"]["manifest_sha256"]
+            or value.get("oracle_sha256") != plan["oracles"]["complex-sf100"]["sha256"]
+            or not re.fullmatch(r"[0-9a-f]{64}", value.get("results_sha256", ""))
+            or type(value.get("successful_outputs_compared")) is not int or value["successful_outputs_compared"] != 12
+            or type(value.get("cleanup_records_checked")) is not int or value["cleanup_records_checked"] != 12
+            or value.get("driver_flags") != driver_flags):
+        raise ValueError("Separate SF100 feasibility validation differs from the fixed diagnostic")
+    queries, records = value.get("queries", []), value.get("records", [])
+    expected = {(q, phase, trial) for q in QUERIES["complex"] for phase, trial in (("warmup", 0), ("measured", 1))}
+    if (not isinstance(queries, list) or len(queries) != 6 or set(queries) != set(QUERIES["complex"])
+            or not isinstance(records, list) or len(records) != 12
+            or any(not isinstance(entry, dict) or entry.get("passed") is not True
+                   or not isinstance(entry.get("comparison"), dict) or entry["comparison"].get("passed") is not True
+                   for entry in records)
+            or Counter(map(action_key, records)) != Counter(expected)):
+        raise ValueError("Separate diagnostic must compare all 12 warmup/measured actions exactly once")
+
+
+def check_execution_profile(plan, identity, evidence_root, artifacts_root, prestart, inputs):
+    """Verify the recovery seal and idle receipts; historical archives stay valid."""
+    recovery = plan.get("campaign_id") == RECOVERY_CAMPAIGN_ID
+    if not recovery:
+        if identity and identity.get("execution_profile_sha256"):
+            raise ValueError("Registered recovery profile belongs to a different campaign ID")
+        return None
+    if not identity or identity.get("campaign_id") != RECOVERY_CAMPAIGN_ID:
+        raise ValueError("Recovery requires its exact registered campaign/profile identity")
+    profile_sha = identity.get("execution_profile_sha256")
+    profile_path = contained(evidence_root, PROFILE_NAME)
+    if (inputs.sha(profile_path) != profile_sha
+            or prestart["files_sha256"].get(PROFILE_NAME) != profile_sha):
+        raise ValueError("Execution profile differs from registered sealed prestart")
+    helper = execution_profile_helpers(inputs)
+    profile = inputs.json(profile_path)
+    if not isinstance(profile, dict):
+        raise ValueError("Execution profile must be a JSON object")
+    profile = helper.validate_profile(profile)
+    if (profile["source_files_sha256"] != plan["source"]["files_sha256"] or profile["settings"] != plan["settings"]
+            or profile["python_configs"] != plan["configs"]):
+        raise ValueError("Execution profile source/runtime/settings differ from the frozen campaign")
+    original_files = profile["original_inputs"]["files_sha256"]
+    for name, checksum in original_files.items():
+        if name not in {"campaign.json", "INPUT_DOMAIN.json"} and inputs.sha(contained(evidence_root, name)) != checksum:
+            raise ValueError(f"Recovery changed an original manifest/oracle: {name}")
+    physical = {}
+    for scale, dataset in plan["datasets"].items():
+        manifest = inputs.json(contained(evidence_root, f"manifests/sf{scale}.json"))
+        for relative, entry in manifest_files(manifest).items():
+            physical[str(Path(dataset["path"]) / relative)] = entry["sha256"]
+    if len(physical) != 1654 or physical != profile["original_inputs"]["dataset_files_sha256"]:
+        raise ValueError("Recovery physical input file identities differ from the frozen manifests")
+    for field in ("driver_log", "validation"):
+        name = "diagnostic-sf100-" + field + Path(profile["diagnostic"][field + "_path"]).suffix
+        if inputs.sha(contained(evidence_root, name)) != profile["diagnostic"][field + "_sha256"]:
+            raise ValueError("Separate diagnostic evidence differs from execution profile")
+    diagnostic_name = "diagnostic-sf100-driver_log" + Path(profile["diagnostic"]["driver_log_path"]).suffix
+    diagnostic_flags = helper.parse_driver_flags(inputs.read(contained(evidence_root, diagnostic_name)).decode())
+    validation_name = "diagnostic-sf100-validation" + Path(profile["diagnostic"]["validation_path"]).suffix
+    check_diagnostic_validation(inputs.json(contained(evidence_root, validation_name)), plan, diagnostic_flags)
+    archived = inputs.read(contained(evidence_root, PROFILE_GATES_NAME))
+    live = inputs.read(contained(artifacts_root.parent, PROFILE_GATES_NAME))
+    if not archived.endswith(b"\n") or not live.startswith(archived) or not live.endswith(b"\n"):
+        raise ValueError("Profile receipts must preserve the sealed readiness prefix")
+    gates = [strict_json(line, PROFILE_GATES_NAME) for line in live.splitlines()]
+    readiness = [strict_json(line, PROFILE_GATES_NAME) for line in archived.splitlines()]
+    if (any(not isinstance(g, dict) for g in gates + readiness)
+            or [g.get("phase") for g in gates] != list(helper.GATE_PHASES)
+            or [g.get("phase") for g in readiness] != ["readiness-before", "readiness-after"]):
+        raise ValueError("Exactly 24 ordered, single-attempt profile receipts are required")
+    for gate in gates:
+        idle = gate.get("exclusive_host", {})
+        if (not isinstance(idle, dict)
+                or gate.get("schema_version") != "h100-jvm-execution-profile-gate-v1" or gate.get("status") != "PASS"
+                or gate.get("profile_sha256") != profile_sha
+                or gate.get("java_files_sha256") != profile["java"]["files_sha256"]
+                or gate.get("java_version") != profile["java"]["version_output"]
+                or gate.get("environment_sources") != profile["environment_sources"]
+                or gate.get("environment") != profile["environment"]
+                or idle.get("eligible") is not True or idle.get("nvidia_smi_returncode") != 0
+                or idle.get("gpu_compute_clients") != "" or idle.get("nvidia_smi_stderr") != ""
+                or idle.get("benchmark_processes") != []):
+            raise ValueError(f"Actual idle Java/environment profile drift: {gate.get('phase')}")
+        if utc(idle["observed_at_utc"]) > utc(gate["completed_at_utc"]):
+            raise ValueError("Profile gate precedes its idle-host observation")
+    times = [utc(g["completed_at_utc"]) for g in gates]
+    if (times != sorted(times) or utc(profile["created_at_utc"]) > times[0]
+            or utc(profile["diagnostic"]["completed_at_utc"]) > utc(profile["created_at_utc"])):
+        raise ValueError("Execution profile diagnostic/receipt chronology differs")
+    return {"profile": profile, "sha256": profile_sha, "gates": gates, "helper": helper, "driver_logs": 0}
+
+
+def check_profile_chronology(context, plan, journal, attempts):
+    if context is None:
+        return
+    if len(attempts) != 400:
+        raise ValueError("Recovery profile proof requires all 400 session timestamps")
+    gates = {g["phase"]: utc(g["completed_at_utc"]) for g in context["gates"]}
+    bounds = [(s, utc(a["started_at_utc"]), utc(a["ended_at_utc"])) for s, a in zip(plan["sessions"], attempts)]
+    if gates["readiness-after"] > bounds[0][1]:
+        raise ValueError("Recovery readiness profile gates do not precede campaign timing")
+    for block in (f"block-{i:02d}" for i in range(1, 11)):
+        selected = [(start, end) for session, start, end in bounds if session["block_id"] == block]
+        if (len(selected) != 40 or gates[block + "-before"] > selected[0][0]
+                or gates[block + "-after"] < selected[-1][1]):
+            raise ValueError(f"Java profile gates do not bracket all 40 sessions: {block}")
+    if not (bounds[-1][2] <= gates["final-before"] <= utc(journal["completed_at_utc"]) <= gates["final-after"]):
+        raise ValueError("Final Java profile gates do not bracket final completion")
+    if context["driver_logs"] != 160:
+        raise ValueError("Exactly 160 actual Spark driver flag tables are required")
+
+
+def check_spark_driver_profile(context, session, run, inputs):
+    if context is not None and session["engine"].startswith("spark_"):
+        path = contained(run, f"sf{session['scale']}/{session['engine']}.log")
+        context["helper"].parse_driver_flags(inputs.read(path).decode())
+        context["driver_logs"] += 1
 
 
 def contained(root, relative):
@@ -360,6 +502,7 @@ def audit_complete(campaign, artifacts_root, evidence_root, validation, analysis
         raise ValueError("Refusing to overwrite a complete-audit output directory")
     output.mkdir(parents=True)
     inputs, checks, summaries = Inputs(), Checks(), []
+    identity, profile_context = None, None
     counts = dict.fromkeys(EXPECTED_COUNTS, 0)
     report = {"schema_version": "research-complete-audit-v1", "status": "FAIL", "campaign_sha256": None,
               "journal_sha256": None, "counts": counts, "source_sha256": inputs.sha(Path(__file__)),
@@ -397,6 +540,7 @@ def audit_complete(campaign, artifacts_root, evidence_root, validation, analysis
         for relative, expected in prestart["files_sha256"].items():
             checks.test(inputs.sha(contained(evidence_root, relative)) == expected,
                         "prestart_file", f"Prestart artifact hash differs: {relative}")
+        profile_context = check_execution_profile(plan, identity, evidence_root, artifacts_root, prestart, inputs)
         readiness = inputs.json(evidence_root / "readiness/complex-polars_gpu/sf1/polars_gpu/results.json")
         readiness_errors = {entry["query"]: entry for entry in readiness["query_errors"]}
         checks.test(all(translation_rejection(readiness_errors.get(q, {}), readiness_errors.get(q, {}))
@@ -479,6 +623,7 @@ def audit_complete(campaign, artifacts_root, evidence_root, validation, analysis
                 environment = inputs.json(run / "environment.json")
                 check_environment(environment, plan, session, configs[session["config_id"]], frozen_run, checks)
                 check_config(value, session, readiness, frozen_checks, checks)
+                check_spark_driver_profile(profile_context, session, run, inputs)
                 schedules = inputs.json(run / "schedule.json")
                 if len(schedules) != 1:
                     raise ValueError("Each fresh session must have exactly one runner schedule item")
@@ -530,10 +675,15 @@ def audit_complete(campaign, artifacts_root, evidence_root, validation, analysis
         checks.test(validation_value.get("successful_outputs_compared") == 9360,
                     "validation_count", "Final validation output count must be 9360")
         check_chronology(journal, attempts, inventories, checks)
+        check_profile_chronology(profile_context, plan, journal, attempts)
         sensitivity = sensitivity_rows(analysis_value)
         write_sensitivity(output, sensitivity, report["synthetic"])
     except (OSError, ValueError, KeyError, TypeError, UnicodeError, RuntimeError) as exc:
         checks.test(False, "audit_input", f"{type(exc).__name__}: {exc}")
+    if profile_context is not None:
+        report["execution_profile"] = {"path": PROFILE_NAME, "sha256": profile_context["sha256"],
+            "spark_driver_logs": profile_context["driver_logs"], "profile_gates": len(profile_context["gates"]),
+            "status": "PASS" if not checks.findings else "FAIL"}
     report.update(status="PASS" if not checks.findings else "FAIL", checks_evaluated=checks.evaluated,
                   findings=checks.findings, sessions=summaries, input_files_sha256=inputs.hashes,
                   completed_at_utc=datetime.now(timezone.utc).isoformat())

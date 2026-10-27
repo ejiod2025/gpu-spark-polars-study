@@ -42,6 +42,43 @@ def test_unknown_campaign_or_wrong_prestart_cannot_be_registered_implicitly():
         identity.registered_identity(identity.ORIGINAL_CAMPAIGN_SHA256, "b" * 64)
 
 
+def recovery_entry():
+    return {"label": "TEST ONLY fixed recovery identity", "prestart_sha256": "b" * 64,
+            "source_commit": identity.SOURCE_COMMIT, "source_tree_sha256": identity.SOURCE_TREE_SHA256,
+            "campaign_id": identity.RECOVERY_CAMPAIGN_ID, "execution_profile_sha256": "c" * 64}
+
+
+def test_recovery_identity_binds_actual_registered_profile_hash(monkeypatch, tmp_path):
+    install_registry(monkeypatch, tmp_path, lambda registry: registry["campaigns"].update({"a" * 64: recovery_entry()}))
+    checked = identity.registered_identity("a" * 64, "b" * 64)
+    assert checked["campaign_id"] == identity.RECOVERY_CAMPAIGN_ID
+    assert checked["execution_profile_sha256"] == "c" * 64
+    assert identity.registered_identity(identity.ORIGINAL_CAMPAIGN_SHA256)["prestart_sha256"] == identity.ORIGINAL_PRESTART_SHA256
+    assert identity.registered_identity(identity.ABORTED_V1_CAMPAIGN_SHA256)["prestart_sha256"] == identity.ABORTED_V1_PRESTART_SHA256
+
+
+@pytest.mark.parametrize("bad", ["arbitrary_id", "malformed_profile", "missing_profile", "duplicate_recovery", "relabel_aborted", "rebind_aborted"])
+def test_recovery_registry_is_bounded_and_historical_anchors_stay_fixed(monkeypatch, tmp_path, bad):
+    def edit(registry):
+        entry = recovery_entry()
+        registry["campaigns"]["a" * 64] = entry
+        if bad == "arbitrary_id":
+            entry["campaign_id"] += "-retry"
+        elif bad == "malformed_profile":
+            entry["execution_profile_sha256"] = "pending"
+        elif bad == "missing_profile":
+            del entry["execution_profile_sha256"]
+        elif bad == "duplicate_recovery":
+            registry["campaigns"]["d" * 64] = entry.copy()
+        elif bad == "relabel_aborted":
+            registry["campaigns"][identity.ABORTED_V1_CAMPAIGN_SHA256] = entry.copy()
+        else:
+            registry["campaigns"][identity.ABORTED_V1_CAMPAIGN_SHA256]["prestart_sha256"] = "d" * 64
+    install_registry(monkeypatch, tmp_path, edit)
+    with pytest.raises(ValueError):
+        identity.registered_identity("a" * 64)
+
+
 @pytest.mark.parametrize("mutation", ["original", "source", "malformed", "duplicate"])
 def test_registry_cannot_rebind_original_or_accept_other_source(monkeypatch, tmp_path, mutation):
     def edit(registry):
@@ -90,6 +127,45 @@ def test_additional_exact_identity_accepts_only_its_unchanged_source_archive(mon
     source.write_text(source.read_text() + "\n# TEST ONLY tamper\n")
     with pytest.raises(ValueError, match="checksum mismatch"):
         replay.verify_archive(archive)
+
+
+@pytest.mark.parametrize("bad", [None, "legacy_registration", "wrong_profile_hash", "wrong_profile_id", "wrong_plan_id"])
+def test_recovery_prestart_binds_registered_profile_before_frozen_code(monkeypatch, tmp_path, bad):
+    # A minimal inert profile proves only the archive hash-binding mechanism.
+    # The complete auditor separately requires the full execution profile,
+    # actual diagnostic, 24 receipts and all 160 real child-driver flag tables.
+    archive = tmp_path / "FABRICATED-profile-binding"
+    shutil.copytree(ARCHIVE, archive)
+    campaign = replay.read_json(archive / "campaign.json")
+    campaign["campaign_id"] = identity.RECOVERY_CAMPAIGN_ID if bad != "wrong_plan_id" else "arbitrary-retry"
+    (archive / "campaign.json").write_bytes(replay.canonical_bytes(campaign))
+    campaign_sha = replay.sha256(archive / "campaign.json")
+    (archive / "campaign.json.sha256").write_text(campaign_sha + "\n")
+    profile = {"campaign_id": identity.RECOVERY_CAMPAIGN_ID if bad != "wrong_profile_id" else "arbitrary-retry",
+               "source_commit": identity.SOURCE_COMMIT, "source_tree_sha256": identity.SOURCE_TREE_SHA256,
+               "fabricated_notice": "TEST ONLY archive hash binding; not a complete profile"}
+    (archive / "EXECUTION_PROFILE.json").write_bytes(replay.canonical_bytes(profile))
+    profile_sha = replay.sha256(archive / "EXECUTION_PROFILE.json")
+    manifest = replay.read_json(archive / "PRESTART_MANIFEST.json")
+    manifest["campaign_sha256"] = campaign_sha
+    for name in ("campaign.json", "campaign.json.sha256", "EXECUTION_PROFILE.json"):
+        manifest["files_sha256"][name] = replay.sha256(archive / name)
+    (archive / "PRESTART_MANIFEST.json").write_bytes(replay.canonical_bytes(manifest))
+    def edit(registry):
+        entry = recovery_entry()
+        entry["prestart_sha256"] = replay.sha256(archive / "PRESTART_MANIFEST.json")
+        entry["execution_profile_sha256"] = profile_sha if bad != "wrong_profile_hash" else "d" * 64
+        if bad == "legacy_registration":
+            entry.pop("campaign_id")
+            entry.pop("execution_profile_sha256")
+        registry["campaigns"][campaign_sha] = entry
+    install_registry(monkeypatch, tmp_path, edit)
+    if bad is not None:
+        with pytest.raises(ValueError, match="execution profile"):
+            replay.verify_archive(archive)
+    else:
+        checked = replay.verify_archive(archive)
+        assert checked["registered_campaign_identity"]["execution_profile_sha256"] == profile_sha
 
 
 @pytest.mark.parametrize("entrypoint", ["collector", "block_verifier", "auditor", "packager"])

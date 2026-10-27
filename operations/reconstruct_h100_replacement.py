@@ -24,21 +24,26 @@ if str(REPOSITORY) not in sys.path:
 from operations import research_backup as backup
 from research_reporting import replay
 from research_reporting import campaign_identity
+from research_reporting import audit_complete
 
-CAMPAIGN_ID = "h100-confirmatory-replacement-20261027"
+COHORTS = {"replacement": "h100-confirmatory-replacement-20261027",
+           "gclocker100": campaign_identity.RECOVERY_CAMPAIGN_ID}
+CAMPAIGN_ID = COHORTS["replacement"]  # Historical v1 transport remains inspectable.
 PHASES = ("prestart", *(f"block-{i:02d}" for i in range(1, 11)), "final", "completion")
 TRANSPORT_NAMES = {"BACKUP_MANIFEST.json", "PRESTART_MANIFEST.json"}
 # The preparation process has exited before prestart. Its logs/markers and every
-# scientific file are immutable. These two supervisor files alone can still be
-# open/advance after prestart. New terminal markers do not overwrite old bytes.
+# scientific file are immutable. Supervisor status files and append-only idle
+# profile receipts can advance after prestart. New markers preserve old bytes.
 MUTABLE_ROOT_FILES = {
     "confirm-driver.log": "Supervisor stdout remains open until its actual exit.",
     "confirm-driver.phase": "The supervisor advances its operational phase marker.",
+    "EXECUTION_PROFILE_GATES.jsonl": "Idle profile receipts append in their frozen order.",
 }
 def tool_paths():
     return (Path(__file__).resolve(), Path(backup.__file__).resolve(),
             Path(replay.__file__).resolve(), Path(campaign_identity.__file__).resolve(),
-            campaign_identity.REGISTRY_PATH.resolve())
+            campaign_identity.REGISTRY_PATH.resolve(), Path(audit_complete.__file__).resolve(),
+            REPOSITORY / "operations/jvm_execution_profile.py")
 
 
 def read_json(path):
@@ -82,11 +87,13 @@ def recorded_upper_bound(value):
     return stamp + timedelta(seconds=1) if "." not in value else stamp
 
 
-def session_prefixes(plan):
+def session_prefixes(plan, cohort="gclocker100"):
+    if cohort not in COHORTS:
+        raise ValueError("Unknown reconstruction cohort")
     sessions = plan.get("sessions", [])
     ids = [session["session_id"] for session in sessions]
     blocks = {phase: [] for phase in PHASES if phase.startswith("block-")}
-    if (plan.get("campaign_id") != CAMPAIGN_ID or plan.get("synthetic") is True
+    if (plan.get("campaign_id") != COHORTS[cohort] or plan.get("synthetic") is True
             or "SYNTHETIC" in plan.get("campaign_id", "").upper()
             or len(ids) != 400 or len(set(ids)) != 400
             or len(plan.get("blocks", [])) != 10 or len(plan.get("primary_contrasts", [])) != 26
@@ -218,7 +225,9 @@ def verify_snapshot(raw, phase, campaign, scratch):
             "inputs": initial_inputs, "files": inventory(paths["directory"])}
 
 
-def reconstruct(archive, raw_backups, output):
+def reconstruct(archive, raw_backups, output, cohort="gclocker100"):
+    if cohort not in COHORTS:
+        raise ValueError("Unknown reconstruction cohort")
     if Path(archive).is_symlink() or Path(raw_backups).is_symlink():
         raise ValueError("Original input roots cannot be symlinks")
     archive, raw = Path(archive).resolve(strict=True), Path(raw_backups).resolve(strict=True)
@@ -233,7 +242,7 @@ def reconstruct(archive, raw_backups, output):
     if canonical["synthetic"]:
         raise ValueError("Synthetic prestart archives are never replacement evidence")
     plan, campaign = canonical["plan"], canonical["campaign_sha256"]
-    prefixes, blocks = session_prefixes(plan)
+    prefixes, blocks = session_prefixes(plan, cohort)
     before_canonical = inventory(archive)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent, prefix=f".{output.name}.reconstruct-") as temporary:
@@ -250,6 +259,15 @@ def reconstruct(archive, raw_backups, output):
                 raise ValueError(f"Immutable campaign bytes differ: {phase}")
         final, completion = snapshots["final"], snapshots["completion"]
         journal, bounds = verify_completed_journal(plan, campaign, final["paths"]["directory"], archive)
+        profile_context = audit_complete.check_execution_profile(plan, canonical["registered_campaign_identity"],
+            archive, final["paths"]["directory"] / "campaign-results", read_json(archive / "PRESTART_MANIFEST.json"),
+            audit_complete.Inputs())
+        if profile_context is not None:
+            attempts = [journal["sessions"][session["session_id"]]["attempts"][0] for session in plan["sessions"]]
+            for session, attempt in zip(plan["sessions"], attempts):
+                run = final["paths"]["directory"] / mapped(plan, attempt["run_root"])
+                audit_complete.check_spark_driver_profile(profile_context, session, run, audit_complete.Inputs())
+            audit_complete.check_profile_chronology(profile_context, plan, journal, attempts)
         if final["files"]["campaign-results/journal.json"] != completion["files"].get("campaign-results/journal.json"):
             raise ValueError("Completion journal differs from the post-final journal")
         completed_root = completion["paths"]["directory"]
@@ -278,8 +296,10 @@ def reconstruct(archive, raw_backups, output):
             f"{receipt['git_commit']}:research_reporting/campaign_identities.json"], timeout=60)
         committed_registry = json.loads(registry_bytes)
         entry = committed_registry.get("campaigns", {}).get(campaign, {})
-        expected_entry = {key: canonical["registered_campaign_identity"][key]
-                          for key in ("label", "prestart_sha256", "source_commit", "source_tree_sha256")}
+        entry_keys = {"label", "prestart_sha256", "source_commit", "source_tree_sha256"}
+        if cohort == "gclocker100":
+            entry_keys |= {"campaign_id", "execution_profile_sha256"}
+        expected_entry = {key: canonical["registered_campaign_identity"][key] for key in entry_keys}
         if (committed_registry.get("schema_version") != "h100-registered-campaign-identities-v1"
                 or committed_registry.get("campaigns", {}).get(campaign_identity.ORIGINAL_CAMPAIGN_SHA256, {}).get("prestart_sha256")
                     != campaign_identity.ORIGINAL_PRESTART_SHA256
@@ -320,14 +340,15 @@ def reconstruct(archive, raw_backups, output):
                 if previous:
                     old = previous["versions"][-1]
                     advance = {key: old[key] for key in ("sha256", "bytes")} != value
-                    if advance and name not in MUTABLE_ROOT_FILES:
+                    if advance and (name not in MUTABLE_ROOT_FILES
+                                    or name == "EXECUTION_PROFILE_GATES.jsonl" and cohort != "gclocker100"):
                         raise ValueError(f"Immutable overlapping evidence changed: {name} ({old['phase']} -> {phase})")
-                    if advance and name == "confirm-driver.log":
+                    if advance and name in {"confirm-driver.log", "EXECUTION_PROFILE_GATES.jsonl"}:
                         old_root = next(source_root for source_phase, source_root, _ in sources if source_phase == old["phase"])
                         with (old_root / name).open("rb") as old_log, (root / name).open("rb") as new_log:
                             while chunk := old_log.read(8 * 1024 * 1024):
                                 if new_log.read(len(chunk)) != chunk:
-                                    raise ValueError("Supervisor log advance must preserve its existing prefix")
+                                    raise ValueError("Append-only evidence advance must preserve its existing prefix")
                     decisions.append({"path": name, "decision": "permitted_operational_advance" if advance else "identical",
                                       "old": old, "new": record, "reason": MUTABLE_ROOT_FILES.get(name) if advance else None})
                     previous["versions"].append(record)
@@ -359,6 +380,7 @@ def reconstruct(archive, raw_backups, output):
             raise ValueError("Canonical archive or current verification tools changed")
         manifest = {"schema_version": "h100-replacement-reconstruction-v1", "status": "RECONSTRUCTED_TRANSPORT_VERIFIED",
             "created_at_utc": datetime.now(timezone.utc).isoformat(), "campaign_sha256": campaign,
+            "cohort": cohort, "campaign_id": plan["campaign_id"],
             "prestart_sha256": canonical["prestart_sha256"], "canonical_archive": str(archive),
             "raw_backups": str(raw), "harvest": str(output / "harvest"), "sessions": 400,
             "scope": "Offline byte reconstruction only; scientific replay and complete audit are still required.",
@@ -369,6 +391,10 @@ def reconstruct(archive, raw_backups, output):
             "overlap_decisions": decisions, "payload_provenance": provenance,
             "harvest_files": inventory(harvest), "lineage_files": inventory(lineage),
             "excluded_payload_manifests": sorted(TRANSPORT_NAMES)}
+        if profile_context is not None:
+            manifest["execution_profile"] = {"path": audit_complete.PROFILE_NAME, "sha256": profile_context["sha256"],
+                "spark_driver_logs": profile_context["driver_logs"], "profile_gates": len(profile_context["gates"]),
+                "status": "PASS"}
         backup.exclusive_json(staging / "RECONSTRUCTION_MANIFEST.json", manifest)
         scratch.rmdir()
         # Never replace an existing output, including one created concurrently.
@@ -389,8 +415,10 @@ def main():
     parser.add_argument("--archive", required=True, type=Path, help="Exact registered canonical prestart archive")
     parser.add_argument("--raw-backups", required=True, type=Path, help="All verified prestart/block/final/completion backups")
     parser.add_argument("--output", required=True, type=Path, help="New reconstruction directory; never overwritten")
+    parser.add_argument("--cohort", choices=tuple(COHORTS), default="gclocker100",
+                        help="Fixed recovery cohort (default), or historical v1 transport inspection")
     args = parser.parse_args()
-    value = reconstruct(args.archive, args.raw_backups, args.output)
+    value = reconstruct(args.archive, args.raw_backups, args.output, args.cohort)
     print(json.dumps({key: value[key] for key in ("status", "campaign_sha256", "sessions", "harvest")}))
 
 
