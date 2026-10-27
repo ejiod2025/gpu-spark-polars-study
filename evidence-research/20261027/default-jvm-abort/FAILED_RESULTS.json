@@ -1,0 +1,89 @@
+{
+  "engine": "spark_cpu",
+  "suite": "complex",
+  "suite_version": "complex-v1",
+  "query_descriptions": {
+    "cx_q09": "Six-table join with a composite partsupp key and profit by nation/year",
+    "cx_q13": "Left outer join and nested aggregation, including zero-order customers",
+    "cx_semi_anti": "Correlated EXISTS/NOT EXISTS with nested semi and anti joins",
+    "cx_window": "Two customer windows over 1994\u20131995 orders and top three per customer",
+    "cx_distinct": "Four-table join with three exact distinct counts for 1995 orders",
+    "cx_self_join": "1994 lineitem equijoin with a residual line-number inequality"
+  },
+  "started_at_utc": "2026-10-27T20:27:19.432733+00:00",
+  "scale_factor": 100.0,
+  "manifest_sha256": "31d99a4b99f62670d54cd9c605e7e6226c713dc957e1155c895f74007ca80d95",
+  "runs": 3,
+  "query_seed": 838471203,
+  "queries": [
+    "cx_q09",
+    "cx_q13",
+    "cx_semi_anti",
+    "cx_window",
+    "cx_distinct",
+    "cx_self_join"
+  ],
+  "cache_policy": "preheated filesystem; no application dataframe cache",
+  "timing_scope": "query construction, optimization, parquet read, execution, result collection; excludes session/table setup and plan serialization",
+  "host_result_timing_scope": "same start as seconds, through conversion to a list of Python dictionaries; excludes normalization, plan serialization, sampler shutdown and cleanup",
+  "pid": 82325,
+  "polars_execution_engine": null,
+  "records": [],
+  "query_errors": [
+    {
+      "query": "cx_q09",
+      "phase": "warmup",
+      "trial": 0,
+      "type": "Py4JJavaError",
+      "message": "An error occurred while calling o213.collectToPython.\n: org.apache.spark.SparkException: Job 13 cancelled because SparkContext was shut down\n\tat org.apache.spark.scheduler.DAGScheduler.$anonfun$cleanUpAfterSchedulerStop$1(DAGScheduler.scala:1259)\n\tat org.apache.spark.scheduler.DAGScheduler.$anonfun$cleanUpAfterSchedulerStop$1$adapted(DAGScheduler.scala:1257)\n\tat scala.collection.mutable.HashSet.foreach(HashSet.scala:79)\n\tat org.apache.spark.scheduler.DAGScheduler.cleanUpAfterSchedulerStop(DAGScheduler.scala:1257)\n\tat org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onStop(DAGScheduler.scala:3129)\n\tat org.apache.spark.util.EventLoop.stop(EventLoop.scala:84)\n\tat org.apache.spark.scheduler.DAGScheduler.$anonfun$stop$3(DAGScheduler.scala:3015)\n\tat org.apache.spark.util.Utils$.tryLogNonFatalError(Utils.scala:1375)\n\tat org.apache.spark.scheduler.DAGScheduler.stop(DAGScheduler.scala:3015)\n\tat org.apache.spark.SparkContext.$anonfun$stop$12(SparkContext.scala:2258)\n\tat org.apache.spark.util.Utils$.tryLogNonFatalError(Utils.scala:1375)\n\tat org.apache.spark.SparkContext.stop(SparkContext.scala:2258)\n\tat org.apache.spark.SparkContext.stop(SparkContext.scala:2211)\n\tat org.apache.spark.SparkContext.$anonfun$new$34(SparkContext.scala:681)\n\tat org.apache.spark.util.SparkShutdownHook.run(ShutdownHookManager.scala:214)\n\tat org.apache.spark.util.SparkShutdownHookManager.$anonfun$runAll$2(ShutdownHookManager.scala:188)\n\tat scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)\n\tat org.apache.spark.util.Utils$.logUncaughtExceptions(Utils.scala:1928)\n\tat org.apache.spark.util.SparkShutdownHookManager.$anonfun$runAll$1(ShutdownHookManager.scala:188)\n\tat scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)\n\tat scala.util.Try$.apply(Try.scala:213)\n\tat org.apache.spark.util.SparkShutdownHookManager.runAll(ShutdownHookManager.scala:188)\n\tat org.apache.spark.util.SparkShutdownHookManager$$anon$2.run(ShutdownHookManager.scala:178)\n\tat java.base/java.util",
+      "failed_at_utc": "2026-10-27T20:27:43.538292+00:00"
+    }
+  ],
+  "query_cleanup_policy": "verified_gc",
+  "cleanup_records": [],
+  "failure_policy": "record_and_continue",
+  "version": "3.5.9",
+  "spark_conf": {
+    "spark.eventLog.enabled": "true",
+    "spark.driver.extraJavaOptions": "-Djava.net.preferIPv6Addresses=false -XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED -Djdk.reflect.useDirectMethodHandle=false",
+    "spark.driver.memory": "96g",
+    "spark.app.startTime": "1793132839804",
+    "spark.sql.shuffle.partitions": "120",
+    "spark.master": "local[26]",
+    "spark.executor.id": "driver",
+    "spark.driver.host": "localhost",
+    "spark.sql.adaptive.enabled": "true",
+    "spark.driver.maxResultSize": "1g",
+    "spark.app.submitTime": "1793132839332",
+    "spark.app.id": "local-1793132840133",
+    "spark.eventLog.dir": "file:///home/ubuntu/study-h100-research-evidence-20261027/campaign-results/block-03-complex-sf100-spark_cpu/attempt-001/run/sf100/spark_cpu-events",
+    "spark.rdd.compress": "True",
+    "spark.app.name": "three-engine-benchmark-spark_cpu",
+    "spark.executor.extraJavaOptions": "-Djava.net.preferIPv6Addresses=false -XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED -Djdk.reflect.useDirectMethodHandle=false",
+    "spark.ui.enabled": "false",
+    "spark.serializer.objectStreamReset": "100",
+    "spark.submit.pyFiles": "",
+    "spark.submit.deployMode": "client",
+    "spark.sql.session.timeZone": "UTC",
+    "spark.driver.port": "46785",
+    "spark.sql.files.maxPartitionBytes": "134217728"
+  },
+  "cpu_threads": 26,
+  "session_and_table_setup_seconds": 2.858633577998262,
+  "launch_to_engine_ready_seconds": 3.830883026123047,
+  "active_query": null,
+  "cleanup_failure": {
+    "query": "cx_q09",
+    "phase": "warmup",
+    "trial": 0,
+    "policy": "verified_gc",
+    "type": "Py4JError",
+    "message": "An error occurred while calling o21.statusTracker",
+    "record": null
+  },
+  "failed_at_utc": "2026-10-27T20:27:47.417427+00:00",
+  "failure": {
+    "type": "Py4JError",
+    "message": "An error occurred while calling o21.statusTracker"
+  }
+}
