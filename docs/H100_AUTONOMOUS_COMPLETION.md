@@ -88,3 +88,8 @@ A chat heartbeat may continue this authorized work and stays quiet while the
 state is unchanged. Notify only on meaningful progress, completion, failure or
 required user action. After verified publication and instance retirement,
 disable that heartbeat. Do not archive this chat unless requested.
+
+The active native follow-up ID is `finish-h100-study-and-retire-instance`,
+attached to this chat. It was created after the owner explicitly requested
+autonomous work while away. Use the native automation tool to inspect, update
+or disable it; do not edit scheduler files or create duplicate follow-ups.
