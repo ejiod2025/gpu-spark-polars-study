@@ -1,15 +1,24 @@
 # H100 research campaign status
 
-Snapshot: **2026-10-27 01:13 UTC**. Data collection is in progress. No
-confirmatory performance conclusion is available yet.
+Update: **2026-10-27**. The owner reported that the previous H100 instance is
+gone. A replacement instance is reachable and a fresh campaign is being prepared.
+No confirmatory performance conclusion is available yet. See the
+[prospective replacement addendum](../docs/H100_REPLACEMENT_20261027.md).
 
-The first **125 of 400 sessions** have passed their scientific gates, with
-**2928 successful outputs** independently compared. Blocks 01–03 completed all
-120 sessions across all eight conditions. Their 2,808 successful outputs and
-core evidence have been copied off the VM and reverified locally. Seven
-blocks remain; no ten-block performance estimate is available.
-Both initial full-file integrity gates passed all **1,776 Parquet files**.
-See the [machine-readable snapshot](h100-confirmatory-launch-status.json).
+The durable surviving timed evidence is blocks 01–03: **120 sessions and 2,808
+successful outputs** with locally reverified core evidence. Their raw telemetry,
+events and complete logs were not in these core backups. No final input hash or
+complete ten-block result exists for the lost campaign. Its last readable live
+observation reached 132 scientific PASS sessions; artifacts beyond the three
+backed-up blocks have not been recovered. The earlier
+[machine-readable snapshot](h100-confirmatory-launch-status.json) is retained as
+historical evidence rather than overwritten as a new live status.
+
+The replacement starts all **400 sessions** afresh. It will not combine old and
+new host timings. A new prestart archive must be preserved before measurement,
+and each complete block will be copied off host with all raw artifacts while
+the supervisor pauses between blocks. The fixed inference sample remains ten
+paired blocks.
 
 The fixed design is ten paired blocks across the original five baseline and
 three complex scales. Four engine paths plus the CPU Polars version control
@@ -32,10 +41,11 @@ Completed preparation:
 - The complete schedule and 52-file source snapshot were committed before
   the first timed session, in commit `b7a5f99`.
 
-The live remote driver is PID **64491** on the H100 host. It runs a fixed full
-sample, halts on failures, retains attempts, and performs final input hashing,
-independent validation and predefined analysis after all sessions finish.
-The shell is detached from SSH; local caffeinate prevents idle sleep.
+The previous remote driver PID **64491** belongs to the lost instance and must
+not be used to infer replacement liveness. Replacement preparation is detached
+from SSH, records its own PID, phase, logs and exit status, and stops before the
+first confirmatory timing for an off-host prestart archive gate. Local
+caffeinate remains active.
 
 Remaining work is full data collection, final validation, ten-block uncertainty
 and Holm-adjusted comparisons, reproducible figures, the completed manuscript,
