@@ -23,6 +23,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import shlex
 import shutil
@@ -37,6 +38,12 @@ CAMPAIGN_ID = "h100-confirmatory-replacement-20261027"
 BRANCH = "H100_main_dev"
 REPOSITORY = "ejiod2025/gpu-spark-polars-study"
 REGISTRY = "research_reporting/campaign_identities.json"
+RECOVERY_CAMPAIGN_ID = "h100-confirmatory-gclocker100-20261027"
+RECOVERY_EVIDENCE = "/home/ubuntu/study-h100-research-evidence-20261027-gclocker100"
+RECOVERY_STAGING = "/home/ubuntu/study-h100-research-staging-20261027-gclocker100"
+RECOVERY_TOOLS = ("operations/research_backup.py", "operations/run_h100_gclocker100.sh",
+                  "operations/prepare_h100_gclocker100.sh", "operations/jvm_execution_profile.py",
+                  "operations/continue_h100_replacement.py")
 TOOLS = ("operations/research_backup.py", "operations/run_h100_replacement.sh",
          "operations/record_replacement_inputs.py", "operations/continue_h100_replacement.py")
 
@@ -89,11 +96,11 @@ def require_repository(repo, allowed_changes=()):
         raise ValueError("Unexpected staged files; no archive commit performed")
 
 
-def validate_plan(plan, evidence):
+def validate_plan(plan, evidence, campaign_id=None):
     source = plan.get("source", {})
     files = source.get("files_sha256", {})
     tree = hashlib.sha256(json_bytes(files)).hexdigest()
-    if (plan.get("schema_version") != "research-campaign-v1" or plan.get("campaign_id") != CAMPAIGN_ID
+    if (plan.get("schema_version") != "research-campaign-v1" or plan.get("campaign_id") != (campaign_id or CAMPAIGN_ID)
             or plan.get("seed") != 20261026 or len(plan.get("sessions", [])) != 400
             or len(plan.get("blocks", [])) != 10 or len(plan.get("primary_contrasts", [])) != 26
             or plan.get("output_root") != evidence + "/campaign-results"
@@ -118,18 +125,27 @@ def validate_domain(value, plan):
             raise ValueError("Replacement data leaves the documented nonnull performance domain")
 
 
-def registry_entry(campaign, prestart):
-    return {"label": "20261027 replacement instance; fresh fixed ten-block campaign",
-            "prestart_sha256": prestart, "source_commit": SOURCE_COMMIT, "source_tree_sha256": SOURCE_TREE}
+def registry_entry(campaign, prestart, execution_profile=None):
+    entry = {"label": "20261027 replacement instance; fresh fixed ten-block campaign",
+             "prestart_sha256": prestart, "source_commit": SOURCE_COMMIT, "source_tree_sha256": SOURCE_TREE}
+    if execution_profile is not None:
+        if not re.fullmatch(r"[0-9a-f]{64}", execution_profile):
+            raise ValueError("Invalid recovery execution-profile identity")
+        entry.update(label="20261027 GCLocker100 recovery; one fresh fixed ten-block campaign",
+                     campaign_id=RECOVERY_CAMPAIGN_ID, execution_profile_sha256=execution_profile)
+    return entry
 
 
-def register_archive(repo, archive, campaign):
+def register_archive(repo, archive, campaign, execution_profile=None):
     """Add one exact actual identity; preserve all existing registry entries."""
     registry_path = repo / REGISTRY
     registry = json.loads(registry_path.read_bytes())
     if registry.get("schema_version") != "h100-registered-campaign-identities-v1":
         raise ValueError("Unexpected campaign registry schema")
-    entry = registry_entry(campaign, sha(archive / "PRESTART_MANIFEST.json"))
+    entry = registry_entry(campaign, sha(archive / "PRESTART_MANIFEST.json"), execution_profile)
+    if execution_profile is not None and any(key != campaign and item.get("campaign_id") == RECOVERY_CAMPAIGN_ID
+                                             for key, item in registry["campaigns"].items()):
+        raise ValueError("The single GCLocker100 recovery cohort is already registered")
     existing = registry["campaigns"].get(campaign)
     if existing is not None and existing != entry:
         raise ValueError("An existing campaign registry entry differs; refusing replacement")
@@ -165,6 +181,11 @@ out['campaign_sidecar']=read('campaign.json.sha256')
 p=r/'INPUT_DOMAIN.json'; out['input_domain']=json.loads(p.read_bytes()) if p.is_file() else None
 p=r/'readiness/READINESS.json'; rd=json.loads(p.read_bytes()) if p.is_file() else {}
 out['readiness']={'status':rd.get('status'),'outputs':rd.get('successful_outputs_compared'),'errors':rd.get('errors'),'fixtures':len(rd.get('semantic_fixtures',[]))}
+p=r/'EXECUTION_PROFILE.json'
+out['execution_profile']=json.loads(p.read_bytes()) if p.is_file() else None
+out['execution_profile_sha256']=hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
+p=r/'EXECUTION_PROFILE_GATES.jsonl'
+out['execution_profile_gates']=[json.loads(line) for line in p.read_text().splitlines()] if p.is_file() else []
 print(json.dumps(out))
 """
 
@@ -172,6 +193,10 @@ print(json.dumps(out))
 class Controller:
     def __init__(self, args):
         self.args = args
+        self.recovery = getattr(args, "profile", "replacement") == "gclocker100"
+        self.campaign_id = RECOVERY_CAMPAIGN_ID if self.recovery else CAMPAIGN_ID
+        self.tools = RECOVERY_TOOLS if self.recovery else TOOLS
+        self.runner = "run_h100_gclocker100.sh" if self.recovery else "run_h100_replacement.sh"
         self.repo = args.repository.resolve(strict=True)
         spec = importlib.util.spec_from_file_location("replacement_backup", self.repo / "operations/research_backup.py")
         self.backup = importlib.util.module_from_spec(spec)
@@ -179,9 +204,10 @@ class Controller:
         self.raw = args.destination.resolve()
         self.raw.mkdir(parents=True, exist_ok=True)
         self.state_path = self.raw / "controller-state.json"
-        self.state = {"schema_version": "h100-replacement-local-controller-v1", "host": args.host,
+        self.state = {"schema_version": "h100-replacement-local-controller-v1", "profile": getattr(args, "profile", "replacement"), "host": args.host,
                       "evidence": args.evidence, "status": "RUNNING", "phase": "starting", "started_at_utc": utcnow()}
-        self.archive = self.repo / "evidence-research/20261027/h100-confirmatory-replacement-v1"
+        self.archive = self.repo / ("evidence-research/20261027/h100-confirmatory-gclocker100-v1" if self.recovery
+                                    else "evidence-research/20261027/h100-confirmatory-replacement-v1")
 
     def record(self, phase, **values):
         self.state.update(phase=phase, **values)
@@ -237,14 +263,16 @@ class Controller:
     def deploy(self):
         require_repository(self.repo)
         files = {}
-        for name in TOOLS:
+        for name in getattr(self, "tools", TOOLS):
             # Deployment requires committed exact bytes, including this controller.
             committed = git(self.repo, "show", f"HEAD:{name}", text=False)
             if committed != (self.repo / name).read_bytes():
                 raise ValueError(f"Operational tool is not committed unchanged: {name}")
             files[Path(name).name] = (self.repo / name).read_text()
-        files["H100_REPLACEMENT_20261027.md"] = (self.repo / "docs/H100_REPLACEMENT_20261027.md").read_text()
-        body = {"files": files, "git_commit": git(self.repo, "rev-parse", "HEAD")}
+        if not getattr(self, "recovery", False):
+            files["H100_REPLACEMENT_20261027.md"] = (self.repo / "docs/H100_REPLACEMENT_20261027.md").read_text()
+        body = {"files": files, "git_commit": git(self.repo, "rev-parse", "HEAD"),
+                "recovery": getattr(self, "recovery", False)}
         code = """import hashlib,json,pathlib,shutil,sys
 root=pathlib.Path(sys.argv[1]); staging=pathlib.Path(sys.argv[2]); value=json.loads(sys.stdin.buffer.read())
 if (root/'confirm-driver.started-utc').exists(): raise ValueError('Supervisor already started; do not redeploy live operational code')
@@ -257,10 +285,11 @@ for name,text in value['files'].items():
    if target.read_bytes()!=body: raise ValueError('Existing deployed operational bytes differ')
   else:
    with target.open('xb') as h: h.write(body)
-prepare=pathlib.Path('/home/ubuntu/study-h100-research-staging/prepare_h100_replacement.sh')
-target=operations/prepare.name
-if target.exists() and target.read_bytes()!=prepare.read_bytes(): raise ValueError('Preparation driver changed')
-if not target.exists(): shutil.copyfile(prepare,target)
+if not value['recovery']:
+ prepare=pathlib.Path('/home/ubuntu/study-h100-research-staging/prepare_h100_replacement.sh')
+ target=operations/prepare.name
+ if target.exists() and target.read_bytes()!=prepare.read_bytes(): raise ValueError('Preparation driver changed')
+ if not target.exists(): shutil.copyfile(prepare,target)
 print(json.dumps({'deployed':True,'git_commit':value['git_commit'],'files_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in operations.iterdir() if p.is_file()}}))
 """
         result = self.transport_retry(
@@ -297,18 +326,18 @@ value={'pid':p.pid,'started_at_utc':datetime.datetime.now(datetime.timezone.utc)
 
     def launch_supervisor(self):
         code = """import datetime,json,pathlib,subprocess,sys
-r=pathlib.Path(sys.argv[1]); staging=pathlib.Path(sys.argv[2]); marker=r/'CONTROLLER_SUPERVISOR_LAUNCH.json'
+r=pathlib.Path(sys.argv[1]); staging=pathlib.Path(sys.argv[2]); runner=sys.argv[3]; marker=r/'CONTROLLER_SUPERVISOR_LAUNCH.json'
 if marker.exists(): print(marker.read_text()); raise SystemExit(0)
 if (r/'confirm-driver.started-utc').exists(): raise ValueError('An unrecorded supervisor already started; no launch performed')
 with marker.open('x') as h: json.dump({'pid':None,'started_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()},h)
 with (r/'confirm-driver.log').open('x') as log:
- p=subprocess.Popen(['bash',str(staging/'run_h100_replacement.sh')],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True,env={**__import__('os').environ,'RESEARCH_EVIDENCE':str(r),'RESEARCH_BACKUP_ROOT':str(staging/'backups')})
+ p=subprocess.Popen(['bash',str(staging/runner)],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True,env={**__import__('os').environ,'RESEARCH_EVIDENCE':str(r),'RESEARCH_BACKUP_ROOT':str(staging/'backups')})
 value={'pid':p.pid,'started_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()}; marker.write_text(json.dumps(value)+'\\n'); print(json.dumps(value))
 """
         # On an ambiguous SSH result, reconcile the durable marker before any
         # further action. The marker prevents a second launch even after loss.
         try:
-            launch = self.remote(code, self.args.evidence, self.args.staging)
+            launch = self.remote(code, self.args.evidence, self.args.staging, getattr(self, "runner", "run_h100_replacement.sh"))
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as exc:
             if isinstance(exc, subprocess.CalledProcessError) and exc.returncode != 255:
                 raise RuntimeError(f"Remote supervisor launch was rejected: {exc.stderr!r}") from exc
@@ -333,16 +362,17 @@ value={'pid':p.pid,'started_at_utc':datetime.datetime.now(datetime.timezone.utc)
                 self.backup.verify_directory(target, control)
                 target.rename(self.archive)
         self.backup.seal_prestart(self.archive, control)
-        register_archive(self.repo, self.archive, campaign)
+        profile_sha = sha(self.archive / "EXECUTION_PROFILE.json") if getattr(self, "recovery", False) else None
+        register_archive(self.repo, self.archive, campaign, profile_sha)
         sys.path.insert(0, str(self.repo))
         from research_reporting.replay import verify_archive
         verified = verify_archive(self.archive)
-        validate_plan(verified["plan"], self.args.evidence)
+        validate_plan(verified["plan"], self.args.evidence, getattr(self, "campaign_id", CAMPAIGN_ID))
         archive_names = [path.relative_to(self.repo).as_posix() for path in self.archive.rglob("*") if path.is_file()]
         require_repository(self.repo, [REGISTRY, *archive_names])
         git(self.repo, "add", "-f", "--", str(self.archive), REGISTRY)
         if git(self.repo, "diff", "--cached", "--name-only"):
-            git(self.repo, "commit", "-qm", "Freeze replacement H100 plan and complete prestart evidence before timing")
+            git(self.repo, "commit", "-qm", "Freeze H100 plan and complete prestart evidence before timing")
         commit = git(self.repo, "rev-parse", "HEAD")
         self.backup.check_git_commit(self.archive, self.repo, commit)
         self.record("prestart-committed-awaiting-private-push", campaign_sha256=campaign,
@@ -379,14 +409,16 @@ value={'pid':p.pid,'started_at_utc':datetime.datetime.now(datetime.timezone.utc)
 
     def run(self):
         require_repository(self.repo)
-        for name in TOOLS:
+        for name in getattr(self, "tools", TOOLS):
             git(self.repo, "ls-files", "--error-unmatch", name)
         self.record("waiting-for-preparation")
         def prepared(status):
             if status["prepare.exit"] == "0" and status["READY_TO_ARCHIVE_PLAN"]:
                 if status["readiness"] != {"status": "PASS", "outputs": 116, "errors": [], "fixtures": 5}:
                     raise ValueError("Preparation readiness gate differs")
-                validate_plan(status["plan"], self.args.evidence)
+                validate_plan(status["plan"], self.args.evidence, getattr(self, "campaign_id", CAMPAIGN_ID))
+                if getattr(self, "recovery", False):
+                    self.validate_recovery_prepared(status)
                 if status["campaign_sha256"] != status["campaign_sidecar"]:
                     raise ValueError("Remote campaign sidecar differs")
                 return True
@@ -430,17 +462,44 @@ value={'pid':p.pid,'started_at_utc':datetime.datetime.now(datetime.timezone.utc)
         self.acknowledge_and_watch(campaign, commit)
 
 
+    def validate_recovery_prepared(self, status):
+        spec = importlib.util.spec_from_file_location("jvm_profile", self.repo / "operations/jvm_execution_profile.py")
+        helper = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        profile = helper.validate_profile(status["execution_profile"])
+        if profile["settings"] != status["plan"]["settings"] or profile["source_files_sha256"] != status["plan"]["source"]["files_sha256"]:
+            raise ValueError("Recovery plan differs from prediagnosed fixed execution profile")
+        gates = status["execution_profile_gates"]
+        if len(gates) < 2 or [gate.get("phase") for gate in gates[:2]] != ["readiness-before", "readiness-after"]:
+            raise ValueError("Recovery readiness must be bracketed by profile gates")
+        for gate in gates:
+            if gate.get("status") != "PASS" or gate.get("profile_sha256") != status["execution_profile_sha256"]:
+                raise ValueError("Recovery execution-profile gate identity differs")
+        validate_domain(status["input_domain"], status["plan"])
+        reuse = status["input_domain"].get("reused_original_domain", {})
+        if (reuse.get("same_physical_files_verified") != 1654 or reuse.get("profile_sha256") != status["execution_profile_sha256"]
+                or reuse.get("sha256") != profile["original_inputs"]["files_sha256"]["INPUT_DOMAIN.json"]):
+            raise ValueError("Recovery input-domain record does not bind same physical v1 data")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--profile", choices=("replacement", "gclocker100"), default="replacement")
     parser.add_argument("--host", required=True)
     parser.add_argument("--identity-file", type=Path, required=True)
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--evidence", required=True)
-    parser.add_argument("--staging", default="/home/ubuntu/study-h100-research-staging-20261027")
+    parser.add_argument("--staging")
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--interval-seconds", type=int, default=60)
     parser.add_argument("--resume-controller", action="store_true")
     args = parser.parse_args()
+    if args.staging is None:
+        args.staging = RECOVERY_STAGING if args.profile == "gclocker100" else "/home/ubuntu/study-h100-research-staging-20261027"
+    if args.profile == "gclocker100":
+        if (args.host != "ubuntu@68.209.73.247" or args.evidence != RECOVERY_EVIDENCE or args.staging != RECOVERY_STAGING
+                or args.destination.resolve() != args.repository.resolve() / "rerun/gclocker100-20261027/raw-backups"):
+            parser.error("GCLocker100 is authorized only for the single fixed host/evidence/staging/local recovery cohort")
     if not args.identity_file.is_file() or args.interval_seconds < 10:
         parser.error("An existing identity file and polling interval >=10seconds are required")
     controller = Controller(args)
@@ -452,7 +511,7 @@ def main():
             if not args.resume_controller:
                 raise ValueError("Existing controller state requires inspection and explicit --resume-controller")
             old = json.loads(controller.state_path.read_bytes())
-            if old.get("host") != args.host or old.get("evidence") != args.evidence:
+            if old.get("host") != args.host or old.get("evidence") != args.evidence or old.get("profile", "replacement") != args.profile:
                 raise ValueError("Existing local control state belongs to another host/campaign")
         try:
             controller.run()
