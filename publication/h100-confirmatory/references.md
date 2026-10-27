@@ -3,7 +3,9 @@
 These references support methodological or implementation context. Experimental
 facts and numerical findings require the archived evidence identified in
 [claim-evidence-matrix.md](claim-evidence-matrix.md). Documentation was consulted
-on 2026-10-26; installed pinned source and recorded effective settings govern
+on 2026-10-26; the related-work synthesis rechecked the primary Kent repository,
+IBM publication record, NIST handbook and Hesterberg preprint abstract on
+2026-10-27. Installed pinned source and recorded effective settings govern
 runtime claims where rolling documentation differs.
 
 1. **Kalibera, T., and Jones, R. E. (2013).** Rigorous Benchmarking in Reasonable

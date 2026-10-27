@@ -1,6 +1,6 @@
 # Independent artifact audit during collection
 
-Review date: 2026-10-26. The confirmatory campaign was still collecting data.
+Historical review date: 2026-10-26. That confirmatory campaign was still collecting data.
 This review read local source and archived preparation artifacts. It did not
 access the H100, alter frozen sources, run workloads, or draw performance
 conclusions from partial sessions.
@@ -8,6 +8,16 @@ conclusions from partial sessions.
 The local validator, analyzer, worker, runner, and orchestrator match their
 frozen campaign source hashes. The campaign SHA256 is
 `69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0`.
+
+**Replacement applicability, 2026-10-27:** the reviewed host was subsequently
+lost. Its 120 surviving sessions and 2,808 successful output comparisons do not
+constitute the completed study and cannot be pooled with the replacement.
+The new host uses driver 580.105.08, kernel 6.8.0-1046-nvidia and newly generated
+physical input files. Its own pre-start/runtime/input/oracle archive and
+completed 400-session raw evidence must pass the same tooling and separate
+complete-evidence audit. Tool behavior reviewed here is reusable; old PASS
+labels are not replacement evidence. The [result-insertion ledger](RESULTS_FINALIZATION.md)
+defines the remaining full-paper evidence and presentation gates.
 
 ## What the combined gates establish
 

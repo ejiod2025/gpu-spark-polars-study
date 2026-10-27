@@ -1,12 +1,14 @@
 # CPU and GPU dataframe execution on one H100 host: a prospective blocked comparison of Polars and Spark
 
+**Daniel Ejiofor**
+
 **Technical draft — replacement campaign preparing, 2026-10-27.** The original
 instance was lost before completion; its three surviving blocks are not pooled
 with the fresh replacement. The
 [prospective operational addendum](../../docs/H100_REPLACEMENT_20261027.md)
 records the new host, regenerated files and off-host backup pauses. Ten-block
 estimates, superiority findings, crossover
-conclusions, authorship and publication metadata remain pending. This draft is
+conclusions and publication metadata remain pending. This draft is
 not ready for external publication.
 
 ## Abstract
@@ -17,17 +19,30 @@ Polars 2.0 CPU control. Six selected queries derived from TPC-H run at five
 scales; six complex queries run at three scales. The prospective design
 specifies ten paired blocks, 400 fresh sessions, independent SQL correctness
 checks, and 26 primary comparisons with Holm adjustment. Primary action time
-and secondary common-host-result time remain distinct. Pre-start validation
-compared 116 successful outputs with SQL references; separate diagnostics
-retain strict GPU coverage limitations. **Performance estimates and conclusions
+and secondary common-host-result time remain distinct. The earlier cohort's
+pre-start validation compared 116 successful outputs with SQL references;
+replacement readiness and oracles require their own archived evidence.
+Separate diagnostics retain strict GPU coverage limitations. **Performance estimates and conclusions
 await the completed ten-block campaign.** These selected research workloads
 are not complete or certified TPC-H results.
 
-## 1. Research question and scope
+## 1. Introduction
 
-We ask where fixed configurations provide a supported GPU advantage on shared
-physical inputs, which original expressions execute under strict Polars GPU
-translation, and which operators appear in final Spark plans.
+Dataframe users choosing between a CPU path and a GPU path face two connected
+questions: whether the selected expressions execute with the intended
+semantics, and whether a complete supported workload becomes faster at the
+data sizes they use. A fast subset cannot answer the complete-workload
+question when the remaining expressions are unsupported. Comparisons also
+depend on the timing boundary: process startup, materialization and conversion
+to a common host representation are distinct costs.
+
+We study these questions for Polars CPU, strict cuDF-Polars GPU, Spark CPU and
+Spark with the RAPIDS plugin on one H100 host. The design compares five fixed
+software configurations, including two CPU Polars versions, on shared physical
+inputs. We ask where the prespecified contrasts support a GPU advantage,
+which unchanged expressions strict Polars GPU can translate, and which
+operators appear in final Spark plans. These are configuration comparisons;
+the same host does not isolate a causal effect of GPU hardware alone.
 
 An exploratory H100 pilot motivated the comparisons and current CPU control.
 Its within-process repeats do not establish process-level replication. The
@@ -36,13 +51,63 @@ blocks, addressing repetition levels, uncertainty and setup bias.
 [Kalibera and Jones](https://kar.kent.ac.uk/33611/45/p63-kaliber.pdf),
 [Mytkowicz et al.](https://research.ibm.com/publications/producing-wrong-data-without-doing-anything-obviously-wrong)
 
+The intended contribution is an auditable empirical comparison with four
+linked properties: fresh process-level replication in a balanced prospective
+schedule; independent SQL checks of every successful action; explicit
+expression coverage without imputed unsupported times; and separate primary
+action and descriptive common-host-result endpoints. The archive binds each
+claim to the exact source, inputs, schedule and raw artifacts that produced it.
+No novelty claim about GPU database architecture is needed for this bounded
+comparison to be useful.
+
 The scope excludes distributed scaling, equal-cost performance, energy,
 controlled cold-cache latency and optimal per-engine tuning. Historical
 A100/H100 comparisons also change CPU allocation, software and file layout.
 
-## 2. Materials and implementations
+## 2. Related work and methodological position
 
-### 2.1 Host and software
+Systems benchmark repetition occurs at several levels. Kalibera and Jones
+distinguish variation between builds, executions and inner iterations, and
+argue that replication should address the level contributing uncertainty.
+Our inner actions summarize one fresh session; ten paired blocks supply the
+observations used for inference. We do not treat thirty inner actions as
+thirty independent sessions or claim that ten blocks guarantee a desired
+precision. [Kalibera and Jones](https://kar.kent.ac.uk/33611/)
+
+Experimental layout can change measured conclusions even when the setup
+appears innocuous. Mytkowicz and colleagues demonstrate this problem and
+motivate setup randomization. Blocking provides a complementary way to
+organize comparisons around nuisance variation. Here, shared block/condition
+identities, randomized condition order and balanced configuration orders
+address allocation; they do not demonstrate constant host conditions or
+independence. [Mytkowicz et al.](https://research.ibm.com/publications/producing-wrong-data-without-doing-anything-obviously-wrong),
+[NIST](https://www.itl.nist.gov/div898/handbook/pri/section3/pri332.htm)
+
+The study fixes one family of 26 primary comparisons before observing their
+results and applies Holm adjustment. Query-level and endpoint sensitivity
+analyses have a different, descriptive role. The t intervals on block log
+ratios remain model dependent; resampling the same ten observations would not
+create further independent evidence. Hesterberg's discussion of small-sample
+bootstrap undercoverage is a reason to state these limits, rather than to
+present bootstrap computation as a replacement for replication.
+[Holm](https://www.jstor.org/stable/4615733),
+[Hesterberg](https://arxiv.org/abs/1411.5279)
+
+Implementation documentation supplies a different kind of evidence. Polars
+GPU support, Spark AQE and the pinned RAPIDS compatibility notes explain why
+strict guards, final plans and explicit semantic rules are required. They
+cannot establish that a particular measured action used the intended path or
+returned a valid result; the saved session artifacts provide those checks.
+Likewise, TPC-H supplies workload provenance, while this selected-query,
+fixed-parameter Float64 experiment has a narrower identity than the complete
+standard benchmark. [Polars](https://docs.pola.rs/user-guide/gpu-support/),
+[Spark 3.5.9](https://spark.apache.org/docs/3.5.9/sql-performance-tuning.html),
+[RAPIDS 26.08.1](https://github.com/NVIDIA/cudf-spark/blob/v26.08.1/docs/compatibility.md),
+[TPC-H 3.0.1](https://www.tpc.org/TPC_Documents_Current_Versions/pdf/TPC-H_v3.0.1.pdf)
+
+## 3. Materials and implementations
+
+### 3.1 Host and software
 
 The replacement Linux KVM host exposes one H100 80 GB HBM3 GPU, 26 Xeon Platinum
 8480+ vCPUs and 237,490,843,648 RAM bytes, approximately 221 GiB. Its driver is
@@ -59,7 +124,7 @@ campaign cannot establish the replacement host's performance.
 | `spark_cpu` | Spark CPU, `local[26]` | Spark 3.5.9 |
 | `spark_gpu` | Spark with RAPIDS plugin, `local[26]` | Spark 3.5.9; plugin 26.08.1 |
 
-All use the same CPython 3.11.13 base executable/build; auxiliary non-GPU
+All are specified to use the same CPython 3.11.13 base executable/build; auxiliary non-GPU
 package pins match. GPU dependencies differ because the selected
 cuDF-Polars release requires older Polars. The historical CPU control used
 Python 3.10.12 and remains separate.
@@ -67,7 +132,7 @@ Python 3.10.12 and remains separate.
 Spark retains the `a100-parity` settings, including a 96 GiB driver heap,
 120 shuffle partitions, adaptive query execution, and UTC session time zone.
 GPU Spark uses two concurrent GPU tasks and a 2 GiB pinned-memory pool. Effective
-settings and the plugin JAR hash are archived. Polars uses the
+replacement settings and the plugin JAR hash must be archived and audited. Polars uses the
 allocated 26-thread setting without an equivalent fixed host-memory limit.
 Consequently, common hardware does not imply equal memory budgets. Spark AQE
 can change joins and partitioning using runtime statistics; final plans are
@@ -82,7 +147,7 @@ and guards define behavior; rolling documentation is contextual.
 [Polars GPU support](https://docs.pola.rs/user-guide/gpu-support/),
 [pinned Spark plugin compatibility](https://github.com/NVIDIA/cudf-spark/blob/v26.08.1/docs/compatibility.md)
 
-### 2.2 Data and workload definitions
+### 3.2 Data and workload definitions
 
 DuckDB 1.5.6's `tpch` extension generated the inputs, exported as Snappy Parquet
 under the archived recipe. Configurations share files and fixed manifests;
@@ -90,16 +155,19 @@ full SHA256 checks run before/after the campaign outside measurements. Nominal
 scale factors are generator settings. Physical compressed bytes below describe
 all tables, not scan volume or query working set.
 
-The table below describes the lost instance's historical files. Replace it with
-the newly archived physical inventory before reporting replacement results.
+The replacement inputs are freshly generated using the pinned recipe. Their
+new manifest and file identities must be used throughout the replacement
+oracles, plan and byte gates. No claim of physical-byte identity with the lost
+instance is made. The replacement physical inventory is pending its archive;
+historical byte totals are deliberately omitted from this table.
 
-| Nominal scale factor | Historical physical Parquet bytes | Performance suites |
+| Nominal scale factor | Replacement physical Parquet bytes | Performance suites |
 | ---: | ---: | --- |
-| 1 | 325,716,220 | Baseline |
-| 10 | 3,442,803,045 | Baseline |
-| 30 | 10,568,906,365 | Baseline and complex |
-| 100 | 35,652,242,574 | Baseline and complex |
-| 300 | 107,978,166,411 | Baseline and complex |
+| 1 | Pending archived inventory | Baseline |
+| 10 | Pending archived inventory | Baseline |
+| 30 | Pending archived inventory | Baseline and complex |
+| 100 | Pending archived inventory | Baseline and complex |
+| 300 | Pending archived inventory | Baseline and complex |
 
 The baseline contains Q01, Q03, Q06, Q10, Q12, and Q14 adaptations. The
 `complex-v1` suite contains a six-table Q9-derived join, Q13-derived outer join
@@ -119,16 +187,27 @@ Disk bytes exceeding GPU memory do not establish out-of-core capacity:
 projection, filtering, compression and intermediates determine working sets.
 Sampled peaks are not exact allocator maxima.
 
-## 3. Prospective experimental design
+## 4. Prospective experimental design
 
-### 3.1 Frozen allocation and replication
+### 4.1 Campaign identity, allocation and replication
 
-The pre-start archive binds code commit
-`c84ef6a07341f350dae6636ab709c1b65fd894e0`, a 52-file source snapshot, the protocol,
-exact runtime inventories, eight independent suite/scale oracles, and readiness
-evidence. The campaign was created at 2026-10-26 18:11:05 UTC and archived before
-the first confirmatory performance session. Its SHA256 is
-`69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0`.
+The frozen experimental source is code commit
+`c84ef6a07341f350dae6636ab709c1b65fd894e0`, comprising a 52-file source snapshot.
+Three cohorts have distinct evidential roles. The exploratory pilot supplies
+motivation and historical observations. The October 26 prospective campaign
+was created at 2026-10-26 18:11:05 UTC with campaign SHA256
+`69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0`;
+its host was lost before completion. Only three complete core checkpoints,
+120 sessions and 2,808 successful output comparisons survive. It lacks final
+input-byte verification and a complete raw telemetry archive, and contributes
+no timings to the replacement sample.
+
+The October 27 replacement uses the same frozen source, schedule design, seed,
+queries, settings and inferential method. It receives a new campaign ID and
+campaign/pre-start hashes, new runtime inventories, regenerated input manifests,
+new readiness evidence and all eight new independent oracles. Those exact
+replacement identities must be inserted from its privately committed pre-start
+archive before final reporting. They are pending in this preparation draft.
 
 The design is ten blocks by eight suite/scale conditions by five
 configurations, yielding 400 fresh sessions. Each supported query has one
@@ -153,7 +232,7 @@ without significance-based stopping, trimming, selective repetition or tuning.
 Unexpected errors halt execution; retained attempts and partial outputs support
 explicit recovery and deviation assessment.
 
-### 3.2 Timing boundaries and host state
+### 4.2 Timing boundaries and host state
 
 The primary `seconds` endpoint starts before query construction and ends after
 materialized `collect()`. It includes optimization, Parquet reading, execution,
@@ -183,13 +262,17 @@ support control without establishing dedicated hardware or constant clocks.
 Plans show operator selection, not kernel/transfer times or runtime fractions.
 Additional profiling must remain outside primary timings.
 
-Read-only status probes and completed-block core-metadata backups are recorded
-during collection. These observer activities add no engine runs or exclusions;
-results remain measurements of an instrumented virtual host. Source Parquet
-is not read by the core-backup collector. Full input-byte hashing, oracle
-execution and tests on the benchmark host remain outside engine measurements.
+Read-only status probes remain part of the instrumented virtual host. The
+replacement operational supervisor pauses after each complete 40-session block
+and snapshots all block raw files, including logs, telemetry, events, plans,
+outputs and scientific gates. The next block requires an off-host receipt tied
+to the exact campaign and snapshot hashes. Transfers occur while no engine
+session is running. Backup pauses and receipt times are retained as an
+operational pacing amendment; they add no sessions and change no expressions,
+action boundaries or scheduled order. Full input-byte hashing, oracle execution
+and tests on the benchmark host remain outside engine measurements.
 
-### 3.3 Correctness and coverage
+### 4.3 Correctness and coverage
 
 Before confirmation, DuckDB 1.5.6 executes all original SQL definitions for all
 eight measured conditions using the same Float64 normalization. Each oracle
@@ -216,12 +299,13 @@ outer counts, a nonempty semi/anti exclusion, rank ties/nulls, and multiline
 regex/distinct behavior. Their corrected diagnostic plans do not replace any
 performance query. A regression preserves a null-ordering mismatch observed in
 the original Polars 1.44.2 window port: with prices 100, 100, null, 50, its
-top-three keys are 3, 1, 2 instead of SQL's 1, 2, 4. Full-scale input-domain
-checks find no null price/date/order/customer keys in the generated `orders`
-table at all five scales. Original-port claims are bounded to that tested
-domain; the adversarial limitation remains disclosed.
+top-three keys are 3, 1, 2 instead of SQL's 1, 2, 4. The earlier cohort's full-scale
+input-domain checks find no null price/date/order/customer keys in the generated
+`orders` table at all five scales. The replacement repeats those domain checks
+against its fresh inputs before confirmation. Original-port claims are bounded
+to the archived tested domain; the adversarial limitation remains disclosed.
 
-### 3.4 Estimands, uncertainty, and multiplicity
+### 4.4 Estimands, uncertainty, and multiplicity
 
 For block `b`, configuration `e`, and query `q`, let `m[b,e,q]` be the median
 of the three measured primary action times. A complete-suite score is
@@ -262,54 +346,128 @@ point without a contradictory larger sampled point. A lower point lacking
 support is not evidence of reversal. No exact byte threshold or interpolation
 through unmeasured scales will be asserted.
 
-## 4. Available evidence and pending results
+## 5. Results — replacement campaign pending
 
-### 4.1 Pre-start correctness evidence
+The replacement results are unavailable at the fixed-sample analysis gate in
+this draft. No partial-block observation enters the tables, abstract or
+conclusion. The subsections below specify the complete results presentation;
+their factual values must come from a successful replay of all 400 replacement
+sessions. The historical evidence in Appendix A has a separate cohort identity.
 
-Readiness passes with 116 successful comparisons across ten SF1 smoke sessions.
-All configurations pass core inner/outer/semi-anti cases. CPU configurations
-and GPU Spark pass all five diagnostics; Polars GPU passes three and rejects
-rank/window and DOTALL-regex cases. The tiny Spark GPU final plan contains
-`LeftAnti`. This establishes small-input semantics/selection, not anti-join
-performance or a nonempty anti branch in the original correlated workload.
+### 5.1 Campaign disposition, integrity and deviations — pending
 
-Eight complete independent oracles are archived for the measured conditions.
-The separate post-hoc pilot supplement compares all 936 saved successful
-outputs in 40 historical sessions to those SQL references, with zero
-mismatches under the stated tolerance rule. This strengthens the pilot's
-correctness record; it does not retroactively preregister its timings or add
-independent timing repetitions.
+Report the replacement campaign/pre-start identities, collection interval,
+all 400 planned session dispositions, attempts and deviations, final completion
+marker and temporally bracketing input-byte checks. Account for every complete
+40-session block snapshot and off-host receipt. State whether the final
+validation, complete-evidence audit, portable replay and raw bundle each pass.
+These are necessary evidence-disposition results; a planned session count or
+successful tooling test cannot substitute for them.
 
-### 4.2 Exploratory pilot context
+### 5.2 Correctness and expression coverage — pending
 
-At SF300, the pilot's baseline scores were 12.774 s for Polars GPU, 31.540 s
-for its historical Polars 2.0/Python 3.10 CPU control, and 45.528 s for GPU
-Spark. Its complex scores were 70.389 s for that CPU control and 143.039 s for
-GPU Spark; Polars GPU had no complete complex score. These are sums of six
-per-query medians from one session per configuration/condition. They are
-descriptive historical observations without process-level confidence intervals.
+Report all successful action/oracle comparisons, expected translation
+rejections and any unexpected errors, retaining the warmup/measured distinction.
+The unchanged supported-query pattern implies 9,360 successful comparisons:
+2,340 warmups and 7,020 measured actions, together with 60 unsupported warmup
+outcomes. These are expected counts, not observed replacement results in this
+draft. Every rejection must be the intended expression-translation limitation,
+verified from the retained diagnostic; no unrelated error may be counted as
+expected coverage. Report replacement adversarial-fixture outcomes separately.
 
-The new same-Python CPU control requires fresh estimation; historical
-Python 3.10 timings cannot populate its prospective results.
+The coverage table must retain all 40 configuration/condition cells, including
+the three complex Polars GPU cells with four of six supported expressions and
+no complete six-query score. Any departure from that expected coverage requires
+explicit review of the retained attempts, rather than a replacement query or
+an imputed time.
 
-### 4.3 Confirmatory performance results — pending
+### 5.3 Complete-suite scores and all primary contrasts — pending
 
-No ten-block estimates are available in this draft. Operational progress and
-partial correctness passes do not satisfy the final analysis gate.
+Present descriptive complete-suite scores for every configuration/condition
+cell and the entire 26-row primary comparison table. Each primary row gives
+its contrast ID, configuration pair, suite, nominal scale, ten-block geometric
+mean ratio, pointwise 95% interval, raw p value, Holm-adjusted p value and
+supported-advantage outcome. Report estimated reference advantages and
+comparisons without supported differences as well as supported GPU advantages.
+Do not reduce the table to favorable rows or describe an unadjusted interval
+as a familywise superiority decision.
 
-| Planned result | Required completed evidence | Current manuscript status |
-| --- | --- | --- |
-| All 26 primary speedup estimates, intervals, adjusted p values | 400 sessions; final `PASS` validation; predefined analysis | Pending |
-| Forty configuration/condition scores and coverage outcomes | Complete saved session summaries | Pending |
-| Query-level contrasts and scale patterns | Oracle-valid paired block observations | Pending, descriptive |
-| Action versus common-host-result sensitivity | Both endpoints for the same validated actions | Pending, descriptive |
-| Cache/host-state and deviation assessment | Final journal, residency/telemetry, full pre/post byte gates | Pending |
+Baseline and complex figures show the ten measured block ratios at each
+sampled scale, with the prespecified estimate and interval. They use discrete
+scale points and identify the unsupported complex Polars GPU comparisons.
+Full primary values remain available in machine-readable form even when the
+printed figure separates contrast families for readability.
 
-Final tables must retain all 26 comparisons and coverage outcomes. Figures
-must show measured points, pointwise uncertainty and block ratios. Conclusions
-require completed archived analysis.
+### 5.4 Scale patterns and descriptive query results — pending
 
-## 5. Validity and interpretation limits
+Evaluate sampled-scale brackets only within each declared contrast family and
+suite. For every proposed bracket, inspect all larger measured points and
+state the supported upper point and lower observed condition explicitly.
+An inconclusive lower point cannot establish a CPU-favored region. Report
+nonmonotone observations directly; do not fit an unregistered exact crossover.
+
+The query heatmap and query-level table describe heterogeneity around the
+suite scores, including unsupported original expressions. Individual query
+ratios do not add primary significance claims. A selected physical operator
+may be documented from a final plan, but cannot establish its runtime share
+or explain a speed difference without separate profiling.
+
+### 5.5 Common-host-result endpoint sensitivity — pending
+
+Present all 32 descriptive configuration/condition pairs for the secondary
+endpoint, retaining the six unavailable Polars GPU complex pairs. Place each
+available action ratio beside the common-host-result ratio and its pointwise
+interval. Enumerate every point-estimate direction change and relate it to
+the declared conversion boundaries. Do not apply primary superiority language
+or add hypothesis tests to this secondary table.
+
+### 5.6 Block order, cache observations and host state — pending
+
+Show or tabulate block log-ratio spread and chronological order alongside
+preheat/post-session residency, host-memory pressure and recorded environmental
+warnings. Keep snapshots and sampled peaks distinct from continuous guarantees.
+Describe any conspicuous drift or uncertainty without silently trimming a
+block, changing the fixed family or asserting that balanced order removes all
+interference. Deviation and pacing disclosures belong beside these observations.
+
+## 6. Discussion — interpretation prepared, findings pending
+
+The primary practical interpretation will concern supported complete
+workloads under the five fixed configurations. A useful GPU path must satisfy
+the study's expression and correctness contract before its speed ratio is
+interpreted. An unsupported complete suite remains unavailable even when its
+supported constituent queries are fast. Conversely, lack of a supported
+difference does not establish equivalence or rule out a useful effect that
+this fixed allocation measures imprecisely.
+
+The two CPU Polars controls serve different comparisons. Polars 1.44.2 aligns
+the frontend version with the selected GPU integration; Polars 2.0.0 supplies
+a newer same-Python CPU control. Differences among them include software
+versions and dependencies, while Spark and Polars also use different memory
+policies and materialization APIs. Ratios therefore describe deployable fixed
+paths on this host, rather than an isolated GPU-hardware effect or an estimate
+of the best tuning each engine could achieve.
+
+Endpoint sensitivity is substantive: the primary boundary preserves the
+pilot's action API, while the secondary boundary ends at the same Python
+dictionary representation. Any changed direction will narrow the practical
+claim to the relevant boundary. Neither endpoint includes process startup;
+suite scores are sums of per-query medians and must not be presented as the
+latency of a once-through application workload.
+
+The lost instance and replacement also delimit the comparison. A driver/kernel
+change and regenerated physical input files prevent treating surviving old
+timings as interchangeable repetitions. The completed replacement will support
+its own cohort-specific estimates. The earlier pilot and lost checkpoints
+remain transparent historical records rather than extra independent blocks.
+
+The final discussion must connect each observed result to these questions,
+address conflicting scale/query/endpoint patterns, and distinguish statistical
+support from effect magnitude and practical relevance. Claims about bandwidth,
+data transfer, GPU kernels, spilling, cost or energy require evidence beyond
+the planned action timings and saved physical plans.
+
+## 7. Validity and interpretation limits
 
 One virtual host, possible temporal dependence, VM interference and ten blocks
 limit generalization and t-model precision. Williams balance does not eliminate
@@ -320,7 +478,7 @@ semantic generalization. Unsupported cases have no imputed speed. Mechanistic
 explanations involving transfers, compute, spilling or bandwidth require
 separate runtime evidence.
 
-## 6. Reproducibility and release status
+## 8. Reproducibility and release status
 
 The [claim/evidence matrix](claim-evidence-matrix.md) links the private pre-start
 archive and pending raw sessions, journal, integrity gates, deviations, plans,
@@ -342,15 +500,55 @@ sensitivity tables. Raw evidence is packaged with per-file, per-part and joined
 archive hashes after collection ends. These tools have passed synthetic
 workflow tests; their final execution on the harvested study remains pending.
 
-Development remains private. Authorship, availability, attribution and unresolved
+Development remains private. Availability, attribution and unresolved
 [notice/provenance items](../NOTICE_RESEARCH.md) require the separate release
 process. This draft supplies no publication clearance or legal conclusion.
 
-## 7. Conclusion — pending
+The paper's source, build instructions and result-insertion ledger reside
+under `publication/h100-confirmatory/`. The ledger specifies exact inputs and
+required row counts for every final table, figure and summary claim. The
+author is Daniel Ejiofor; no institutional affiliation is asserted. A final
+data/code availability statement must describe the actual private archive
+access and any separately authorized release, without implying public access.
 
-The ten-block experiment is underway. Pre-start correctness and bounded
-coverage are documented; supported performance advantages and sampled-scale
-crossover conclusions await final validation and analysis.
+## 9. Conclusion — pending
+
+The replacement ten-block experiment is being prepared under the fixed
+protocol and operational addendum. This draft documents the complete
+experimental and reporting method. Its supported performance advantages,
+endpoint-sensitive interpretation and sampled-scale conclusions await the
+completed replacement archive, final audit and replay.
+
+## Appendix A. Historical evidence excluded from replacement inference
+
+### A.1 Earlier pre-start correctness evidence
+
+The lost October 26 campaign's archived readiness passes with 116 successful
+comparisons across ten SF1 smoke sessions. All configurations pass core
+inner/outer/semi-anti cases. CPU configurations and GPU Spark pass all five
+diagnostics; Polars GPU passes three and rejects rank/window and DOTALL-regex
+cases. The tiny Spark GPU final plan contains `LeftAnti`. This establishes
+small-input semantics/selection, not anti-join performance or a nonempty anti
+branch in the original correlated workload. These facts cannot establish
+replacement readiness until repeated and archived for that cohort.
+
+Eight complete independent oracles are archived for the earlier measured
+conditions. Its separate post-hoc pilot supplement compares all 936 saved
+successful outputs in 40 historical sessions to those SQL references, with
+zero mismatches under the stated tolerance rule. This strengthens the pilot's
+correctness record; it does not retroactively preregister its timings or add
+independent timing repetitions to the replacement.
+
+### A.2 Exploratory pilot performance context
+
+At SF300, the pilot's baseline scores were 12.774 s for Polars GPU, 31.540 s
+for its historical Polars 2.0/Python 3.10 CPU control, and 45.528 s for GPU
+Spark. Its complex scores were 70.389 s for that CPU control and 143.039 s for
+GPU Spark; Polars GPU had no complete complex score. These are sums of six
+per-query medians from one session per configuration/condition. They are
+descriptive historical observations without process-level confidence intervals.
+Historical Python 3.10 timings do not populate the replacement same-Python
+CPU control or its prospective results.
 
 Primary literature and official implementation references are collected in
 [references.md](references.md).
