@@ -2,29 +2,35 @@
 
 **Daniel Ejiofor**
 
-**Technical draft — replacement campaign preparing, 2026-10-27.** The original
-instance was lost before completion; its three surviving blocks are not pooled
-with the fresh replacement. The
-[prospective operational addendum](../../docs/H100_REPLACEMENT_20261027.md)
-records the new host, regenerated files and off-host backup pauses. Ten-block
-estimates, superiority findings, crossover
-conclusions and publication metadata remain pending. This draft is
-not ready for external publication.
+**Technical draft — conditional recovery cohort planned, 2026-10-27.** Four
+cohorts have distinct roles: an exploratory pilot, the incomplete campaign on
+a lost instance, an aborted default-profile replacement, and one planned fresh
+recovery campaign with a fixed JVM profile. Their timings are never pooled.
+The [replacement addendum](../../docs/H100_REPLACEMENT_20261027.md) and
+[prospective recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md)
+record the host, input reuse, incident, feasibility gate and profile choice.
+Recovery readiness, collection, ten-block estimates, superiority findings and
+sampled-scale conclusions remain pending. This draft is not ready for external
+publication.
 
 ## Abstract
 
 We compare Polars CPU, cuDF-Polars GPU, Spark CPU, and GPU-accelerated Spark on
 one H100 host, including compatible Polars 1.44.2 paths and a same-Python
 Polars 2.0 CPU control. Six selected queries derived from TPC-H run at five
-scales; six complex queries run at three scales. The prospective design
-specifies ten paired blocks, 400 fresh sessions, independent SQL correctness
-checks, and 26 primary comparisons with Holm adjustment. Primary action time
-and secondary common-host-result time remain distinct. The earlier cohort's
-pre-start validation compared 116 successful outputs with SQL references;
-replacement readiness and oracles require their own archived evidence.
-Separate diagnostics retain strict GPU coverage limitations. **Performance estimates and conclusions
-await the completed ten-block campaign.** These selected research workloads
-are not complete or certified TPC-H results.
+scales; six complex queries run at three scales. A default-profile replacement
+halted after 88 scientifically validated sessions when Spark CPU reported a
+Java heap-space error during a first warmup. Its timings are excluded from the
+planned recovery sample. A separate feasibility diagnostic and repeated SF1
+readiness must pass before one fresh 400-session recovery cohort begins with
+a fixed Spark JVM allocation-retry profile. The design retains ten paired
+blocks, independent SQL correctness checks, separate action/common-host-result
+endpoints, and 26 primary comparisons with Holm adjustment. Strict unsupported
+expressions receive no imputed times. The profile is a post-incident
+configuration choice, with no causal mitigation or reliability claim.
+**Recovery performance estimates and conclusions await its completed ten-block
+campaign.** These selected research workloads are not complete or certified
+TPC-H results.
 
 ## 1. Introduction
 
@@ -63,6 +69,8 @@ comparison to be useful.
 The scope excludes distributed scaling, equal-cost performance, energy,
 controlled cold-cache latency and optimal per-engine tuning. Historical
 A100/H100 comparisons also change CPU allocation, software and file layout.
+Primary recovery conclusions will apply to the explicitly recorded JVM profile;
+the aborted cohorts do not estimate its causal performance or reliability effect.
 
 ## 2. Related work and methodological position
 
@@ -105,6 +113,17 @@ standard benchmark. [Polars](https://docs.pola.rs/user-guide/gpu-support/),
 [RAPIDS 26.08.1](https://github.com/NVIDIA/cudf-spark/blob/v26.08.1/docs/compatibility.md),
 [TPC-H 3.0.1](https://www.tpc.org/TPC_Documents_Current_Versions/pdf/TPC-H_v3.0.1.pdf)
 
+The recovery profile has a limited technical rationale. The OpenJDK allocation-
+starvation issue discusses GCLocker retries and possible longer stalls; it
+does not diagnose this study's failure. JEP 423 changes G1 JNI critical-region
+handling in JDK 22, while this experiment retains Java 17.0.20.1. The Spark
+proposal that used retry count 100 was closed unmerged, so it is not official
+Spark 3.5.9 tuning guidance. These sources motivate a separately gated
+feasibility diagnostic, not a claimed cure or measured causal benefit.
+[OpenJDK JDK-8192647](https://bugs.openjdk.org/browse/JDK-8192647),
+[JEP 423](https://openjdk.org/jeps/423),
+[Spark PR 51920](https://github.com/apache/spark/pull/51920)
+
 ## 3. Materials and implementations
 
 ### 3.1 Host and software
@@ -142,6 +161,24 @@ Consequently, common hardware does not imply equal memory budgets. Spark AQE
 can change joins and partitioning using runtime statistics; final plans are
 retained for interpretation. [Spark 3.5.9 documentation](https://spark.apache.org/docs/3.5.9/sql-performance-tuning.html#adaptive-query-execution)
 
+The planned recovery applies the following driver startup profile to both
+Spark configurations at every suite/scale:
+
+```text
+SPARK_SUBMIT_OPTS=-XX:+UnlockDiagnosticVMOptions -XX:GCLockerRetryAllocationCount=100 -XX:+PrintFlagsFinal
+```
+
+Java 17.0.20.1, G1, the 96 GiB maximum heap and all listed query settings remain
+fixed. `PrintFlagsFinal` records the effective driver options before query
+timing. Competing Java-option variables must be absent; the profile must not
+be injected through `JAVA_TOOL_OPTIONS`, which also affects Spark's command
+builder. `EXECUTION_PROFILE.json` will bind the exact startup environment,
+Java executable/runtime files, launcher sources, Python environments and
+diagnostic/input/oracle evidence before recovery timing. These requirements
+remain planned until their actual sealed archive and effective-session proof
+exist. Allocation-retry and GC stalls occurring within an action remain inside
+its normal endpoints; no such observation is excluded as an outlier.
+
 Polars GPU sets `raise_on_fail=True`, verifies the effective configuration, runs
 a positive GPU canary, and requires an unsupported CPU-only canary to raise.
 The streaming policy `fallback_mode=warn` concerns a possible fallback to a
@@ -159,10 +196,13 @@ full SHA256 checks run before/after the campaign outside measurements. Nominal
 scale factors are generator settings. Physical compressed bytes below describe
 all tables, not scan volume or query working set.
 
-The replacement inputs are freshly generated using the pinned recipe. Their
-new manifest and file identities must be used throughout the replacement
-oracles, plan and byte gates. No claim of physical-byte identity with the lost
-instance is made. The archived replacement inventory covers 1,654 Parquet files.
+The default-profile replacement inputs were freshly generated using the pinned
+recipe. Their manifest and physical file identities remain the inputs for the
+planned recovery, which reuses the same 1,654 files and existing independent
+oracle bytes on the same VM. No recovery input regeneration or mutation is
+allowed. No claim of physical-byte identity with the lost instance is made.
+The archived replacement inventory is therefore also the planned recovery
+inventory below; its actual pre/post byte gates must still verify those bytes.
 Generation uses 30 export threads, a 64 GB memory setting, Snappy compression,
 122,880-row groups, per-thread output and a 128 MB target file size. Generation
 and export are outside competitor timings; timed configurations use 26 vCPUs.
@@ -199,16 +239,16 @@ Sampled peaks are not exact allocator maxima.
 
 The frozen experimental source is code commit
 `c84ef6a07341f350dae6636ab709c1b65fd894e0`, comprising a 52-file source snapshot.
-Three cohorts have distinct evidential roles. The exploratory pilot supplies
+Four cohorts have distinct evidential roles. The exploratory pilot supplies
 motivation and historical observations. The October 26 prospective campaign
 was created at 2026-10-26 18:11:05 UTC with campaign SHA256
 `69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0`;
 its host was lost before completion. Only three complete core checkpoints,
 120 sessions and 2,808 successful output comparisons survive. It lacks final
 input-byte verification and a complete raw telemetry archive, and contributes
-no timings to the replacement sample.
+no timings to either later primary sample.
 
-The October 27 replacement uses the same frozen source, schedule design, seed,
+The October 27 default-profile replacement used the same frozen source, design, seed,
 queries, settings and inferential method. Its campaign ID is
 `h100-confirmatory-replacement-20261027`, with campaign SHA256
 `0dabe0d40c5adda0a087508e3f95ceb0636815f5133a3b401071612e3f24c145` and
@@ -220,7 +260,33 @@ first confirmatory action. This archive includes fresh runtime inventories,
 all five input manifests, ten SF1 readiness sessions with 116 successful SQL
 output comparisons, five semantic fixture runs, and all eight independent
 full-scale oracle outputs. Readiness and oracle execution are outside the
-confirmatory performance sample.
+confirmatory performance sample. That cohort subsequently halted at 20:27:48 UTC
+with 88 scientifically validated sessions, 2,056 successful output comparisons
+and one failed session. Its remaining 311 sessions had not started. The complete
+abort and evidence disposition are reported in §5.1. No default-profile timing
+is carried into recovery inference, and its journal/attempts remain unchanged.
+
+The fourth cohort is conditionally planned as
+`h100-confirmatory-gclocker100-20261027`, with planned archive directory
+`evidence-research/20261027/h100-confirmatory-gclocker100-v1`. It will begin only
+if exactly one separate full-complex-SF100 Spark CPU feasibility session returns
+all 12 oracle-valid warmup/measured outputs, completes normal cleanup and exits
+successfully under the proposed profile, and all five configurations repeat
+SF1 readiness successfully. The diagnostic uses query seed 838471203, one
+warmup and one measured action per query; its timings are excluded from primary
+inference. A passing diagnostic establishes feasibility, not mitigation efficacy
+or guaranteed robustness. A failed diagnostic requires preserved diagnosis
+and a new explicit scientific decision; it is not repeated until clean.
+
+The recovery will retain the same VM, 1,654 physical files, oracle bytes, five
+configurations and unchanged 52-file C84 experimental source, with the fixed
+Spark JVM profile as an explicitly disclosed post-incident change. Its genuine
+new campaign/pre-start/profile hashes, diagnostic and repeated readiness must be
+sealed and preserved off-host before any recovery timing. The pre-start archive
+will retain `diagnostic-sf100-driver_log.log` and
+`diagnostic-sf100-validation.json` with exact profile-bound hashes; all twelve
+diagnostic records and their independent comparisons must pass. No recovery
+proof or performance result is asserted in this draft.
 
 The design is ten blocks by eight suite/scale conditions by five
 configurations, yielding 400 fresh sessions. Each supported query has one
@@ -240,10 +306,13 @@ block/condition share a recorded measured-query shuffle seed; warmup query
 order is fixed. Blocking and randomization reduce nuisance effects but do not
 prove independence or remove all temporal drift. [NIST randomized-block guidance](https://www.itl.nist.gov/div898/handbook/pri/section3/pri332.htm)
 
-Ten blocks is a fixed allocation, not a power guarantee. All ten are required,
-without significance-based stopping, trimming, selective repetition or tuning.
+The recovery requires all ten fresh blocks and all 400 fresh sessions. Ten
+blocks is a fixed allocation, not a power guarantee. No earlier timing enters
+that allocation, and there is no significance-based stopping, trimming,
+selective repetition or tuning.
 Unexpected errors halt execution; retained attempts and partial outputs support
-explicit recovery and deviation assessment.
+explicit deviation assessment. A recovery failure does not authorize automatic
+parameter escalation, restart or another cohort until a clean result appears.
 
 ### 4.2 Timing boundaries and host state
 
@@ -284,11 +353,18 @@ session is running. Backup pauses and receipt times are retained as an
 operational pacing amendment; they add no sessions and change no expressions,
 action boundaries or scheduled order. Full input-byte hashing, oracle execution
 and tests on the benchmark host remain outside engine measurements.
+The recovery additionally requires 24 idle-boundary execution-profile receipts:
+before/after repeated readiness, before/after each of ten blocks, and before/
+after final verification. The final complete audit must bind those receipts
+to the sealed profile, unchanged Java/Python environments, session bounds and
+campaign completion. These new receipts are configuration checks, not extra
+timing observations.
 
 ### 4.3 Correctness and coverage
 
-Before confirmation, DuckDB 1.5.6 executes all original SQL definitions for all
-eight measured conditions using the same Float64 normalization. Each oracle
+Before default-profile replacement timing, DuckDB 1.5.6 executed the original
+SQL definitions for all eight measured conditions using the same Float64
+normalization. The recovery reuses those frozen complete oracle bytes. Each oracle
 contains complete ordered rows, SQL/source/manifest hashes, and effective
 resource settings. Its execution is outside competitor performance scores.
 This provides an independent execution engine for the specified SQL, not an
@@ -314,7 +390,7 @@ performance query. A regression preserves a null-ordering mismatch observed in
 the original Polars 1.44.2 window port: with prices 100, 100, null, 50, its
 top-three keys are 3, 1, 2 instead of SQL's 1, 2, 4. The earlier cohort's full-scale
 input-domain checks find no null price/date/order/customer keys in the generated
-`orders` table at all five scales. The replacement repeated these SQL counts
+`orders` table at all five scales. The default-profile replacement repeated these SQL counts
 against all five fresh inputs before confirmation and likewise found zero
 nulls in those fields. Original-port claims are bounded
 to the archived tested domain; the adversarial limitation remains disclosed.
@@ -360,23 +436,52 @@ point without a contradictory larger sampled point. A lower point lacking
 support is not evidence of reversal. No exact byte threshold or interpolation
 through unmeasured scales will be asserted.
 
-## 5. Results — replacement campaign pending
+## 5. Results — recovery primary results pending
 
-The replacement results are unavailable at the fixed-sample analysis gate in
-this draft. No partial-block observation enters the tables, abstract or
-conclusion. The subsections below specify the complete results presentation;
-their factual values must come from a successful replay of all 400 replacement
-sessions. The historical evidence in Appendix A has a separate cohort identity.
+The default-profile abort is an observed outcome; recovery feasibility,
+readiness and primary results remain pending. No partial-block timing from
+either incomplete cohort enters the primary estimates, tables or conclusion.
+The completed primary presentation must come from a genuine replay of all 400
+fresh recovery sessions under its sealed profile. Historical evidence has
+separate cohort identities.
 
-### 5.1 Campaign disposition, integrity and deviations — pending
+### 5.1 Observed default-profile abort and planned recovery disposition
 
-Report the replacement campaign/pre-start identities, collection interval,
-all 400 planned session dispositions, attempts and deviations, final completion
-marker and temporally bracketing input-byte checks. Account for every complete
-40-session block snapshot and off-host receipt. State whether the final
-validation, complete-evidence audit, portable replay and raw bundle each pass.
-These are necessary evidence-disposition results; a planned session count or
-successful tooling test cannot substitute for them.
+The default-profile replacement halted at 20:27:48 UTC on October 27. Its failed
+session, `block-03-complex-sf100-spark_cpu`, failed in `cx_q09`'s first warmup,
+before any successful output or measured observation in that session. The JVM
+exited 52 and reported `java.lang.OutOfMemoryError: Java heap space`, preceded
+by GCLocker allocation-retry warnings. The event-log BlockManager maximum
+on-heap value, 61,658,785,382 bytes, corroborates the configured 96 GiB heap cap.
+The nearest host sample recorded 211,723,608,064 available RAM bytes, zero
+swap use and 2,713,801,965,568 free disk bytes.
+
+These observations do not reveal failure-time heap occupancy or RSS and do
+not distinguish genuine heap exhaustion from premature allocation failure.
+No failure-time heap/RSS or GC-recovery evidence was retained, so a root cause
+and a causal effect of increasing the retry count remain undetermined. Host
+available memory alone cannot establish whether this JVM could satisfy its
+particular allocation.
+
+The aborted cohort retains 88 scientifically validated sessions and 2,056
+successful output comparisons, one failed session and 311 unstarted sessions.
+Its complete 3,349-file incident evidence was preserved off-host as a
+220,656,964-byte gzip archive with SHA256
+`79c99819d272cc1af947d8e200976a940cd63a96be580112e4a6c5900adee6ff`.
+Both complete blocks also retain separate verified off-host raw backups.
+The original journal and attempts were not edited; no successful session was
+rerun within that cohort, and its failed attempt remains visible. This is a
+reported failure observation, not a complete primary comparison.
+
+For the conditional recovery, report actual diagnostic/readiness outcomes,
+new campaign/pre-start/profile identities, collection interval, all 400 session
+dispositions, attempts, deviations and final completion. Account for all ten
+40-session raw backups, 24 idle profile receipts and temporally bracketing input-
+byte gates. Independently check the four repeated SF1 Spark readiness driver
+logs. Require all 160 formal Spark driver logs to prove retry count 100,
+unlocked diagnostic options, G1 and maximum heap 103,079,215,104 bytes. Final
+validation, complete audit, replay and raw bundle remain pending; planned counts
+or successful tooling tests cannot establish their completion.
 
 ### 5.2 Correctness and expression coverage — pending
 
@@ -384,10 +489,11 @@ Report all successful action/oracle comparisons, expected translation
 rejections and any unexpected errors, retaining the warmup/measured distinction.
 The unchanged supported-query pattern implies 9,360 successful comparisons:
 2,340 warmups and 7,020 measured actions, together with 60 unsupported warmup
-outcomes. These are expected counts, not observed replacement results in this
+outcomes. These are expected counts, not observed recovery results in this
 draft. Every rejection must be the intended expression-translation limitation,
 verified from the retained diagnostic; no unrelated error may be counted as
-expected coverage. Report replacement adversarial-fixture outcomes separately.
+expected coverage. Report the recovery's repeated adversarial-fixture/readiness
+outcomes separately from the earlier default-profile preparation.
 
 The coverage table must retain all 40 configuration/condition cells, including
 the three complex Polars GPU cells with four of six supported expressions and
@@ -469,11 +575,17 @@ claim to the relevant boundary. Neither endpoint includes process startup;
 suite scores are sums of per-query medians and must not be presented as the
 latency of a once-through application workload.
 
-The lost instance and replacement also delimit the comparison. A driver/kernel
-change and regenerated physical input files prevent treating surviving old
-timings as interchangeable repetitions. The completed replacement will support
-its own cohort-specific estimates. The earlier pilot and lost checkpoints
-remain transparent historical records rather than extra independent blocks.
+The four cohorts delimit the comparison. A driver/kernel change and regenerated
+files separate the lost host from the replacement VM. The default-profile
+replacement then halted, motivating the fixed recovery JVM profile on the same
+VM and input bytes. This post-incident choice is not an unchanged continuation
+and cannot support a causal before/after estimate of speed or reliability.
+Primary estimates, if recovery completes, apply to that recorded profile.
+The pilot, lost checkpoints, aborted replacement and separate feasibility
+diagnostic contribute no extra independent primary blocks. A successful
+feasibility run would not prove that the failure was a false OOM, that the
+profile cured its cause, or that future runs are robust. Any allocation-retry
+overhead during a measured action remains part of the reported action.
 
 The final discussion must connect each observed result to these questions,
 address conflicting scale/query/endpoint patterns, and distinguish statistical
@@ -491,12 +603,22 @@ semantics and the preserved window-domain limitation constrain workload and
 semantic generalization. Unsupported cases have no imputed speed. Mechanistic
 explanations involving transfers, compute, spilling or bandwidth require
 separate runtime evidence.
+The recovery profile was chosen after an observed failure, limiting inference
+to that post-incident configuration. A fresh complete sample avoids pooling
+incompatible timings; it does not erase the configuration-selection history
+or establish a causal mitigation effect. The fixed single-recovery decision
+must remain visible if feasibility or collection fails.
 
 ## 8. Reproducibility and release status
 
 The [claim/evidence matrix](claim-evidence-matrix.md) links the private pre-start
 archive and pending raw sessions, journal, integrity gates, deviations, plans,
 telemetry, validation, tables and figure manifests.
+It also separates the lost and aborted evidence from the recovery and binds
+`EXECUTION_PROFILE.json`, its actual SHA256, diagnostic/repeated-readiness
+proof, all 24 profile receipts and all 160 effective Spark driver logs. The
+final complete audit and paper build must identify the same recovery profile;
+neither earlier campaign identity can satisfy this primary-results gate.
 
 `research_validate.py` gates `research_analysis.py`; the separate
 `research_reporting/render.py` produces PNG/SVG/PDF figures from complete real
@@ -527,13 +649,15 @@ access and any separately authorized release, without implying public access.
 
 ## 9. Conclusion — pending
 
-The replacement ten-block experiment is being prepared under the fixed
-protocol and operational addendum. This draft documents the complete
-experimental and reporting method. Its supported performance advantages,
-endpoint-sensitive interpretation and sampled-scale conclusions await the
-completed replacement archive, final audit and replay.
+One fresh ten-block recovery experiment is conditionally planned after a
+separate feasibility diagnostic and repeated readiness. Its post-incident
+fixed JVM profile, reused input/oracle bytes and unpooled cohort history are
+explicit. Supported performance advantages, endpoint-sensitive interpretation
+and sampled-scale conclusions await all 400 recovery sessions, final integrity/
+profile audit and genuine replay. No recovery feasibility or causal mitigation
+finding is asserted in this draft.
 
-## Appendix A. Historical evidence excluded from replacement inference
+## Appendix A. Historical evidence excluded from recovery inference
 
 ### A.1 Earlier pre-start correctness evidence
 

@@ -87,3 +87,25 @@ runtime claims where rolling documentation differs.
     manuscript makes no kernel-time, transfer-time, or GPU-runtime-fraction
     claim. APIs must be checked against installed 26.10.2 before any additional
     diagnostic run.
+
+12. **OpenJDK.** JDK-8192647, GCLocker allocation issue record.
+    [Primary issue tracker](https://bugs.openjdk.org/browse/JDK-8192647).
+    The [prospective recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md)
+    cites this record for allocation-starvation behavior and discussion of retry
+    count as a possible workaround with longer-stall risk. It supplies a
+    plausible mechanism, not a diagnosis of this study's Java heap-space error,
+    proof of a false OOM or a causal mitigation result.
+
+13. **OpenJDK.** JEP 423.
+    [Official JEP](https://openjdk.org/jeps/423).
+    Addresses G1 JNI critical-region handling in JDK 22. The planned recovery
+    retains Java 17.0.20.1; citing this JEP does not imply that its implementation
+    is present in the study runtime or that the study upgrades Java.
+
+14. **Apache Spark.** Pull request 51920, closed unmerged.
+    [Primary proposal and disposition](https://github.com/apache/spark/pull/51920).
+    The recovery protocol identifies this proposal's retry-count-100 option as
+    context for the separately gated fixed-profile diagnostic. A closed unmerged
+    PR is not official Spark 3.5.9 tuning guidance, a validated cure or evidence
+    that the profile improves performance or reliability. The fixed recovery
+    configuration and retained actual driver flags determine the study's scope.

@@ -1,7 +1,8 @@
 # Claim and evidence matrix
 
-Status: replacement manuscript preparation, 2026-10-27. Replacement performance
-results remain pending. All paths below are repository-relative unless explicitly
+Status: conditional recovery manuscript preparation, 2026-10-27. Recovery
+feasibility, repeated readiness and primary performance results remain pending.
+All paths below are repository-relative unless explicitly
 marked remote. JSON selectors are machine-readable `jq` expressions.
 
 `E` denotes the **lost October 26 cohort only**:
@@ -9,13 +10,25 @@ marked remote. JSON selectors are machine-readable `jq` expressions.
 establishes that cohort's design, preparation and historical pilot context. It
 does not establish replacement runtime, physical inputs, readiness or results.
 Its surviving three core checkpoints (120 sessions; 2,808 successful output
-comparisons) are incomplete and never pooled into replacement inference.
+comparisons) are incomplete and never pooled into later primary inference.
 
-`R` is the exact October 27 replacement pre-start archive directory, **pending
-its actual private archive**. `P` is the new successful portable replay output
-for that replacement, also pending. `B` is the eventual final paper build output
-directory. Resolve these to literal paths in the final paper binding; none is
-an existing completed evidence file claimed by this draft.
+`V` denotes the **aborted default-profile October 27 replacement**:
+`evidence-research/20261027/h100-confirmatory-replacement-v1`. Its campaign SHA256
+is `0dabe0d40c5adda0a087508e3f95ceb0636815f5133a3b401071612e3f24c145` and
+pre-start manifest SHA256 is
+`a758ceea7d16a6c726221db5db2cb99502ac4f640131341b456e9b63ed459b2a`.
+Its preparation artifacts establish the reused host/input/oracle inventory;
+its 88 scientifically validated sessions and one failure do not complete a
+primary family and are excluded from recovery timing inference.
+
+`R` is the **planned recovery** archive directory
+`evidence-research/20261027/h100-confirmatory-gclocker100-v1`, with proposed ID
+`h100-confirmatory-gclocker100-20261027`. Its actual campaign/pre-start/profile
+hashes, separate feasibility diagnostic and repeated readiness remain pending.
+`P` is a genuine completed replay of that recovery, also pending. `B` is its
+eventual final paper build output. Neither prior campaign can satisfy the
+recovery primary-results gate. Resolve the final raw/incident extraction paths
+and these output bindings to literal paths before final reporting.
 Expand aliases before resolving files. Do not rewrite paths inside hashed JSON.
 
 | ID | Permitted statement | Evidence file and selector | Scope and remaining gate |
@@ -35,37 +48,50 @@ Expand aliases before resolving files. Do not rewrite paths inside hashed JSON.
 | C13 | Primary estimates use session query medians, complete-suite sums, paired log ratios, t intervals and one Holm family. | `E/campaign.json`: `.analysis_predeclarations`, `.primary_contrasts`; frozen `E/campaign.json.source/docs/H100_CONFIRMATORY_PROTOCOL.md`; frozen `E/campaign.json.source/research_analysis.py`. | Prespecified method. `N=10` refers to paired blocks. Pointwise intervals are not simultaneous; model assumptions and insufficient precision remain reportable. |
 | C14 | The action endpoint and common-host-result endpoint have different conversion boundaries. | Frozen `E/campaign.json.source/worker.py`; each formal `results.json`: `.timing_scope`, `.host_result_timing_scope`, `.records[].seconds`, `.records[].host_result_seconds`. | A sum of medians is not once-through suite latency. Final analysis must expose direction changes between endpoints. |
 | C15 | Preheat/residency, memory and I/O are observations with stated limits. | Each formal `schedule.json`: `.[] \| .cache_observations`; each `results.json`: `.records`; environment/host/GPU logs. | Snapshot residency does not guarantee in-query residency. Process-population limits, sampled peaks and mixed CPU/GPU plans must remain explicit. No bandwidth, transfer, spilling, or energy explanation without separate evidence. |
-| C16 | A supported primary GPU advantage exists at a sampled replacement condition. | **Pending:** `P/validation.json` and `P/analysis/analysis.json`: `.status == "PASS"` on validation; `.primary[] \| {contrast_id,n_blocks,geometric_mean_speedup,ci95_pointwise,p_holm,supported_gpu_advantage}` on analysis. | Do not assert now. Requires all 400 replacement sessions, exact frozen replacement oracle hashes, valid full outputs, ten valid paired observations for that contrast, ratio above one and Holm-adjusted `p < 0.05`. |
-| C17 | A replacement scale crossover is supported. | **Pending:** all same-family primary rows in `P/analysis/analysis.json`; `P/analysis/block_ratios.csv`. | Apply protocol bracket rule; no exact unmeasured threshold. Lack of significance is not equivalence or a reversal. |
-| C18 | The replacement study is a complete paper with reproducible evidence. | **Pending:** `P/REPLAY_MANIFEST.json`; `P/validation.json`; `P/complete-audit/AUDIT_COMPLETE.json`; `P/analysis/`; final raw `journal.json`; `P/figures/RENDER_MANIFEST.json`; paper build manifest and final manuscript review. | Audit all 26 primary rows, all 40 coverage cells, failures/deviations, 32-row endpoint sensitivity and captions. Completion and publication/release authorization are separate decisions; private development remains in force. |
+| C16 | A supported primary GPU advantage exists at a sampled recovery condition. | **Pending:** `P/validation.json` and `P/analysis/analysis.json`: `.status == "PASS"` on validation; `.primary[] \| {contrast_id,n_blocks,geometric_mean_speedup,ci95_pointwise,p_holm,supported_gpu_advantage}` on analysis. | Do not assert now. Requires all 400 fresh recovery sessions, exact frozen reused oracle hashes, sealed execution profile, valid full outputs, ten valid paired observations for that contrast, ratio above one and Holm-adjusted `p < 0.05`. |
+| C17 | A recovery scale crossover is supported. | **Pending:** all same-family primary rows in `P/analysis/analysis.json`; `P/analysis/block_ratios.csv`. | Apply protocol bracket rule under the recorded recovery JVM profile; no exact unmeasured threshold. Lack of significance is not equivalence or a reversal. |
+| C18 | The recovery study is a complete paper with reproducible evidence. | **Pending:** `P/REPLAY_MANIFEST.json`; `P/validation.json`; `P/complete-audit/AUDIT_COMPLETE.json`; `P/analysis/`; final raw `journal.json`; `P/figures/RENDER_MANIFEST.json`; paper build manifest and final manuscript review. | Audit all 26 primary rows, 40 coverage cells, 32 secondary pairs, deviations, 160 Spark driver logs, 24 profile receipts and matching profile hashes. Disclose all four cohort roles and post-incident selection; private source/evidence preservation remains in force. |
 
-## Replacement binding and reporting gates
+## Observed default-profile disposition and conditional recovery
 
-| ID | Replacement statement or output | Exact replacement evidence | Remaining gate |
+| ID | Permitted statement | Evidence binding | Scope and remaining gate |
 | --- | --- | --- | --- |
-| R01 | New cohort identity with unchanged C84 source. | `R/PRESTART_MANIFEST.json`: `.campaign_sha256`, `.source_commit`; actual SHA256 of that file; `R/campaign.json`: `.campaign_id`, `.source.files_sha256`; committed `research_reporting/campaign_identities.json`. | Exact new campaign/pre-start pair registered and 52-file source verified before analysis; the old pair is ineligible for a complete replacement paper. |
-| R02 | New host driver/kernel and runtime inventory. | `R/readiness/baseline-spark_gpu/environment.json`: `.inventory[] \| {command,returncode,output}`; `R/campaign.json`: `.configs[].runtime`; every formal session inventory in final complete audit. | Confirm H100 80 GB HBM3, 26 vCPUs, RAM bytes, driver 580.105.08, kernel 6.8.0-1046-nvidia and full software/JAR inventory from actual replacement archive. |
-| R03 | Regenerated physical files shared within cohort. | `R/campaign.json`: `.datasets`; `R/oracles/*.json`: `.manifest_sha256`, `.input_files`; raw journal integrity gates; `P/complete-audit/AUDIT_COMPLETE.json`. | Five scales, new physical-byte totals and actual pre/post full SHA256 gates. Never copy October 26 byte totals into the replacement inventory. |
-| R04 | Replacement readiness and independent references. | `R/readiness/READINESS.json`: `.status`, `.successful_outputs_compared`, `.sessions`; `R/readiness/fixtures/*/FIXTURES.json`; eight `R/oracles/*.json`; `R/INPUT_DOMAIN.json`. | New pre-start archive must contain complete PASS outputs and the tested replacement domain. Expected 116 readiness outputs is not an observed claim until checked. |
-| R05 | Full completed replacement campaign. | Raw final `journal.json` plus block manifests/off-host receipts; `P/complete-audit/AUDIT_COMPLETE.json`: `.status`, `.counts`, `.findings`; `P/validation.json`. | 400 sessions, 9,360 successful outputs, 60 specific translation rejections under expected coverage; every attempt/deviation retained and byte gates temporally bracket sessions. |
+| D01 | Default-profile replacement stopped at 20:27:48 UTC with 88 scientifically validated sessions, 2,056 successful output comparisons, one failed and 311 unstarted sessions. | [Recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md); unchanged incident journal/attempts in preserved off-host archive; `V/campaign.json`. | Observed incomplete cohort only; no default-profile timing enters recovery inference. |
+| D02 | `block-03-complex-sf100-spark_cpu` failed in first `cx_q09` warmup before any successful output or measured observation, with exit 52, Java heap-space error and preceding GCLocker warnings. | Retained failed-session results/stdout/stderr/event log and scientific gate in incident archive; protocol incident record. | Report actual error; no failure-time heap/RSS or GC-recovery data establish cause or a false-OOM diagnosis. |
+| D03 | Configured 96 GiB heap and nearest host resource sample are recorded. | Incident event-log BlockManager maximum on-heap 61,658,785,382 bytes; nearest host sample: available RAM 211,723,608,064 bytes, swap zero, free disk 2,713,801,965,568 bytes. | These corroborate the configured cap and observed host sample; host availability does not establish failure-time JVM occupancy or allocation feasibility. |
+| D04 | All 3,349 original incident files survive off-host without journal/attempt edits. | Incident gzip bytes 220,656,964; SHA256 `79c99819d272cc1af947d8e200976a940cd63a96be580112e4a6c5900adee6ff`; extraction/transfer receipt and separate block 1/2 backups. | Retain actual private location/receipt in final binding. Archive integrity and a reported failure do not complete a primary study. |
+| D05 | The recovery is one prospective fixed-profile cohort conditional on feasibility/readiness. | [Recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md); one separately retained full-complex-SF100 Spark CPU diagnostic, seed 838471203, one warmup plus one measurement per query; repeated five-configuration SF1 readiness. | Planned until all 12 diagnostic outputs, normal cleanup, process exit and effective options pass, followed by new readiness PASS. No diagnostic timing enters primary inference; no automatic escalation/retry until clean. |
+
+## Recovery binding and reporting gates
+
+| ID | Recovery statement or output | Exact recovery evidence | Remaining gate |
+| --- | --- | --- | --- |
+| R01 | New cohort identity with unchanged C84 source and sealed profile. | `R/PRESTART_MANIFEST.json`: `.campaign_sha256`, `.source_commit`; actual SHA256 of that file; `R/campaign.json`: `.campaign_id`, `.source.files_sha256`; `R/EXECUTION_PROFILE.json`; committed identity registry. | Exact recovery campaign/pre-start/profile hashes registered and 52-file source verified before timing; neither incomplete earlier pair is eligible for final recovery results. |
+| R02 | Same replacement VM and verified recovery runtime. | `V/` archived inventory; repeated `R/readiness/baseline-spark_gpu/environment.json`; `R/campaign.json`: `.configs[].runtime`; sealed profile and formal-session audit. | Confirm H100 80 GB HBM3, 26 vCPUs, RAM, driver 580.105.08, kernel 6.8.0-1046-nvidia, unchanged Java 17.0.20.1/Python environments, and effective new Spark driver profile. |
+| R03 | Same 1,654 physical replacement files and existing oracle bytes reused. | `V/manifests/`, `V/oracles/`; `R/campaign.json`: `.datasets`; `R/oracles/*.json`; profile-bound identities, raw journal byte gates and complete audit. | No recovery regeneration/mutation; preserve the actual v1 physical table. New recovery pre/post full SHA256 gates still required; old-host October 26 bytes remain distinct. |
+| R04 | Repeated recovery readiness and unchanged independent references. | `R/readiness/READINESS.json`: `.status`, `.successful_outputs_compared`, `.sessions`; fixtures; eight reused `R/oracles/*.json`; input-domain record; sealed diagnostic/readiness proof. | Default-profile readiness PASS is historical. Recovery repeat and the separate 12-output diagnostic are planned until their actual complete artifacts pass. |
+| R05 | Full completed recovery campaign. | Raw final `journal.json`, block receipts and `EXECUTION_PROFILE_GATES.jsonl`; `P/complete-audit/AUDIT_COMPLETE.json`; `P/validation.json`. | 400 fresh sessions, 9,360 expected successful outputs, 60 expected translation rejections; all attempts/deviations, bracketing byte gates, 24 profile receipts and 160 effective Spark driver proofs. |
 | R06 | Complete results tables. | `P/figures/primary_contrasts.csv` (26 rows), `P/figures/complete_case_scores.csv` (40 rows), `P/analysis/analysis.json`, `P/analysis/block_ratios.csv`. | Exact cross-checks to the full primary family and raw block observations; unsupported cells retain N/A and zero complete suite scores. |
 | R07 | Secondary sensitivity and raw uncertainty. | `P/complete-audit/HOST_RESULT_SENSITIVITY.csv` (32 rows); `P/analysis/analysis.json`: `.secondary_direction_changes`; `P/analysis/session_query_medians.csv`; `P/analysis/block_ratios.csv`. | Report all available pairs, six unavailable complex Polars GPU pairs, direction changes and pointwise/model scope; no added primary claim. |
 | R08 | Auditable publication figures. | `P/figures/CAPTIONS.md`; `P/figures/RENDER_MANIFEST.json`: `.synthetic == false`, `.campaign_sha256`, `.input_files_sha256`, `.output_files_sha256`; `P/REPLAY_MANIFEST.json`. | PASS real-data replay; exact estimate/caption agreement. Synthetic or partial renderings cannot enter paper or webpage. |
 | R09 | Complete private raw evidence survives host shutdown. | Postcollection `BUNDLE_MANIFEST.json`, `CHUNKS.sha256`, `REASSEMBLE.md`, receipt, verified extracted raw files and replay manifests. | Final raw tree/off-host copies and reassembly/byte verification; bundle alone does not establish scientific conclusions. |
 | R10 | Final paper and webpage report the same completed findings. | `B/BUILD_MANIFEST.json` for final build; exact manuscript/table/figure hashes; webpage snapshot and source mapping. | Apply [RESULTS_FINALIZATION.md](RESULTS_FINALIZATION.md), inspect every PDF page and webpage, confirm Daniel Ejiofor author metadata and actual availability terms. |
+| R11 | The measured recovery uses exactly the sealed JVM profile. | `R/EXECUTION_PROFILE.json`; 24 `EXECUTION_PROFILE_GATES.jsonl` receipts; all 160 Spark driver logs; complete audit `.execution_profile`; final paper `.execution_profile_sha256` and webpage provenance. | Audit profile `{path: "EXECUTION_PROFILE.json", sha256: registry hash, spark_driver_logs: 160, profile_gates: 24, status: "PASS"}`; match Java/runtime/environment hashes, readiness/block/final chronology and max heap 103,079,215,104 bytes, retry 100, unlocked diagnostics and G1. No causal mitigation/reliability inference follows. |
 
-## Historical and replacement artifact locations
+## Historical and recovery artifact locations
 
 The **October 26** immutable plan stores the historical remote result root as
 `/home/ubuntu/study-h100-research-evidence-20261026/campaign-results`.
 Final `validation.json` and `analysis/` are expected under the same remote
 evidence parent. These are expected output locations, not files claimed to be
 complete or locally harvested in this draft. These locations must not be
-reused as the replacement evidence identity.
+reused as a later evidence identity.
 
-For the replacement, read its new `campaign.json` and `PRESTART_MANIFEST.json`
-to resolve archive and raw-result roots. The reporting paths are precisely the
-relative `P/` outputs above. [RESULTS_FINALIZATION.md](RESULTS_FINALIZATION.md)
+For the aborted default-profile replacement, use `V` and the separately preserved
+incident archive. For recovery, require its genuine new `campaign.json`,
+`PRESTART_MANIFEST.json` and `EXECUTION_PROFILE.json` before resolving results.
+The reporting paths are precisely the relative `P/` outputs above.
+[RESULTS_FINALIZATION.md](RESULTS_FINALIZATION.md)
 provides the ordered finalization procedure and insertion ledger.
 
 Use `campaign.json` `.sessions[].output_root` and journal attempt records to
@@ -77,9 +103,11 @@ input/export hashes and produces `primary_contrasts.csv`,
 
 ## Completion conditions for updating the manuscript
 
-1. Final journal covers all 400 planned sessions with explicit attempts and
+1. Recovery final journal covers all 400 fresh planned sessions with explicit attempts and
    deviations, no missing/duplicate actions, and successful pre/post input-byte
    gates. Retain unsupported-query evidence.
+   The sealed execution profile, all 24 receipts and 160 Spark driver logs must
+   match the registered recovery identity; earlier incomplete cohorts are excluded.
 2. Exact frozen-oracle validation passes for every successful warmup and
    measured output; no replacement attempt enters analysis invisibly.
 3. Frozen analysis completes the full 26-comparison family and exports raw
