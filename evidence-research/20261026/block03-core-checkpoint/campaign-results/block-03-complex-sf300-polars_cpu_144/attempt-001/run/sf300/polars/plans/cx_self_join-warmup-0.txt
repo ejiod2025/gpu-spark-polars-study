@@ -1,0 +1,21 @@
+SORT BY [nulls_last: [true, true]] [col("left_shipmode"), col("right_shipmode")]
+  AGGREGATE[maintain_order: false]
+    [len().cast(Int64).alias("pair_count")] BY [col("left_shipmode"), col("right_shipmode")]
+    FROM
+    simple π 2/2 ["left_shipmode", ... 1 other column]
+      FILTER col("left_linenumber") < col("right_linenumber")
+      FROM
+        simple π 4/4 ["left_shipmode", ... 3 other columns]
+          INNER JOIN:
+          LEFT PLAN ON: [col("l_orderkey")]
+            SELECT [col("l_orderkey"), col("l_linenumber").alias("left_linenumber"), col("l_shipmode").alias("left_shipmode")]
+              CACHE[id: 118f95a1-4689-4e50-a8ab-8f97975f229e]
+                simple π 3/3 ["l_orderkey", "l_linenumber", ... 1 other column]
+                  Parquet SCAN [/home/ubuntu/study/data/sf300/lineitem/part-000000-000.parquet, ... 539 other sources]
+                  PROJECT 4/16 COLUMNS
+                  SELECTION: (col("l_shipdate") >= 1994-01-01) & (col("l_shipdate") < 1995-01-01)
+                  ESTIMATED ROWS: 1800036404
+          RIGHT PLAN ON: [col("l_orderkey")]
+            SELECT [col("l_orderkey"), col("l_linenumber").alias("right_linenumber"), col("l_shipmode").alias("right_shipmode")]
+              CACHE[id: 118f95a1-4689-4e50-a8ab-8f97975f229e]
+          END INNER JOIN

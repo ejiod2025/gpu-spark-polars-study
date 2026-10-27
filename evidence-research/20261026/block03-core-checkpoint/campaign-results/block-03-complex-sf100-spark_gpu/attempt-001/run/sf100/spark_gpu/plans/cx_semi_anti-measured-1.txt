@@ -1,0 +1,60 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=154]
+   +- GpuTopN(limit=100, orderBy=[c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,c_nationkey#3], offset=0)
+      +- GpuShuffleCoalesce 1073741824, [loreId=152]
+         +- GpuColumnarExchange gpusinglepartitioning$(), ENSURE_REQUIREMENTS, [plan_id=8000], [loreId=151]
+            +- GpuTopN(limit=100, orderBy=[c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,c_nationkey#3], offset=0)
+               +- GpuShuffledHashJoin [c_custkey#0L], [o_custkey#136L], LeftSemi, GpuBuildRight, CoalesceReadOption(true,GPU,Never,None,false), false, [loreId=149]
+                  :- GpuShuffleCoalesce 1073741824, [loreId=147]
+                  :  +- GpuCustomShuffleReader coalesced
+                  :     +- ShuffleQueryStage 0
+                  :        +- GpuColumnarExchange gpuhashpartitioning(c_custkey#0L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=7415], [loreId=69]
+                  :           +- GpuFileGpuScan parquet [c_custkey#0L,c_name#1,c_nationkey#3] Batched: true, DataFilters: [], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf100/customer], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<c_custkey:bigint,c_name:string,c_nationkey:int>
+                  +- GpuCustomShuffleReader coalesced
+                     +- ShuffleQueryStage 4
+                        +- GpuColumnarExchange gpuhashpartitioning(o_custkey#136L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=7871], [loreId=131]
+                           +- GpuProject [o_custkey#136L], true, [loreId=130]
+                              +- GpuShuffledHashJoin [o_orderkey#135L], [l_orderkey#26L], LeftSemi, GpuBuildRight, CoalesceReadOption(true,GPU,Never,None,false), false, [loreId=129]
+                                 :- GpuShuffleCoalesce 1073741824, [loreId=127]
+                                 :  +- GpuCustomShuffleReader coalesced
+                                 :     +- ShuffleQueryStage 1
+                                 :        +- GpuColumnarExchange gpuhashpartitioning(o_orderkey#135L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=7477], [loreId=78]
+                                 :           +- GpuProject [o_orderkey#135L, o_custkey#136L], true, [loreId=77]
+                                 :              +- GpuCoalesceBatches targetsize(1073741824), [loreId=76]
+                                 :                 +- GpuFilter ((gpuisnotnull(o_orderdate#139) AND (o_orderdate#139 >= 9131)) AND (o_orderdate#139 < 9496)), [loreId=75]
+                                 :                    +- GpuFileGpuScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1995-01-01), (o_orderdate#139 < 1996-01-01)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf100/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1995-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date>
+                                 +- GpuCustomShuffleReader coalesced
+                                    +- ShuffleQueryStage 2
+                                       +- GpuColumnarExchange gpuhashpartitioning(l_orderkey#26L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=7516], [loreId=87]
+                                          +- GpuProject [l_orderkey#26L], true, [loreId=86]
+                                             +- GpuCoalesceBatches targetsize(1073741824), [loreId=85]
+                                                +- GpuFilter (((gpuisnotnull(l_receiptdate#38) AND gpuisnotnull(l_commitdate#37)) AND (l_receiptdate#38 > l_commitdate#37)) AND l_shipmode#40 INSET AIR, SHIP), [loreId=84]
+                                                   +- GpuFileGpuScan parquet [l_orderkey#26L,l_commitdate#37,l_receiptdate#38,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_receiptdate#38), isnotnull(l_commitdate#37), (l_receiptdate#38 > l_commitdate#37), l..., Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf100/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_receiptdate), IsNotNull(l_commitdate), In(l_shipmode, [AIR,SHIP])], ReadSchema: struct<l_orderkey:bigint,l_commitdate:date,l_receiptdate:date,l_shipmode:string>
++- == Initial Plan ==
+   TakeOrderedAndProject(limit=100, orderBy=[c_custkey#0L ASC NULLS FIRST], output=[c_custkey#0L,c_name#1,c_nationkey#3])
+   +- SortMergeJoin [c_custkey#0L], [o_custkey#1152L], LeftAnti
+      :- SortMergeJoin [c_custkey#0L], [o_custkey#136L], LeftSemi
+      :  :- Sort [c_custkey#0L ASC NULLS FIRST], false, 0
+      :  :  +- Exchange hashpartitioning(c_custkey#0L, 120), ENSURE_REQUIREMENTS, [plan_id=7140]
+      :  :     +- FileScan parquet [c_custkey#0L,c_name#1,c_nationkey#3] Batched: true, DataFilters: [], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/customer], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<c_custkey:bigint,c_name:string,c_nationkey:int>
+      :  +- Sort [o_custkey#136L ASC NULLS FIRST], false, 0
+      :     +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=7141]
+      :        +- Project [o_custkey#136L]
+      :           +- SortMergeJoin [o_orderkey#135L], [l_orderkey#26L], LeftSemi
+      :              :- Sort [o_orderkey#135L ASC NULLS FIRST], false, 0
+      :              :  +- Exchange hashpartitioning(o_orderkey#135L, 120), ENSURE_REQUIREMENTS, [plan_id=7132]
+      :              :     +- Project [o_orderkey#135L, o_custkey#136L]
+      :              :        +- Filter ((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1995-01-01)) AND (o_orderdate#139 < 1996-01-01))
+      :              :           +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1995-01-01), (o_orderdate#139 < 1996-01-01)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1995-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_orderdate:date>
+      :              +- Sort [l_orderkey#26L ASC NULLS FIRST], false, 0
+      :                 +- Exchange hashpartitioning(l_orderkey#26L, 120), ENSURE_REQUIREMENTS, [plan_id=7133]
+      :                    +- Project [l_orderkey#26L]
+      :                       +- Filter (((isnotnull(l_receiptdate#38) AND isnotnull(l_commitdate#37)) AND (l_receiptdate#38 > l_commitdate#37)) AND l_shipmode#40 IN (AIR,SHIP))
+      :                          +- FileScan parquet [l_orderkey#26L,l_commitdate#37,l_receiptdate#38,l_shipmode#40] Batched: true, DataFilters: [isnotnull(l_receiptdate#38), isnotnull(l_commitdate#37), (l_receiptdate#38 > l_commitdate#37), l..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/lineitem], PartitionFilters: [], PushedFilters: [IsNotNull(l_receiptdate), IsNotNull(l_commitdate), In(l_shipmode, [AIR,SHIP])], ReadSchema: struct<l_orderkey:bigint,l_commitdate:date,l_receiptdate:date,l_shipmode:string>
+      +- Sort [o_custkey#1152L ASC NULLS FIRST], false, 0
+         +- Exchange hashpartitioning(o_custkey#1152L, 120), ENSURE_REQUIREMENTS, [plan_id=7147]
+            +- Project [o_custkey#1152L]
+               +- Filter ((((isnotnull(o_orderdate#1155) AND isnotnull(o_orderstatus#1153)) AND (o_orderdate#1155 >= 1996-01-01)) AND (o_orderdate#1155 < 1997-01-01)) AND (o_orderstatus#1153 = F))
+                  +- FileScan parquet [o_custkey#1152L,o_orderstatus#1153,o_orderdate#1155] Batched: true, DataFilters: [isnotnull(o_orderdate#1155), isnotnull(o_orderstatus#1153), (o_orderdate#1155 >= 1996-01-01), (o..., Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf100/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), IsNotNull(o_orderstatus), GreaterThanOrEqual(o_orderdate,1996-01-01), Le..., ReadSchema: struct<o_custkey:bigint,o_orderstatus:string,o_orderdate:date>
+

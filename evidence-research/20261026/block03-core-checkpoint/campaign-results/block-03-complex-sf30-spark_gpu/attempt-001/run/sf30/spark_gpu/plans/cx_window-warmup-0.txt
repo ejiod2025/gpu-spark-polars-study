@@ -1,0 +1,38 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=85]
+   +- GpuTopN(limit=100, orderBy=[custkey#466L ASC NULLS LAST,row_num#471 ASC NULLS FIRST,orderkey#467L ASC NULLS LAST], output=[custkey#466L,orderkey#467L,orderdate#468,totalprice#469,previous_totalprice#470,row_num#471], offset=0)
+      +- GpuShuffleCoalesce 1073741824, [loreId=83]
+         +- GpuColumnarExchange gpusinglepartitioning$(), ENSURE_REQUIREMENTS, [plan_id=4552], [loreId=82]
+            +- GpuTopN(limit=100, orderBy=[custkey#466L ASC NULLS LAST,row_num#471 ASC NULLS FIRST,orderkey#467L ASC NULLS LAST], output=[custkey#466L,orderkey#467L,orderdate#468,totalprice#469,previous_totalprice#470,row_num#471], offset=0)
+               +- GpuProject [custkey#466L, orderkey#467L, orderdate#468, totalprice#469, previous_totalprice#470, row_num#471], true, [loreId=80]
+                  +- GpuCoalesceBatches targetsize(1073741824), [loreId=79]
+                     +- GpuFilter (row_num#471 <= 3), [loreId=78]
+                        +- GpuRunningWindow [custkey#466L, orderkey#467L, orderdate#468, totalprice#469, o_totalprice#153, o_custkey#136L, o_orderdate#139, o_orderkey#135L, previous_totalprice#470, gpurownumber$() gpuwindowspecdefinition(o_custkey#136L, o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST, gpuspecifiedwindowframe(RowFrame, gpuspecialframeboundary(unboundedpreceding$()), gpuspecialframeboundary(currentrow$()))) AS row_num#471], [o_custkey#136L], [o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], [loreId=77]
+                           +- GpuSort [o_custkey#136L ASC NULLS FIRST, o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], false, com.nvidia.spark.rapids.OutOfCoreSort$@2de7a784, [loreId=76]
+                              +- GpuBatchedBoundedWindow [custkey#466L, orderkey#467L, orderdate#468, totalprice#469, o_totalprice#153, o_custkey#136L, o_orderdate#139, o_orderkey#135L, gpulag(o_totalprice#153, 1, null) gpuwindowspecdefinition(o_custkey#136L, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST, gpuspecifiedwindowframe(RowFrame, -1, -1)) AS previous_totalprice#470], [o_custkey#136L], [o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], [loreId=75]
+                                 +- GpuSort [o_custkey#136L ASC NULLS FIRST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], false, com.nvidia.spark.rapids.OutOfCoreSort$@2de7a784, [loreId=74]
+                                    +- GpuShuffleCoalesce 1073741824, [loreId=73]
+                                       +- GpuCustomShuffleReader coalesced
+                                          +- ShuffleQueryStage 0
+                                             +- GpuColumnarExchange gpuhashpartitioning(o_custkey#136L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=4400], [loreId=52]
+                                                +- GpuProject [o_custkey#136L AS custkey#466L, o_orderkey#135L AS orderkey#467L, o_orderdate#139 AS orderdate#468, o_totalprice#153 AS totalprice#469, o_totalprice#153, o_custkey#136L, o_orderdate#139, o_orderkey#135L], true, [loreId=51]
+                                                   +- GpuProject [o_orderkey#135L, o_custkey#136L, cast(o_totalprice#138 as double) AS o_totalprice#153, o_orderdate#139], true, [loreId=50]
+                                                      +- GpuCoalesceBatches targetsize(1073741824), [loreId=49]
+                                                         +- GpuFilter ((gpuisnotnull(o_orderdate#139) AND (o_orderdate#139 >= 8766)) AND (o_orderdate#139 < 9496)), [loreId=48]
+                                                            +- GpuFileGpuScan parquet [o_orderkey#135L,o_custkey#136L,o_totalprice#138,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1994-01-01), (o_orderdate#139 < 1996-01-01)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/study/data/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1994-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_totalprice:decimal(15,2),o_orderdate:date>
++- == Initial Plan ==
+   TakeOrderedAndProject(limit=100, orderBy=[custkey#466L ASC NULLS LAST,row_num#471 ASC NULLS FIRST,orderkey#467L ASC NULLS LAST], output=[custkey#466L,orderkey#467L,orderdate#468,totalprice#469,previous_totalprice#470,row_num#471])
+   +- Project [custkey#466L, orderkey#467L, orderdate#468, totalprice#469, previous_totalprice#470, row_num#471]
+      +- Filter (row_num#471 <= 3)
+         +- Window [row_number() windowspecdefinition(o_custkey#136L, o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST, specifiedwindowframe(RowFrame, unboundedpreceding$(), currentrow$())) AS row_num#471], [o_custkey#136L], [o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST]
+            +- WindowGroupLimit [o_custkey#136L], [o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], row_number(), 3, Final
+               +- Sort [o_custkey#136L ASC NULLS FIRST, o_totalprice#153 DESC NULLS LAST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], false, 0
+                  +- Window [lag(o_totalprice#153, -1, null) windowspecdefinition(o_custkey#136L, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST, specifiedwindowframe(RowFrame, -1, -1)) AS previous_totalprice#470], [o_custkey#136L], [o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST]
+                     +- Sort [o_custkey#136L ASC NULLS FIRST, o_orderdate#139 ASC NULLS LAST, o_orderkey#135L ASC NULLS LAST], false, 0
+                        +- Exchange hashpartitioning(o_custkey#136L, 120), ENSURE_REQUIREMENTS, [plan_id=4193]
+                           +- Project [o_custkey#136L AS custkey#466L, o_orderkey#135L AS orderkey#467L, o_orderdate#139 AS orderdate#468, o_totalprice#153 AS totalprice#469, o_totalprice#153, o_custkey#136L, o_orderdate#139, o_orderkey#135L]
+                              +- Project [o_orderkey#135L, o_custkey#136L, cast(o_totalprice#138 as double) AS o_totalprice#153, o_orderdate#139]
+                                 +- Filter ((isnotnull(o_orderdate#139) AND (o_orderdate#139 >= 1994-01-01)) AND (o_orderdate#139 < 1996-01-01))
+                                    +- FileScan parquet [o_orderkey#135L,o_custkey#136L,o_totalprice#138,o_orderdate#139] Batched: true, DataFilters: [isnotnull(o_orderdate#139), (o_orderdate#139 >= 1994-01-01), (o_orderdate#139 < 1996-01-01)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/study/data/sf30/orders], PartitionFilters: [], PushedFilters: [IsNotNull(o_orderdate), GreaterThanOrEqual(o_orderdate,1994-01-01), LessThan(o_orderdate,1996-01..., ReadSchema: struct<o_orderkey:bigint,o_custkey:bigint,o_totalprice:decimal(15,2),o_orderdate:date>
+
