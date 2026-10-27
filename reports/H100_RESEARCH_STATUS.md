@@ -5,6 +5,13 @@ gone. A replacement instance is reachable and a fresh campaign is being prepared
 No confirmatory performance conclusion is available yet. See the
 [prospective replacement addendum](../docs/H100_REPLACEMENT_20261027.md).
 
+Replacement preparation snapshot at **2026-10-27 15:05 UTC**: all ten SF1
+readiness sessions passed with **116 output comparisons** and all five
+configurations completed semantic diagnostics. Linux checks passed **300 tests
+and 16 subtests**, with one fixture-dependent skip. SF1/SF10/SF30 are rebuilt;
+SF100 is generating. No confirmatory timing has started. See the
+[replacement preparation snapshot](h100-replacement-preparation-status.json).
+
 The durable surviving timed evidence is blocks 01–03: **120 sessions and 2,808
 successful outputs** with locally reverified core evidence. Their raw telemetry,
 events and complete logs were not in these core backups. No final input hash or
