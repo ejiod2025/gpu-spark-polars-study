@@ -83,7 +83,8 @@ These probes run outside queries.
 Every one of the 160 Spark CPU/GPU session logs must contain one actual driver
 `PrintFlagsFinal` table showing `UnlockDiagnosticVMOptions=true`,
 `GCLockerRetryAllocationCount=100`, `MaxHeapSize=103079215104`, `UseG1GC=true` and
-`PrintFlagsFinal=true`. A block receipt cannot substitute for a missing child
+`PrintFlagsFinal=true`. The four fresh SF1 Spark readiness child logs must show
+the same actual flags. A block receipt cannot substitute for a missing child
 driver table. The audit hashes every inspected profile, receipt and driver log
 and records `execution_profile` with the registered SHA256, 160 driver logs, 24
 gates and PASS only when the complete audit passes. Old failed, diagnostic and

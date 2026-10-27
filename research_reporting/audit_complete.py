@@ -178,6 +178,10 @@ def check_execution_profile(plan, identity, evidence_root, artifacts_root, prest
     diagnostic_flags = helper.parse_driver_flags(inputs.read(contained(evidence_root, diagnostic_name)).decode())
     validation_name = "diagnostic-sf100-validation" + Path(profile["diagnostic"]["validation_path"]).suffix
     check_diagnostic_validation(inputs.json(contained(evidence_root, validation_name)), plan, diagnostic_flags)
+    for suite in ("baseline", "complex"):
+        for engine in ("spark_cpu", "spark_gpu"):
+            name = f"readiness/{suite}-{engine}/sf1/{engine}.log"
+            helper.parse_driver_flags(inputs.read(contained(evidence_root, name)).decode())
     archived = inputs.read(contained(evidence_root, PROFILE_GATES_NAME))
     live = inputs.read(contained(artifacts_root.parent, PROFILE_GATES_NAME))
     if not archived.endswith(b"\n") or not live.startswith(archived) or not live.endswith(b"\n"):

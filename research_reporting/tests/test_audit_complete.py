@@ -337,6 +337,11 @@ def recovery_profile(tmp_path):
                        'validation_sha256': audit.digest(diagnostic_bytes)}}
     (archive / 'diagnostic-sf100-driver_log.log').write_text(FLAGS)
     (archive / 'diagnostic-sf100-validation.json').write_bytes(diagnostic_bytes)
+    for suite in ('baseline', 'complex'):
+        for engine in ('spark_cpu', 'spark_gpu'):
+            path = archive / f'readiness/{suite}-{engine}/sf1/{engine}.log'
+            path.parent.mkdir(parents=True)
+            path.write_text(FLAGS)
     (archive / audit.PROFILE_NAME).write_bytes(audit.canonical_bytes(profile))
     profile_sha = audit.digest((archive / audit.PROFILE_NAME).read_bytes())
     gates = []
@@ -407,7 +412,7 @@ def test_recovery_profile_gate_drift_fails_closed(recovery_profile, bad):
         profile_context(fixture)
 
 
-@pytest.mark.parametrize('bad', ['unregistered', 'profile_hash', 'manifest', 'diagnostic', 'duplicate_json'])
+@pytest.mark.parametrize('bad', ['unregistered', 'profile_hash', 'manifest', 'diagnostic', 'readiness', 'duplicate_json'])
 def test_recovery_seal_and_original_data_are_required(recovery_profile, bad):
     fixture = recovery_profile
     if bad == 'unregistered':
@@ -419,6 +424,8 @@ def test_recovery_seal_and_original_data_are_required(recovery_profile, bad):
         path.write_text(path.read_text() + '\n')
     elif bad == 'diagnostic':
         (fixture['archive'] / 'diagnostic-sf100-driver_log.log').write_text('missing actual flags\n')
+    elif bad == 'readiness':
+        (fixture['archive'] / 'readiness/complex-spark_gpu/sf1/spark_gpu.log').write_text('old JVM profile\n')
     else:
         path = fixture['artifacts'].parent / audit.PROFILE_GATES_NAME
         path.write_bytes(path.read_bytes().replace(b'"status": "PASS"', b'"status": "FAIL", "status": "PASS"'))
