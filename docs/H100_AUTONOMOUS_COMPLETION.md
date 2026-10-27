@@ -101,7 +101,10 @@ fails. The final paper/web builders accept only this registered recovery cohort.
 6. Verify deployed page access and paper download, layout and interactions,
    all scientific claims and final source/evidence hashes. Push the publication
    code and completion receipts privately. Preserve large raw evidence off host
-   with retrieval information and immutable checksum manifests.
+   with retrieval information and immutable checksum manifests. Follow the
+   [private archive storage runbook](../operations/H100_PRIVATE_ARCHIVE_STORAGE.md)
+   for independent private GitHub retrieval checks; an upload alone is not
+   verified preservation.
 7. Only then create the genuine completion manifest required by the retirement
    guard. Refresh SSH GPU identity/idle state and the exact Lambda instance
    ID/IP/type through read-only API calls. Terminate **only** the bound instance,
