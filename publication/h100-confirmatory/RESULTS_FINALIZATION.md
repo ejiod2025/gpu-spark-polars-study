@@ -116,6 +116,50 @@ binding 2,062 raw audit inputs and 29 verifier/figure inputs to the exact termin
 review object and figure manifest above. This is a separate-role gate check,
 not a final paper build, editorial attestation or original400 completion.
 
+## Separate local power gap and block06 pacing disclosure
+
+The selected local observations are preserved under
+`evidence-research/20261028/h100-local-power-gap-checkpoint/`. They record
+Low Power Sleep on the controlling Mac at 02:13:38 PDT/09:13:38 UTC on October
+28 at 1% battery, then wake on AC attachment at 07:11:23 PDT/14:11:23 UTC.
+The watcher observation gap runs from 09:13:25.168866 to 14:11:52.581715 UTC.
+The owned sleep-prevention process and existing controller survived; the later
+battery observation reports AC and charging. These bounded selected records
+are not complete system logs and do not diagnose a remote GPU/JVM failure.
+
+The actual last block06 session, `block-06-baseline-sf10-spark_gpu`, succeeded
+with return code zero at 11:15:26.689677 UTC. The existing supervisor created
+the block06 backup control at 11:15:30.821446 UTC and waited for the original
+off-host acknowledgement, recorded at 14:12:51.939753 UTC: a creation-to-ACK
+interval of 10,641.118307 s. Its verified receipt is timestamped
+14:12:49.676201 UTC. The raw snapshot contains 40 sessions/1,355 files and
+1,040,107,520 tar bytes, SHA256
+`1328c53c6256fa273943b02bb0c163ba09e7a794a7dd575a86da7fbb74247a37`.
+The same supervisor then continued the original schedule into block07 without
+restart or replacement. The checkpoint observes six completed blocks/240
+successful sessions, with the original400 and final inference still incomplete.
+
+Use these actual stable payload bindings; the checkpoint README/manifest may
+be polished separately and are not assumed to have a future hash:
+
+| Source record | SHA256 |
+| --- | --- |
+| `POWER_EVENTS_SELECTED.txt` | `7584152f1ab5d49fda74f58e89d16d991a508043f704334f04ee8be722393895` |
+| `WATCHER_EVENTS_SELECTED.jsonl` | `226018cb159052df874b55328b76235afd921be15183c4572ba8c6441ddc7ad2` |
+| `LAST_BLOCK06_SESSION.json` | `975cff11aa9f5c66e06d7c29aa5dbd02ff1d0869c6c50cc9436598b930a33367` |
+| `block-06/CONTROL.json` | `fe75068bcd7de8cf659206b49f72ce42f2d78f7882544acb69962b76f7297b6a` |
+| `block-06/OFFHOST_VERIFIED.json` | `0c1d90c8026c5633dbbcc7ee8afe05f33d95f9aebe54651f01b425a445a1b59d` |
+
+Retain this separate local-power pacing event in §4.2/§5.6 and the final
+chronology, distinct from the requested managed contention hold in §4.6 and
+the earlier default-profile JVM failure. Do not correct, subtract from or
+reinterpret any saved action, worker or outer-wall timing. The longer
+between-block interval can change temporal/cache history; it establishes no
+performance effect and supplies no additional timing sample or primary contrast.
+The captured profile log is a 15-receipt observation ending in a passing
+block-07-before check, not the final required 24-receipt proof. Preserve the
+original journal in the immutable block06 raw backup for final reconciliation.
+
 ## 1. Bind the actual recovery before inserting a primary result
 
 Record the following exact values from files, never from a running status
@@ -249,7 +293,7 @@ the paper workflow must not recompute a different statistic.
 | Query heterogeneity figure/table | `P/figures/query_ratios_action.*`; `.exploratory_queries[]` in analysis | Every supported/unsupported original query retained; ten block query observations where available | §5.4; descriptive, with no query-level superiority claim |
 | Block/order diagnostics | `P/analysis/block_ratios.csv` filtered by `family == primary_suite`, `endpoint == seconds`; `.primary[].sd_log_ratio` | Exactly 260 primary block rows; ten per contrast; retain chronology and configuration positions from session medians | §5.6/supplement; show temporal spread; no post-hoc exclusion or new significance claim |
 | Endpoint sensitivity | `P/complete-audit/HOST_RESULT_SENSITIVITY.csv`; `.secondary_direction_changes` | Exactly 32 pairs; six complex Polars GPU N/A pairs; direction-change flags agree | §5.5/full supplement; secondary ratios and pointwise CIs are descriptive |
-| Residency and host state | Every session schedule's three cache observations; retained environment/host/GPU telemetry; complete audit | All 400 session inventories; note available sampling/counter/process-population limits | §5.6; snapshots and sampled peaks are not guarantees or causal explanations |
+| Residency and host state | Every session schedule's three cache observations; retained environment/host/GPU telemetry; complete audit; separate local-power checkpoint and off-host backup/ACK chronology | All 400 session inventories; retain the managed contention hold and distinct block06 local-power/receipt delay; note sampling/counter/process-population limits | §5.6; snapshots and sampled peaks are not guarantees or causal explanations; preserve all saved timing values and disclose possible temporal/cache carryover |
 | Figure/paper/page provenance | Figure and replay manifests; final paper `BUILD_MANIFEST.json`; public webpage provenance | Real-data `synthetic: false`; same recovery campaign, `execution_profile_sha256` and source/input/export hashes | §8/supplement; figures copied verbatim; final paper/page accept only the exact sealed recovery profile |
 | Raw archive availability | `BUNDLE_MANIFEST.json`, `CHUNKS.sha256`, `REASSEMBLE.md`, verified off-host receipt | Every raw file and part bound; extraction/replay verified | §8; state actual private access and any authorized release terms accurately |
 

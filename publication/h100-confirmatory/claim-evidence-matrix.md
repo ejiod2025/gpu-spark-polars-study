@@ -67,6 +67,15 @@ is `5751b86ee46989fdfc7b0d25b1e2eac3a475a09c872143026cedfbd1e06000bd`.
 None of these artifacts supplies an isolated primary observation or replaces
 `R`, the formal profile log or the original 400-session completion gates.
 
+`L` denotes the separate local operational observation directory
+`evidence-research/20261028/h100-local-power-gap-checkpoint/`. Its selected
+macOS power/watcher records, unchanged block06 session/control/receipt and
+captured profile observation disclose local-power and backup pacing. These are
+bounded records, not complete system logs, primary timing observations or final
+400-session proof. Stable source hashes are listed in
+[RESULTS_FINALIZATION.md](RESULTS_FINALIZATION.md); no future checkpoint
+README/manifest hash is assumed.
+
 | ID | Permitted statement | Evidence file and selector | Scope and remaining gate |
 | --- | --- | --- | --- |
 | C01 | The prospective design specifies ten blocks, 400 sessions and 26 primary contrasts. | `E/campaign.json`: `.blocks \| length`, `.sessions \| length`, `.primary_contrasts \| length`; expected `10`, `400`, `26`. | Planned sample. Completion must come from the final journal and validation, not these counts. |
@@ -115,6 +124,8 @@ None of these artifacts supplies an isolated primary observation or replaces
 | R10 | Final paper and webpage report the same completed findings. | `B/BUILD_MANIFEST.json` for final build; exact manuscript/table/figure hashes; webpage snapshot and source mapping. | Apply [RESULTS_FINALIZATION.md](RESULTS_FINALIZATION.md), inspect every PDF page and webpage, confirm Daniel Ejiofor author metadata and actual availability terms. |
 | R11 | The measured recovery uses exactly the sealed JVM profile. | `R/EXECUTION_PROFILE.json`; two canonical readiness receipts; final raw `EXECUTION_PROFILE_GATES.jsonl` with 24 required receipts; all 160 required formal Spark logs; complete audit `.execution_profile`; final paper/page profile SHA. | Two readiness receipts and four readiness driver logs are verified. The full final proof remains pending: `{path: "EXECUTION_PROFILE.json", sha256: registry hash, spark_driver_logs: 160, profile_gates: 24, status: "PASS"}`; match Java/runtime/environment hashes, chronology, max heap 103,079,215,104 bytes, retry 100, unlocked diagnostics and G1. No causal mitigation/reliability inference follows. |
 | R12 | Recovery collection has started after its initial full-input gate. | [Current execution record](../../docs/H100_AUTONOMOUS_COMPLETION.md), registered pre-start archive, retained operational start/journal evidence; first session recorded at 21:47:44 UTC after full 1,654-file gate at 21:47:43.892782 UTC. | Collection milestone only. No partial-session timing, effect estimate or completed primary comparison is asserted. Final journal and post-session byte gate remain required. |
+| R13 | A local low-power observation gap delayed the block06 off-host handoff while remote collection completed that block. | `L/POWER_EVENTS_SELECTED.txt` (SHA `7584152f1ab5d49fda74f58e89d16d991a508043f704334f04ee8be722393895`); `L/WATCHER_EVENTS_SELECTED.jsonl` (SHA `226018cb159052df874b55328b76235afd921be15183c4572ba8c6441ddc7ad2`); unchanged `L/LAST_BLOCK06_SESSION.json`, `L/block-06/CONTROL.json` and `L/block-06/OFFHOST_VERIFIED.json`; process/battery observations. | Low Power Sleep at 09:13:38 UTC/1% battery, wake on AC at 14:11:23 UTC; watcher last 09:13:25.168866, next 14:11:52.581715 UTC. Remote final block06 session succeeded 11:15:26.689677 UTC, backup created 11:15:30.821446 UTC, off-host ACK 14:12:51.939753 UTC, 10,641.118307 s later. Existing controller/sleep-prevention process survived and supervisor continued block07 without restart/replacement. This is distinct from the contention hold or a GPU/JVM failure diagnosis; no saved timing correction or performance inference. |
+| R14 | The local power checkpoint observes six completed blocks without completing the study. | `L/WATCHER_EVENTS_SELECTED.jsonl`: preserved STATUS/ACK events; `L/EXECUTION_PROFILE_GATES_OBSERVED.jsonl`; immutable block06 raw journal and receipt. | At the checkpoint, 240 sessions succeeded and six blocks were preserved off-host; the 15 captured profile receipts end in block-07-before PASS. Original400, final 24 receipts and all primary findings remain pending. Added between-block temporal/cache history stays disclosed, with unchanged design, endpoints, order and 26-test family. |
 
 ## Separate contention and interlude evidence gates
 

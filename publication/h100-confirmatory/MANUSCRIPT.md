@@ -391,6 +391,22 @@ session is running. Backup pauses and receipt times are retained as an
 operational pacing amendment; they add no sessions and change no expressions,
 action boundaries or scheduled order. Full input-byte hashing, oracle execution
 and tests on the benchmark host remain outside engine measurements.
+
+A separate local power event delayed the block06 off-host handoff on October
+28. The controlling Mac's selected power records show Low Power Sleep at
+09:13:38 UTC on 1% battery and wake on AC attachment at 14:11:23 UTC. Local
+watcher observations bracket the gap at 09:13:25.168866 and 14:11:52.581715 UTC.
+Meanwhile, the remote block06 final session succeeded at 11:15:26.689677 UTC;
+its backup control was created at 11:15:30.821446 UTC and acknowledged off-host
+at 14:12:51.939753 UTC, 10,641.118307 s later. The existing controller and
+sleep-prevention process survived, and the remote supervisor continued the
+original schedule into block07 after the receipt, without restart or
+replacement. This local control/backup delay is distinct from the managed
+contention hold in §4.6 and supplies no GPU/JVM failure diagnosis. No action,
+worker or outer-wall timestamp is corrected. The longer between-block interval
+remains part of the host's temporal/cache history; no performance effect is
+inferred from it.
+
 The recovery additionally requires 24 idle-boundary execution-profile receipts:
 before/after repeated readiness, before/after each of ten blocks, and before/
 after final verification. The final complete audit must bind those receipts
@@ -883,7 +899,11 @@ planned expansion repetitions. Its process-counter and memory observations may
 span untimed waits; GPU board samples are shared and can miss peaks. The
 requested interlude changes isolated temporal pacing and may influence later
 host/cache state. Recorded idle/identity checks and continued preheat policy
-support interpretation without proving absence of carryover.
+support interpretation without proving absence of carryover. The separately
+recorded local low-power event also delayed a between-block off-host receipt
+while remote block06 completed. Its added temporal spacing may affect later
+host/cache conditions, without establishing a measured effect or changing any
+action/worker timing value.
 
 ## 8. Reproducibility and release status
 
