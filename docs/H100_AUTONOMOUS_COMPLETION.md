@@ -268,6 +268,23 @@ The current battery observation is AC and charging. Keep the local host powered
 for off-host handoffs; idle-sleep prevention cannot keep an exhausted battery
 running. A missing observation never authorizes a benchmark restart.
 
+Block 07 is independently checked and checkpointed at
+`evidence-research/20261028/gclocker100-block07-raw-checkpoint`: the selected
+40 sessions have 936 valid outputs, six expected strict rejections, 336
+successful/six failed complex cleanup records, 40 matching configurations and
+16 matching actual Spark JVMs, with no findings. Its original journal retains
+280 successes and 120 future sessions. The 1,041,090,560-byte raw tar SHA256 is
+`c437190af1a265338e759796551356e94766f44a79f181e509442c12dd6dfcd3`;
+the 30-file checkpoint manifest SHA256 is
+`54a4afb59b8efa7c52e3f73496f959c125d4b41ff0d8d548f0c22498f69266aa`.
+The first 16 formal profile observations bracket seven blocks; observation
+17 is later block-08-before evidence. The final block-07 session ended at
+16:15:46.176886 UTC, its original backup was created at 16:15:50.660128 UTC
+and verified off-host at 16:26:02.967003 UTC. Preserve these actual pacing
+timestamps without inferring an unobserved cause. At 16:55:27 UTC block 08
+was running with 286/400 validated sessions. Full-study validation, analysis,
+paper/web publication, private retrieval and retirement remain pending.
+
 The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
 same 1,654 input files, oracles and Python environments remain unchanged.
 Both Spark paths use fixed `SPARK_SUBMIT_OPTS` with unlocked diagnostic options,
