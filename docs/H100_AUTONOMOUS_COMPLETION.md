@@ -47,6 +47,23 @@ separate handoff root is
 are under ignored `rerun/contention-20261028/`. Read actual plan, state and
 receipts; these path declarations do not establish that a run has begun.
 
+The genuine contention prestart is now frozen and privately preserved at
+`evidence-research/20261028/h100-contention-v1` (66 files). Its plan SHA256 is
+`670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031` and
+prestart manifest SHA256 is
+`4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25`.
+Private commit `98c7ff4d6a9bbe82a021671c28fed28f71827b70` preceded all
+contention queries. The managed handoff launched at 2026-10-28 04:44:23 UTC,
+manager PID `188803`, creation time `1793162662.9`, holding scheduler PID
+`179144`, creation time `1793160829.75`. It initially drained the original
+`block-04-complex-sf30-spark_cpu` runner without signaling it. Initial receipts
+are in `evidence-research/20261028/h100-contention-controller` and ignored
+`rerun/contention-20261028/handoff-launch/`; they are not live completion proof.
+The separate local off-host watcher is PID `66482`, creation time
+`1793162631.560101`, with receipts/logs in
+`rerun/contention-20261028/raw-backups/`. Verify identities and actual state
+before acting; never launch a duplicate manager or watcher.
+
 The handoff may hold only the exact owned C84 scheduler PID, letting its
 already launched original runner/worker finish unpaused. The unchanged journal
 can retain a running attempt while that scheduler is deliberately stopped.
