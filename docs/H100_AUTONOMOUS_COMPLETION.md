@@ -160,6 +160,11 @@ fails. The final paper/web builders accept only this registered recovery cohort.
    reconstruct a new local evidence tree with explicit overlap provenance.
    Preserve all original phase archives. Run real portable replay, complete
    audit and predefined analysis. Synthetic tests are not study results.
+   Independently replay the separate contention evidence as well. Its terminal
+   disposition must bind the actual same-scheduler resume, unchanged original
+   attempt/journal and full interlude input/profile checks, and prove that its
+   actions did not overlap isolated worker actions. Preserve and describe any
+   failure and any unattempted expansion waves without imputed results.
 4. Produce the full research paper, final PDF and source, genuine tables/figures,
    citations, limitations and result-to-claim audit. Remove pending placeholders
    only when actual data support their replacement. Credit Daniel Ejiofor.
@@ -181,6 +186,12 @@ fails. The final paper/web builders accept only this registered recovery cohort.
    guard. Refresh SSH GPU identity/idle state and the exact Lambda instance
    ID/IP/type through read-only API calls. Terminate **only** the bound instance,
    then verify its final cloud state and save an off-host receipt.
+
+The owner's expanded contention request also requires a matching retirement
+guard binding for that separate genuine disposition and handoff proof, plus
+paper/web review of both roles. The earlier 400-only retirement checks do not
+by themselves establish completion of the expanded request. Integrate and
+test the separate contention replay receipt before preparing termination.
 
 Guest `shutdown`/`poweroff` does not end Lambda compute billing. The authorized
 retirement uses the documented Lambda termination operation after the gates
