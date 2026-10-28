@@ -228,6 +228,46 @@ hold, is preserved verbatim. The checkpoint's 30-file manifest SHA256 is
 This block checkpoint remains PARTIAL_BLOCK_ONLY; terminal contention proof is
 the separate receipt above, and full isolated completion is still pending.
 
+Blocks 05 and 06 are also independently checked, with separate private
+checkpoints `evidence-research/20261028/gclocker100-block05-raw-checkpoint` and
+`evidence-research/20261028/gclocker100-block06-raw-checkpoint`. Each selected
+40-session block has 936 valid outputs, six expected strict rejections,
+336 successful/six failed complex cleanup records, 40 matching configuration
+inventories and 16 matching actual Spark JVMs, with no findings. The original
+block-end journals retain 200 and 240 successes respectively. Their raw tars:
+
+- Block 05: 1,042,145,280 bytes, SHA256
+  `291fdb59979adcf5c450ba560176ebce1cdd720f0f38d2e8f70a6a66f134b463`;
+  checkpoint manifest
+  `f954dcfba207c4e99c1ad88fdff6a05e10b9d0429364658c8e833aabeac4d406`.
+- Block 06: 1,040,107,520 bytes, SHA256
+  `1328c53c6256fa273943b02bb0c163ba09e7a794a7dd575a86da7fbb74247a37`;
+  checkpoint manifest
+  `71878de3d43c0e7cfdcd8eb94d70abfcf41a8ef6c249f2ac3f68af031fb3400f`.
+
+The first 12 and 14 independently observed formal profile receipts bracket
+blocks 05 and 06 respectively. Receipt 15 is later block-07-before evidence,
+not part of the block-06 transport. At 14:16:36 UTC the original supervisor
+was running block 07 with 240/400 scientifically validated sessions and no
+failed session. These selected-block checkpoints do not re-audit earlier
+payloads or establish the final 400-session analysis.
+
+The local Mac entered Low Power Sleep at 09:13:38 UTC with battery at 1% and
+woke on AC attachment at 14:11:23 UTC. Its owned caffeinate process and existing
+controller survived. Remote block 06 continued and finished at
+11:15:26.689677 UTC; its original backup was created at 11:15:30.821446 UTC
+and acknowledged off-host at 14:12:51.939753 UTC, after the Mac woke. The
+supervisor then continued its original schedule into block 07. Preserve this
+operational delay separately from the managed contention hold and from any
+JVM incident; no engine attempt was replaced and no measured timestamp is
+corrected. Exact selected power records, controller events, original controls
+and receipts are in
+`evidence-research/20261028/h100-local-power-gap-checkpoint`. Its manifest is
+`179b91abfe4bdd87061cd53ef58d1450d8f6618899ce7bda6d505e92ac9d7fdc`.
+The current battery observation is AC and charging. Keep the local host powered
+for off-host handoffs; idle-sleep prevention cannot keep an exhausted battery
+running. A missing observation never authorizes a benchmark restart.
+
 The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
 same 1,654 input files, oracles and Python environments remain unchanged.
 Both Spark paths use fixed `SPARK_SUBMIT_OPTS` with unlocked diagnostic options,
