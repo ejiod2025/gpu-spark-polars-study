@@ -10,6 +10,12 @@ campaign, prestart and execution profile exist. Historical archive verification
 remains available, but the lost original cohort and aborted replacement v1
 cohort cannot permit termination, even when presented with a forged PASS.
 
+The owner subsequently authorized the separate contention experiment. A
+400-session-only completion manifest is now insufficient. Both the unchanged
+isolated-study gates and the mandatory terminal contention evidence below must
+pass. There is no skip flag or absent-role interpretation that ignores this
+extension. This source change does not establish actual contention completion.
+
 The fixed target is Lambda instance `8809d4738226458a80a100bb4eb2f906`, IP
 `68.209.73.247`, type `gpu_1x_h100_sxm5`, physical GPU
 `GPU-aa9e9485-5551-d7be-dfc9-9e433a7284da`, name `NVIDIA H100 80GB HBM3`, driver
@@ -114,6 +120,8 @@ Top-level schema:
 | `web_receipt` | Actual successful **public deployed version**, never local preview or owner-private deployment |
 | `private_git_receipt` | Actual private-repository push/privacy verification plus exact commit file inventory |
 | `identity_idle_receipt` | Fresh offhost captured identity and empty job/process checks, at most 300 seconds old at the end of local verification |
+| `contention_replay` | Actual `CONTENTION_REPLAY.json`: registered separate plan/prestart, current auditor, terminal disposition, integrity PASS, actual same-scheduler resume and complete raw/input bindings |
+| `contention_preservation` | Actual private retrieval receipt binding that contention audit and every existing raw phase to independently downloaded bytes and stable private release/asset locators |
 
 Final and completion backups use the existing `h100-offhost-backup-v1` control
 and `OFFHOST_SHA256_VERIFIED` receipt formats. The guard hashes each tar again,
@@ -162,6 +170,116 @@ recorded visibility/push decisions and runs read-only `git show` to verify
 preserved commit bytes; it does not authenticate to GitHub. At minimum the exact
 campaign, journal, complete audit, real replay manifest, paper PDF and paper
 source hashes must all be represented in that committed file inventory.
+
+## Mandatory separate contention disposition
+
+The contention role is `h100-contention-20261028`. The only genuine anchors are
+the 66-file canonical prestart at
+`evidence-research/20261028/h100-contention-v1`, plan SHA256
+`670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031`
+and prestart manifest SHA256
+`4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25`.
+`research_reporting/contention_replay.py` provides the bounded identity check;
+the guard has no arbitrary campaign override. The separate plan must reference
+the same final isolated campaign and registered execution profile.
+
+The actual replay receipt uses schema `h100-contention-replay-v1`,
+`synthetic:false`, `integrity_status:PASS`, `publication_ready:true`, no findings
+and the current auditor source hash. Its terminal `status` must be `COMPLETE`
+or `STOPPED_WITH_FAILURE`. `PARTIAL`, `FAIL`, active work, missing resume proof
+and failed integrity cannot permit retirement. A stopped scientific phase can
+retain zero attempted waves if its genuine runtime/input/prelaunch gate failed;
+the failed phase, actual error and all unattempted wave IDs must remain visible.
+An operational interruption without a terminal failed scientific phase remains
+nonterminal and requires preserved diagnosis.
+
+The receipt preserves the original four-pilot/sixteen-main wave order. A
+complete extension has all 20 waves, 460 successful output comparisons and ten
+specific strict translation rejections. A stopped extension retains its actual
+failed phase and fixed unattempted suffix; it cannot invent a passing main
+phase after a pilot failure, drop a failed participant or retry until clean.
+Only actually created `pilot`, `main` or `failed` raw snapshots are required.
+Each snapshot's control, original offhost receipt, tar hash/byte count and full
+extracted inventory are rechecked with `contention_backup.py`. Every snapshot
+must retain the byte-identical canonical prestart. Terminal driver metadata and
+the actual offhost ACK bytes must bind each raw snapshot. No synthetic or
+fabricated terminal receipt is supplied by this runbook.
+
+A late verified ACK after a stopped failure is retained as separate actual
+remote-receipt metadata; the original driver's checkpoint list stays unchanged.
+Complete runs require the driver-observed pilot and main ACKs. Every actual raw
+phase still needs its verified remote receipt, local transport proof and private
+retrieval, including a failed snapshot.
+
+Every exact-path entry in `input_files_sha256` is rehashed locally, including
+canonical files, original held journal/session, raw payloads and operational
+metadata. The receipt's `handoff` must verify actual `RESUMED.json` with the same
+held scheduler PID, creation time and identity, source/runtime/profile checks
+and all 1,654 input files before contention and before resume. The five expected
+scale counts are 57, 123, 185, 371 and 918. Owned groups must be empty and both
+residual scans clear. Held journal/attempt bindings and original results and
+schedule bytes must match the final isolated evidence. Original host-result
+endpoints precede contention actions, and all contention actions end before
+the resume profile check and actual resume. Outer scheduler wall time includes
+the hold and is disclosed; action timings from the two designs stay separate.
+The actual manager failure path can leave `STATE.phase:HANDOFF_ERROR` with its
+error while `RESUMED.json` proves the verified return. A detached guardian can
+also leave the prior state phase. These cases require the actual matching
+resume actor/identity and all cleanup/profile/byte/timeline evidence; there is
+no assumed `FAILED_RESUMED` state that the executed source never writes.
+
+The final paper review and actual public deployment receipt must each contain
+the same exact `contention_review` object:
+
+```json
+{
+  "status": "COMPLETE",
+  "experiment_id": "h100-contention-20261028",
+  "plan_sha256": "actual separately registered plan SHA256",
+  "prestart_sha256": "actual separately registered prestart SHA256",
+  "replay_sha256": "actual terminal CONTENTION_REPLAY.json SHA256",
+  "disposition": "COMPLETE or STOPPED_WITH_FAILURE"
+}
+```
+
+Here `status:COMPLETE` means the actual editorial/deployment review is complete;
+`disposition` records whether the experiment completed or honestly stopped with
+failure. The real reviews must cover the contention instrumentation, resource
+sharing, failures/unattempted waves, overlap and limitations. No partial findings
+or inferred causal benefit may be promoted by changing this object. Existing
+stable production Site URLs remain supported; immutable version URLs are not
+required.
+
+The `contention_preservation` file uses schema
+`h100-contention-private-preservation-v1`, `status:PRIVATE_DOWNLOAD_VERIFIED`,
+`private:true`, `experiment_id`, `plan_sha256`, `prestart_sha256`,
+`replay_sha256`, and the same `repository_url` as the actual private Git receipt.
+Its `raw_backups` keys must exactly equal the replay's actual snapshot phases.
+Each entry has `archive_sha256`, `archive_bytes`, `retrieval_verified:true`, a
+`retrieved_archive` file reference and `storage` with exactly these fields:
+
+- `repository_url`: the same private repository identity;
+- `release_tag`: the actual stable release tag;
+- `asset_ids`: the actual positive integer GitHub asset IDs;
+- `asset_names`: the corresponding flat asset names in the same order.
+
+The independently retrieved or reassembled tar must be a different local file
+from the original snapshot, with identical actual SHA256 and byte count. Another
+hard link to the original inode does not prove retrieval. For
+split assets, retain all ordered IDs/names and verify the rejoined original.
+Signed redirect URLs, query credentials and temporary download links do not
+belong in this schema. The guard checks the recorded private/download decisions
+and actual downloaded bytes; the root operator performs the authenticated
+privacy and independent retrieval checks described in
+`H100_PRIVATE_ARCHIVE_STORAGE.md`.
+
+The private Git commit inventory must additionally preserve the exact terminal
+contention audit, preservation receipt, all 66 canonical prestart files,
+auditor/handoff/backup source, raw controls/manifests/original verification
+receipts, terminal driver/ACK metadata and all referenced handoff/held-original
+metadata. Large raw tar bytes remain private release assets. Preserve failed
+snapshots and all original reports. The final identity/idle receipt must remain
+fresh after actual same-scheduler resume and isolated campaign completion.
 
 The identity/idle receipt has schema `h100-offhost-identity-idle-v1`, `instance`
 (equal to the explicit identity), `campaign_sha256`, `captured_at_utc`,

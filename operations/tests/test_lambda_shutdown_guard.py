@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tarfile
 
@@ -28,8 +29,159 @@ def ref(base, path):
     return {"path": str(path.relative_to(base)), "sha256": guard.sha(path)}
 
 
+def fabricated_contention(base, campaign, profile, journal, original_results, original_schedule, stopped=False):
+    """Entirely fabricated terminal mechanics; never real contention findings."""
+    code = base / "contention/code"
+    audit_code = write(code / "contention_replay.py", guard.CONTENTION_AUDITOR_PATH.read_bytes())
+    handoff_code = write(code / "contention_handoff.py", guard.HANDOFF_SOURCE_PATH.read_bytes())
+    source_copies = [audit_code, handoff_code,
+        write(code / "contention_backup.py", Path(guard.contention_backup.__file__).read_bytes()),
+        write(code / "research_backup.py", Path(guard.backup.__file__).read_bytes())]
+    canonical = base / "contention/prestart"
+    plan = {"schema_version": "h100-contention-plan-v1", "experiment_id": guard.CONTENTION_EXPERIMENT_ID,
+        "synthetic": False, "fixture_only": "FABRICATED; no real waves or study results",
+        "source_commit": guard.campaign_identity.SOURCE_COMMIT,
+        "reference_campaign_sha256": campaign, "reference_execution_profile_sha256": guard.sha(profile),
+        "pilot": [{"wave_id": f"pilot-{i:02d}"} for i in range(1, 5)],
+        "main": [{"wave_id": f"main-{i:02d}"} for i in range(1, 17)]}
+    plan_path = write(canonical / "CONTENTION_PLAN.json", plan)
+    plan_sha = guard.sha(plan_path)
+    write(canonical / "CONTENTION_PLAN.sha256", (plan_sha + "\n").encode())
+    for number in range(63):
+        write(canonical / f"FABRICATED-source-{number:02d}.txt", f"FABRICATED SOURCE {number}\n".encode())
+    files = {str(p.relative_to(canonical)): guard.sha(p) for p in canonical.iterdir()}
+    prestart = write(canonical / "CONTENTION_PRESTART_MANIFEST.json", {
+        "schema_version": "h100-contention-prestart-v1", "status": "FROZEN_NOT_RUN", "plan_sha256": plan_sha,
+        "files_sha256": files})
+    prestart_sha = guard.sha(prestart)
+    canonical_files = {str(p.relative_to(canonical)): guard.sha(p) for p in canonical.iterdir()}
+    inputs = {str(p.resolve()): guard.sha(p) for p in [*canonical.iterdir(), audit_code, handoff_code]}
+    small = list(canonical.iterdir()) + source_copies
+    snapshots, controls = {}, {}
+    phases = ("failed",) if stopped else ("pilot", "main")
+    for phase in phases:
+        directory = base / "contention/raw" / phase
+        shutil.copytree(canonical, directory)
+        write(directory / f"{phase}/FABRICATED-RAW.json", {"fixture_only": True, "phase": phase})
+        raw_files = {str(p.relative_to(directory)): {"sha256": guard.sha(p), "bytes": p.stat().st_size}
+                     for p in directory.rglob("*") if p.is_file()}
+        manifest = write(directory / guard.contention_backup.MANIFEST, {
+            "schema_version": guard.contention_backup.SCHEMA, "phase": phase, "plan_sha256": plan_sha,
+            "files": raw_files})
+        tar_path = base / f"contention/raw/{phase}.tar"
+        with tarfile.open(tar_path, "w") as archive:
+            for p in sorted(directory.rglob("*")):
+                if p.is_file(): archive.add(p, arcname=str(p.relative_to(directory)))
+        control = {"schema_version": guard.contention_backup.SCHEMA, "phase": phase, "plan_sha256": plan_sha,
+                   "files": len(raw_files), "manifest_sha256": guard.sha(manifest),
+                   "tar_sha256": guard.sha(tar_path), "tar_bytes": tar_path.stat().st_size}
+        control_path = write(base / f"contention/raw/{phase}.json", control)
+        receipt_path = write(base / f"contention/raw/{phase}.verified.json", {**control,
+            "status": "OFFHOST_SHA256_VERIFIED", "local_archive": str(tar_path), "local_directory": str(directory)})
+        snapshots[phase] = {"archive": ref(base, tar_path), "control": ref(base, control_path),
+            "receipt": ref(base, receipt_path), "directory": str(directory), "manifest_sha256": control["manifest_sha256"]}
+        controls[phase] = control
+        for p in [tar_path, control_path, receipt_path, *[p for p in directory.rglob("*") if p.is_file()]]:
+            inputs[str(p.resolve())] = guard.sha(p)
+        small += [control_path, receipt_path, manifest]
+    metadata = base / "contention/terminal"
+    checkpoints = []
+    for phase in phases:
+        remote_ack = write(metadata / "backup-receipts" / f"{phase}.json",
+                           (base / snapshots[phase]["receipt"]["path"]).read_bytes())
+        checkpoints.append({"phase": phase, "receipt_sha256": guard.sha(remote_ack),
+            "control_sha256": snapshots[phase]["control"]["sha256"]})
+        inputs[str(remote_ack.resolve())] = guard.sha(remote_ack)
+        small.append(remote_ack)
+    driver_status = "FAILED" if stopped else "COMPLETE_OFFHOST"
+    driver = write(metadata / "PHASE_DRIVER.json", {"schema_version": "h100-contention-phases-driver-v1",
+        "status": driver_status, "plan_sha256": plan_sha, "prestart_sha256": prestart_sha,
+        "completed_at_utc": "2026-10-01T00:31:00Z", "offhost_checkpoints": [] if stopped == "late_ack" else checkpoints,
+        **({"error": {"type": "FABRICATED_ERROR", "message": "Preserved fixture failure"}} if stopped else {})})
+    inputs[str(driver.resolve())] = guard.sha(driver); small.append(driver)
+    handoff_root = base / "contention/handoff"
+    scheduler = {"pid": 321, "created": 1234.5, "cmdline": ["FABRICATED research_campaign.py"], "cwd": "/FABRICATED"}
+    old_attempt = {"status": "running", "run_root": "/FABRICATED-VM/campaign-results/session-000/attempt-001/run"}
+    held_journal = write(handoff_root / "ORIGINAL_HELD_JOURNAL.json", {"campaign_sha256": campaign,
+        "sessions": {"session-000": {"status": "running", "attempts": [old_attempt]}}})
+    held_session = write(handoff_root / "ORIGINAL_HELD_SESSION.json", {"campaign_sha256": campaign,
+        "session": {"session_id": "session-000"}, "attempt": old_attempt})
+    handoff_paths = {"held_journal": held_journal, "held_session": held_session,
+        "config": write(handoff_root / "CONFIG.json", {"schema_version": "h100-contention-handoff-v1",
+                        "scheduler": scheduler, "handoff_source_sha256": guard.sha(handoff_code)}),
+        "resume": write(handoff_root / "RESUMED.json", {"schema_version": "h100-contention-handoff-resume-v1",
+            "status": "RESUMED", "contention_started": True, "scheduler": scheduler,
+            "actor": "detached-guardian" if stopped == "guardian" else "handoff-manager", "resumed_at_utc": "2026-10-01T00:33:00Z"}),
+        "state": write(handoff_root / "STATE.json", {"phase": "CONTENTION_RUNNING" if stopped == "guardian" else "HANDOFF_ERROR" if stopped else "COMPLETE_RESUMED",
+            **({"error": {"type": "FABRICATED_ERROR"}} if stopped else {}),
+            "contention_started": True, "snapshot": {"journal_sha256": guard.sha(held_journal), "attempt": old_attempt}}),
+        "attempt_inventory": write(handoff_root / "ORIGINAL_ATTEMPT_FILES.json", {"session.json": {"sha256": guard.sha(held_session)}}),
+        "original_results": original_results, "original_schedule": original_schedule,
+        "original_runner_drained": write(handoff_root / "ORIGINAL_RUNNER_DRAINED.json", {"completed_at_utc": "2026-10-01T00:00:30Z"}),
+        "owned_groups": write(handoff_root / "OWNED_GROUPS_AFTER_CLEANUP.json", {"live_members": []}),
+        "residual_before_profile": write(handoff_root / "RESIDUAL_SCAN_before-profile.json", {"status": "CLEAR", "contention_processes": []}),
+        "residual_before_signal": write(handoff_root / "RESIDUAL_SCAN_before-signal.json", {"status": "CLEAR", "contention_processes": []}),
+        "driver_spec": write(handoff_root / "DRIVER_SPEC.json", {"fixture_only": True})}
+    counts = {"1": 57, "10": 123, "30": 185, "100": 371, "300": 918}
+    for name, label, stamp in (("profile_before", "before-contention", "00:01"), ("profile_after", "before-original-resume", "00:32")):
+        handoff_paths[name] = write(handoff_root / (name + ".json"), {
+            "schema_version": "h100-contention-interlude-profile-check-v1", "status": "PASS", "label": label,
+            "campaign_sha256": campaign, "execution_profile_sha256": guard.sha(profile),
+            "completed_at_utc": "2026-10-01T" + stamp + ":00Z",
+            "exclusive_host_before": {"eligible": True, "nvidia_smi_returncode": 0, "gpu_compute_clients": "", "benchmark_processes": []},
+            "exclusive_host_after": {"eligible": True, "nvidia_smi_returncode": 0, "gpu_compute_clients": "", "benchmark_processes": []},
+            "input_integrity": {"checks": [{"scale": s, "files": n, "status": "pass"} for s, n in counts.items()]}})
+    for p in handoff_paths.values(): inputs[str(p.resolve())] = guard.sha(p)
+    small += list(handoff_paths.values())
+    disposition = {phase: {"status": "PASS", "planned_waves": n, "attempted_waves": n,
+        "passed_waves": n, "failed_waves": 0, "unattempted_waves": []} for phase, n in (("pilot", 4), ("main", 16))}
+    if stopped:
+        attempted = 0 if stopped == "prelaunch" else 2
+        disposition["pilot"].update(status="FAIL", attempted_waves=attempted, passed_waves=0 if attempted == 0 else 1,
+            failed_waves=0 if attempted == 0 else 1,
+            unattempted_waves=[w["wave_id"] for w in plan["pilot"][attempted:]], recorded_error={"type": "FABRICATED_ERROR"})
+        disposition["main"].update(status="NOT_OBSERVED", attempted_waves=0, passed_waves=0,
+            unattempted_waves=[w["wave_id"] for w in plan["main"]])
+    receipt = {"schema_version": "h100-contention-replay-v1", "experiment_id": guard.CONTENTION_EXPERIMENT_ID,
+        "synthetic": False, "status": "STOPPED_WITH_FAILURE" if stopped else "COMPLETE", "integrity_status": "PASS",
+        "publication_ready": True, "findings": [], "plan_sha256": plan_sha, "prestart_sha256": prestart_sha,
+        "reference_campaign_sha256": campaign, "reference_execution_profile_sha256": guard.sha(profile),
+        "audit_source_sha256": guard.sha(audit_code), "canonical_directory": str(canonical),
+        "canonical_plan": ref(base, plan_path), "canonical_prestart": ref(base, prestart),
+        "canonical_files_sha256": canonical_files, "input_files_sha256": inputs, "snapshots": snapshots,
+        "terminal_driver": {"status": driver_status, "terminal": True, "path": str(driver), "sha256": guard.sha(driver),
+            "remote_receipts": {phase: {"path": str(metadata / 'backup-receipts' / (phase + '.json')),
+                "sha256": guard.sha(metadata / 'backup-receipts' / (phase + '.json'))} for phase in phases}},
+        "disposition": disposition, "counts": {"successful_outputs": 12 if stopped else 460, "expected_strict_rejections_observed": 0 if stopped else 10},
+        "handoff": {"status": "PASS", "same_scheduler_resumed": True, "no_action_overlap": True,
+            "all_original_input_files": 1654, "reference_campaign_sha256": campaign, "execution_profile_sha256": guard.sha(profile),
+            "source_sha256": guard.sha(handoff_code), "scheduler": scheduler,
+            "files": {name: {"path": str(p), "sha256": guard.sha(p)} for name, p in handoff_paths.items()},
+            "first_contention_action_utc_epoch": datetime(2026, 10, 1, 0, 2, tzinfo=timezone.utc).timestamp(),
+            "last_contention_host_result_utc_epoch": datetime(2026, 10, 1, 0, 30, tzinfo=timezone.utc).timestamp()}}
+    replay_path = write(base / "contention/replay/CONTENTION_REPLAY.json", receipt)
+    preservation = {"schema_version": "h100-contention-private-preservation-v1", "status": "PRIVATE_DOWNLOAD_VERIFIED",
+        "private": True, "experiment_id": guard.CONTENTION_EXPERIMENT_ID, "plan_sha256": plan_sha,
+        "prestart_sha256": prestart_sha, "replay_sha256": guard.sha(replay_path),
+        "repository_url": "git@github.com:fixture/private-fixture.git", "raw_backups": {}}
+    for phase in phases:
+        archive = base / snapshots[phase]["archive"]["path"]
+        retrieved = write(base / f"contention/retrieved/{phase}.tar", archive.read_bytes())
+        preservation["raw_backups"][phase] = {"archive_sha256": guard.sha(archive), "archive_bytes": archive.stat().st_size,
+            "retrieved_archive": ref(base, retrieved), "retrieval_verified": True,
+            "storage": {"repository_url": preservation["repository_url"], "release_tag": "FABRICATED-private-release",
+                        "asset_ids": [1], "asset_names": [phase + ".tar"]}}
+    preservation_path = write(base / "contention/PRESERVATION.json", preservation)
+    small += [replay_path, preservation_path]
+    review = {"status": "COMPLETE", "experiment_id": guard.CONTENTION_EXPERIMENT_ID, "plan_sha256": plan_sha,
+              "prestart_sha256": prestart_sha, "replay_sha256": guard.sha(replay_path), "disposition": receipt["status"]}
+    return {"replay": replay_path, "preservation": preservation_path, "review": review, "small": small,
+            "audit_code": audit_code, "handoff_code": handoff_code, "plan_sha": plan_sha, "prestart_sha": prestart_sha,
+            "handoff_paths": handoff_paths, "snapshots": snapshots, "driver": driver, "canonical": canonical}
+
+
 @pytest.fixture
-def complete(tmp_path, monkeypatch):
+def complete(tmp_path, monkeypatch, request):
     base = tmp_path / "evidence"
     base.mkdir()
     expected = {"instance_id": guard.AUTHORIZED_INSTANCE_ID, "ip": guard.AUTHORIZED_IP,
@@ -41,6 +193,7 @@ def complete(tmp_path, monkeypatch):
     sessions = [{"session_id": f"session-{i:03d}"} for i in range(400)]
     # Frozen C84 make_plan omits the synthetic field for genuine campaigns.
     campaign_path = write(base / "campaign.json", {"campaign_id": guard.RECOVERY_CAMPAIGN_ID,
+                          "output_root": "/FABRICATED-VM/campaign-results",
                           "sessions": sessions, "datasets": {"1": {}, "10": {}}})
     campaign = guard.sha(campaign_path)
     prestart = base / "prestart"
@@ -73,6 +226,14 @@ def complete(tmp_path, monkeypatch):
     journal_path = write(raw_final / "campaign-results/journal.json", journal)
     for session in sessions:
         write(raw_final / f"campaign-results/{session['session_id']}/results.json", {"fixture": session["session_id"]})
+    held_run = raw_final / "campaign-results/session-000/attempt-001/run"
+    original_results = write(held_run / "sf1/spark_cpu/results.json", {"fixture_only": True,
+        "completed_at_utc": "2026-10-01T00:00:01Z", "records": [{"host_result_ended_at_utc": "2026-10-01T00:00:00Z"}]})
+    original_schedule = write(held_run / "schedule.json", [{"fixture_only": True, "status": "complete", "returncode": 0}])
+    journal["sessions"]["session-000"]["attempts"][0].update(
+        run_root="/FABRICATED-VM/campaign-results/session-000/attempt-001/run",
+        artifacts={"results_path": "/FABRICATED-VM/campaign-results/session-000/attempt-001/run/sf1/spark_cpu/results.json"})
+    write(journal_path, journal)
     raw_completion = base / "raw/completion"
     write(raw_completion / guard.PROFILE_NAME, profile_path.read_bytes())
     write(raw_completion / guard.PROFILE_GATES_NAME, gate_bytes(gates))
@@ -123,11 +284,23 @@ def complete(tmp_path, monkeypatch):
         "output_files_sha256": {"complete-audit/AUDIT_COMPLETE.json": guard.sha(audit_path)}})
     pdf_path = write(base / "paper/full-paper.pdf", b"%PDF-1.7\nfixture only\n")
     source_path = write(base / "paper/full-paper.tex", b"fixture only, not a research paper\n")
+    fixture_mode = getattr(request, "param", None)
+    contention = fabricated_contention(base, campaign, profile_path, journal, original_results, original_schedule,
+                                      stopped=fixture_mode if fixture_mode in {"prelaunch", "guardian", "late_ack"} else fixture_mode == "stopped")
+    monkeypatch.setattr(guard, "CONTENTION_AUDITOR_PATH", contention["audit_code"])
+    monkeypatch.setattr(guard, "HANDOFF_SOURCE_PATH", contention["handoff_code"])
+    def registered_contention(plan_sha, prestart_sha):
+        if (plan_sha, prestart_sha) != (contention["plan_sha"], contention["prestart_sha"]):
+            raise ValueError("Unknown fabricated contention registry identity")
+        return {"fixture_only": True}
+    monkeypatch.setattr(guard.contention_audit, "registered_identity", registered_contention)
     publication_path = write(base / "paper/PUBLICATION.json", {"schema_version": "h100-final-publication-v1", "status": "PASS",
         "full_paper": True, "final_claim_audit": "PASS", "campaign_sha256": campaign,
+        "contention_review": contention["review"],
         "paper_pdf_sha256": guard.sha(pdf_path), "paper_source_sha256": guard.sha(source_path)})
     page = b"<html><p>Fixture only</p></html>"
     web_path = write(base / "WEB.json", {"schema_version": "h100-public-web-deployment-v1", "status": "succeeded",
+        "contention_review": contention["review"],
         "audience": "public", "version": "fixture-v1", "campaign_sha256": campaign,
         "paper_pdf_sha256": guard.sha(pdf_path), "version_url": "https://fixture.example/version-1/",
         "page_sha256": hashlib.sha256(page).hexdigest()})
@@ -139,6 +312,9 @@ def complete(tmp_path, monkeypatch):
                        "replay_manifest": replay_path, "paper_pdf": pdf_path, "paper_source": source_path}.items():
         write(repo / name, path.read_bytes())
         preserved[name] = guard.sha(path)
+    for index, path in enumerate(contention["small"]):
+        write(repo / f"contention-{index:03d}", path.read_bytes())
+        preserved[f"contention-{index:03d}"] = guard.sha(path)
     subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test",
                     "commit", "-qm", "Fabricated boundary-test evidence"], check=True)
@@ -152,6 +328,7 @@ def complete(tmp_path, monkeypatch):
         "campaign_sha256": campaign, "captured_at_utc": stamp, "driver_exit": 0, "driver_alive": False,
         "benchmark_processes": [], "gpu_compute_processes": [], "capture_log_path": log.name, "capture_log_sha256": guard.sha(log)})
     paths = {"campaign": campaign_path, "journal": journal_path, "complete_audit": audit_path, "replay_manifest": replay_path,
+             "contention_replay": contention["replay"], "contention_preservation": contention["preservation"],
              "paper_pdf": pdf_path, "paper_source": source_path, "publication_receipt": publication_path,
              "web_receipt": web_path, "private_git_receipt": git_path, "identity_idle_receipt": idle_path}
     manifest = {"schema_version": guard.SCHEMA, "status": "COMPLETE", "offhost": True, "instance": expected,
@@ -162,7 +339,8 @@ def complete(tmp_path, monkeypatch):
     monkeypatch.setattr(guard.time, "sleep", lambda _: None)
     return {"base": base, "path": manifest_path, "manifest": manifest, "paths": paths, "expected": expected, "page": page, "registered": registered,
             "profile_path": profile_path, "prestart_path": prestart_path, "archived_gates": archived_gates,
-            "full_gates": full_gates, "raw_final": raw_final, "raw_completion": raw_completion}
+            "full_gates": full_gates, "raw_final": raw_final, "raw_completion": raw_completion,
+            "contention": contention}
 
 
 def changed(complete, name, alter):
@@ -453,3 +631,176 @@ def test_cli_status_prints_only_sanitized_identity(complete, monkeypatch, capsys
     output = capsys.readouterr().out
     assert json.loads(output)["mutation_performed"] is False
     assert "must-never-print" not in output and "fixture-secret-only" not in output and "jupyter" not in output
+
+
+def call_contention(complete):
+    paths = complete['paths']
+    return guard.verify_contention(complete['base'], paths, complete['manifest']['campaign_sha256'],
+        complete['registered'], guard.read_json(paths['journal']), guard.read_json(paths['replay_manifest']),
+        guard.read_json(paths['publication_receipt']), guard.read_json(paths['web_receipt']),
+        guard.read_json(paths['private_git_receipt']))
+
+
+def change_contention_input(complete, name, alter):
+    receipt = guard.read_json(complete['paths']['contention_replay'])
+    path = Path(receipt['handoff']['files'][name]['path'])
+    value = guard.read_json(path)
+    alter(value)
+    write(path, value)
+    receipt['handoff']['files'][name]['sha256'] = guard.sha(path)
+    receipt['input_files_sha256'][str(path.resolve())] = guard.sha(path)
+    write(complete['paths']['contention_replay'], receipt)
+
+
+@pytest.mark.parametrize('role', ['contention_replay', 'contention_preservation'])
+def test_original_400_gates_cannot_bypass_new_authorized_role(complete, monkeypatch, role):
+    complete['manifest']['artifacts'].pop(role)
+    write(complete['path'], complete['manifest'])
+    monkeypatch.setattr(guard, 'read_api_key', lambda _: pytest.fail('credential accepted before contention completion'))
+    monkeypatch.setattr(guard, 'request_json', lambda *a: pytest.fail('API called'))
+    assert guard.main(['terminate', '--manifest', str(complete['path']), *cli_identity_args(complete['expected'])]) == 1
+
+
+@pytest.mark.parametrize('mutation', [
+    lambda r: r.update(status='PARTIAL'), lambda r: r.update(status='FAIL'),
+    lambda r: r.update(integrity_status='FAIL'), lambda r: r.update(publication_ready=False),
+    lambda r: r.update(synthetic=True), lambda r: r.update(findings=[{'type': 'real integrity failure'}]),
+    lambda r: r.update(audit_source_sha256='0' * 64), lambda r: r.update(experiment_id='arbitrary-contention-retry'),
+    lambda r: r.update(plan_sha256='0' * 64), lambda r: r.update(prestart_sha256='0' * 64),
+    lambda r: r.update(reference_campaign_sha256='0' * 64),
+    lambda r: r.update(reference_execution_profile_sha256='0' * 64),
+    lambda r: r['handoff'].update(same_scheduler_resumed=False), lambda r: r['handoff'].update(no_action_overlap=False),
+    lambda r: r['handoff'].update(all_original_input_files=1653), lambda r: r['handoff'].update(source_sha256='0' * 64),
+    lambda r: r['terminal_driver'].update(terminal=False),
+    lambda r: r['disposition']['main'].update(unattempted_waves=['dropped-wave']),
+    lambda r: r['counts'].update(successful_outputs=459),
+])
+def test_contention_must_be_actual_registered_terminal_evidence(complete, mutation):
+    value = guard.read_json(complete['paths']['contention_replay'])
+    mutation(value)
+    write(complete['paths']['contention_replay'], value)
+    with pytest.raises(ValueError):
+        call_contention(complete)
+
+
+@pytest.mark.parametrize('complete', ['stopped', 'prelaunch', 'guardian', 'late_ack'], indirect=True)
+def test_honest_terminal_failure_preserves_failed_and_unattempted_waves(complete):
+    value = guard.read_json(complete['paths']['contention_replay'])
+    assert value['status'] == 'STOPPED_WITH_FAILURE'
+    assert set(value['snapshots']) == {'failed'}
+    assert value['disposition']['main']['attempted_waves'] == 0
+    assert len(value['disposition']['main']['unattempted_waves']) == 16
+    assert guard.verify_completion(complete['path'], complete['expected'])['campaign_sha256'] == complete['manifest']['campaign_sha256']
+
+
+@pytest.mark.parametrize('name,alter,message', [
+    ('resume', lambda r: r['scheduler'].update(pid=999), 'same held scheduler'),
+    ('resume', lambda r: r.update(status='STILL_HELD'), 'same held scheduler'),
+    ('profile_after', lambda r: r['input_integrity']['checks'][0].update(files=56), 'all1654'),
+    ('profile_before', lambda r: r.update(execution_profile_sha256='0' * 64), 'all1654'),
+    ('profile_after', lambda r: r['exclusive_host_after'].update(eligible=False), 'all1654'),
+    ('profile_after', lambda r: r['exclusive_host_after'].update(gpu_compute_clients='123'), 'idle probe contradicts'),
+    ('owned_groups', lambda r: r.update(live_members=[{'pid': 123}]), 'workers remained'),
+    ('residual_before_signal', lambda r: r.update(contention_processes=[{'pid': 123}]), 'workers remained'),
+    ('held_journal', lambda r: r.update(extra='changed held journal bytes'), 'held original journal'),
+    ('held_session', lambda r: r['attempt'].update(run_root='/different/attempt'), 'held original journal'),
+    ('state', lambda r: r.update(phase='CONTENTION_RUNNING'), 'held original journal'),
+])
+def test_summary_flags_cannot_replace_actual_resume_byte_and_runtime_proofs(complete, name, alter, message):
+    change_contention_input(complete, name, alter)
+    with pytest.raises(ValueError, match=message):
+        call_contention(complete)
+
+
+def test_original_action_bytes_must_match_final_isolated_evidence(complete):
+    receipt = guard.read_json(complete['paths']['contention_replay'])
+    original = Path(receipt['handoff']['files']['original_results']['path'])
+    different = complete['base'] / 'contention/different-original-results.json'
+    changed_result = guard.read_json(original)
+    changed_result['fixture_changed'] = True
+    write(different, changed_result)
+    receipt['handoff']['files']['original_results'] = {'path': str(different), 'sha256': guard.sha(different)}
+    receipt['input_files_sha256'][str(different.resolve())] = guard.sha(different)
+    write(complete['paths']['contention_replay'], receipt)
+    with pytest.raises(ValueError, match='original endpoint bytes differ'):
+        call_contention(complete)
+
+
+@pytest.mark.parametrize('kind', ['before_original_ended', 'after_resume'])
+def test_actual_timed_overlap_with_original_work_is_never_accepted(complete, kind):
+    receipt = guard.read_json(complete['paths']['contention_replay'])
+    if kind == 'before_original_ended':
+        receipt['handoff']['first_contention_action_utc_epoch'] = datetime(2026, 9, 30, tzinfo=timezone.utc).timestamp()
+    else:
+        receipt['handoff']['last_contention_host_result_utc_epoch'] = datetime(2026, 10, 2, tzinfo=timezone.utc).timestamp()
+    write(complete['paths']['contention_replay'], receipt)
+    with pytest.raises(ValueError, match='overlap original isolated'):
+        call_contention(complete)
+
+
+@pytest.mark.parametrize('kind', ['raw_tar', 'raw_file', 'missing_ack', 'missing_input'])
+def test_raw_contention_and_ack_evidence_must_be_preserved_exactly(complete, kind):
+    receipt = guard.read_json(complete['paths']['contention_replay'])
+    phase = 'pilot'
+    entry = receipt['snapshots'][phase]
+    if kind == 'raw_tar':
+        (complete['base'] / entry['archive']['path']).write_bytes(b'FABRICATED corruption')
+    elif kind == 'raw_file':
+        (Path(entry['directory']) / 'pilot/FABRICATED-RAW.json').write_bytes(b'FABRICATED changed raw bytes')
+    elif kind == 'missing_ack':
+        (complete['contention']['driver'].parent / 'backup-receipts/pilot.json').unlink()
+    else:
+        receipt['input_files_sha256'].pop(receipt['handoff']['files']['held_journal']['path'])
+        write(complete['paths']['contention_replay'], receipt)
+    with pytest.raises(ValueError):
+        call_contention(complete)
+
+
+@pytest.mark.parametrize('role', ['publication_receipt', 'web_receipt'])
+def test_paper_and_web_must_review_the_same_terminal_contention_receipt(complete, role):
+    changed(complete, role, lambda r: r.pop('contention_review'))
+    with pytest.raises(ValueError, match='paper and public webpage reviews'):
+        call_contention(complete)
+
+
+@pytest.mark.parametrize('kind', ['private', 'missing_phase', 'retrieval', 'same_file', 'hardlink', 'corrupt_retrieval', 'signed_url'])
+def test_private_storage_requires_independent_verified_raw_retrieval(complete, kind):
+    path = complete['paths']['contention_preservation']
+    value = guard.read_json(path)
+    item = value['raw_backups']['pilot']
+    if kind == 'private': value['private'] = False
+    elif kind == 'missing_phase': value['raw_backups'].pop('main')
+    elif kind == 'retrieval': item['retrieval_verified'] = False
+    elif kind == 'same_file': item['retrieved_archive'] = complete['contention']['snapshots']['pilot']['archive']
+    elif kind == 'hardlink':
+        retrieved = complete['base'] / item['retrieved_archive']['path']
+        retrieved.unlink()
+        os.link(complete['base'] / complete['contention']['snapshots']['pilot']['archive']['path'], retrieved)
+    elif kind == 'corrupt_retrieval': (complete['base'] / item['retrieved_archive']['path']).write_bytes(b'FABRICATED corrupted download')
+    else: item['storage']['download_url'] = 'https://fixture.example/signed?token=not-a-real-token'
+    write(path, value)
+    with pytest.raises(ValueError):
+        call_contention(complete)
+
+
+def test_contention_metadata_and_actual_terminal_audit_must_be_in_private_git(complete):
+    # Keep the existing private commit valid while removing only the required new
+    # audit's digest from its declared preserved inventory.
+    changed(complete, 'private_git_receipt', lambda r: r.update(files_sha256={
+        name: digest for name, digest in r['files_sha256'].items()
+        if digest != guard.sha(complete['paths']['contention_replay'])}))
+    with pytest.raises(ValueError, match='Private Git commit is missing canonical contention'):
+        guard.verify_completion(complete['path'], complete['expected'])
+
+
+@pytest.mark.parametrize('complete', ['stopped'], indirect=True)
+@pytest.mark.parametrize('bad', ['passing_unattempted_main', 'fabricated_main_snapshot'])
+def test_stopped_pilot_cannot_fabricate_passing_or_raw_main_phase(complete, bad):
+    receipt = guard.read_json(complete['paths']['contention_replay'])
+    if bad == 'passing_unattempted_main':
+        receipt['disposition']['main']['status'] = 'PASS'
+    else:
+        receipt['snapshots']['main'] = dict(receipt['snapshots']['failed'])
+    write(complete['paths']['contention_replay'], receipt)
+    with pytest.raises(ValueError, match='phase status contradicts|stopped pilot cannot fabricate'):
+        call_contention(complete)
