@@ -1,0 +1,7 @@
+# Completed contention workload; terminal provenance still pending
+
+All four pilot and sixteen expansion waves actually passed. Independent saved-evidence replay checked 460 SQL outputs (230 warmup and 230 measured), ten expected strict unsupported warmups, 110 common measured query pairs with actual overlap, 250 barrier releases and ten explicitly unpaired CPU diagnostics. Pilot and expansion remain separate from one another and from the original 400-session study. No new p values or isolated-engine superiority claim is implied.
+
+Both complete raw phase archives are verified off-host; the main snapshot contains 1,561 payload files and is 487,321,600 bytes. Large original tars remain outside Git at the recorded paths. This checkpoint preserves the exact terminal driver, actual remote ACKs, complete final handoff files and the independent partial replay/CSV/source artifacts. The same original scheduler resumed at 05:32:20.044724 UTC after recorded full 1,654-file input/profile checks and clear residual workloads.
+
+The replay correctly remains PARTIAL with publication_ready:false. Its remaining original block04 attempt files and actual original worker endpoints must be rehashed against the held inventory to establish the final separation proof. The original isolated study continues and must finish all400 sessions and its own audit. No final paper, webpage, private cloud retrieval or retirement gate is established by this checkpoint. Original snapshot bytes and all initial hold records remain unchanged.
