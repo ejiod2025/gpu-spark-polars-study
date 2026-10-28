@@ -44,7 +44,9 @@ metadata files. It does not assert that remote assets or downloads exist.
 ## Required staging and catalog
 
 Create a new `release-stage-v1` outside the raw harvest only after root supplies
-the actual gates and the final evidence commit. Refuse an existing stage and
+the actual genuine complete replay/audit and completed bundle gates. Prepare
+the local staging manifest before commit A if necessary; finalize the catalog
+only after root supplies actual A. Refuse an existing stage and
 never overwrite a file. Every stage entry must be an actual regular file with
 one unique flat name and actual byte count/SHA256. Existing same-filesystem
 regular files may be hardlinked into this stage to avoid duplicate disk use;
@@ -82,8 +84,10 @@ The optional historical failure archive is explicitly inventoried as
 `historical-default-jvm-abort-evidence.tar.gz`, restoring to
 `rerun/replacement-20261027/incidents/aborted-20261027T202748Z/evidence.tar.gz`.
 It is 220,656,964 bytes; its actual independent hash and four original metadata
-file references are in the preparation inventory. It is excluded by default.
-If included in the final catalog, label it historical/default-JVM failure,
+file references are in the preparation inventory. The initial preparation
+inventory excluded it by default. Root's subsequent staging authorization
+requires including it because the paper reports that failure. In the final
+catalog, label it historical/default-JVM failure,
 excluded from the recovery cohort, and preserve all four corresponding
 metadata records. Never promote it to confirmatory or replay PASS evidence.
 
@@ -199,11 +203,22 @@ and contention backup helpers provide hash-bound safe extraction and exact
 inventory verification. The existing raw packager produces compliant bounded
 raw bundle pieces, deterministic archive identity and file inventory.
 
-There is currently no dedicated end-to-end release catalog/staging/retrieval
-tool in this repository. In particular, the packager does not split original
-transport tars, build the supplemental archives, upload assets, paginate
-release verification or create either private retrieval receipt. The operator
-must implement or execute those bounded operational steps after the genuine
-PASS paths are supplied, reusing the existing hash-bound verification helpers.
+`h100_private_archive.py` now supplies offline `stage` and `catalog` operations
+for these exact genuine completed identities. It safely verifies a fresh local
+bundle extraction, rechecks the original directories/controls/tars, splits the
+final transport without changing it, builds explicit supplemental archives and
+records staging provenance. `catalog` requires the actual full scientific
+commit A and does not embed its own containing commit. Both commands refuse
+overwrites. Six fabricated local byte/safety tests exercise splitting, exact
+allowlists, changed files, link/overwrite rejection and the synthetic gate;
+these tests do not establish actual measured-study PASS.
+
+The raw packager itself does not split original transport tars or build
+supplemental archives. There is still no automatic upload/pagination/retrieval
+or private preservation receipt implementation in this helper. The operator
+must perform those bounded operational steps after actual A and reviewed,
+privately pushed B are supplied, reusing the existing hash-bound verification
+helpers. In particular, a local verification record is never a private
+download verification receipt.
 No SSH/API key access, VM action, source Parquet access, public publication or
 retirement belongs to this storage preparation.
