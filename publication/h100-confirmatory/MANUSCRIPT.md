@@ -2,22 +2,24 @@
 
 **Daniel Ejiofor**
 
-**Technical draft — isolated recovery incomplete; contention workload complete,
-terminal provenance and findings pending, 2026-10-28 UTC.** Four
+**Technical draft — isolated recovery incomplete; separate contention audit
+complete, 2026-10-28 UTC.** Four
 cohorts have distinct roles: an exploratory pilot, the incomplete campaign on
 a lost instance, an aborted default-profile replacement, and one fresh
 recovery campaign with a fixed JVM profile. Their timings are never pooled.
 A separately requested, descriptive same-host contention experiment completed
-its planned waves and records the same isolated scheduler's resume. Its terminal
-provenance is still partial; it neither replaces nor augments the 400-session
-primary sample.
+its planned waves. Independent terminal replay verifies its outputs, actual
+action overlap, separation from the drained isolated attempt and the same
+scheduler's resume. Its descriptive observations neither replace nor augment
+the 400-session primary sample.
 The [replacement addendum](../../docs/H100_REPLACEMENT_20261027.md) and
 [prospective recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md)
 record the host, input reuse, incident, feasibility gate and profile choice.
 The separate recovery feasibility diagnostic and repeated readiness have
 passed, and the fresh campaign has started. Ten-block estimates, superiority
-findings and sampled-scale conclusions remain pending. Contention performance
-results also remain pending. This draft is not ready for external publication.
+findings and sampled-scale conclusions remain pending. The separate contention
+results below do not establish a slowdown relative to isolated execution.
+This draft is not ready for external publication.
 
 ## Abstract
 
@@ -36,11 +38,14 @@ endpoints, and 26 primary comparisons with Holm adjustment. Strict unsupported
 expressions receive no imputed times. The profile is a post-incident
 configuration choice, with no causal mitigation or reliability claim.
 A separate staged experiment coordinates one Spark process and one Polars
-process on this same H100. Its workload has completed, while final provenance
-and interpretation remain pending; its observations are excluded from the
-primary family and isolated sample.
+process on this same H100. Its twenty completed waves yield 460 oracle-valid
+outputs and 110 common measured action pairs with verified overlap. A terminal
+audit also verifies separation from the drained isolated attempt and the same
+scheduler's resume. These descriptive observations are excluded from the
+primary family and isolated sample and do not estimate a causal contention
+slowdown.
 **Recovery performance estimates and conclusions await its completed ten-block
-campaign; contention findings await complete terminal provenance.** These
+campaign.** These
 selected research workloads are not complete or certified
 TPC-H results.
 
@@ -564,18 +569,24 @@ The manager held only the exact isolated scheduler, PID 179144, at
 launched isolated SF30 Spark CPU runner and its workers continued unpaused.
 `ORIGINAL_RUNNER_DRAINED.json` records runner exit zero and schedule/result
 hashes at 04:45:43.946178 UTC, before the pilot start at 04:47:43 UTC.
-The frozen original action/host-result timer code is unchanged. However, the
-offline audit still lacks the actual original attempt bytes and saved worker
-endpoints needed to independently establish isolated-versus-contention action
-separation; the operational drain receipt alone does not complete that proof.
+The frozen original action/host-result timer code is unchanged. The terminal
+offline audit now binds all 34 original
+`block-04-complex-sf30-spark_cpu/attempt-001` files from the protected off-host
+block04 backup. Its original result and schedule hashes match the drain
+receipt. The last original host-result endpoint is 04:45:38.505969 UTC;
+the first contention action starts at 04:47:59.693693 UTC, 141.188 s later.
+Saved action endpoints therefore establish temporal separation independently
+of the operational drain receipt.
 
 Because the scheduler is held while its existing child drains, the journal
 may continue to mark the attempt as running after its worker has finished.
 The scheduler's `ended_at_utc` and `orchestrator_wall_seconds` include the hold.
-This outer-envelope inflation must be reported explicitly and cannot be
-interpreted as query latency. Exact original-attempt endpoint/wall accounting
-awaits its actual payload. The hold does not create a replacement attempt or
-cancel the remaining 400-session allocation.
+The retained attempt reports an outer wall of 3,043.015 s and an end timestamp
+of 05:32:20.060856 UTC, while its Spark worker process wall is 240.581 s,
+ending at 04:45:41.907405 UTC. The outer envelope includes the scheduler hold
+and must not be interpreted as worker or query latency. These original values
+are preserved. The hold does not create a replacement attempt or cancel the
+remaining 400-session allocation.
 
 The saved handoff records the same scheduler PID 179144, creation time
 1793160829.75, resumed at 05:32:20.044724 UTC. `STATE.json` is
@@ -584,9 +595,11 @@ backups are verified off-host, and the owned-group cleanup receipt lists no
 live members. `PROFILE_BEFORE_RESUME.json` records PASS at 05:32:19.993450 UTC.
 These interlude checks are separate receipts and do not replace or augment the
 formal 24-record profile log. The original unchanged schedule continues.
-Temporal pacing and possible cache/host-state carryover remain limitations.
-Actual same-process resume is established, while the missing original attempt
-payload keeps the independent separation proof and publication readiness pending.
+The last contention host-result endpoint is 05:28:37.930202 UTC, before this
+resume. The terminal handoff audit reports PASS, verifies the original payload
+and action separation, and records no pending reasons. Temporal separation
+does not remove the interlude's change to pacing or demonstrate unchanged
+host/cache conditions; possible carryover remains a limitation.
 
 ## 5. Results — recovery primary results pending
 
@@ -706,16 +719,16 @@ Describe any conspicuous drift or uncertainty without silently trimming a
 block, changing the fixed family or asserting that balanced order removes all
 interference. Deviation and pacing disclosures belong beside these observations.
 
-### 5.7 Completed contention workload; terminal provenance and interpretation pending
+### 5.7 Separate descriptive contention results
 
 Both planned contention phases completed their workload and phase validations:
 
-| Separate phase | Planned waves | Audited passing waves | Recorded phase status |
-| --- | ---: | ---: | --- |
-| SF30 pilot | 4 | 4 | PASS |
-| SF30/SF100 expansion | 16 | 16 | PASS |
+| Separate phase | Passing/planned waves | Successful outputs, warmup/measured | Common measured pairs | Unpaired CPU measured diagnostics |
+| --- | ---: | ---: | ---: | ---: |
+| SF30 pilot | 4/4 | 46/46 | 22 | 2 |
+| SF30/SF100 expansion | 16/16 | 184/184 | 88 | 8 |
 
-The independent offline audit at 06:17:46.557364 UTC verifies all 460 SQL output
+The independent terminal offline audit at 07:15:58.632271 UTC verifies all 460 SQL output
 comparisons: 230 warmups and 230 measured outputs, ten expected strict
 unsupported warmups, zero oracle failures and zero unexpected query errors.
 It also verifies 110 common measured action pairs with positive within-pair
@@ -729,30 +742,69 @@ Pilot and expansion raw archives are verified off-host, and the phase driver
 reports `COMPLETE_OFFHOST`. The expansion archive contains 1,561 payload files
 in 487,321,600 tar bytes, SHA256
 `98be99cf74690d01053de9670669e629a166b02bd67fd51a994425006f792197`.
-The final handoff records the actual same-process scheduler resume described
-in §4.6. This workload/operational completion does not establish complete
-terminal scientific provenance or completion of the original 400 sessions.
+The final handoff independently binds the actual original 34-file attempt and
+same-process scheduler resume described in §4.6. The terminal receipt has
+`status: COMPLETE`, `integrity_status: PASS`, `publication_ready: true`, no
+findings and no pending handoff reasons. This completes the separate extension's
+provenance gate; the original 400-session study remains incomplete.
 
-The corresponding `CONTENTION_REPLAY.json` SHA256 is
-`a34a8de887225edf58f9211a2e1f184feaa0eac5165e0dd0d03697f517e30ee5`.
-It reports `integrity_status: PASS` with no findings, but overall `status:
-PARTIAL` and `publication_ready: false`. Its sole pending handoff reason is
-that the actual original `block-04-complex-sf30-spark_cpu` attempt payload and
-worker action endpoints are not yet supplied; 34 original attempt files are
-expected. Thus `handoff.original_payload_verified` is false and the independent
-isolated-versus-contention non-overlap proof is incomplete.
+The terminal `CONTENTION_REPLAY.json` SHA256 is
+`0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`.
+The earlier 06:17 v3 receipt remains an unchanged historical PARTIAL audit:
+its then-missing original payload is now supplied to this new terminal audit.
+Its former `no_action_overlap: false` denoted pending proof, not an observed
+violation. The terminal handoff verifies `original_payload_verified: true`
+and `no_action_overlap: true`; the latter concerns separation from isolated
+work, distinct from intended overlap within each contention pair.
 
-The audit's `handoff.no_action_overlap: false` records that pending proof; it
-does not identify an observed overlap violation. This is distinct from the
-110 verified positive intersections between the two intended contention
-participants. Do not substitute operational drain/resume receipts for the
-missing original action bytes or treat a PARTIAL audit as publication ready.
-Actual original endpoint/wall accounting, terminal provenance, the final
-descriptive timing/resource presentation and all performance interpretation
-remain pending. Counter/memory results must retain their possible untimed-wait
-scope. Neither primary nor contention performance conclusions are available here.
+Each common measured pair contains one action from each concurrent participant.
+The following expansion counts describe which recorded action was shorter;
+they are not independent replications, hypothesis tests or suite scores.
+Each condition has only two fresh concurrent waves. No pilot timing is pooled
+into this table.
 
-## 6. Discussion — interpretation prepared, findings pending
+| Pair | Suite | SF | Common measured pairs | Shorter Polars action | Shorter Spark action |
+| --- | --- | ---: | ---: | ---: | ---: |
+| A: Spark GPU + Polars CPU 2.0 | Baseline | 30 | 12 | 12 | 0 |
+| A: Spark GPU + Polars CPU 2.0 | Baseline | 100 | 12 | 12 | 0 |
+| A: Spark GPU + Polars CPU 2.0 | Complex | 30 | 12 | 11 | 1 |
+| A: Spark GPU + Polars CPU 2.0 | Complex | 100 | 12 | 10 | 2 |
+| B: Spark CPU + Polars GPU | Baseline | 30 | 12 | 12 | 0 |
+| B: Spark CPU + Polars GPU | Baseline | 100 | 12 | 12 | 0 |
+| B: Spark CPU + Polars GPU | Complex | 30 | 8 | 8 | 0 |
+| B: Spark CPU + Polars GPU | Complex | 100 | 8 | 8 | 0 |
+
+The pair A complex exceptions are the window query: Spark GPU has the shorter
+action in one SF30 repetition and both SF100 repetitions. For example, its
+SF100 window actions are 3.176 and 3.243 s, alongside Polars CPU actions of
+4.909 and 4.913 s. In the same condition, the Q09 actions are 24.869 and
+23.979 s for Spark GPU versus 5.999 and 5.706 s for Polars CPU. The observations
+therefore vary by query even within one paired condition. In pair B, Polars
+GPU's shorter recorded actions apply only to supported common expressions;
+its two complex rejections remain unavailable, with no six-query GPU score.
+The two pairings have different competitors and cannot rank the GPU engines.
+
+`QUERY_ACTIONS_DESCRIPTIVE.csv` retains every warmup/measured action, both
+endpoints and pairing flags; `COMMON_QUERY_OVERLAP.csv` retains all 110 common
+measured intersections. Pilot intersections range from 0.208 to 2.361 s with
+a maximum start skew of 0.647 ms. Expansion intersections range from 0.228 to
+8.664 s with a maximum start skew of 2.340 ms. These are observed ranges across
+different queries, not uncertainty intervals or estimates of synchronization
+quality beyond these waves.
+
+The six final figures preserve individual actions and actual timelines,
+separating pilot from expansion. Their manifest SHA256 is
+`5751b86ee46989fdfc7b0d25b1e2eac3a475a09c872143026cedfbd1e06000bd`.
+Action plots omit unpaired CPU diagnostics; timelines retain them with explicit
+hatching and use actual UTC intervals and gaps without widening fast actions.
+No action-time ratio here estimates a contention penalty relative to isolated
+execution. Such a claim needs a matched isolated analysis with the different
+replication, preheat, barriers and host history disclosed. Resource counters
+and sampled memory can include untimed waits and are not action-only costs.
+No new confidence interval, p value, superiority decision or primary result
+is inferred from this extension.
+
+## 6. Discussion — primary interpretation pending
 
 The primary practical interpretation will concern supported complete
 workloads under the five fixed configurations. A useful GPU path must satisfy
@@ -797,7 +849,10 @@ further separates common contended queries from two unpaired CPU diagnostics.
 Any isolated/contention comparison will be descriptive and will preserve the
 different replication and cache/barrier conditions. The scheduler hold affects
 the isolated outer orchestration envelope and temporal history, even though
-its already launched worker and query timers were not paused.
+its already launched worker and query timers were not paused. Terminal replay
+verifies action separation, not unchanged host/cache state. The recorded
+within-pair ordering in §5.7 is descriptive; a causal slowdown or resource-cost
+claim would require an appropriate matched isolated comparison.
 
 The final discussion must connect each observed result to these questions,
 address conflicting scale/query/endpoint patterns, and distinguish statistical
@@ -881,12 +936,13 @@ and sampled-scale conclusions await all 400 recovery sessions, final integrity/
 profile audit and genuine replay. The pre-start feasibility/readiness milestone
 does not establish a causal mitigation finding or a primary performance result.
 
-The separately requested contention workload completed its twenty waves and
-records the same isolated scheduler's resume. Missing original attempt bytes
-leave its terminal separation proof partial, and its performance interpretation
-remains pending. These observations do not replace the original 400 sessions,
-supply primary superiority conclusions or complete the paper/publication/
-preservation requirements by themselves.
+The separately requested contention workload completed its twenty waves, with
+460 oracle-valid outputs, 110 common measured pairs and verified terminal
+action separation and same-scheduler resume. Its per-query observations apply
+to the two recorded competing pairs; they establish no causal slowdown relative
+to isolated execution or ranking between GPU engines. These observations do
+not replace the original 400 sessions, supply primary superiority conclusions
+or complete the paper/publication/preservation requirements by themselves.
 
 ## Appendix A. Historical evidence excluded from recovery inference
 

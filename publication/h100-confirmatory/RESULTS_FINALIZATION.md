@@ -1,7 +1,7 @@
 # Recovery paper: result insertion and completion ledger
 
-Status: isolated recovery incomplete; contention workload and same-process resume
-recorded, terminal contention provenance PARTIAL,
+Status: isolated recovery incomplete; separate contention terminal replay and
+final descriptive figure binding complete,
 2026-10-28 UTC. This is an editorial workflow, not new
 experimental source. It changes no C84 file, query, sample size, endpoint or
 statistical rule. This ledger does not itself satisfy the final publication or
@@ -44,14 +44,23 @@ creation time 1793160829.75, resumed at 05:32:20.044724 UTC. Its final STATE is
 `COMPLETE_RESUMED`, owned cleanup lists no live members, the before-resume
 profile check is PASS, and `final-metadata-v1/PHASE_DRIVER.json` is
 `COMPLETE_OFFHOST`. Interlude checks remain separate from the formal profile
-log. Exact original endpoint/wall accounting still requires the actual held
-attempt bytes; preserve the outer-orchestrator hold inflation without rewriting
-original timing values.
+log. The terminal audit now verifies all 34 actual held-attempt files from the
+protected off-host block04 backup. The original result SHA256 is
+`c33ddd3f46d02e4624083334490925170a20a44795a3f4d53a08556a72d8b4c9` and
+schedule SHA256 is
+`d22c6ad51044c77aeedcbcfe611c26604b1b8c0cfba46111e8cebbb472217659`,
+matching the retained drain receipt. The last original host result is
+04:45:38.505969 UTC, 141.188 s before the first contention action at
+04:47:59.693693 UTC. The last contention host result is 05:28:37.930202 UTC,
+before same-process resume. Preserve the outer wall of 3,043.015 s/end time
+05:32:20.060856 UTC alongside worker process wall 240.581 s/end time
+04:45:41.907405 UTC. The outer envelope includes the scheduler hold and is
+neither query nor worker latency; do not rewrite the original timing values.
 
 Both actual phases pass: four pilot and sixteen expansion waves, with both raw
 phases verified off-host. The independent
-`rerun/contention-20261028/offline-full-audit-v3/CONTENTION_REPLAY.json`, SHA256
-`a34a8de887225edf58f9211a2e1f184feaa0eac5165e0dd0d03697f517e30ee5`, verifies
+`rerun/contention-20261028/offline-terminal-audit-v1/CONTENTION_REPLAY.json`, SHA256
+`0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`, verifies
 460 SQL outputs (230 warmup/230 measured), ten expected strict rejections,
 zero oracle failures/unexpected query errors, 110 intended common measured
 intersections, 250 barrier releases and ten unpaired CPU measured diagnostics.
@@ -59,16 +68,50 @@ These are aggregate artifact-accounting counts, not pooled timing estimates.
 The main raw snapshot has 1,561 payload files, 487,321,600 tar bytes and SHA256
 `98be99cf74690d01053de9670669e629a166b02bd67fd51a994425006f792197`.
 
-**Do not promote this workload milestone to terminal provenance or final
-findings.** The v3 receipt has `integrity_status: PASS` and no findings but
-overall `status: PARTIAL` and `publication_ready: false`. Its handoff status is
-`PENDING_ORIGINAL_ATTEMPT`: 34 actual original
-`block-04-complex-sf30-spark_cpu` attempt files and worker endpoints are not yet
-supplied. `handoff.no_action_overlap: false` is a pending isolated-versus-
-contention separation proof, not an observed overlap violation. It is distinct
-from the 110 verified intended within-contention intersections. The missing
-original bytes must be bound by a fresh terminal audit before final
-interpretation/publication. The original 400-session study is also incomplete.
+The terminal receipt completed at 07:15:58.632271 UTC with `status: COMPLETE`,
+`integrity_status: PASS`, `publication_ready: true`, no findings and handoff
+PASS. It verifies `original_payload_verified`, `no_action_overlap` and
+`same_scheduler_resumed` as true, with no pending reasons. The 110 positive
+within-contention intersections are distinct from verified separation from
+isolated work. The older unchanged
+`offline-full-audit-v3/CONTENTION_REPLAY.json`, SHA256
+`a34a8de887225edf58f9211a2e1f184feaa0eac5165e0dd0d03697f517e30ee5`, remains
+historical PARTIAL/publication_ready false because those original bytes were
+not then supplied. Its false separation boolean denoted pending proof, not
+an observed overlap violation. Do not rewrite that historical receipt or use
+it as the terminal binding.
+
+The genuine final figure directory is
+`rerun/contention-20261028/figures-final-v1/`, with `FIGURE_MANIFEST.json`
+SHA256 `5751b86ee46989fdfc7b0d25b1e2eac3a475a09c872143026cedfbd1e06000bd`.
+It binds six stems (pilot/main × pair A actions, pair B actions and actual
+timeline), each exported as PNG/SVG/PDF, plus `CAPTIONS.md`. It has
+`final: true`, `draft: false`, `synthetic: false`, complete terminal identity,
+full input/export hashes and no pending reasons. Pilot measured rows are 44
+paired participant actions plus two unpaired CPU diagnostics; expansion rows
+are 176 paired participant actions plus eight unpaired CPU diagnostics.
+
+Use the terminal audit's `QUERY_ACTIONS_DESCRIPTIVE.csv` (460 rows; SHA256
+`b5fc666176782517020fa2dbf90dff6bdfa47c9b2c4ace8aff872a6ab0869335`)
+and `COMMON_QUERY_OVERLAP.csv` (110 rows; SHA256
+`00a5812bf431defee06d1fe5b44c4eaa6794d0efff671847e9001a3330d3f3be`)
+for §5.7. That section reports expansion within-pair shorter-action counts,
+query-specific examples and observed overlap ranges without pooling pilot
+timings, creating suite scores or adding inference. Different competitors
+prevent a ranking between GPU engines. A contention slowdown relative to
+isolated execution still requires an appropriate matched analysis; temporal
+separation does not establish unchanged host/cache conditions. All primary
+performance interpretation and full-paper completion await the original 400.
+
+The actual paper gate was separately exercised with this terminal directory,
+final figures and explicitly selected `/tmp/h100-analysis-audit-venv/bin/python`.
+Its genuine `h100-paper-contention-verification-v1` proof is preserved at
+`rerun/contention-20261028/paper-terminal-verification-v1/CONTENTION_VERIFICATION.json`,
+SHA256 `a2f2401acf21b3ea7f3832568a0eeb98b5a8efe1bb359cd350d9ac53d7568099`.
+The selected-runtime subprocess freshly reproduces the current-source audit,
+binding 2,062 raw audit inputs and 29 verifier/figure inputs to the exact terminal
+review object and figure manifest above. This is a separate-role gate check,
+not a final paper build, editorial attestation or original400 completion.
 
 ## 1. Bind the actual recovery before inserting a primary result
 
@@ -218,11 +261,13 @@ seal separately from the later phase files and final handoff controls.
 | --- | --- | --- | --- |
 | Extension identity/source/instrumentation | Canonical `CONTENTION_PLAN.json`, `.sha256`, `CONTENTION_PRESTART_MANIFEST.json`, 52-file `FROZEN_SOURCE/`, three declared tool/protocol hashes and reference plan/profile | Exact hashes above, 65 matching listed checksums, `synthetic: false`, same C84/reference identities | §4.5; external instrumentation is separately versioned, with no original expression/timer edits |
 | Staged matrix and resource table | Plan `.pilot`, `.main`, `.main_gate`, `.settings`, `.configs`, `.spark_submit_opts`; phase runtime/configuration gates | Four pilot waves/eight processes at SF30; only after all pilot gates, sixteen expansion waves/thirty-two processes at SF30/SF100 with two repetitions | One Spark + one Polars process, one GPU path; both request 26 CPU threads on the same 26-vCPU host, one 96 GiB Spark heap; deliberate shared resources |
-| Actual phase/wave disposition | v3 `CONTENTION_REPLAY.json`, both `<phase>/PHASE.json`, final wave/member artifacts and off-host phase ACKs | Actual pilot PASS 4/4 and expansion PASS 16/16; all 460 SQL outputs pass, ten expected strict rejections, zero unexpected errors | §5.7; separate phase samples and no imputed times; workload accounting does not promote overall PARTIAL/publication_ready false |
+| Actual phase/wave disposition | Terminal-v1 `CONTENTION_REPLAY.json`, both `<phase>/PHASE.json`, final wave/member artifacts and off-host phase ACKs | Actual pilot PASS 4/4 and expansion PASS 16/16; all 460 SQL outputs pass, ten expected strict rejections, zero unexpected errors; terminal COMPLETE/integrity PASS/publication_ready true | §5.7; separate phase samples and no imputed times; the completed extension does not complete original400 |
 | Common measured overlap/action table | `<wave>/VALIDATION.json`: `.measured_action_overlap[]`; exact matching participant action UTC/monotonic bounds and both endpoints | Per common query: start skew, left/right durations, monotonic intersection and UTC intersection, positive on both clocks; six pairs normally, four for pair B complex | Coordinated same-query contention; overlapping process lifetimes/barrier release do not prove overlapping action timers |
+| Descriptive expansion action findings | Terminal `QUERY_ACTIONS_DESCRIPTIVE.csv`, filter wave prefix `main-`, phase `measured`, pairing flag true; match both participants by wave/query/trial | Eight pair/suite/scale rows; twelve common pairs per cell except eight for pair B complex; two waves per condition; retain individual query values and both endpoints | §5.7 counts shorter recorded actions, not independent replicates, significance or suite scores; no cross-pair GPU ranking or isolated slowdown estimate |
+| Final extension figures/captions | `figures-final-v1/FIGURE_MANIFEST.json`, exact terminal audit and current renderer hashes, every PNG/SVG/PDF and `CAPTIONS.md` | Six verified figure stems; pilot separated from expansion; point plots show common measured actions; timelines retain hatched unpaired CPU diagnostics and actual gaps without widening fast bars | §5.7/full supplement; individual observations, no averages/CIs/tests, zero at each wave's first measured action rather than process start |
 | Pair B complex unpaired diagnostics | Strict Polars GPU `cx_q13`/`cx_window` warmup rejections, barrier bypass events and CPU measured records | Mark these two CPU measurements unpaired in each affected wave; retain original oracle agreement and no imputed GPU time | A six-query CPU sum mixes paired/unpaired conditions and is not a uniformly contended suite score; only four common measured pairs supply query-level contention |
 | Shared preheat, walls and resource observations | `WAVE.json` preheat/cache/member/start/end fields; participant process walls/counters; `barriers/events-*.jsonl`, `host-processes.jsonl` and `gpu.csv` | Keep shared preheat separate; startup/rendezvous waits remain visible; host/process-tree 0.5 s and GPU 200 ms sample scope disclosed | Counters and sampled RSS/GPU memory may include untimed rendezvous waits; sampled peaks/board power are not isolated per-query resource costs |
-| Managed hold, drain and return to isolated work | `final-handoff-v1/` actual CONFIG/STATE/EVENTS/drain/cleanup/profile/RESUMED receipts; final metadata; actual original attempt bytes still required | Same PID 179144/create 1793160829.75 resumed 05:32:20.044724 UTC and cleanup records no live members; exact original action separation/endpoint accounting still pending 34 missing original attempt files | §4.6/§5.7; preserve operational completion separately from incomplete scientific boundary proof; do not interpret no_action_overlap false as an observed violation |
+| Managed hold, drain and return to isolated work | `final-handoff-v1/` actual CONFIG/STATE/EVENTS/drain/cleanup/profile/RESUMED receipts; final metadata; protected block04 actual attempt; terminal `.handoff` | All 34 original files verified; actual endpoint separation and original result/schedule hash agreement; same PID 179144/create 1793160829.75 resumed 05:32:20.044724 UTC; cleanup has no live members | §4.6/§5.7; preserve outer-wall inflation and actual worker wall/endpoints; separation does not establish unchanged host/cache conditions |
 | Separate preservation and final metadata | Verified contention phase snapshots/raw manifests/off-host acknowledgements, then final driver/guardian/handoff metadata after phase ACK | Exact raw bytes and extraction/transfer hashes; later resume/exit receipts preserved even when not in the main phase archive | §8; keep interlude identity checks outside the formal 24-record profile log; both full isolated delivery and separate contention disposition remain required before retirement |
 
 Require both final phase and final wave cleanup evidence, not only a wave
@@ -234,14 +279,13 @@ Any later comparison against isolated results must disclose different sampling,
 barrier, preheat and metric boundaries without pooling either design.
 
 The same original scheduler has resumed; do not repair or replace its journal
-to conceal the interlude. The operational drain/resume receipts are present,
-but independent boundary proof must also bind the actual original attempt
-bytes and worker action endpoints. Preserve v3 PARTIAL until that payload is
-supplied and a fresh terminal receipt verifies separation. Interlude runtime/
+to conceal the interlude. Terminal-v1 now binds the original attempt bytes and
+worker action endpoints and verifies separation. Preserve v3 as historical
+PARTIAL rather than editing or promoting it. Interlude runtime/
 input/profile checks are separate files, not extra entries in the formal
 24-receipt log. Temporal pacing and possible cache/host-state carryover remain
-in the validity discussion. No rerun or new observation is implied by the
-missing off-host original payload.
+in the validity discussion. Supplying the existing protected original payload
+to the audit adds provenance, not a rerun or new experimental observation.
 
 The figure stems above are defined by the current renderer and must also appear
 in the actual real-data `RENDER_MANIFEST.json` before insertion. Their presence
@@ -278,13 +322,16 @@ No automatic escalation, invisible retry or new cohort follows another failure.
 Add no transfer, spill, compute or energy mechanism without
 separate measured evidence. Resolve actual notice/attribution requirements
 without inventing an affiliation, public dataset URL or publication venue.
-Write the contention/interlude workload disposition from the actual completed
-phase/hold/resume evidence, with its PARTIAL provenance qualification. Final
-finding-bearing prose still requires the terminal original-payload binding and
-completed original 400-session study. Keep every finding's sample and
+The terminal original-payload binding now supports the separate descriptive
+contention/interlude text in §4.6/§5.7. Preserve the historical v3 PARTIAL
+qualification as history, not current status. Final primary finding-bearing
+prose and paper completion still require the original 400-session study.
+Keep every finding's sample and
 metric scope explicit, including unpaired CPU complex actions and wait-inclusive
-resource observations. Workload completion with partial terminal provenance is
-not a published final finding.
+resource observations. The managed pause may alter later host/cache conditions;
+do not claim a causal contention slowdown without an appropriate matched
+isolated analysis. Completed extension provenance alone does not finalize the
+full paper.
 
 ## 5. Build and inspect the paper and compare the webpage
 
@@ -325,9 +372,11 @@ inside the editorial JSON, is `{status: "COMPLETE", experiment_id:
 "h100-contention-20261028", plan_sha256:
 "670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031",
 prestart_sha256: "4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25",
-replay_sha256: actual terminal receipt SHA256, disposition: "COMPLETE" or
-"STOPPED_WITH_FAILURE"}`. Do not use the current PARTIAL v3 receipt hash as a
-terminal binding. The existing deviation/caption reviews and new explicit
+replay_sha256: "0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3",
+disposition: "COMPLETE"}` for the actual completed extension. The gate also
+supports an honestly stopped terminal experiment, but that is not this observed
+disposition. Do not use the historical PARTIAL v3 receipt hash as a terminal
+binding. The existing deviation/caption reviews and new explicit
 `contention_results_and_limits` review cover actual phase/failure disposition,
 unpaired CPU diagnostics, wait-inclusive metrics, scope and scheduler interlude.
 An editorial marker cannot substitute for freshly verified raw evidence.
@@ -335,8 +384,9 @@ An editorial marker cannot substitute for freshly verified raw evidence.
 ```sh
 python publication/h100-confirmatory/paper/build_paper.py \
   --replay /absolute/recovery-replay \
-  --contention-replay /absolute/new-terminal-contention-replay \
+  --contention-replay rerun/contention-20261028/offline-terminal-audit-v1 \
   --analysis-python /tmp/h100-analysis-audit-venv/bin/python \
+  --contention-figures rerun/contention-20261028/figures-final-v1 \
   --final-review /absolute/FINAL_PAPER_REVIEW.json \
   --output /absolute/new-final-paper-build
 ```
