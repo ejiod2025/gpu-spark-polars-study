@@ -189,6 +189,52 @@ retirement requirements. This storage operation does not publish the webpage or
 authorize early H100 termination. Apply every gate in
 `docs/H100_AUTONOMOUS_COMPLETION.md` and `LAMBDA_SHUTDOWN_GUARD.md` before retirement.
 
+## Preserve the separate completed contention role as well
+
+The owner's concurrent extension is mandatory alongside the original 400-session
+role. It has a genuine terminal audit at
+`rerun/contention-20261028/offline-terminal-audit-v1/CONTENTION_REPLAY.json`,
+SHA256 `0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`.
+Its COMPLETE result does not waive the original-study completion prerequisite
+above. Keep its evidence separate in the same private release catalog:
+
+- `pilot.tar`: 75,530,240 bytes, SHA256
+  `87c508ae916d2c161c99a86766af97eb4a16071cb045b36e879c7ed6b78bc55a`;
+- `main.tar`: 487,321,600 bytes, SHA256
+  `98be99cf74690d01053de9670669e629a166b02bd67fd51a994425006f792197`;
+- both actual phase controls, original off-host verification receipts and
+  `CONTENTION_BACKUP_MANIFEST.json` inventories;
+- exact final driver/remote ACKs, full final handoff, held-original journal/session
+  and protected original block-04 attempt proof;
+- terminal offline audit/CSV/source, final figure exports and their manifests.
+
+Use explicit unique names such as `contention-pilot.tar` and record their exact
+restoration paths. Both current tars fit the service's asset size limit and need
+no splitting. Retain the canonical 66-file prestart and small terminal metadata
+in private Git, including
+`evidence-research/20261028/h100-contention-terminal-checkpoint`. The original
+block-04 transport tar also preserves the complete protected attempt; do not
+substitute a manually assembled partial payload for that original archive.
+
+Download both contention assets independently into new files, compare their
+actual bytes and SHA256 to the catalog and original phase controls, safely
+extract to new directories, and verify every member with
+`contention_backup.verify_archive` and `verify_directory`. Historical
+`.verified.json` receipts intentionally bind their original absolute locations;
+never edit them to make an independently downloaded path pass the replay's
+transport-location check. Record the separate retrieval verification honestly.
+Byte-identical retrieved tars bind the exact payloads already revalidated by
+the current terminal auditor; do not claim a relocated replay was run if it was
+not. Preserve the original inputs needed for fresh paper/web audit reproduction.
+
+Only after the actual private download checks pass, create the separate
+`h100-contention-private-preservation-v1` receipt described in
+`LAMBDA_SHUTDOWN_GUARD.md`. It must bind the exact terminal replay SHA, both
+actual phases, fresh downloaded tar file references, positive asset IDs and
+stable private repository/release locators. An uploaded asset or this runbook
+cannot stand in for that receipt. The final guard requires this separate role
+in addition to the original study's private preservation and public deliverables.
+
 ## Verified service and CLI references
 
 - [GitHub release access and asset limits](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases).
