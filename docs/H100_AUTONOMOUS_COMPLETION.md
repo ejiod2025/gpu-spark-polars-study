@@ -208,6 +208,23 @@ PARTIAL_BLOCK_ONLY, not a final 400-session analysis. The checkpoint preserves
 an initial local missing-psutil import failure separately from scientific
 outcomes; the successful audit uses the pinned local analysis interpreter.
 
+Block 04 is independently checked and privately checkpointed at
+`evidence-research/20261028/gclocker100-block04-raw-checkpoint`: 40 selected
+sessions, 936 outputs (234 warmup/702 measured), six exact strict rejections,
+336 successful and six failed complex cleanup records, all 40 runtime/config
+inventories and all 16 actual JVM logs pass with no findings. Its raw tar is
+1,039,677,440 bytes, SHA256
+`3c54f2fad97149946a914b2ad916e2a2c17bf71dd7792f26a1ef366cc0fec581`.
+The original journal records 160 successes; earlier block payloads are not
+newly counted by this selected-block audit. The first ten independently
+observed formal profile receipts bracket all four completed blocks; receipt
+eleven is later block-05-before evidence. The protected attempt's original
+3,043.015140947995-second orchestration wall, including the managed scheduling
+hold, is preserved verbatim. The checkpoint's 30-file manifest SHA256 is
+`bd374bcc3c91e51bdfc60a67fa01f83e628ef960e6b7db0746cac8c01ce86a7f`.
+This block checkpoint remains PARTIAL_BLOCK_ONLY; terminal contention proof is
+the separate receipt above, and full isolated completion is still pending.
+
 The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
 same 1,654 input files, oracles and Python environments remain unchanged.
 Both Spark paths use fixed `SPARK_SUBMIT_OPTS` with unlocked diagnostic options,
