@@ -27,7 +27,38 @@ fixed research campaign; they do not reduce the experiment to a pilot or draft.
   `rerun/gclocker100-20261027/raw-backups/` (ignored operational storage).
 - Current local controller PID: `76437`, creation time `1793137268.510692`.
   Verify command and process identity; do not infer liveness from a PID alone.
-- Local caffeinate PID `20389` prevents idle system sleep while work continues.
+- Local caffeinate PID `19471`, creation time `1793161696.288356`, prevents
+  idle system sleep. The previous PID 20389 had exited and was replaced after
+  the owner's renewed request. Ownership receipt:
+  `rerun/contention-20261028/caffeinate-owner.json`.
+
+## User-requested concurrent contention extension
+
+The owner explicitly selected concurrent sessions on this same H100 as a
+separate contention experiment. Follow
+[the prospective interlude record](H100_CONTENTION_INTERLUDE_20261028.md)
+and `docs/H100_CONTENTION_PROTOCOL.md`. Do not mix these measurements into the
+original 400-session isolated estimates or silently cancel that cohort.
+
+Contention staging is `/home/ubuntu/study-h100-contention-staging-20261028`,
+evidence is `/home/ubuntu/study-h100-contention-evidence-20261028`, and the
+separate handoff root is
+`/home/ubuntu/study-h100-contention-handoff-20261028`. Local operational copies
+are under ignored `rerun/contention-20261028/`. Read actual plan, state and
+receipts; these path declarations do not establish that a run has begun.
+
+The handoff may hold only the exact owned C84 scheduler PID, letting its
+already launched original runner/worker finish unpaused. The unchanged journal
+can retain a running attempt while that scheduler is deliberately stopped.
+Its outer orchestrator wall time includes the hold; original worker action
+endpoints must finish before any contention begins. Never resume the isolated
+scheduler into active contention workers, signal a reused PID, restart a live
+engine or edit the old attempt/journal to disguise the interlude. Inspect the
+handoff manager, detached guardian, `STATE.json` and `RESUMED.json` before any
+manual intervention. Interlude profile/data checks stay separate from the
+formal 24-record log. Preserve genuine overlap, correctness, failures and both
+study identities off-host, and include the separate contention disposition
+and limitations in the final paper and public webpage before retirement.
 
 The API key is outside Git in a user-only local credential file. Never print it,
 copy it to the instance, include it in a command argument or environment variable,
