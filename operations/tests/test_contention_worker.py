@@ -76,6 +76,32 @@ def test_missing_peer_times_out_without_release_or_retry(tmp_path):
         barrier.wait(key)
 
 
+def test_release_sleep_stays_nonnegative_when_clock_crosses_target(tmp_path, monkeypatch):
+    # Synthetic scheduler race: the release deadline passes between clock reads.
+    barrier = cw.FileBarrier(tmp_path, "cpu", ["cpu", "gpu"], WORKER_SHA,
+                             timeout_seconds=1, release_delay_seconds=.1)
+    peer = cw.FileBarrier(tmp_path, "gpu", ["cpu", "gpu"], WORKER_SHA)
+    key = {"query": "q01", "phase": "measured", "trial": 1}
+    action = tmp_path / cw.hashlib.sha256(cw.canonical(key)).hexdigest()
+    action.mkdir()
+    cw.publish_once(action / "ready-gpu.json", {"barrier_id": barrier.barrier_id, "key": key,
+                    "participant": "gpu", "pid": peer.claim["pid"], "ready_monotonic_ns": 100})
+    target = 100 + 100_000_000
+    clocks = iter([100, 100, target - 1, target + 1])
+    monkeypatch.setattr(cw.time, "monotonic_ns", lambda: next(clocks))
+    monkeypatch.setattr(cw.time, "monotonic", lambda: 0)
+    sleeps = []
+    def sleep(seconds):
+        assert seconds >= 0
+        sleeps.append(seconds)
+    monkeypatch.setattr(cw.time, "sleep", sleep)
+    events = []
+    monkeypatch.setattr(barrier, "record", lambda event, *_args, **_kwargs: events.append(event))
+    assert barrier.wait(key) == target
+    assert sleeps == [1e-9]
+    assert events == ["ready", "released"]
+
+
 def test_root_and_participant_cannot_be_silently_reused(tmp_path):
     cw.FileBarrier(tmp_path, "cpu", ["cpu", "gpu"], WORKER_SHA)
     with pytest.raises(ValueError, match="already claimed"):

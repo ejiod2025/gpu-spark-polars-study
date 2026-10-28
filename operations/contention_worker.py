@@ -150,11 +150,16 @@ class FileBarrier:
                         or actual["release_monotonic_ns"] <= max(release["ready_monotonic_ns"].values())):
                     raise ValueError("Release record does not match both actual readiness records")
                 target = actual["release_monotonic_ns"]
-                while time.monotonic_ns() < target:
+                while True:
+                    # Read once: CPU descheduling between two clock reads can
+                    # otherwise turn a previously positive sleep into a negative one.
+                    remaining_ns = target - time.monotonic_ns()
+                    if remaining_ns <= 0:
+                        break
                     if time.monotonic() >= deadline:
                         self.record("timeout", key)
                         raise TimeoutError(f"Contention release time exceeded deadline: {key}")
-                    time.sleep(min(0.01, (target - time.monotonic_ns()) / 1_000_000_000))
+                    time.sleep(min(0.01, remaining_ns / 1_000_000_000))
                 self.record("released", key, release_monotonic_ns=target,
                             ready_monotonic_ns=actual["ready_monotonic_ns"])
                 return target
