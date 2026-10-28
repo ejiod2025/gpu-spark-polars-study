@@ -285,6 +285,38 @@ timestamps without inferring an unobserved cause. At 16:55:27 UTC block 08
 was running with 286/400 validated sessions. Full-study validation, analysis,
 paper/web publication, private retrieval and retirement remain pending.
 
+Blocks 08 and 09 are independently checked and privately checkpointed at
+`evidence-research/20261028/gclocker100-block08-raw-checkpoint` and
+`evidence-research/20261028/gclocker100-block09-raw-checkpoint`. Each selected
+40-session block has 936 valid outputs, six expected strict rejections,
+336 successful/six failed complex cleanups, 40 matching configurations and
+16 matching actual Spark JVMs, with no findings. Independent read-only reviews
+reproduced the frozen eight-oracle audits and verified the exact committed
+30-file inventories. The original journals retain 320 and 360 successes;
+earlier output/JVM payloads are not newly counted by either selected audit.
+
+- Block 08: raw tar 1,039,882,240 bytes, SHA256
+  `b58e8dbb1691c25110af00bcbc91385886964241039f4c63727d707e56f28067`;
+  checkpoint manifest
+  `37f10c085e2974bbe8354d51da36cc344f59a638db32c459b1799fea11f7a16f`.
+- Block 09: raw tar 1,041,213,440 bytes, SHA256
+  `6a50b3925b64b0c957d985969522a6901930c0839b23a3fe822f014da5ece1bd`;
+  checkpoint manifest
+  `bd9b6a7b8c5e30e2a5064a08b527c173bc9dd414818aef9bd2968b600f75a81d`.
+
+The first 18 and 20 formal profile receipts bracket eight and nine blocks
+respectively; records 19 and 21 are later before-block observations. Block 09's
+last session ended at 20:45:32.621229 UTC, backup control was created at
+20:45:37.488414 UTC and off-host verification occurred at 21:22:47.680226 UTC.
+Keep these original pacing times without inventing a cause or correcting any
+measured wall time. At 21:40:18 UTC the original supervisor was running final
+block 10 with 366/400 completed sessions. All ten blocks, true post-final byte
+verification, final/completion raw snapshots, full replay and publication
+remain required. Local PDF/reporting dependencies and commands were checked;
+the concrete readiness record is
+`publication/h100-confirmatory/paper/LOCAL_READINESS_20261028.md`. This does not
+substitute for a genuine final paper build or review.
+
 The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
 same 1,654 input files, oracles and Python environments remain unchanged.
 Both Spark paths use fixed `SPARK_SUBMIT_OPTS` with unlocked diagnostic options,
