@@ -541,9 +541,10 @@ common-host-result endpoints retain their frozen boundaries. Wave/process wall
 time includes initialization and rendezvous waits, with shared preheat reported
 separately. Process-counter deltas and sampled RSS/GPU-memory observations can
 include untimed rendezvous waits and are not isolated action-only resource costs.
-Host/process-tree sampling is every 0.5 s and GPU sampling every 200 ms; transient
-peaks may be missed and board utilization/power cannot be attributed causally
-to a single query or process.
+Separate wave telemetry samples host/process trees every 0.5 s and the GPU
+board every 200 ms; the worker samplers retain their separately recorded
+intervals. Transient peaks may be missed, and board utilization/power cannot be
+attributed causally to a single query or process.
 
 No contention p values, superiority decisions, additions to the primary family
 or exact crossover thresholds are declared. Two expansion repetitions support
