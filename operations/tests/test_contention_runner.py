@@ -91,6 +91,21 @@ def test_refuses_to_signal_callers_group(monkeypatch):
         runner.stop_owned(SimpleNamespace(pid=123))
 
 
+def test_exclusive_host_gate_uses_existing_frozen_api(monkeypatch):
+    calls = []
+    def observe():
+        calls.append("observed")
+        return {"eligible": True, "scope": "synthetic mock"}
+    monkeypatch.setattr(runner.importlib, "import_module", lambda name: SimpleNamespace(observe_exclusive_host=observe))
+    assert runner.require_idle({"source_root": "/synthetic/frozen"})["eligible"] is True
+    assert calls == ["observed"]
+    frozen = Path(__file__).parents[2] / "evidence-research/20261027/h100-confirmatory-gclocker100-v1/campaign.json.source/research_campaign.py"
+    spec = importlib.util.spec_from_file_location("synthetic_test_reads_actual_api_only", frozen)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert callable(module.observe_exclusive_host)  # Import only; never invoke GPU/host probes here.
+
+
 def test_main_gate_rejects_duplicate_or_missing_pilot_wave_ids(tmp_path):
     root = tmp_path / "synthetic"
     (root / "pilot").mkdir(parents=True)

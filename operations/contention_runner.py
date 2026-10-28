@@ -221,7 +221,7 @@ def runtime_gate(plan):
 def require_idle(plan):
     sys.path.insert(0, plan["source_root"])
     campaign = importlib.import_module("research_campaign")
-    value = campaign.idle_probe()
+    value = campaign.observe_exclusive_host()
     if not value.get("eligible"):
         raise ValueError("A benchmark worker or GPU client is already active; do not overlap the isolated study")
     return value
