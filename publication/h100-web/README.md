@@ -115,11 +115,24 @@ and bind the same receipt, CSVs, read-input map and current renderer/auditor.
 Every output checksum is checked. Draft figures cannot enter the release.
 Omitting this option retains the accessible per-repetition numerical tables.
 
-At preparation time the real `offline-full-audit-v3` contention audit contains
-all 20 waves but remains `PARTIAL` / `publication_ready: false` while the original
-block-04 payload is missing. This is a release blocker, even though its integrity
-check passes. Its timings and the private draft figure exports are not included
-in the methods-only preview.
+The historical `offline-full-audit-v3` contention receipt remains unchanged at
+`PARTIAL` / `publication_ready: false`; it lacked the original block-04 payload.
+The later genuine `offline-terminal-audit-v1/CONTENTION_REPLAY.json` is
+`COMPLETE`, integrity PASS, `publication_ready: true`, with no findings and SHA256
+`0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`.
+It verifies all 20 waves, 460 oracle-valid outputs, ten strict rejections and
+110 common measured pairs, together with the actual original payload, action
+separation and same-scheduler resume. The webpage's current-source fresh replay
+and typed public-export checks pass for this terminal receipt. The paper and
+webpage produce the same exact six-field `contention_review` contract.
+The optional figure gate also passes for `figures-final-v1`, including all six
+figure stems, 19 output hashes and SVG sanitization.
+
+This closes the separate contention evidence gate only. Complete original-400
+replay, final paper/editorial review and actual deployment remain independently
+required. No release page, final paper review or publication receipt is inferred
+from this smoke check. Timings and private draft figure exports remain absent
+from the methods-only preview.
 
 There is no `--allow-synthetic`, `--skip-audit` or incomplete-data override.
 The lost cohort's surviving 120 sessions / 2,808 core comparisons, earlier
