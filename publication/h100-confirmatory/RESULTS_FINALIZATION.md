@@ -44,8 +44,11 @@ creation time 1793160829.75, resumed at 05:32:20.044724 UTC. Its final STATE is
 `COMPLETE_RESUMED`, owned cleanup lists no live members, the before-resume
 profile check is PASS, and `final-metadata-v1/PHASE_DRIVER.json` is
 `COMPLETE_OFFHOST`. Interlude checks remain separate from the formal profile
-log. The terminal audit now verifies all 34 actual held-attempt files from the
-protected off-host block04 backup. The original result SHA256 is
+log. The terminal audit now verifies all 34 actual held-attempt inventory entries
+from the protected off-host block04 backup: 33 immutable payload files match
+byte for byte, while `session.json` retains its frozen identity with only
+documented parent finalization allowed. The later scientific validation file
+is retained separately. The original result SHA256 is
 `c33ddd3f46d02e4624083334490925170a20a44795a3f4d53a08556a72d8b4c9` and
 schedule SHA256 is
 `d22c6ad51044c77aeedcbcfe611c26604b1b8c0cfba46111e8cebbb472217659`,
@@ -267,7 +270,7 @@ seal separately from the later phase files and final handoff controls.
 | Final extension figures/captions | `figures-final-v1/FIGURE_MANIFEST.json`, exact terminal audit and current renderer hashes, every PNG/SVG/PDF and `CAPTIONS.md` | Six verified figure stems; pilot separated from expansion; point plots show common measured actions; timelines retain hatched unpaired CPU diagnostics and actual gaps without widening fast bars | §5.7/full supplement; individual observations, no averages/CIs/tests, zero at each wave's first measured action rather than process start |
 | Pair B complex unpaired diagnostics | Strict Polars GPU `cx_q13`/`cx_window` warmup rejections, barrier bypass events and CPU measured records | Mark these two CPU measurements unpaired in each affected wave; retain original oracle agreement and no imputed GPU time | A six-query CPU sum mixes paired/unpaired conditions and is not a uniformly contended suite score; only four common measured pairs supply query-level contention |
 | Shared preheat, walls and resource observations | `WAVE.json` preheat/cache/member/start/end fields; participant process walls/counters; `barriers/events-*.jsonl`, `host-processes.jsonl` and `gpu.csv` | Keep shared preheat separate; startup/rendezvous waits remain visible; host/process-tree 0.5 s and GPU 200 ms sample scope disclosed | Counters and sampled RSS/GPU memory may include untimed rendezvous waits; sampled peaks/board power are not isolated per-query resource costs |
-| Managed hold, drain and return to isolated work | `final-handoff-v1/` actual CONFIG/STATE/EVENTS/drain/cleanup/profile/RESUMED receipts; final metadata; protected block04 actual attempt; terminal `.handoff` | All 34 original files verified; actual endpoint separation and original result/schedule hash agreement; same PID 179144/create 1793160829.75 resumed 05:32:20.044724 UTC; cleanup has no live members | §4.6/§5.7; preserve outer-wall inflation and actual worker wall/endpoints; separation does not establish unchanged host/cache conditions |
+| Managed hold, drain and return to isolated work | `final-handoff-v1/` actual CONFIG/STATE/EVENTS/drain/cleanup/profile/RESUMED receipts; final metadata; protected block04 actual attempt; terminal `.handoff` | All 34 inventory entries bound; 33 immutable payload files byte-verified and only documented parent finalization allowed; actual endpoint separation and original result/schedule hash agreement; same PID 179144/create 1793160829.75 resumed 05:32:20.044724 UTC; cleanup has no live members | §4.6/§5.7; preserve outer-wall inflation and actual worker wall/endpoints; separation does not establish unchanged host/cache conditions |
 | Separate preservation and final metadata | Verified contention phase snapshots/raw manifests/off-host acknowledgements, then final driver/guardian/handoff metadata after phase ACK | Exact raw bytes and extraction/transfer hashes; later resume/exit receipts preserved even when not in the main phase archive | §8; keep interlude identity checks outside the formal 24-record profile log; both full isolated delivery and separate contention disposition remain required before retirement |
 
 Require both final phase and final wave cleanup evidence, not only a wave

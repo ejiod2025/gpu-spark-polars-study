@@ -572,7 +572,10 @@ hashes at 04:45:43.946178 UTC, before the pilot start at 04:47:43 UTC.
 The frozen original action/host-result timer code is unchanged. The terminal
 offline audit now binds all 34 original
 `block-04-complex-sf30-spark_cpu/attempt-001` files from the protected off-host
-block04 backup. Its original result and schedule hashes match the drain
+block04 backup. It checks 33 immutable payload files byte for byte and binds
+`session.json` to its frozen identity while allowing only documented parent
+finalization; the later `SCIENTIFIC_VALIDATION.json` is retained separately.
+Its original result and schedule hashes match the drain
 receipt. The last original host-result endpoint is 04:45:38.505969 UTC;
 the first contention action starts at 04:47:59.693693 UTC, 141.188 s later.
 Saved action endpoints therefore establish temporal separation independently

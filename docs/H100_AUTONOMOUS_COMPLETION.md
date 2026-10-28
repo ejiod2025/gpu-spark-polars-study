@@ -108,7 +108,10 @@ The genuine block-04 raw backup arrived at 07:05:23 UTC. A new terminal replay,
 `rerun/contention-20261028/offline-terminal-audit-v1`, now reports COMPLETE,
 integrity PASS, publication-ready true and no findings. Its receipt SHA256 is
 `0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`.
-All 34 original protected attempt files and actual worker endpoints match;
+All 34 original protected inventory entries are verified: 33 immutable payload
+files match byte-for-byte, while `session.json` permits only the documented
+normal parent finalization and a later `SCIENTIFIC_VALIDATION.json` is allowed.
+The actual worker endpoints match;
 `original_payload_verified`, `no_action_overlap` and `same_scheduler_resumed`
 are true. No original worker action overlaps the separate contention role.
 This was a fresh audit, not an edited status marker. The final figure exports
