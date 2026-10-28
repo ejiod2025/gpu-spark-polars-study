@@ -79,6 +79,18 @@ captured five-record profile observation includes a later block-02-before
 receipt. This milestone is not final analysis or publication readiness. The
 existing supervisor and watcher have continued into block 02.
 
+Block 02 also finished its 40 sessions at 2026-10-28 02:06:16 UTC. Its verified
+off-host tar is 1,043,906,560 bytes, SHA256
+`3bc4e319aa273100895e2cfe95c87ff8e8ceb888d166cab5dd45925e86abe64a`.
+The private checkpoint is
+`evidence-research/20261028/gclocker100-block02-raw-checkpoint`. Independent
+checks call the unchanged C84 `audit_session` function on those 40 selected
+sessions: 936 outputs, six expected rejections, cleanup and all 16 actual Spark
+JVMs match, with no findings. The original journal records 80 successes; this
+isolated block-02 payload does not claim a full 80-session `--partial` CLI run.
+Six separately captured profile receipts match and bracket both blocks; the
+seventh is later block-03-before evidence. The supervisor continues block 03.
+
 The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
 same 1,654 input files, oracles and Python environments remain unchanged.
 Both Spark paths use fixed `SPARK_SUBMIT_OPTS` with unlocked diagnostic options,
