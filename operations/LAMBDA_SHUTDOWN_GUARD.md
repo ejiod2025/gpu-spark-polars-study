@@ -190,6 +190,10 @@ or `STOPPED_WITH_FAILURE`. `PARTIAL`, `FAIL`, active work, missing resume proof
 and failed integrity cannot permit retirement. A stopped scientific phase can
 retain zero attempted waves if its genuine runtime/input/prelaunch gate failed;
 the failed phase, actual error and all unattempted wave IDs must remain visible.
+For a terminal stop, an untouched future phase may use
+`NOT_ATTEMPTED_AFTER_STOP`; `NOT_OBSERVED` remains accepted with zero attempts.
+The closed-stop label is accepted only with the full `STOPPED_WITH_FAILURE`
+evidence and cannot stand in for a completed phase.
 An operational interruption without a terminal failed scientific phase remains
 nonterminal and requires preserved diagnosis.
 

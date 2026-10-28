@@ -318,7 +318,8 @@ def verify_contention(base, paths, campaign, identity, journal, replay, paper, w
                 "Contention failed/unattempted wave accounting differs")
         require((item.get("status") == "PASS" and item["passed_waves"] == planned and item["failed_waves"] == 0)
                 or (item.get("status") == "FAIL" and bool(item.get("recorded_error")))
-                or (item.get("status") == "NOT_OBSERVED" and item["attempted_waves"] == 0),
+                or (item.get("status") in {"NOT_OBSERVED", "NOT_ATTEMPTED_AFTER_STOP"} and item["attempted_waves"] == 0
+                    and (item["status"] != "NOT_ATTEMPTED_AFTER_STOP" or value["status"] == "STOPPED_WITH_FAILURE")),
                 "Contention phase status contradicts its retained wave accounting")
     if value["status"] == "COMPLETE":
         require(all(disposition[p]["status"] == "PASS" and disposition[p]["passed_waves"] == n

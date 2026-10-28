@@ -140,7 +140,8 @@ def fabricated_contention(base, campaign, profile, journal, original_results, or
         disposition["pilot"].update(status="FAIL", attempted_waves=attempted, passed_waves=0 if attempted == 0 else 1,
             failed_waves=0 if attempted == 0 else 1,
             unattempted_waves=[w["wave_id"] for w in plan["pilot"][attempted:]], recorded_error={"type": "FABRICATED_ERROR"})
-        disposition["main"].update(status="NOT_OBSERVED", attempted_waves=0, passed_waves=0,
+        disposition["main"].update(status="NOT_ATTEMPTED_AFTER_STOP" if stopped == "closed_suffix" else "NOT_OBSERVED",
+            attempted_waves=0, passed_waves=0,
             unattempted_waves=[w["wave_id"] for w in plan["main"]])
     receipt = {"schema_version": "h100-contention-replay-v1", "experiment_id": guard.CONTENTION_EXPERIMENT_ID,
         "synthetic": False, "status": "STOPPED_WITH_FAILURE" if stopped else "COMPLETE", "integrity_status": "PASS",
@@ -286,7 +287,7 @@ def complete(tmp_path, monkeypatch, request):
     source_path = write(base / "paper/full-paper.tex", b"fixture only, not a research paper\n")
     fixture_mode = getattr(request, "param", None)
     contention = fabricated_contention(base, campaign, profile_path, journal, original_results, original_schedule,
-                                      stopped=fixture_mode if fixture_mode in {"prelaunch", "guardian", "late_ack"} else fixture_mode == "stopped")
+                                      stopped=fixture_mode if fixture_mode in {"prelaunch", "guardian", "late_ack", "closed_suffix"} else fixture_mode == "stopped")
     monkeypatch.setattr(guard, "CONTENTION_AUDITOR_PATH", contention["audit_code"])
     monkeypatch.setattr(guard, "HANDOFF_SOURCE_PATH", contention["handoff_code"])
     def registered_contention(plan_sha, prestart_sha):
@@ -683,7 +684,7 @@ def test_contention_must_be_actual_registered_terminal_evidence(complete, mutati
         call_contention(complete)
 
 
-@pytest.mark.parametrize('complete', ['stopped', 'prelaunch', 'guardian', 'late_ack'], indirect=True)
+@pytest.mark.parametrize('complete', ['stopped', 'prelaunch', 'guardian', 'late_ack', 'closed_suffix'], indirect=True)
 def test_honest_terminal_failure_preserves_failed_and_unattempted_waves(complete):
     value = guard.read_json(complete['paths']['contention_replay'])
     assert value['status'] == 'STOPPED_WITH_FAILURE'
@@ -803,4 +804,19 @@ def test_stopped_pilot_cannot_fabricate_passing_or_raw_main_phase(complete, bad)
         receipt['snapshots']['main'] = dict(receipt['snapshots']['failed'])
     write(complete['paths']['contention_replay'], receipt)
     with pytest.raises(ValueError, match='phase status contradicts|stopped pilot cannot fabricate'):
+        call_contention(complete)
+
+
+@pytest.mark.parametrize('complete', ['closed_suffix'], indirect=True)
+@pytest.mark.parametrize('bad', ['complete_claim', 'claimed_attempt'])
+def test_closed_stop_alias_requires_terminal_failure_and_zero_attempts(complete, bad):
+    receipt = guard.read_json(complete['paths']['contention_replay'])
+    if bad == 'complete_claim':
+        receipt['status'] = 'COMPLETE'
+    else:
+        item = receipt['disposition']['main']
+        item.update(attempted_waves=1, passed_waves=1)
+        item['unattempted_waves'] = item['unattempted_waves'][1:]
+    write(complete['paths']['contention_replay'], receipt)
+    with pytest.raises(ValueError, match='phase status contradicts'):
         call_contention(complete)
