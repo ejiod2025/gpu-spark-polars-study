@@ -89,6 +89,17 @@ Set the metadata paths below to their actual off-host copies:
   --output rerun/contention-20261028/new-terminal-contention-replay
 ```
 
+While the original block-04 backup is still being collected, omit only
+`--original-attempt` and choose a new output directory. The auditor then checks
+the actual final driver ACKs and all supplied handoff metadata, including the
+same scheduler resume, both full input/profile gates, held bytes and the drained
+inventory bindings. Handoff status `PENDING_ORIGINAL_ATTEMPT` explicitly leaves
+`original_payload_verified:false` and `no_action_overlap:false`: the recorded
+inventory and drain timestamps cannot substitute for actual worker payload and
+action endpoints. Overall status remains `PARTIAL` and `publication_ready:false`.
+Supplying the later real attempt is required to establish those final proofs;
+the absence of that attempt does not skip validation of available metadata.
+
 The auditor verifies the recorded pre/post source/runtime/idle checks and all
 five original input-byte gates totaling 1,654 files. It does not independently
 rehash missing source Parquet off-host: these are hash-bound VM observations,

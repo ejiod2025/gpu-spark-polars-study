@@ -591,9 +591,10 @@ def terminal_driver(metadata, plan, snapshots, disposition, inputs):
 
 
 def handoff_proof(handoff, held_original, original_attempt, action_rows, inputs, role_plan=None, reference_plan=None):
-    if handoff is None or held_original is None or original_attempt is None:
+    if handoff is None or held_original is None:
         return {"status": "NOT_PROVIDED", "same_scheduler_resumed": False, "no_action_overlap": False}
-    root, held, attempt = Path(handoff), Path(held_original), Path(original_attempt)
+    root, held = Path(handoff), Path(held_original)
+    attempt = Path(original_attempt) if original_attempt is not None else None
     files = inputs.tree(root)
     if not (root / "RESUMED.json").exists():
         return {"status": "PENDING_RESUME", "same_scheduler_resumed": False, "no_action_overlap": False}
@@ -662,6 +663,55 @@ def handoff_proof(handoff, held_original, original_attempt, action_rows, inputs,
     spec = inputs.json(root / "DRIVER_SPEC.json")
     require(inputs.file(root / "DRIVER_SPEC.json") == config.get("driver_spec_sha256")
             and spec.get("schema_version") == "h100-contention-driver-spec-v1", "Actual driver specification differs")
+    require(isinstance(inventory, dict) and inventory, "Original attempt inventory is absent")
+    for name, identity in inventory.items():
+        relative = Path(name)
+        require(not relative.is_absolute() and relative.parts and ".." not in relative.parts
+                and isinstance(identity, dict) and type(identity.get("bytes")) is int and identity["bytes"] >= 0
+                and isinstance(identity.get("sha256"), str) and re.fullmatch(r"[0-9a-f]{64}", identity["sha256"]),
+                "Original attempt inventory entry is invalid")
+    require(inventory.get("session.json", {}).get("sha256") == inputs.file(held / "ORIGINAL_HELD_SESSION.json")
+            and inventory["session.json"]["bytes"] == (held / "ORIGINAL_HELD_SESSION.json").stat().st_size,
+            "Held session bytes differ from frozen attempt")
+    result_relative = Path(drained["results_path"]).relative_to(Path(snapshot["attempt"]["attempt_root"]))
+    schedule_relative = Path(drained["schedule_path"]).relative_to(Path(snapshot["attempt"]["attempt_root"]))
+    require(inventory.get(str(result_relative), {}).get("sha256") == drained["results_sha256"] and
+            inventory.get(str(schedule_relative), {}).get("sha256") == drained["schedule_sha256"] and
+            drained.get("runner_exit", {}).get("exit_code") == 0, "Original drained inventory binding differs")
+    first = min((instant(r["action_started_at_utc"]) for r in action_rows), default=None)
+    last = max((instant(r["host_result_ended_at_utc"]) for r in action_rows), default=None)
+    require(instant(drained["completed_at_utc"]) <= instant(before["completed_at_utc"]),
+            "Contention profile verification preceded the original drain")
+    if first is not None:
+        require(instant(before["completed_at_utc"]) <= first and
+                last <= instant(after["completed_at_utc"]) <= instant(resumed["resumed_at_utc"]),
+                "Contention actions overlap profile verification or actual resume")
+    references = {"config": root / "CONFIG.json", "resume": root / "RESUMED.json", "state": root / "STATE.json",
+        "profile_before": root / "PROFILE_BEFORE_CONTENTION.json", "profile_after": root / "PROFILE_BEFORE_RESUME.json",
+        "held_journal": held / "ORIGINAL_HELD_JOURNAL.json", "held_session": held / "ORIGINAL_HELD_SESSION.json",
+        "attempt_inventory": root / "ORIGINAL_ATTEMPT_FILES.json", "original_runner_drained": root / "ORIGINAL_RUNNER_DRAINED.json",
+        "owned_groups": root / "OWNED_GROUPS_AFTER_CLEANUP.json", "residual_before_profile": root / "RESIDUAL_SCAN_before-profile.json",
+        "residual_before_signal": root / "RESIDUAL_SCAN_before-signal.json", "driver_spec": root / "DRIVER_SPEC.json"}
+    proof = {"status": "PENDING_ORIGINAL_ATTEMPT", "same_scheduler_resumed": True, "no_action_overlap": False,
+            "original_payload_verified": False,
+            "pending_reasons": ["Actual original attempt payload and worker action endpoints are not yet supplied"],
+            "reference_campaign_sha256": REFERENCE_SHA, "execution_profile_sha256": PROFILE_SHA,
+            "files": {key: {"path": str(path.resolve()), "sha256": inputs.file(path)} for key, path in references.items()},
+            "all_original_input_files": 1654, "source_sha256": inputs.file(helper), "scheduler": config["scheduler"],
+            "directory": str(root.resolve()), "files_sha256": files, "driver_returncode": state.get("driver_returncode"),
+            "recorded_operational_error": state.get("error"),
+            "config_path": str((root / "CONFIG.json").resolve()), "resume_path": str((root / "RESUMED.json").resolve()),
+            "held_journal_path": str((held / "ORIGINAL_HELD_JOURNAL.json").resolve()),
+            "held_journal_sha256": inputs.file(held / "ORIGINAL_HELD_JOURNAL.json"),
+            "held_session_path": str((held / "ORIGINAL_HELD_SESSION.json").resolve()),
+            "held_session_sha256": inputs.file(held / "ORIGINAL_HELD_SESSION.json"),
+            "original_attempt_files_expected": len(inventory),
+            "recorded_original_results_sha256": drained["results_sha256"],
+            "recorded_original_schedule_sha256": drained["schedule_sha256"],
+            "first_contention_action_utc_epoch": first, "last_contention_host_result_utc_epoch": last,
+            "resumed_at_utc": resumed["resumed_at_utc"]}
+    if attempt is None:
+        return proof
     actual = inputs.tree(attempt)
     require(set(actual) <= set(inventory) | {"SCIENTIFIC_VALIDATION.json"} and set(inventory) <= set(actual),
             "Original attempt inventory changed outside documented parent finalization")
@@ -677,8 +727,6 @@ def handoff_proof(handoff, held_original, original_attempt, action_rows, inputs,
         else:
             require(actual[name] == identity["sha256"] and (attempt / name).stat().st_size == identity["bytes"],
                     "Original finished worker payload changed: " + name)
-    result_relative = Path(drained["results_path"]).relative_to(Path(snapshot["attempt"]["attempt_root"]))
-    schedule_relative = Path(drained["schedule_path"]).relative_to(Path(snapshot["attempt"]["attempt_root"]))
     original = inputs.json(contained(attempt, result_relative))
     schedule = inputs.json(contained(attempt, schedule_relative))
     require(inputs.file(contained(attempt, result_relative)) == drained["results_sha256"] and
@@ -690,37 +738,21 @@ def handoff_proof(handoff, held_original, original_attempt, action_rows, inputs,
             and original.get("manifest_sha256") == reference_plan["datasets"][planned["scale"]]["manifest_sha256"]
             and original.get("completed_at_utc") and not original.get("failure"), "Original drain did not finish its actual task")
     original_end = max(instant(r["host_result_ended_at_utc"]) for r in original["records"])
-    first = min((instant(r["action_started_at_utc"]) for r in action_rows), default=None)
-    last = max((instant(r["host_result_ended_at_utc"]) for r in action_rows), default=None)
     require(instant(original["completed_at_utc"]) <= instant(drained["completed_at_utc"]) <= instant(before["completed_at_utc"]),
             "Contention was released before the original worker/profile verification finished")
     if first is not None:
         require(original_end <= first and instant(before["completed_at_utc"]) <= first and
                 last <= instant(after["completed_at_utc"]) <= instant(resumed["resumed_at_utc"]),
                 "Contention actions overlap original work or actual resume")
-    references = {"config": root / "CONFIG.json", "resume": root / "RESUMED.json", "state": root / "STATE.json",
-        "profile_before": root / "PROFILE_BEFORE_CONTENTION.json", "profile_after": root / "PROFILE_BEFORE_RESUME.json",
-        "held_journal": held / "ORIGINAL_HELD_JOURNAL.json", "held_session": held / "ORIGINAL_HELD_SESSION.json",
-        "attempt_inventory": root / "ORIGINAL_ATTEMPT_FILES.json", "original_results": contained(attempt, result_relative),
-        "original_schedule": contained(attempt, schedule_relative), "original_runner_drained": root / "ORIGINAL_RUNNER_DRAINED.json",
-        "owned_groups": root / "OWNED_GROUPS_AFTER_CLEANUP.json", "residual_before_profile": root / "RESIDUAL_SCAN_before-profile.json",
-        "residual_before_signal": root / "RESIDUAL_SCAN_before-signal.json", "driver_spec": root / "DRIVER_SPEC.json"}
-    return {"status": "PASS", "same_scheduler_resumed": True, "no_action_overlap": True,
-            "reference_campaign_sha256": REFERENCE_SHA, "execution_profile_sha256": PROFILE_SHA,
-            "files": {key: {"path": str(path.resolve()), "sha256": inputs.file(path)} for key, path in references.items()},
-            "all_original_input_files": 1654, "source_sha256": inputs.file(helper), "scheduler": config["scheduler"],
-            "directory": str(root.resolve()), "files_sha256": files, "driver_returncode": state.get("driver_returncode"),
-            "recorded_operational_error": state.get("error"),
-            "config_path": str((root / "CONFIG.json").resolve()), "resume_path": str((root / "RESUMED.json").resolve()),
-            "held_journal_path": str((held / "ORIGINAL_HELD_JOURNAL.json").resolve()),
-            "held_journal_sha256": inputs.file(held / "ORIGINAL_HELD_JOURNAL.json"),
-            "held_session_path": str((held / "ORIGINAL_HELD_SESSION.json").resolve()),
-            "held_session_sha256": inputs.file(held / "ORIGINAL_HELD_SESSION.json"),
+    references.update(original_results=contained(attempt, result_relative), original_schedule=contained(attempt, schedule_relative))
+    proof.update(status="PASS", no_action_overlap=True, original_payload_verified=True, pending_reasons=[])
+    proof.update({"files": {key: {"path": str(path.resolve()), "sha256": inputs.file(path)} for key, path in references.items()},
             "original_attempt_directory": str(attempt.resolve()), "original_attempt_files_verified": len(inventory),
             "original_results_path": str(contained(attempt, result_relative).resolve()), "original_results_sha256": drained["results_sha256"],
             "original_schedule_path": str(contained(attempt, schedule_relative).resolve()), "original_schedule_sha256": drained["schedule_sha256"],
             "original_worker_last_host_result_at_utc": original_end, "first_contention_action_utc_epoch": first,
-            "last_contention_host_result_utc_epoch": last, "resumed_at_utc": resumed["resumed_at_utc"]}
+            "last_contention_host_result_utc_epoch": last, "resumed_at_utc": resumed["resumed_at_utc"]})
+    return proof
 
 
 def write_json(path, value):

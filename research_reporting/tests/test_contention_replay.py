@@ -256,6 +256,42 @@ def test_handoff_checks_real_resume_byte_and_timeline_contract(tmp_path):
     assert proof["files"]["held_journal"]["sha256"] == replay.sha(held / "ORIGINAL_HELD_JOURNAL.json")
 
 
+def test_handoff_verifies_available_metadata_without_inventing_original_payload(tmp_path):
+    root, held, attempt, actions, role, reference = handoff_fixture(tmp_path)
+    inputs = replay.Inputs()
+    proof = replay.handoff_proof(root, held, None, actions, inputs, role, reference)
+    assert proof["status"] == "PENDING_ORIGINAL_ATTEMPT" and proof["same_scheduler_resumed"]
+    assert not proof["no_action_overlap"] and not proof["original_payload_verified"]
+    assert proof["all_original_input_files"] == 1654 and proof["original_attempt_files_expected"] == 3
+    assert proof["pending_reasons"] and "original_results" not in proof["files"]
+    assert proof["files"]["resume"]["sha256"] == replay.sha(root / "RESUMED.json")
+    assert not any(Path(path).is_relative_to(attempt) for path in inputs.hashes)
+
+
+@pytest.mark.parametrize("change", ["scheduler", "held_session", "drained_inventory", "resume_time"])
+def test_missing_original_payload_does_not_skip_available_handoff_failures(tmp_path, change):
+    root, held, attempt, actions, role, reference = handoff_fixture(tmp_path)
+    if change == "scheduler":
+        path = root / "RESUMED.json"
+        value = json.loads(path.read_text())
+        value["scheduler"]["pid"] += 1
+    elif change == "held_session":
+        path = root / "ORIGINAL_ATTEMPT_FILES.json"
+        value = json.loads(path.read_text())
+        value["session.json"]["bytes"] += 1
+    elif change == "drained_inventory":
+        path = root / "ORIGINAL_RUNNER_DRAINED.json"
+        value = json.loads(path.read_text())
+        value["results_sha256"] = "0" * 64
+    else:
+        path = root / "RESUMED.json"
+        value = json.loads(path.read_text())
+        value["resumed_at_utc"] = "2026-01-01T02:00:00+00:00"
+    save(path, value)
+    with pytest.raises(ValueError):
+        replay.handoff_proof(root, held, None, actions, replay.Inputs(), role, reference)
+
+
 def test_handoff_rejects_changed_original_worker_payload(tmp_path):
     root, held, attempt, actions, role, reference = handoff_fixture(tmp_path)
     (attempt / "run/sf30/spark_cpu/results.json").write_text("{\"tampered\":true}")
