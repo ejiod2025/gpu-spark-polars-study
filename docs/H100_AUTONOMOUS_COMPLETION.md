@@ -84,6 +84,32 @@ capture final `PHASE_DRIVER.json`, remote `backup-receipts/*.json` and the full
 handoff directory separately: the main archive predates its own ACK and the
 later same-scheduler `RESUMED.json` proof.
 
+The full contention workload has now finished: pilot 4/4 and expansion 16/16
+waves PASS. Both raw snapshots are verified off-host; the main archive is
+487,321,600 bytes, SHA256
+`98be99cf74690d01053de9670669e629a166b02bd67fd51a994425006f792197`,
+with 1,561 payload files. The phase watcher exited normally after its verified
+main ACK; do not restart that completed watcher. The manager and guardian also
+finished: `STATE.json` is `COMPLETE_RESUMED`, and the same scheduler PID 179144
+resumed at 2026-10-28 05:32:20.044724 UTC. The original isolated campaign is
+actively collecting again. These historical PID values are not authorization
+to signal a later reused PID.
+
+Exact final driver/remote ACK metadata is at ignored
+`rerun/contention-20261028/final-metadata-v1`; the complete final handoff is
+`rerun/contention-20261028/final-handoff-v1`. They are preserved privately in
+`evidence-research/20261028/h100-contention-final-checkpoint`. Genuine offline
+replay v3 at `rerun/contention-20261028/offline-full-audit-v3` verifies all 460
+outputs, ten strict rejections, 110 measured overlap pairs, 250 barrier releases
+and the actual driver/resume metadata. It remains PARTIAL/publication false:
+only the original paused attempt's actual payload/worker endpoints from the
+forthcoming block-04 backup remain for independent separation proof. An unset
+`no_action_overlap` at this stage is pending proof, not an observed violation.
+Once that genuine backup exists, run the terminal command in
+`research_reporting/CONTENTION_REPLAY.md` into a new output directory. Never
+promote the partial receipt by editing its status. The isolated 400-session
+study and final paper/web/private retrieval/retirement gates remain unfinished.
+
 The handoff may hold only the exact owned C84 scheduler PID, letting its
 already launched original runner/worker finish unpaused. The unchanged journal
 can retain a running attempt while that scheduler is deliberately stopped.
@@ -158,6 +184,18 @@ JVMs match, with no findings. The original journal records 80 successes; this
 isolated block-02 payload does not claim a full 80-session `--partial` CLI run.
 Six separately captured profile receipts match and bracket both blocks; the
 seventh is later block-03-before evidence. The supervisor continues block 03.
+
+Block 03 is independently checked and privately checkpointed at
+`evidence-research/20261028/gclocker100-block03-raw-checkpoint`: 40 selected
+sessions, 936 oracle outputs, six exact strict rejections, cleanup, all 16 JVMs
+and all 40 runtime/configuration inventories match with no findings. Its
+1,042,534,400-byte raw tar SHA256 is
+`b4f68a4ad9085a470f8214d59915bba3a3cfeb90e46a11a67213e579ee13d90c`.
+The first eight separately observed formal profile receipts bracket the three
+completed blocks; the ninth is later block-04-before evidence. This is still
+PARTIAL_BLOCK_ONLY, not a final 400-session analysis. The checkpoint preserves
+an initial local missing-psutil import failure separately from scientific
+outcomes; the successful audit uses the pinned local analysis interpreter.
 
 The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
 same 1,654 input files, oracles and Python environments remain unchanged.
