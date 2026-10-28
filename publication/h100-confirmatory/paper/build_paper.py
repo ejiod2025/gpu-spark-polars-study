@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import contextlib
 from datetime import datetime, timezone
 import hashlib
 import html
 import ipaddress
 import importlib.util
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -36,7 +38,20 @@ EXPECTED_COUNTS = {"sessions": 400, "successful_outputs": 9360, "warmup_outputs"
 C84 = "c84ef6a07341f350dae6636ab709c1b65fd894e0"
 OLD_CAMPAIGN = "69669dfbc74ffb2a0c378c319c7b886043ffccb8f301784fb2b73b9ab32581e0"
 REVIEW_FIELDS = ("all_26_primary_rows", "all_40_coverage_cells", "all_32_secondary_pairs",
-                 "deviations_and_limits", "results_and_captions")
+                 "deviations_and_limits", "results_and_captions", "contention_results_and_limits")
+CONTENTION_ID = "h100-contention-20261028"
+CONTENTION_PLAN = "670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031"
+CONTENTION_PRESTART = "4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25"
+CONTENTION_REFERENCE = "3142874b918a2df2d66c8dfb32c26f59a09353edcb4cb73e51c4ba46ff387641"
+CONTENTION_PROFILE = "a07569ffa3be9cd138ed63084ff59ed668b8bceeef355b5a4f63adef53464c69"
+CONTENTION_CHECK_CODE = """import importlib.util, json, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("h100_paper_scientific_check", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+proof = module.scientific_contention_check(Path(sys.argv[2]), Path(sys.argv[3]) if sys.argv[3] else None)
+print(json.dumps(proof, sort_keys=True, allow_nan=False))
+"""
 PENDING = re.compile(r"\b(pending|placeholder|TODO|TBD)\b|technical draft", re.I)
 
 
@@ -44,16 +59,20 @@ def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def read_json(path):
+def decode_json(value, label="JSON"):
     def unique(pairs):
         result = {}
         for key, value in pairs:
             if key in result:
-                raise ValueError(f"Duplicate JSON key in {Path(path).name}")
+                raise ValueError(f"Duplicate JSON key in {label}")
             result[key] = value
         return result
-    return json.loads(Path(path).read_text(), object_pairs_hook=unique,
+    return json.loads(value, object_pairs_hook=unique,
                       parse_constant=lambda _: (_ for _ in ()).throw(ValueError("Nonfinite JSON")))
+
+
+def read_json(path):
+    return decode_json(Path(path).read_text(), Path(path).name)
 
 
 def contained(root, relative):
@@ -163,11 +182,167 @@ def verify_replay(root):
     return manifest, sha256(manifest_path)
 
 
-def verify_review(path, replay, manuscript):
+def contention_disposition_gate(report):
+    """Lifecycle predicate only; the shared current-source replay is also mandatory."""
+    if (report.get("schema_version") != "h100-contention-replay-v1" or report.get("synthetic") is not False or
+            report.get("experiment_id") != CONTENTION_ID or report.get("plan_sha256") != CONTENTION_PLAN or
+            report.get("prestart_sha256") != CONTENTION_PRESTART or
+            report.get("reference_campaign_sha256") != CONTENTION_REFERENCE or
+            report.get("reference_execution_profile_sha256") != CONTENTION_PROFILE):
+        raise ValueError("Final paper requires the exact genuine separate contention role")
+    if (report.get("status") not in {"COMPLETE", "STOPPED_WITH_FAILURE"} or
+            report.get("integrity_status") != "PASS" or report.get("publication_ready") is not True or
+            report.get("findings") != []):
+        raise ValueError("Final paper requires terminal publication-ready contention provenance; PARTIAL is not final")
+    handoff = report.get("handoff", {})
+    if (handoff.get("status") != "PASS" or handoff.get("same_scheduler_resumed") is not True or
+            handoff.get("original_payload_verified") is not True or handoff.get("no_action_overlap") is not True or
+            report.get("terminal_driver", {}).get("terminal") is not True):
+        raise ValueError("Final contention provenance requires original payload, separation and same-scheduler resume proof")
+
+
+def contention_review_object(report, digest):
+    """Shape the common paper/web contract; never substitute this for scientific verification."""
+    contention_disposition_gate(report)
+    if not re.fullmatch(r"[0-9a-f]{64}", digest or ""):
+        raise ValueError("An exact terminal contention receipt hash is required")
+    return {"status": "COMPLETE", "experiment_id": CONTENTION_ID, "plan_sha256": CONTENTION_PLAN,
+            "prestart_sha256": CONTENTION_PRESTART, "replay_sha256": digest, "disposition": report["status"]}
+
+
+def load_contention_verifier():
+    """Load the current helper and its auditor by exact paths, without package shadowing."""
+    def module(name, path):
+        spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise ValueError("Cannot load the current contention scientific verifier")
+        value = importlib.util.module_from_spec(spec)
+        previous = sys.modules.get(name)
+        sys.modules[name] = value
+        try:
+            spec.loader.exec_module(value)
+        except BaseException:
+            sys.modules.pop(name, None)
+            if previous is not None:
+                sys.modules[name] = previous
+            raise
+        return value
+    auditor = module("contention_replay", REPORTING / "contention_replay.py")
+    verifier = module("h100_paper_contention_verifier", REPORTING / "contention_figures.py")
+    if verifier.audit is not auditor:
+        raise ValueError("Contention helper imported a different auditor module")
+    return verifier
+
+
+def scientific_contention_check(directory, figures=None):
+    """Run only in the explicitly selected analysis Python, with lazy plotting imports.
+
+    The shared loader replays current-source offline validation against actual
+    raw bytes. This function never imports or invokes its plotting functions.
+    """
+    directory = Path(directory).resolve()
+    verifier = load_contention_verifier()
+    loader = REPORTING / "contention_figures.py"
+    auditor = REPORTING / "contention_replay.py"
+    if (Path(verifier.__file__).resolve() != loader.resolve() or
+            Path(verifier.audit.__file__).resolve() != auditor.resolve()):
+        raise ValueError("Scientific contention verifier/auditor module origins differ from current reporting source")
+    receipt = contained(directory, "CONTENTION_REPLAY.json")
+    with contextlib.redirect_stdout(sys.stderr):
+        data = verifier.load_audit(directory, draft=False)
+    if data.get("final") is not True or data.get("draft") is not False:
+        raise ValueError("Shared contention loader did not verify a genuine terminal audit")
+    report, inputs = data["report"], data["inputs"]
+    review = contention_review_object(report, sha256(receipt))
+    inputs.file(loader)
+    figure_binding = None
+    if figures is not None:
+        figures = Path(figures).resolve()
+        figure_path = contained(figures, "FIGURE_MANIFEST.json")
+        value = read_json(figure_path)
+        if (value.get("schema_version") != "h100-contention-figures-v1" or value.get("draft") is not False or
+                value.get("final") is not True or value.get("publication_ready") is not True or
+                value.get("synthetic") is not False or value.get("audit_publication_ready") is not True or
+                value.get("audit_status") != review["disposition"] or value.get("plan_sha256") != CONTENTION_PLAN or
+                value.get("prestart_sha256") != CONTENTION_PRESTART or
+                value.get("auditor_source_sha256") != report["audit_source_sha256"] or
+                value.get("renderer_source_sha256") != sha256(loader) or
+                value.get("input_files_sha256") != inputs.hashes or
+                value.get("reproduced_audit_input_files_sha256") != report["input_files_sha256"] or
+                value.get("audit_counts") != report["counts"]):
+            raise ValueError("Contention figures must be genuine final exports of this exact terminal audit")
+        phases = {wave["wave_id"].split("-", 1)[0] for wave in report["waves"]}
+        stems = {f"{phase}_{stem}" for phase in phases for stem in
+                 ("pair_A_common_actions", "pair_B_common_actions", "actual_action_timeline")}
+        expected = {f"{stem}.{extension}" for stem in stems for extension in ("png", "svg", "pdf")} | {"CAPTIONS.md"}
+        if (set(value.get("output_files_sha256", {})) != expected or
+                {path.name for path in figures.iterdir() if path.is_file()} != expected | {"FIGURE_MANIFEST.json"}):
+            raise ValueError("Final contention figure inventory differs from the actually attempted phases")
+        for name, digest in value["output_files_sha256"].items():
+            if inputs.file(contained(figures, name)) != digest:
+                raise ValueError(f"Contention figure hash differs: {name}")
+        figure_binding = {"directory": str(figures), "manifest_sha256": inputs.file(figure_path), "manifest": value}
+    inputs.recheck()
+    protected = [directory, Path(report["canonical_directory"])]
+    protected += [Path(row["directory"]) for row in report["snapshots"].values()]
+    protected += [Path(row["archive_path"]).parent for row in report["snapshots"].values()]
+    handoff = report["handoff"]
+    protected += [Path(handoff[key]) for key in ("directory", "original_attempt_directory") if handoff.get(key)]
+    if handoff.get("held_journal_path"):
+        protected.append(Path(handoff["held_journal_path"]).parent)
+    if report.get("terminal_driver", {}).get("path"):
+        protected.append(Path(report["terminal_driver"]["path"]).parent)
+    if figures:
+        protected.append(figures)
+    return {"schema_version": "h100-paper-contention-verification-v1", "final": True, "contention_review": review,
+            "loader_sha256": sha256(loader), "auditor_sha256": sha256(auditor),
+            "analysis_interpreter": sys.executable, "analysis_python_version": sys.version.split()[0],
+            "input_files_sha256": inputs.hashes,
+            "reproduced_audit_input_files_sha256": report["input_files_sha256"],
+            "figures": figure_binding, "protected_roots": sorted({str(path.resolve()) for path in protected})}
+
+
+def verify_contention_replay(directory, analysis_python, figures=None):
+    """Require actual terminal proof from a caller-selected, separate analysis runtime."""
+    directory = Path(directory).resolve()
+    receipt = contained(directory, "CONTENTION_REPLAY.json")
+    report = read_json(receipt)
+    digest = sha256(receipt)
+    expected = contention_review_object(report, digest)
+    if analysis_python is None:
+        raise ValueError("Contention verification requires explicit --analysis-python; no receipt-selected interpreter")
+    interpreter = Path(analysis_python).expanduser().absolute()  # Preserve a venv symlink's invocation path.
+    if not interpreter.is_file() or not os.access(interpreter, os.X_OK):
+        raise ValueError("--analysis-python must name an executable Python analysis environment")
+    command = [str(interpreter), "-B", "-I", "-c", CONTENTION_CHECK_CODE,
+               str(Path(__file__).resolve()), str(directory), str(Path(figures).resolve()) if figures else ""]
+    result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, timeout=1800, check=False)
+    if result.returncode:
+        detail = result.stderr.strip()[-4000:]
+        raise ValueError(f"Fresh contention verification failed in the selected analysis Python: {detail}")
+    proof = decode_json(result.stdout, "contention verification response")
+    if (proof.get("schema_version") != "h100-paper-contention-verification-v1" or proof.get("final") is not True or
+            proof.get("contention_review") != expected or proof.get("loader_sha256") != sha256(REPORTING / "contention_figures.py") or
+            proof.get("auditor_sha256") != sha256(REPORTING / "contention_replay.py") or
+            proof.get("input_files_sha256", {}).get(str(receipt)) != digest or
+            sha256(receipt) != digest or (figures is not None) != (proof.get("figures") is not None)):
+        raise ValueError("Fresh contention proof does not bind the exact terminal receipt/current verifier")
+    if figures is not None and proof["figures"].get("directory") != str(Path(figures).resolve()):
+        raise ValueError("Fresh contention figure proof identifies a different directory")
+    for name, expected_hash in proof["input_files_sha256"].items():
+        if not re.fullmatch(r"[0-9a-f]{64}", expected_hash or "") or sha256(name) != expected_hash:
+            raise ValueError("Contention verification input changed after the fresh audit")
+    return proof
+
+
+def verify_review(path, replay, manuscript, contention_review=None):
     review = read_json(path)
     expected = {"status": "complete", "author": AUTHOR,
                 "campaign_sha256": replay["campaign_sha256"],
-                "manuscript_sha256": sha256(SOURCE), "references_sha256": sha256(REFERENCES)}
+                "manuscript_sha256": sha256(SOURCE), "references_sha256": sha256(REFERENCES),
+                "contention_review": contention_review}
+    if contention_review is None:
+        raise ValueError("Final editorial review requires the verified terminal contention role")
     if any(review.get(key) != value for key, value in expected.items()) or any(
             review.get(key) is not True for key in REVIEW_FIELDS):
         raise ValueError("Final editorial review does not bind all required source/result checks")
@@ -244,7 +419,8 @@ def register_fonts():
     return font_files
 
 
-def render_pdf(ast, destination, title, final, output, replay_root, replay_manifest=None):
+def render_pdf(ast, destination, title, final, output, replay_root, replay_manifest=None,
+               contention_figures_root=None, contention_figures_manifest=None):
     import reportlab
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_LEFT
@@ -275,7 +451,7 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
         page_width, page_height = canvas._pagesize
         canvas.setTitle(title)
         canvas.setAuthor(AUTHOR)
-        canvas.setSubject("Complete H100 replacement study" if final else "DRAFT: replacement findings pending; not final study results")
+        canvas.setSubject("H100 recovery study with separate contention extension" if final else "DRAFT: recovery findings pending; not final study results")
         canvas.setFont("Paper", 7.5)
         canvas.setFillColor(colors.HexColor("#586575"))
         canvas.drawString(margin, page_height - .40 * inch, "H100 dataframe execution · Polars and Spark")
@@ -312,12 +488,20 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
             source = contained(replay_root, relative)
             if not replay_manifest or replay_manifest.get("output_files_sha256", {}).get(relative) != sha256(source):
                 raise ValueError("Referenced paper figure is not bound by the completed replay manifest")
-            destination_image = output / reference
-            destination_image.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, destination_image)
-            figure_bindings[reference] = sha256(source)
+        elif reference.startswith("contention/figures/"):
+            if contention_figures_root is None or contention_figures_manifest is None:
+                raise ValueError("Paper references a contention figure but verified --contention-figures was omitted")
+            name = reference.removeprefix("contention/figures/")
+            source = contained(contention_figures_root, name)
+            if (contention_figures_manifest.get("final") is not True or
+                    contention_figures_manifest.get("output_files_sha256", {}).get(name) != sha256(source)):
+                raise ValueError("Referenced contention figure is not bound by its verified final manifest")
         else:
-            raise ValueError("Paper figures must use replay/figures/ references bound to the completed replay")
+            raise ValueError("Paper figures require verified replay/figures/ or contention/figures/ references")
+        destination_image = output / reference
+        destination_image.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination_image)
+        figure_bindings[reference] = sha256(source)
         if source.suffix.lower() not in (".png", ".jpg", ".jpeg"):
             raise ValueError("Use the verified PNG/JPEG export for paper raster embedding")
         image = Image(str(destination_image))
@@ -426,21 +610,39 @@ pre{white-space:pre-wrap}header{border-bottom:1px solid #d7e0e7;margin-bottom:2r
 """
 
 
-def build(output, replay_root=None, review_path=None):
+def build(output, replay_root=None, review_path=None, *, contention_root=None, analysis_python=None,
+          contention_figures_root=None):
     output = output.resolve()
     replay_root = replay_root.resolve() if replay_root is not None else None
+    contention_root = contention_root.resolve() if contention_root is not None else None
+    contention_figures_root = contention_figures_root.resolve() if contention_figures_root is not None else None
+    final = review_path is not None
     if output.exists():
         raise ValueError("Refusing to overwrite a paper output directory")
+    if final and replay_root is None:
+        raise ValueError("A final paper requires --replay")
+    if final and contention_root is None:
+        raise ValueError("A final paper requires --contention-replay")
+    if (final or contention_root is not None) and analysis_python is None:
+        raise ValueError("Contention verification requires explicit --analysis-python")
+    if contention_figures_root is not None and contention_root is None:
+        raise ValueError("--contention-figures requires --contention-replay")
     if not shutil.which("pandoc"):
         raise ValueError("Pandoc is required for Markdown parsing and standalone HTML")
     manuscript, references = SOURCE.read_text(), REFERENCES.read_text()
     title = manuscript.splitlines()[0].removeprefix("# ")
-    final = review_path is not None
     replay, replay_hash = verify_replay(replay_root) if replay_root is not None else (None, None)
+    contention = verify_contention_replay(contention_root, analysis_python, contention_figures_root) if contention_root else None
+    if contention and replay and (replay["campaign_sha256"] != CONTENTION_REFERENCE or
+            replay["registered_campaign_identity"]["execution_profile_sha256"] != CONTENTION_PROFILE):
+        raise ValueError("Paper primary replay differs from the contention role's exact reference campaign/profile")
     if final:
-        if replay is None:
-            raise ValueError("A final paper requires --replay")
-        verify_review(review_path, replay, manuscript)
+        verify_review(review_path, replay, manuscript, contention["contention_review"])
+    protected = ([replay_root] if replay_root else []) + (contention["protected_roots"] if contention else [])
+    if replay:
+        protected += [replay[key] for key in ("archive", "artifacts_root") if replay.get(key)]
+    if any(output.is_relative_to(Path(path).resolve()) for path in protected):
+        raise ValueError("Paper output must be separate from immutable replay/contention evidence")
     body = "\n".join(manuscript.splitlines()[1:]).strip()
     body = body.replace(f"**{AUTHOR}**\n", "", 1).lstrip()
     ref_body = "\n".join(references.splitlines()[1:]).strip()
@@ -456,8 +658,16 @@ def build(output, replay_root=None, review_path=None):
                 "campaign_id": replay.get("campaign_id") if replay else None,
                 "campaign_sha256": replay.get("campaign_sha256") if replay else None,
                 "execution_profile_sha256": replay["registered_campaign_identity"]["execution_profile_sha256"] if replay else None,
+                "contention_review": contention["contention_review"] if contention else None,
                 "started_at_utc": datetime.now(timezone.utc).isoformat()}
     try:
+        if contention:
+            proof_path = output / "CONTENTION_VERIFICATION.json"
+            proof_path.write_text(json.dumps(contention, indent=2, sort_keys=True, allow_nan=False) + "\n")
+            manifest["contention_verification"] = {"path": proof_path.name, "sha256": sha256(proof_path),
+                "analysis_python": str(Path(analysis_python).expanduser().absolute()),
+                "analysis_interpreter": contention["analysis_interpreter"],
+                "loader_sha256": contention["loader_sha256"], "auditor_sha256": contention["auditor_sha256"]}
         if review_path:
             manifest["editorial_review_sha256"] = sha256(review_path)
         markdown_path = output / "paper-source.md"
@@ -465,7 +675,9 @@ def build(output, replay_root=None, review_path=None):
         ast = json.loads(subprocess.run(["pandoc", "--from=markdown", "--to=json", str(markdown_path)],
                                         check=True, text=True, capture_output=True).stdout)
         (output / "paper-source.json").write_text(json.dumps(ast, ensure_ascii=False, indent=2) + "\n")
-        manifest.update(render_pdf(ast, output / "h100-paper.pdf", title, final, output, replay_root, replay))
+        figure_manifest = contention["figures"]["manifest"] if contention and contention.get("figures") else None
+        manifest.update(render_pdf(ast, output / "h100-paper.pdf", title, final, output, replay_root, replay,
+                                   contention_figures_root, figure_manifest))
         (output / "paper.css").write_text(CSS)
         html_source = output / "paper-html-source.md"
         html_source.write_text(f"---\ntitle: {json.dumps(title)}\nauthor: {json.dumps(AUTHOR)}\nlang: en\n---\n\n" + composed)
@@ -494,6 +706,10 @@ def build(output, replay_root=None, review_path=None):
             raise ValueError("Paper source changed during the build")
         if replay_root is not None and sha256(replay_root / "REPLAY_MANIFEST.json") != replay_hash:
             raise ValueError("Replay manifest changed during the build")
+        if contention:
+            for name, digest in contention["input_files_sha256"].items():
+                if sha256(name) != digest:
+                    raise ValueError("Verified contention input/figure changed during the paper build")
         manifest.update(status="PASS" if final else "PASS_DRAFT", paper_sha256=sha256(output / "h100-paper.pdf"),
                         paper_html_sha256=sha256(output / "h100-paper.html"),
                         pandoc_version=subprocess.run(["pandoc", "--version"], check=True, text=True,
@@ -515,9 +731,13 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--replay", type=Path)
     parser.add_argument("--final-review", type=Path)
+    parser.add_argument("--contention-replay", type=Path, help="genuine terminal contention audit directory")
+    parser.add_argument("--analysis-python", type=Path, help="explicit Python for fresh offline scientific verification")
+    parser.add_argument("--contention-figures", type=Path, help="optional final hash-bound contention figure exports")
     args = parser.parse_args()
     try:
-        result = build(args.output, args.replay, args.final_review)
+        result = build(args.output, args.replay, args.final_review, contention_root=args.contention_replay,
+                       analysis_python=args.analysis_python, contention_figures_root=args.contention_figures)
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
         parser.exit(1, f"Paper build refused/failed: {type(exc).__name__}: {exc}\n")
     print(json.dumps({key: result[key] for key in ("status", "final", "author", "campaign_id", "paper_sha256")}))

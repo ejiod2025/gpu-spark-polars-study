@@ -299,9 +299,11 @@ python publication/h100-confirmatory/paper/build_paper.py \
 
 For a final build, first complete the paper text and create a separate review
 JSON with `status: complete`, exact `campaign_sha256`, `manuscript_sha256` and
-`references_sha256`, author `Daniel Ejiofor`, and all five review booleans true:
+`references_sha256`, author `Daniel Ejiofor`, and all six review booleans true:
 `all_26_primary_rows`, `all_40_coverage_cells`, `all_32_secondary_pairs`,
-`deviations_and_limits`, and `results_and_captions`. This is an explicit editorial
+`deviations_and_limits`, `results_and_captions`, and `contention_results_and_limits`.
+It must also contain the exact verified `contention_review` object described
+below. This is an explicit editorial
 attestation, not a substitute for scientific replay. The builder checks it
 against the actual source and genuine recovery replay. The final
 `BUILD_MANIFEST.json.execution_profile_sha256` and public webpage provenance
@@ -310,17 +312,42 @@ hashes cannot satisfy this gate. The editorial review JSON's exact campaign/
 source hashes bind it to that verified replay; it has no separate required
 profile-hash field. Profile identity is explicit in the build/audit/page
 manifests.
-The existing `deviations_and_limits` and `results_and_captions` reviews must also
-cover the separate contention design, actual phase/failure disposition and
-managed scheduler interlude. This prose update adds no invented builder field
-or alternate completion path.
+Final builds require `--contention-replay` with the genuine terminal separate
+role and `--analysis-python` with an explicitly selected analysis environment.
+The builder invokes the shared fresh current-source offline audit in that
+subprocess; it never chooses a receipt-provided interpreter or assumes that
+the PDF/ReportLab runtime has scientific dependencies. Common gate imports
+remain independent of Matplotlib. PARTIAL/publication_ready false is refused;
+methods-only drafts may omit those arguments and remain unpublished.
+
+The exact final `BUILD_MANIFEST.json.contention_review`, and the same object
+inside the editorial JSON, is `{status: "COMPLETE", experiment_id:
+"h100-contention-20261028", plan_sha256:
+"670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031",
+prestart_sha256: "4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25",
+replay_sha256: actual terminal receipt SHA256, disposition: "COMPLETE" or
+"STOPPED_WITH_FAILURE"}`. Do not use the current PARTIAL v3 receipt hash as a
+terminal binding. The existing deviation/caption reviews and new explicit
+`contention_results_and_limits` review cover actual phase/failure disposition,
+unpaired CPU diagnostics, wait-inclusive metrics, scope and scheduler interlude.
+An editorial marker cannot substitute for freshly verified raw evidence.
 
 ```sh
 python publication/h100-confirmatory/paper/build_paper.py \
   --replay /absolute/recovery-replay \
+  --contention-replay /absolute/new-terminal-contention-replay \
+  --analysis-python /tmp/h100-analysis-audit-venv/bin/python \
   --final-review /absolute/FINAL_PAPER_REVIEW.json \
   --output /absolute/new-final-paper-build
 ```
+
+Optional final contention figures use `--contention-figures` with the separate
+genuine final manifest bound to that same terminal receipt/current renderer and
+complete input/export hashes. Markdown embeds use
+`contention/figures/<actual-final-export>.png`; primary figures continue using
+`replay/figures/`. Draft/static preparation exports remain private and cannot
+enter a final paper binding. `CONTENTION_VERIFICATION.json` preserves the
+selected analysis runtime and exact verification inputs/provenance.
 
 Inspect every rendered PDF page at readable resolution, including tables,
 captions, long identifiers and references. Verify PDF author/title, no clipped
