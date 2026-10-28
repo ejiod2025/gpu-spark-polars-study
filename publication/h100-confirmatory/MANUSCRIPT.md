@@ -2,17 +2,21 @@
 
 **Daniel Ejiofor**
 
-**Technical draft — recovery collection in progress, 2026-10-27.** Four
+**Technical draft — recovery incomplete; separate contention interlude in progress,
+2026-10-28 UTC.** Four
 cohorts have distinct roles: an exploratory pilot, the incomplete campaign on
 a lost instance, an aborted default-profile replacement, and one fresh
 recovery campaign with a fixed JVM profile. Their timings are never pooled.
+A separately requested, descriptive same-host contention experiment now has
+its own frozen plan and managed interlude; it neither replaces nor augments the
+400-session primary sample.
 The [replacement addendum](../../docs/H100_REPLACEMENT_20261027.md) and
 [prospective recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md)
 record the host, input reuse, incident, feasibility gate and profile choice.
 The separate recovery feasibility diagnostic and repeated readiness have
 passed, and the fresh campaign has started. Ten-block estimates, superiority
-findings and sampled-scale conclusions remain pending. This draft is not ready
-for external publication.
+findings and sampled-scale conclusions remain pending. Contention performance
+results also remain pending. This draft is not ready for external publication.
 
 ## Abstract
 
@@ -30,8 +34,12 @@ blocks, independent SQL correctness checks, separate action/common-host-result
 endpoints, and 26 primary comparisons with Holm adjustment. Strict unsupported
 expressions receive no imputed times. The profile is a post-incident
 configuration choice, with no causal mitigation or reliability claim.
+A separate staged experiment coordinates one Spark process and one Polars
+process on this same H100; its descriptive observations are excluded from the
+primary family and isolated sample.
 **Recovery performance estimates and conclusions await its completed ten-block
-campaign.** These selected research workloads are not complete or certified
+campaign; contention findings await their separate completed evidence.** These
+selected research workloads are not complete or certified
 TPC-H results.
 
 ## 1. Introduction
@@ -73,6 +81,9 @@ controlled cold-cache latency and optimal per-engine tuning. Historical
 A100/H100 comparisons also change CPU allocation, software and file layout.
 Primary recovery conclusions will apply to the explicitly recorded JVM profile;
 the aborted cohorts do not estimate its causal performance or reliability effect.
+The user-requested contention extension asks a different question about two
+coordinated workloads sharing the same host. It has separate sampling,
+instrumentation and descriptive reporting, and supplies no extra primary blocks.
 
 ## 2. Related work and methodological position
 
@@ -456,6 +467,118 @@ point without a contradictory larger sampled point. A lower point lacking
 support is not evidence of reversal. No exact byte threshold or interpolation
 through unmeasured scales will be asserted.
 
+### 4.5 Separate coordinated same-host contention experiment
+
+The owner subsequently requested concurrent sessions on the existing H100.
+The separate [contention protocol](../../docs/H100_CONTENTION_PROTOCOL.md)
+defines `h100-contention-20261028`, with canonical pre-start archive
+`evidence-research/20261028/h100-contention-v1`. Its plan SHA256 is
+`670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031` and
+pre-start manifest SHA256 is
+`4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25`.
+All 65 listed file checksums match, for 66 canonical files including the
+manifest. Private pre-start commit
+`98c7ff4d6a9bbe82a021671c28fed28f71827b70` preceded execution. The plan binds
+the recovery campaign/profile identities above, the same 52-file C84 source,
+SF30/SF100 manifests, four existing independent oracles and separately versioned
+external instrumentation. No contention observation enters the isolated
+400-session sample, its 26-test family or the recovery feasibility diagnostic.
+
+| Pair | Concurrent participants | GPU path |
+| --- | --- | --- |
+| A | Spark GPU and Polars CPU 2.0.0 | Spark GPU |
+| B | Spark CPU and strict Polars GPU 1.44.2 | Polars GPU |
+
+Each pair has one Spark JVM with its original 96 GiB heap and one GPU execution
+path. Each participant requests its full original 26 CPU threads on the same
+26-vCPU host; CPUs are not partitioned into disjoint allocations or cgroups.
+Both Spark paths retain the sealed retry-100 JVM profile and fixed SQL settings.
+Host memory, CPU, cache, disk and GPU-related host work are deliberately shared.
+The design excludes two concurrent Spark heaps and simultaneous Spark GPU/
+Polars GPU default pools. These observations cannot describe equal-resource
+competition or standalone isolated execution.
+
+The staged pilot contains both pairs × baseline/complex at SF30: four waves
+and eight fresh processes, with one warmup and one measured action per query.
+Seed 20261028 fixes its wave order. Only if all four pilot waves pass output,
+cleanup, configuration and actual measured-overlap gates may the planned
+expansion run: both pairs × both suites × SF30/SF100 × two repetitions,
+sixteen waves and thirty-two fresh processes, with order seed 20261029.
+Pilot observations are not pooled into the expansion. Expected successful
+output comparisons are 92 for the pilot and 368 for the expansion, with two
+and eight expected strict unsupported warmups respectively; these are design
+counts, not completed results in this draft. Any failed wave stops its phase
+and preserves both participants and partial evidence. The design permits no
+hidden retry, adaptive sample increase or new scale; a failure requires a new
+explicit scientific decision.
+
+The separately hashed `contention_worker.py` imports the byte-identical frozen
+worker. External hooks add an engine-ready barrier and a rendezvous before
+each common query/phase/trial. The action rendezvous follows the first existing
+process-counter sample and precedes the original timer start; both participants
+use the same future monotonic release timestamp. Query expressions,
+materialization/conversion code and timer statements remain unchanged.
+This is coordinated same-query contention, rather than independent arrival
+traffic. Each wave shares one full selected-scale preheat before either process
+starts, with residency observations before/after preheat and after both workers.
+Selected input-byte gates bracket each phase; these observations do not
+guarantee in-query residency.
+
+In pair B complex, strict Polars GPU rejects `cx_q13` and `cx_window` during
+warmup. Both warmup attempts rendezvous, but their measured CPU counterparts
+explicitly bypass the barrier because no measured GPU counterpart exists.
+Those two CPU measurements are unpaired diagnostics. A six-query CPU sum would
+mix paired and unpaired conditions and must not be presented as uniformly
+contended execution; a complete six-query Polars GPU score remains unavailable.
+Only the four common measured query pairs establish query-level contention for
+this condition. Other waves require six common measured query pairs.
+
+Saved action UTC and same-host monotonic intervals, rather than overlapping
+process lifetimes, must establish actual action overlap. Report both action
+durations, start skew and interval intersection for every common measured query;
+the pilot gate requires positive intersection on both clocks. The action and
+common-host-result endpoints retain their frozen boundaries. Wave/process wall
+time includes initialization and rendezvous waits, with shared preheat reported
+separately. Process-counter deltas and sampled RSS/GPU-memory observations can
+include untimed rendezvous waits and are not isolated action-only resource costs.
+Host/process-tree sampling is every 0.5 s and GPU sampling every 200 ms; transient
+peaks may be missed and board utilization/power cannot be attributed causally
+to a single query or process.
+
+No contention p values, superiority decisions, additions to the primary family
+or exact crossover thresholds are declared. Two expansion repetitions support
+descriptive reporting only. Any later comparison with the completed isolated
+study must disclose the different replication, barrier and preheat context and
+keep both designs' observations separate.
+
+### 4.6 Managed interlude in isolated collection
+
+The [interlude record](../../docs/H100_CONTENTION_INTERLUDE_20261028.md)
+discloses a requested operational amendment after isolated collection began.
+The manager held only the exact isolated scheduler, PID 179144, at
+2026-10-28 04:44:23 UTC, preserving its process, locks and journal. The already
+launched isolated SF30 Spark CPU runner and its workers continued unpaused,
+then finished before contention began. The pilot started at 04:47:43 UTC.
+No isolated worker action overlaps a contention action, and no original
+action/host-result timer or result is rewritten.
+
+Because the scheduler is held while its existing child drains, the journal
+may continue to mark the attempt as running after its worker has finished.
+The scheduler's eventual `ended_at_utc` and `orchestrator_wall_seconds` include
+the hold. This outer-envelope inflation must be reported explicitly and cannot
+be interpreted as query latency. It does not create a replacement attempt or
+cancel the remaining 400-session allocation.
+
+Resume remains conditional on all contention workers/descendants being gone,
+an explicit idle interval, and fresh source/runtime/profile/input identity
+checks. Those interlude checks belong in separate receipts and must not alter
+the formal 24-record profile log. The same isolated scheduler PID must resume
+the unchanged order; the hold, drain, contention disposition and actual resume
+receipts must be retained. Temporal pacing and possible cache/host-state
+carryover are disclosed limitations even though the query timers are unchanged.
+The actual interlude end/resume and completed contention disposition remain
+pending in this draft.
+
 ## 5. Results — recovery primary results pending
 
 The default-profile abort and passed recovery feasibility/readiness are observed
@@ -574,6 +697,24 @@ Describe any conspicuous drift or uncertainty without silently trimming a
 block, changing the fixed family or asserting that balanced order removes all
 interference. Deviation and pacing disclosures belong beside these observations.
 
+### 5.7 Separate contention disposition and descriptive results — pending
+
+The contention pilot has started under its separate frozen plan. Its complete
+phase dispositions, coverage, failures, overlap tables, action endpoints,
+whole-wave/process durations and resource observations remain pending. Report
+pilot and any gated expansion separately, including every planned wave and
+all preserved errors; do not turn a partial wave or process-lifetime overlap
+into a completed contention result. The pair B complex table must identify
+four common measured pairs and two unpaired CPU diagnostics, with no uniformly
+contended six-query CPU sum. Counter/memory results must retain their possible
+untimed-wait scope.
+
+The final interlude table must give hold/drain/start/end/resume times, exact
+owned scheduler identity, original worker completion, identity checks and any
+outer-orchestrator wall-time inflation. Contention completion cannot establish
+completion of the original 400 sessions or authorize retirement by itself.
+Neither primary nor contention performance conclusions are available here.
+
 ## 6. Discussion — interpretation prepared, findings pending
 
 The primary practical interpretation will concern supported complete
@@ -611,6 +752,16 @@ feasibility diagnostic does not prove that the failure was a false OOM, that the
 profile cured its cause, or that future runs are robust. Any allocation-retry
 overhead during a measured action remains part of the reported action.
 
+The contention extension has a distinct interpretation. Both processes request
+the original full CPU budget while sharing one host, so observed action times
+describe that coordinated competing workload. Barrier synchronization does not
+make resources equal or reproduce arbitrary user arrivals. Pair B complex
+further separates common contended queries from two unpaired CPU diagnostics.
+Any isolated/contention comparison will be descriptive and will preserve the
+different replication and cache/barrier conditions. The scheduler hold affects
+the isolated outer orchestration envelope and temporal history, even though
+its already launched worker and query timers were not paused.
+
 The final discussion must connect each observed result to these questions,
 address conflicting scale/query/endpoint patterns, and distinguish statistical
 support from effect magnitude and practical relevance. Claims about bandwidth,
@@ -632,6 +783,12 @@ to that post-incident configuration. A fresh complete sample avoids pooling
 incompatible timings; it does not erase the configuration-selection history
 or establish a causal mitigation effect. The fixed single-recovery decision
 must remain visible, including any later collection failure.
+The same-host contention extension is small and synchronized, with only two
+planned expansion repetitions. Its process-counter and memory observations may
+span untimed waits; GPU board samples are shared and can miss peaks. The
+requested interlude changes isolated temporal pacing and may influence later
+host/cache state. Recorded idle/identity checks and continued preheat policy
+support interpretation without proving absence of carryover.
 
 ## 8. Reproducibility and release status
 
@@ -643,6 +800,12 @@ It also separates the lost and aborted evidence from the recovery and binds
 proof, all 24 profile receipts and all 160 effective Spark driver logs. The
 final complete audit and paper build must identify the same recovery profile;
 neither earlier campaign identity can satisfy this primary-results gate.
+The separate contention plan/pre-start/instrumentation hashes, phase and wave
+validations, participant outputs, barrier/overlap events, telemetry and managed
+handoff receipts must also be preserved. They retain separate schemas and
+cannot satisfy the isolated campaign's final journal, 24 profile receipts or
+400-session analysis. The immutable contention pre-start status
+`FROZEN_NOT_RUN` describes its creation point, not live execution or completion.
 
 `research_validate.py` gates `research_analysis.py`; the separate
 `research_reporting/render.py` produces PNG/SVG/PDF figures from complete real
@@ -680,6 +843,11 @@ explicit. Supported performance advantages, endpoint-sensitive interpretation
 and sampled-scale conclusions await all 400 recovery sessions, final integrity/
 profile audit and genuine replay. The pre-start feasibility/readiness milestone
 does not establish a causal mitigation finding or a primary performance result.
+
+The separately requested contention experiment and managed interlude have their
+own incomplete evidence and descriptive reporting. They do not replace the
+original 400 sessions, supply primary superiority conclusions or complete the
+paper/publication/preservation requirements by themselves.
 
 ## Appendix A. Historical evidence excluded from recovery inference
 

@@ -1,6 +1,7 @@
 # Recovery paper: result insertion and completion ledger
 
-Status: recovery collection in progress, 2026-10-27. This is an editorial workflow, not new
+Status: recovery incomplete; separate contention interlude in progress,
+2026-10-28 UTC. This is an editorial workflow, not new
 experimental source. It changes no C84 file, query, sample size, endpoint or
 statistical rule. This ledger does not itself satisfy the final publication or
 host-retirement gates.
@@ -12,6 +13,37 @@ ongoing fixed-JVM-profile recovery. Primary results can come
 only from the recovery's 400 fresh sessions. Never pool the lost cohort's 120
 sessions/2,808 outputs, the default-profile cohort's 88 validated sessions/2,056
 outputs, or the separate feasibility diagnostic into recovery inference.
+The same-host contention extension is a separate descriptive experiment, not a
+fifth primary cohort or an addition to the isolated 26-test family. Its staged
+pilot and any gated expansion are also separate samples. The original 400
+sessions are not cancelled or replaced by this requested interlude.
+
+## Separate contention binding and interlude status
+
+Read [H100_CONTENTION_PROTOCOL.md](../../docs/H100_CONTENTION_PROTOCOL.md) and
+[H100_CONTENTION_INTERLUDE_20261028.md](../../docs/H100_CONTENTION_INTERLUDE_20261028.md)
+before inserting the extension. Its exact experiment ID is
+`h100-contention-20261028`; canonical pre-start is
+`evidence-research/20261028/h100-contention-v1`. Plan SHA256 is
+`670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031` and
+pre-start SHA256 is
+`4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25`.
+All 65 listed checksums match, for 66 canonical files including the manifest;
+all 52 source identities match C84/the recovery reference. Private commit
+`98c7ff4d6a9bbe82a021671c28fed28f71827b70` preceded execution. The plan separately
+hashes the external runner, barrier worker and protocol, with the same reference
+recovery campaign/profile, SF30/SF100 manifests and four oracle files. Its
+immutable `FROZEN_NOT_RUN` pre-start status is not a live phase-status field.
+
+The manager held only the original scheduler PID 179144 at 04:44:23 UTC on
+October 28. The active isolated SF30 Spark CPU runner/workers continued
+unpaused and finished before the contention pilot began at 04:47:43 UTC.
+The hold's original action and host-result endpoints are not rewritten. Its
+eventual scheduler end and `orchestrator_wall_seconds` include the hold; preserve
+that outer-envelope inflation as a disclosed operational deviation. The final
+hold/drain/phase-end/idle/identity/same-PID-resume evidence remains required.
+Contention performance and full phase disposition remain pending, as do all
+isolated primary performance results.
 
 ## 1. Bind the actual recovery before inserting a primary result
 
@@ -150,6 +182,40 @@ the paper workflow must not recompute a different statistic.
 | Figure/paper/page provenance | Figure and replay manifests; final paper `BUILD_MANIFEST.json`; public webpage provenance | Real-data `synthetic: false`; same recovery campaign, `execution_profile_sha256` and source/input/export hashes | §8/supplement; figures copied verbatim; final paper/page accept only the exact sealed recovery profile |
 | Raw archive availability | `BUNDLE_MANIFEST.json`, `CHUNKS.sha256`, `REASSEMBLE.md`, verified off-host receipt | Every raw file and part bound; extraction/replay verified | §8; state actual private access and any authorized release terms accurately |
 
+### Separate contention and managed-interlude insertion contract
+
+Keep the complete contention raw tree and its backup/verification schemas
+separate from the primary reconstruction/replay. A contention wave or phase
+PASS never satisfies a missing isolated session. Preserve the genuine pre-start
+seal separately from the later phase files and final handoff controls.
+
+| Paper item | Exact separate evidence | Completeness/cross-check | Interpretation |
+| --- | --- | --- | --- |
+| Extension identity/source/instrumentation | Canonical `CONTENTION_PLAN.json`, `.sha256`, `CONTENTION_PRESTART_MANIFEST.json`, 52-file `FROZEN_SOURCE/`, three declared tool/protocol hashes and reference plan/profile | Exact hashes above, 65 matching listed checksums, `synthetic: false`, same C84/reference identities | §4.5; external instrumentation is separately versioned, with no original expression/timer edits |
+| Staged matrix and resource table | Plan `.pilot`, `.main`, `.main_gate`, `.settings`, `.configs`, `.spark_submit_opts`; phase runtime/configuration gates | Four pilot waves/eight processes at SF30; only after all pilot gates, sixteen expansion waves/thirty-two processes at SF30/SF100 with two repetitions | One Spark + one Polars process, one GPU path; both request 26 CPU threads on the same 26-vCPU host, one 96 GiB Spark heap; deliberate shared resources |
+| Actual phase/wave disposition | `<phase>/PHASE.json`: `.status`, `.waves`, initial/post input gates; every final `<wave>/WAVE.json` and `VALIDATION.json`; participant results, errors, plans, logs, cleanup and hashes | Retain all prescribed pilot waves and actual expansion disposition; expected complete-phase outputs 92/368 and strict unsupported warmups 2/8 are design counts until verified | §5.7; report pilot and expansion separately; a failed pilot blocks expansion without a new explicit scientific decision; no hidden retry or imputed time |
+| Common measured overlap/action table | `<wave>/VALIDATION.json`: `.measured_action_overlap[]`; exact matching participant action UTC/monotonic bounds and both endpoints | Per common query: start skew, left/right durations, monotonic intersection and UTC intersection, positive on both clocks; six pairs normally, four for pair B complex | Coordinated same-query contention; overlapping process lifetimes/barrier release do not prove overlapping action timers |
+| Pair B complex unpaired diagnostics | Strict Polars GPU `cx_q13`/`cx_window` warmup rejections, barrier bypass events and CPU measured records | Mark these two CPU measurements unpaired in each affected wave; retain original oracle agreement and no imputed GPU time | A six-query CPU sum mixes paired/unpaired conditions and is not a uniformly contended suite score; only four common measured pairs supply query-level contention |
+| Shared preheat, walls and resource observations | `WAVE.json` preheat/cache/member/start/end fields; participant process walls/counters; `barriers/events-*.jsonl`, `host-processes.jsonl` and `gpu.csv` | Keep shared preheat separate; startup/rendezvous waits remain visible; host/process-tree 0.5 s and GPU 200 ms sample scope disclosed | Counters and sampled RSS/GPU memory may include untimed rendezvous waits; sampled peaks/board power are not isolated per-query resource costs |
+| Managed hold, drain and return to isolated work | Handoff `CONFIG.json`, `STATE.json`, `EVENTS.jsonl`, original child completion, contention final worker cleanup, idle/identity/source/runtime/profile/input checks and same-scheduler resume receipts | Exact owned PID/creation/command identities; no isolated/contention action overlap; no surviving contention descendants at resume; unchanged original journal/results/schedule | §4.6/§5.7; report hold/drain/start/end/resume times and outer `ended_at_utc`/orchestrator wall inflation without rewriting original action values |
+| Separate preservation and final metadata | Verified contention phase snapshots/raw manifests/off-host acknowledgements, then final driver/guardian/handoff metadata after phase ACK | Exact raw bytes and extraction/transfer hashes; later resume/exit receipts preserved even when not in the main phase archive | §8; keep interlude identity checks outside the formal 24-record profile log; both full isolated delivery and separate contention disposition remain required before retirement |
+
+Require both final phase and final wave cleanup evidence, not only a wave
+`VALIDATION.json` PASS written before final cleanup. Reconcile every referenced
+wave/result/validation hash. Preserve blocked or unrun expansion as such if its
+gate fails. No p values, superiority decisions, new primary tests or exact
+crossover threshold are specified for the two-repetition descriptive extension.
+Any later comparison against isolated results must disclose different sampling,
+barrier, preheat and metric boundaries without pooling either design.
+
+After contention, the original scheduler's unchanged attempt may remain marked
+running until that same scheduler resumes; do not repair or replace its journal
+to conceal the interlude. Final receipts must show that its original runner and
+cleanup finished before contention actions began, and all contention descendants
+were gone before resume. Interlude runtime/input/profile checks are separate
+files, not extra entries in the formal 24-receipt log. Temporal pacing and
+possible cache/host-state carryover must remain in the validity discussion.
+
 The figure stems above are defined by the current renderer and must also appear
 in the actual real-data `RENDER_MANIFEST.json` before insertion. Their presence
 in this ledger is not a claim that the completed result files already exist.
@@ -185,6 +251,10 @@ No automatic escalation, invisible retry or new cohort follows another failure.
 Add no transfer, spill, compute or energy mechanism without
 separate measured evidence. Resolve actual notice/attribution requirements
 without inventing an affiliation, public dataset URL or publication venue.
+Write the contention/interlude disposition in §4.5–4.6 and §5.7 only from its
+completed real phase/hold/resume evidence. Keep every finding's sample and
+metric scope explicit, including unpaired CPU complex actions and wait-inclusive
+resource observations. Partial operational progress is not a published result.
 
 ## 5. Build and inspect the paper and compare the webpage
 
@@ -210,6 +280,10 @@ hashes cannot satisfy this gate. The editorial review JSON's exact campaign/
 source hashes bind it to that verified replay; it has no separate required
 profile-hash field. Profile identity is explicit in the build/audit/page
 manifests.
+The existing `deviations_and_limits` and `results_and_captions` reviews must also
+cover the separate contention design, actual phase/failure disposition and
+managed scheduler interlude. This prose update adds no invented builder field
+or alternate completion path.
 
 ```sh
 python publication/h100-confirmatory/paper/build_paper.py \
