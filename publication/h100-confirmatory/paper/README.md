@@ -52,7 +52,10 @@ no findings, actual original payload/action-separation proof and same-scheduler
 resume. The shared `research_reporting/contention_figures.py.load_audit(...,
 draft=False)` gate validates current auditor/source/canonical/CSV hashes and
 freshly reproduces the full offline audit. A changed status marker cannot
-promote the current PARTIAL/publication_ready false receipt.
+promote a PARTIAL/publication_ready false receipt. The historical v3 receipt
+remains PARTIAL; the later genuine terminal-v1 audit is COMPLETE. Its exact
+current binding and the resolved local authoring/analysis runtimes are recorded
+in [the dated local readiness check](LOCAL_READINESS_20261028.md).
 
 The PDF authoring environment may be the bundled ReportLab Python. Scientific
 verification runs in a subprocess selected explicitly with `--analysis-python`
