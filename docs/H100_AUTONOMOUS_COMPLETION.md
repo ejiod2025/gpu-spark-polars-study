@@ -64,6 +64,26 @@ The separate local off-host watcher is PID `66482`, creation time
 `rerun/contention-20261028/raw-backups/`. Verify identities and actual state
 before acting; never launch a duplicate manager or watcher.
 
+The contention pilot actually passed all four waves: eight fresh processes,
+92 successful SQL comparisons, two expected strict unsupported warmups and
+22 common measured query pairs with positive action overlap. The 367-file raw
+pilot payload is verified off-host in
+`rerun/contention-20261028/raw-backups/pilot/`; its 75,530,240-byte tar has SHA256
+`87c508ae916d2c161c99a86766af97eb4a16071cb045b36e879c7ed6b78bc55a`.
+Private metadata is in
+`evidence-research/20261028/h100-contention-pilot-checkpoint`. The gated
+16-wave expansion has begun. A genuine offline pilot replay is PARTIAL until
+the full separate disposition and actual handoff/resume proof exist; no pilot
+milestone establishes full publication or retirement readiness.
+
+The exact original journal and parent session record during the hold are
+preserved verbatim in
+`evidence-research/20261028/h100-contention-held-original`. Their running
+statuses are intentional and must not be repaired. After actual completion,
+capture final `PHASE_DRIVER.json`, remote `backup-receipts/*.json` and the full
+handoff directory separately: the main archive predates its own ACK and the
+later same-scheduler `RESUMED.json` proof.
+
 The handoff may hold only the exact owned C84 scheduler PID, letting its
 already launched original runner/worker finish unpaused. The unchanged journal
 can retain a running attempt while that scheduler is deliberately stopped.
