@@ -103,6 +103,10 @@ actual manuscript/reference hashes, campaign, exact terminal contention object
 and all six review booleans described in `../RESULTS_FINALIZATION.md`.
 
 ```sh
+/Users/danielejiofor/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node \
+  /Users/danielejiofor/.codex/plugins/cache/openai-primary-runtime/pdf/26.1017.22136/skills/pdf/container_tools/mark_artifact_operation_started.mjs \
+  --operation-kind create --expected-output-count 1 --output-format pdf
+
 "$H100_PDF_PYTHON" -B publication/h100-confirmatory/paper/build_paper.py \
   --replay "$H100_REPLAY" \
   --contention-replay "$H100_CONTENTION" \
