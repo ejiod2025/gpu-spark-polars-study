@@ -54,8 +54,8 @@ fixed 400-session cohort if readiness passes. The diagnostic completed with 12
 oracle-valid outputs, verified cleanup and actual driver flags. The captured
 execution-profile SHA256 is
 `a07569ffa3be9cd138ed63084ff59ed668b8bceeef355b5a4f63adef53464c69`.
-New preparation PID 87058 repeats all five SF1 readiness configurations and
-freezes fresh genuine campaign/prestart identities before any recovery timing.
+Preparation PID 87058 completed all five SF1 readiness configurations and froze
+fresh genuine campaign/prestart identities before any recovery timing.
 
 Recovery readiness is now PASS: 116 successful output comparisons, all five
 semantic fixture configurations and four actual Spark readiness JVM flag
@@ -66,6 +66,18 @@ the canonical 346-file prestart manifest SHA256 is
 Private prestart commit `6dbca2fbd4de1be8aa4408a639954bc9076bfa38` preceded
 the first recovery session. Supervisor PID 92406 launched block 01; the first
 1,654-file byte gate passed at 2026-10-27 21:47:43 UTC. Do not restart it.
+
+The first recovery block finished all 40 sessions at 2026-10-27 23:54:27 UTC.
+Its 1,041,694,720-byte raw tar (1,355 payload files) is verified off-host with
+SHA256 `a661e7066c8ceeadb6a10b6f88653417b8a17f32120950cc6c754711ec88dd64`.
+Independent local frozen validation reports PARTIAL: 40 sessions, 936 successful
+outputs, six expected strict translation rejections, no findings and 360 pending
+sessions in that block-end snapshot. All 16 formal Spark JVMs and four profile
+receipts through block 01 match the sealed settings. The private checkpoint is
+`evidence-research/20261028/gclocker100-block01-raw-checkpoint`; its separately
+captured five-record profile observation includes a later block-02-before
+receipt. This milestone is not final analysis or publication readiness. The
+existing supervisor and watcher have continued into block 02.
 
 The frozen C84 expressions, heap96g, 26 CPUs, shuffle120, AQE, timing boundaries,
 same 1,654 input files, oracles and Python environments remain unchanged.

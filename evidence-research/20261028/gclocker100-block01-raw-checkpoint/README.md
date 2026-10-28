@@ -1,0 +1,9 @@
+# Recovery block 01 raw checkpoint
+
+The first 40 fixed-profile recovery sessions and all 936 successful outputs were independently revalidated locally against the frozen SQL oracles. The unchanged C84 validator reports **PARTIAL**: 40 audited sessions and 360 pending in this immutable block-end journal, with no failed sessions. Six specific strict Polars GPU translation rejections and all required cleanup records match the design. This checkpoint contains no statistical analysis or performance finding.
+
+The complete 1,041,694,720-byte raw tar is verified and retained off the H100 at the ignored local path in CHECKPOINT_SUMMARY.json. Its 1,355 payload files include logs, events, telemetry, plans, result rows and scientific gates; the tar also contains its original BACKUP_MANIFEST.json. These private Git records preserve the transport manifest, original journal, full partial-validation reports and the exact local audit scripts. The canonical pre-start archive remains separate and unchanged.
+
+All 16 formal Spark driver logs and all 40 configuration/Python inventories match the fixed profile. The block transport snapshot does not contain the root execution-profile receipt log. A separately captured, unchanged five-record observation and its capture receipt are preserved in profile-observation/. Its first four receipts preserve the sealed readiness prefix and bracket block 01; the fifth is the later block-02-before receipt. This is not the final required 24-receipt/160-Spark-log proof.
+
+The live campaign has advanced beyond this snapshot. No earlier cohort timing is pooled. All 400 sessions, post-final byte integrity, complete replay/audit, full paper, public webpage, independently retrievable final private evidence and conditional instance retirement remain pending. All copied audit records retain original byte identities and paths; current-path relocation does not change their original provenance.
