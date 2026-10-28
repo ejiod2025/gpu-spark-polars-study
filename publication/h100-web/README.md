@@ -10,6 +10,11 @@ controls. It contains a primary log-ratio explorer, descriptive query cards,
 complete-case coverage tables, publication figure downloads, CSVs and the full
 paper. No aggregate headline is invented from partial observations.
 
+The separate contention section shows actual per-repetition query durations and
+same-host monotonic/UTC intersections. It retains the pilot and expansion as
+separate descriptive samples, with no new inferential family or GPU-engine
+ranking. The isolated 400-session study remains the sole confirmatory evidence.
+
 ## Local methods-only preview
 
 ```sh
@@ -32,6 +37,7 @@ all 400 sessions and 260 raw primary block pairs.
 ```sh
 python publication/h100-web/build.py publish \
   --replay /absolute/path/to/complete-real-replay \
+  --contention-replay /absolute/path/to/genuine-terminal-contention-replay \
   --paper /absolute/path/to/final-paper/h100-paper.pdf \
   --paper-manifest /absolute/path/to/final-paper/BUILD_MANIFEST.json \
   --output /Users/danielejiofor/AIRFLOW/gpu-spark-polars-study/.sites-checkout-h100-publication/dist/h100
@@ -66,6 +72,54 @@ All of these gates must pass before any output file is created:
   Ejiofor, no affiliation, sanitization PASS, and exact campaign, replay, PDF,
   execution-profile, paper-builder, manuscript and reference hashes. Draft paper
   builds are rejected.
+- Mandatory separate `--contention-replay`, with exact experiment
+  `h100-contention-20261028`, plan
+  `670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031`
+  and prestart
+  `4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25`.
+  Its actual disposition must be `COMPLETE` or `STOPPED_WITH_FAILURE`, with
+  integrity PASS, no findings and `publication_ready: true`. The existing
+  original-400 and final-paper gates remain mandatory for either disposition.
+- Current contention auditor source, preserved source copy, canonical prestart,
+  actual inputs and both original CSV hashes. The current
+  `research_reporting/contention_figures.py` loader reproduces the offline audit
+  from the real saved bytes and compares every scientific receipt field,
+  including terminal driver/ACKs, original worker payload, action separation and
+  same-scheduler resume. Updating receipt labels or their checksum maps cannot
+  replace missing evidence. The loader imports plotting libraries lazily.
+- The final paper must bind the exact same `contention_review` object emitted
+  in the public provenance and publication manifest:
+
+  ```json
+  {
+    "status": "COMPLETE",
+    "experiment_id": "h100-contention-20261028",
+    "plan_sha256": "670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031",
+    "prestart_sha256": "4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25",
+    "replay_sha256": "actual terminal CONTENTION_REPLAY.json SHA256",
+    "disposition": "COMPLETE or STOPPED_WITH_FAILURE"
+  }
+  ```
+
+  Here review `status: COMPLETE` identifies the completed review; `disposition`
+  records the actual experiment outcome. The Site owner must retain this same
+  exact object in the actual public deployment receipt required by
+  `operations/LAMBDA_SHUTDOWN_GUARD.md`. A static build is not that receipt.
+
+Optional `--contention-figures /absolute/final-export-directory` adds up to six
+verified contention figures in SVG/PNG/PDF, covering only phases with observed
+waves. A terminal pilot failure does not require invented expansion figures.
+The figure manifest must be
+`h100-contention-figures-v1`, `draft: false`, `final: true`, publication-ready,
+and bind the same receipt, CSVs, read-input map and current renderer/auditor.
+Every output checksum is checked. Draft figures cannot enter the release.
+Omitting this option retains the accessible per-repetition numerical tables.
+
+At preparation time the real `offline-full-audit-v3` contention audit contains
+all 20 waves but remains `PARTIAL` / `publication_ready: false` while the original
+block-04 payload is missing. This is a release blocker, even though its integrity
+check passes. Its timings and the private draft figure exports are not included
+in the methods-only preview.
 
 There is no `--allow-synthetic`, `--skip-audit` or incomplete-data override.
 The lost cohort's surviving 120 sessions / 2,808 core comparisons, earlier
@@ -82,12 +136,28 @@ exact campaign/prestart/profile hashes, counts, allowlisted primary estimates, p
 descriptive CPU Polars 2.0 query ratios and complete-case scores. Unsupported
 Polars GPU complex-suite scores remain null/N/A, never partial sums.
 
+The `contention` object adds only typed, plan-bound labels, counts, actual
+terminal phase dispositions, per-repetition action endpoints and measured
+overlap. Pair A is GPU Spark + CPU Polars 2.0.0; pair B is CPU Spark + strict
+Polars GPU. Both processes request 26 CPU threads on the same 26-vCPU host;
+Spark retains a 96 GiB heap and there is one GPU path per pair. Pair B complex
+Q13/window CPU-only actions retain `paired_condition: false`. They cannot become
+a uniformly contended six-query score. Pilot and expansion are never pooled.
+
 `downloads/` contains numerical CSVs, the checked final paper and a narrow
 `provenance.json`. `assets/` contains the four verified publication figures in
 PNG, SVG and PDF. Raw replay manifests, audit manifests, logs, plans, environment
 inventories, source code, SSH material, private addresses and credential files
 are not copied. Text/SVG downloads receive an additional private-path,
 address and credential-pattern scan.
+
+The contention downloads are rebuilt as typed allowlisted
+`contention_query_actions.csv` and `contention_common_overlap.csv`; raw audit
+CSVs and manifests are never copied. Provenance records exact original CSV hashes
+and separate public CSV hashes. No raw errors, PIDs, host paths, addresses or
+private URLs cross this boundary. Optional contention assets use fixed stems
+for actual observed phases; the private figure manifest and captions source
+are not copied.
 
 `PUBLICATION_MANIFEST.json` has schema `h100-publication-web-v1`, PASS,
 `final: true`, `synthetic: false`, campaign ID/hash, execution-profile hash, author, replay hash, paper
@@ -97,12 +167,18 @@ deployment receipt must establish public hosting before the shutdown guard runs.
 
 ## Verification
 
+With the pinned reporting environment active:
+
 ```sh
-python3 -m unittest discover -s publication/h100-web/tests -v
+python -B -m unittest discover -s publication/h100-web/tests -v
 node --check publication/h100-web/templates/app.js
+node --test publication/h100-web/tests/test_app.cjs
 ```
 
 The gate tests deliberately label fabricated/partial inputs as test inputs and
 assert rejection; they never produce publication data. Final browser QA must
 also inspect the real data's full ratio range, controls, query N/A states, paper,
 and working downloads at desktop and narrow widths.
+The UI tests exercise both individual expansion repetitions, pilot separation,
+CPU-only diagnostic labels, honest failure disposition and empty unavailable
+cells. They use fabricated display rows only and never build a release.

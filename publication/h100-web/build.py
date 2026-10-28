@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+from datetime import datetime
 import hashlib
 import importlib.util
 import json
+import math
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -31,13 +33,27 @@ EXPECTED_COUNTS = {"sessions": 400, "successful_outputs": 9360, "warmup_outputs"
                    "successful_complex_cleanups": 3360, "failed_complex_cleanups": 60}
 FIGURES = ("suite_ratios_baseline", "suite_ratios_complex", "query_ratios_action", "complete_case_scores")
 PUBLIC_CSVS = ("primary_contrasts.csv", "complete_case_scores.csv")
+CONTENTION_ID = "h100-contention-20261028"
+CONTENTION_PLAN = "670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031"
+CONTENTION_PRESTART = "4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25"
+CONTENTION_REFERENCE = "3142874b918a2df2d66c8dfb32c26f59a09353edcb4cb73e51c4ba46ff387641"
+CONTENTION_PROFILE = "a07569ffa3be9cd138ed63084ff59ed668b8bceeef355b5a4f63adef53464c69"
+CONTENTION_PAIRS = {"spark_gpu__polars_cpu_200": "A", "spark_cpu__polars_gpu": "B"}
+CONTENTION_QUERIES = {"baseline": {"q01", "q03", "q06", "q10", "q12", "q14"},
+                      "complex": {"cx_q09", "cx_q13", "cx_semi_anti", "cx_window", "cx_distinct", "cx_self_join"}}
+CONTENTION_FIGURES = tuple(f"{phase}_{stem}" for phase in ("pilot", "main") for stem in
+                          ("pair_A_common_actions", "pair_B_common_actions", "actual_action_timeline"))
 SECRET_PATTERNS = (r"-----BEGIN [A-Z ]*PRIVATE KEY-----", r"\bsk-(?:proj-|live-)?[A-Za-z0-9_-]{16,}",
                    r"\b(?:api[_-]?key|access[_-]?token|authorization)\s*[:=]\s*[^\s,;]{8,}",
                    r"\b(?:\d{1,3}\.){3}\d{1,3}\b", r"/(?:Users|home|root|tmp)/", r"ssh-(?:rsa|ed25519)\s")
 
 
 def sha(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def read_json(path):
@@ -164,7 +180,8 @@ def validate_recovery_profile(audit, identity):
             "Recovery profile audit must verify all 160 Spark drivers and 24 profile gates")
 
 
-def validate_paper(paper, paper_manifest, replay_manifest, campaign_sha256, execution_profile_sha256=None):
+def validate_paper(paper, paper_manifest, replay_manifest, campaign_sha256, execution_profile_sha256=None,
+                   contention_review=None):
     paper = Path(paper).resolve()
     require(paper.is_file() and not paper.is_symlink() and paper.read_bytes().startswith(b"%PDF-"), "A final paper PDF is required")
     metadata = read_json(paper_manifest)
@@ -183,10 +200,145 @@ def validate_paper(paper, paper_manifest, replay_manifest, campaign_sha256, exec
             and metadata.get("manuscript_sha256") == sha(paper_source / "MANUSCRIPT.md")
             and metadata.get("references_sha256") == sha(paper_source / "references.md"), "Final paper source identity differs")
     require(metadata.get("output_files_sha256", {}).get(paper.name) == sha(paper), "Final paper checksum inventory differs")
+    require(contention_review is not None and metadata.get("contention_review") == contention_review,
+            "Final paper must bind the exact terminal contention_review")
     return metadata
 
 
+def contention_disposition_gate(report):
+    require(report.get("schema_version") == "h100-contention-replay-v1" and report.get("synthetic") is False
+            and report.get("experiment_id") == CONTENTION_ID and report.get("plan_sha256") == CONTENTION_PLAN
+            and report.get("prestart_sha256") == CONTENTION_PRESTART
+            and report.get("reference_campaign_sha256") == CONTENTION_REFERENCE
+            and report.get("reference_execution_profile_sha256") == CONTENTION_PROFILE,
+            "Only the genuine separately registered contention role may be published")
+    require(report.get("status") in {"COMPLETE", "STOPPED_WITH_FAILURE"}
+            and report.get("integrity_status") == "PASS" and report.get("publication_ready") is True
+            and report.get("findings") == [], "Contention requires a terminal publication-ready integrity PASS")
+    handoff = report.get("handoff", {})
+    require(handoff.get("status") == "PASS" and handoff.get("same_scheduler_resumed") is True
+            and handoff.get("original_payload_verified") is True and handoff.get("no_action_overlap") is True
+            and report.get("terminal_driver", {}).get("terminal") is True,
+            "Contention requires actual original payload, separation and same-scheduler resume proof")
+
+
+def validate_contention_replay(directory):
+    directory = Path(directory).resolve()
+    report = read_json(safe_file(directory, "CONTENTION_REPLAY.json"))
+    contention_disposition_gate(report)
+    # Reuse the current figure loader's fresh offline audit, including its exact
+    # source, canonical, read-input, CSV, handoff and terminal-driver comparison.
+    # A self-consistent forged receipt cannot replace actual terminal evidence.
+    module("contention_replay", REPORTING / "contention_replay.py")
+    verifier = module("h100_web_contention_verifier", REPORTING / "contention_figures.py")
+    data = verifier.load_audit(directory, draft=False)
+    require(data["report"] == report and data["final"] is True, "Contention audit changed while loading")
+    review = {"status": "COMPLETE", "experiment_id": CONTENTION_ID, "plan_sha256": CONTENTION_PLAN,
+              "prestart_sha256": CONTENTION_PRESTART, "replay_sha256": sha(directory / "CONTENTION_REPLAY.json"),
+              "disposition": report["status"]}
+    return data, review
+
+
+def validate_contention_figures(directory, contention, review):
+    if directory is None:
+        return None
+    directory = Path(directory).resolve()
+    manifest = read_json(safe_file(directory, "FIGURE_MANIFEST.json"))
+    report = contention["report"]
+    require(manifest.get("schema_version") == "h100-contention-figures-v1" and manifest.get("draft") is False
+            and manifest.get("final") is True and manifest.get("publication_ready") is True
+            and manifest.get("synthetic") is False and manifest.get("audit_publication_ready") is True
+            and manifest.get("audit_status") == review["disposition"]
+            and manifest.get("plan_sha256") == CONTENTION_PLAN and manifest.get("prestart_sha256") == CONTENTION_PRESTART,
+            "Contention figures must be genuine final publication-ready exports")
+    contention["inputs"].file(REPORTING / "contention_figures.py")
+    require(manifest.get("auditor_source_sha256") == report["audit_source_sha256"]
+            and manifest.get("renderer_source_sha256") == sha(REPORTING / "contention_figures.py")
+            and manifest.get("input_files_sha256") == contention["inputs"].hashes
+            and manifest.get("reproduced_audit_input_files_sha256") == report["input_files_sha256"]
+            and manifest.get("audit_counts") == report["counts"], "Contention figure source/input bindings differ")
+    allowed = {f"{stem}.{ext}" for stem in contention_figure_stems(report) for ext in ("png", "svg", "pdf")} | {"CAPTIONS.md"}
+    require(set(manifest.get("output_files_sha256", {})) == allowed, "Contention figure inventory differs")
+    check_inventory(directory, manifest["output_files_sha256"])
+    return manifest
+
+
+def contention_figure_stems(report):
+    # A terminal pilot failure may leave the expansion genuinely unattempted.
+    # Match the renderer's observed phases without inventing missing figures.
+    phases = {wave["wave_id"].split("-", 1)[0] for wave in report["waves"]}
+    return tuple(stem for stem in CONTENTION_FIGURES if stem.split("_", 1)[0] in phases)
+
+
+def number(value, label, positive=False):
+    require(not isinstance(value, bool), "Invalid numeric " + label)
+    result = float(value)
+    require(math.isfinite(result) and (result > 0 if positive else result >= 0), "Invalid numeric " + label)
+    return result
+
+
+def csv_boolean(value):
+    require(value in ("True", "False"), "Invalid contention boolean")
+    return value == "True"
+
+
+def public_contention(data, review, figures=None):
+    """Typed numerical allowlist: never expose raw receipts, errors or host paths."""
+    report, plan = data["report"], data["plan"]
+    waves = {w["wave_id"]: (phase, w) for phase in ("pilot", "main") for w in plan[phase]}
+    def context(row):
+        require(row["wave_id"] in waves, "Unknown contention wave")
+        phase, wave = waves[row["wave_id"]]
+        require(re.fullmatch(r"(?:pilot|main)-\d{2}-(?:spark_gpu__polars_cpu_200|spark_cpu__polars_gpu)-(?:baseline|complex)-sf(?:30|100)-r[12]", row["wave_id"]),
+                "Invalid public contention wave label")
+        require(row["query"] in CONTENTION_QUERIES[wave["suite"]], "Unknown contention query")
+        return {"study_phase": phase, "wave_id": row["wave_id"], "pair": CONTENTION_PAIRS[wave["pair"]],
+                "suite": wave["suite"], "scale": int(wave["scale"]), "repetition": wave["repetition"], "query": row["query"]}
+    actions = []
+    for row in data["actions"]:
+        item = context(row)
+        wave = waves[row["wave_id"]][1]
+        require(row["config_id"] in wave["participants"] and row["phase"] in {"warmup", "measured"}
+                and row["trial"] == ("0" if row["phase"] == "warmup" else "1")
+                and row["pair"] == wave["pair"] and row["suite"] == wave["suite"]
+                and str(row["scale"]) == str(wave["scale"]) and int(row["repetition"]) == wave["repetition"],
+                "Contention action labels differ from the genuine plan")
+        item.update(config_id=row["config_id"], phase=row["phase"], trial=int(row["trial"]),
+                    seconds=number(row["seconds"], "action duration", True),
+                    host_result_seconds=number(row["host_result_seconds"], "host-result duration", True),
+                    paired_condition=csv_boolean(row["paired_condition"]), oracle_passed=csv_boolean(row["oracle_passed"]))
+        for key in ("action_started_at_utc", "action_ended_at_utc", "host_result_ended_at_utc"):
+            timestamp = datetime.fromisoformat(row[key])
+            require(timestamp.tzinfo is not None, "Contention endpoint needs an explicit timezone")
+            item[key] = timestamp.isoformat()
+        actions.append(item)
+    overlaps = []
+    for row in data["overlaps"]:
+        item = context(row)
+        require(row["phase"] == "measured" and row["trial"] == "1", "Invalid overlap endpoint")
+        item.update({key: number(row[key], key) for key in ("overlap_seconds", "utc_overlap_seconds", "actual_start_skew_seconds", "left_seconds", "right_seconds")})
+        item["positive_actual_overlap"] = csv_boolean(row["positive_actual_overlap"])
+        overlaps.append(item)
+    dispositions = []
+    for phase in ("pilot", "main"):
+        value = report["disposition"][phase]
+        require(value["status"] in {"PASS", "FAILED", "FAIL", "NOT_ATTEMPTED_AFTER_STOP"}, "Invalid terminal phase disposition")
+        unattempted = value["unattempted_waves"]
+        require(all(w in waves and waves[w][0] == phase for w in unattempted), "Unknown unattempted wave")
+        dispositions.append({"study_phase": phase, "status": value["status"], "unattempted_waves": unattempted,
+                             **{key: value[key] for key in ("planned_waves", "attempted_waves", "passed_waves", "failed_waves")}})
+    counts = report["counts"]
+    require(all(type(v) is int and v >= 0 for v in counts.values()), "Invalid contention counts")
+    return {"review": review, "counts": select(counts, ("attempted_waves", "successful_outputs", "oracle_failed_outputs",
+             "expected_strict_rejections_observed", "unexpected_query_errors_observed", "common_measured_pairs", "unpaired_cpu_measured_diagnostics")),
+            "disposition": dispositions, "actions": actions, "overlaps": overlaps,
+            "figure_stems": list(contention_figure_stems(report)) if figures else []}
+
+
 def scan_public_text(text, name):
+    # This exact documented Java version resembles an IPv4 address. Permit
+    # only its explicit software label; bare addresses still fail the scan.
+    text = text.replace("Java 17.0.20.1", "Java 17 update 20 build 1")
     for pattern in SECRET_PATTERNS:
         require(not re.search(pattern, text, re.I), f"Private/credential-like text in public asset: {name}")
 
@@ -235,14 +387,18 @@ def write_templates(output, preview=False):
             target.write_text(text)
 
 
-def build(replay, paper, paper_manifest, output):
+def build(replay, paper, paper_manifest, output, contention_replay=None, contention_figures=None):
     output = Path(output).absolute()
     require(not output.exists(), "Refusing to overwrite publication output; build into a fresh directory")
     manifest, audit, data, renderer = validate_replay(replay)
     replay_sha = sha(Path(replay) / "REPLAY_MANIFEST.json")
+    require(contention_replay is not None, "A final --contention-replay is mandatory")
+    contention, contention_review = validate_contention_replay(contention_replay)
+    contention_render = validate_contention_figures(contention_figures, contention, contention_review)
     validate_paper(paper, paper_manifest, replay_sha, manifest["campaign_sha256"],
-                   audit["execution_profile"]["sha256"])
+                   audit["execution_profile"]["sha256"], contention_review)
     payload = public_data(manifest, audit, data, renderer)
+    payload["contention"] = public_contention(contention, contention_review, contention_render)
     # Create no visible output until every gate and allowlisted public asset passes.
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".h100-web-", dir=output.parent) as temporary:
@@ -261,21 +417,44 @@ def build(replay, paper, paper_manifest, output):
         write_csv(downloads / "paired_block_ratios.csv", payload["block_ratios"])
         query_rows = [{**row, "ci95_pointwise": json.dumps(row["ci95_pointwise"])} for row in payload["queries"]]
         write_csv(downloads / "descriptive_query_ratios.csv", query_rows)
+        write_csv(downloads / "contention_query_actions.csv", payload["contention"]["actions"],
+                  ("study_phase", "wave_id", "pair", "suite", "scale", "repetition", "query", "config_id", "phase", "trial",
+                   "seconds", "host_result_seconds", "paired_condition", "oracle_passed", "action_started_at_utc", "action_ended_at_utc", "host_result_ended_at_utc"))
+        write_csv(downloads / "contention_common_overlap.csv", payload["contention"]["overlaps"],
+                  ("study_phase", "wave_id", "pair", "suite", "scale", "repetition", "query", "overlap_seconds", "utc_overlap_seconds",
+                   "actual_start_skew_seconds", "left_seconds", "right_seconds", "positive_actual_overlap"))
+        if contention_render:
+            for stem in payload["contention"]["figure_stems"]:
+                for extension in ("png", "svg", "pdf"):
+                    name = f"{stem}.{extension}"
+                    target = stage / "assets" / name
+                    shutil.copyfile(Path(contention_figures) / name, target)
+                    require(sha(target) == contention_render["output_files_sha256"][name], "Contention figure changed during copy")
         shutil.copyfile(paper, downloads / "h100-study.pdf")
         # Raw replay/audit JSON contains local paths and environment observations;
         # publish a narrow provenance statement instead of copying those artifacts.
         provenance = {key: payload[key] for key in ("campaign_id", "campaign_sha256", "prestart_sha256", "execution_profile_sha256", "source_commit",
                                                    "source_tree_sha256", "analysis_sha256", "counts")}
         provenance.update(replay_status="PASS", complete_audit_status="PASS", replay_manifest_sha256=replay_sha,
+                          contention_review=contention_review,
+                          contention_auditor_sha256=contention["report"]["audit_source_sha256"],
+                          contention_csv_sha256={name: sha(Path(contention_replay) / name) for name in
+                                                 ("QUERY_ACTIONS_DESCRIPTIVE.csv", "COMMON_QUERY_OVERLAP.csv")},
                           paper_sha256=sha(paper), public_scope="Sanitized numerical tables, figures, paper and provenance; private source and raw infrastructure artifacts are excluded.")
+        provenance["public_contention_csv_sha256"] = {name: sha(downloads / name) for name in
+                                                     ("contention_query_actions.csv", "contention_common_overlap.csv")}
+        if contention_render:
+            provenance["contention_figure_manifest_sha256"] = sha(Path(contention_figures) / "FIGURE_MANIFEST.json")
         (downloads / "provenance.json").write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")
         for path in stage.rglob("*"):
             if path.is_file() and path.suffix in {".json", ".csv", ".html", ".css", ".js", ".svg"}:
                 scan_public_text(path.read_text(), str(path.relative_to(stage)))
+        contention["inputs"].recheck()
         public_manifest = {"schema_version": "h100-publication-web-v1", "status": "PASS", "final": True, "synthetic": False,
                            "campaign_id": CAMPAIGN_ID, "campaign_sha256": manifest["campaign_sha256"],
                            "execution_profile_sha256": audit["execution_profile"]["sha256"],
                            "author": "Daniel Ejiofor", "replay_manifest_sha256": replay_sha,
+                           "contention_review": contention_review,
                            "paper_sha256": sha(paper), "builder_sha256": sha(Path(__file__)),
                            "output_files_sha256": {p.relative_to(stage).as_posix(): sha(p) for p in sorted(stage.rglob("*")) if p.is_file()}}
         (stage / "PUBLICATION_MANIFEST.json").write_text(json.dumps(public_manifest, indent=2, sort_keys=True) + "\n")
@@ -299,13 +478,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     final = commands.add_parser("publish", help="Build release-ready files; does not deploy")
-    for option in ("replay", "paper", "paper-manifest", "output"):
+    for option in ("replay", "contention-replay", "paper", "paper-manifest", "output"):
         final.add_argument("--" + option, type=Path, required=True)
+    final.add_argument("--contention-figures", type=Path, help="Optional final hash-bound contention figures")
     draft = commands.add_parser("preview", help="Local methods-only preview with no result data")
     draft.add_argument("--output", type=Path, default=HERE / "preview")
     args = parser.parse_args()
     try:
-        result = preview(args.output) if args.command == "preview" else build(args.replay, args.paper, args.paper_manifest, args.output)
+        result = preview(args.output) if args.command == "preview" else build(args.replay, args.paper, args.paper_manifest,
+                    args.output, args.contention_replay, args.contention_figures)
     except (ValueError, OSError, KeyError, TypeError) as exc:
         parser.exit(1, f"H100 webpage rejected: {exc}\n")
     print(json.dumps({key: result[key] for key in ("schema_version", "status", "campaign_id")}))
