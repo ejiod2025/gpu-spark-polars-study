@@ -72,7 +72,7 @@ pilot payload is verified off-host in
 `87c508ae916d2c161c99a86766af97eb4a16071cb045b36e879c7ed6b78bc55a`.
 Private metadata is in
 `evidence-research/20261028/h100-contention-pilot-checkpoint`. The gated
-16-wave expansion has begun. A genuine offline pilot replay is PARTIAL until
+16-wave expansion subsequently completed. The initial offline pilot replay was PARTIAL until
 the full separate disposition and actual handoff/resume proof exist; no pilot
 milestone establishes full publication or retirement readiness.
 
@@ -101,14 +101,25 @@ Exact final driver/remote ACK metadata is at ignored
 `evidence-research/20261028/h100-contention-final-checkpoint`. Genuine offline
 replay v3 at `rerun/contention-20261028/offline-full-audit-v3` verifies all 460
 outputs, ten strict rejections, 110 measured overlap pairs, 250 barrier releases
-and the actual driver/resume metadata. It remains PARTIAL/publication false:
-only the original paused attempt's actual payload/worker endpoints from the
-forthcoming block-04 backup remain for independent separation proof. An unset
-`no_action_overlap` at this stage is pending proof, not an observed violation.
-Once that genuine backup exists, run the terminal command in
-`research_reporting/CONTENTION_REPLAY.md` into a new output directory. Never
-promote the partial receipt by editing its status. The isolated 400-session
-study and final paper/web/private retrieval/retirement gates remain unfinished.
+and the actual driver/resume metadata. That historical v3 receipt remains
+PARTIAL/publication false and is preserved unchanged.
+
+The genuine block-04 raw backup arrived at 07:05:23 UTC. A new terminal replay,
+`rerun/contention-20261028/offline-terminal-audit-v1`, now reports COMPLETE,
+integrity PASS, publication-ready true and no findings. Its receipt SHA256 is
+`0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`.
+All 34 original protected attempt files and actual worker endpoints match;
+`original_payload_verified`, `no_action_overlap` and `same_scheduler_resumed`
+are true. No original worker action overlaps the separate contention role.
+This was a fresh audit, not an edited status marker. The final figure exports
+are at `rerun/contention-20261028/figures-final-v1`, with manifest SHA256
+`5751b86ee46989fdfc7b0d25b1e2eac3a475a09c872143026cedfbd1e06000bd`;
+all six actual PNGs were visually inspected. The terminal audit, final figures,
+raw manifests and protected worker results/schedule are preserved privately in
+`evidence-research/20261028/h100-contention-terminal-checkpoint`.
+At 07:15:29 UTC, isolated collection was 160/400 validated sessions with block
+05 active. The isolated 400-session study and final paper/web/private
+retrieval/retirement gates remain unfinished.
 
 The handoff may hold only the exact owned C84 scheduler PID, letting its
 already launched original runner/worker finish unpaused. The unchanged journal

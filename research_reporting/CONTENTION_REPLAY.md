@@ -12,6 +12,18 @@ and prestart manifest SHA256
 `4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25`.
 Unknown identities and synthetic replacements have no acceptance override.
 
+The genuine terminal replay at ignored
+`rerun/contention-20261028/offline-terminal-audit-v1` now passes COMPLETE,
+integrity PASS and publication-ready true, with no findings. Receipt SHA256 is
+`0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`.
+It verifies the later real block-04 attempt, all 34 original inventory entries,
+same-scheduler resume and actual action separation, in addition to the 460
+outputs and 110 intended within-contention intersections. The historical v3
+PARTIAL receipt remains unchanged. Private preservation of the terminal audit
+and final figure exports is at
+`evidence-research/20261028/h100-contention-terminal-checkpoint`; the original
+400-session study and final publication/retirement gates remain incomplete.
+
 ## Phase-boundary checks while collection continues
 
 Use the existing local analysis environment and a new output directory:

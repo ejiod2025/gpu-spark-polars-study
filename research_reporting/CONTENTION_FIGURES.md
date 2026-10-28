@@ -15,17 +15,27 @@ transport, driver and original-study separation inputs must still be available
 at their preserved receipt locations. A stale auditor requires a new honest
 audit in a new directory, never editing a receipt or its source snapshot.
 
-The current full audit at `rerun/contention-20261028/offline-full-audit-v3` is
-`PARTIAL`, integrity `PASS`, with all four pilot and sixteen expansion waves,
+The historical full audit at `rerun/contention-20261028/offline-full-audit-v3`
+remains `PARTIAL` and immutable. A fresh genuine terminal audit at
+`rerun/contention-20261028/offline-terminal-audit-v1` is `COMPLETE`, integrity
+`PASS`, publication-ready true, with all four pilot and sixteen expansion waves,
 460 SQL outputs, ten expected strict rejections and 110 common measured pairs.
-Its original block-04 attempt payload is still needed for the final separation
-proof. Only an explicit draft export is currently permitted:
+It verifies the actual block-04 protected payload, action separation and same
+scheduler resume. Its receipt SHA256 is
+`0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`.
+Final exports were generated at `rerun/contention-20261028/figures-final-v1`;
+all six PNGs were visually inspected. The figure manifest SHA256 is
+`5751b86ee46989fdfc7b0d25b1e2eac3a475a09c872143026cedfbd1e06000bd`.
+Neither this separate-role completion nor figure generation establishes
+original-400, paper, webpage or retirement readiness.
+
+For a new final export, choose a new output directory and omit `--draft`:
 
 ```sh
 cd /Users/danielejiofor/AIRFLOW/gpu-spark-polars-study
 /tmp/h100-analysis-audit-venv/bin/python -B research_reporting/contention_figures.py \
-  --audit rerun/contention-20261028/offline-full-audit-v3 \
-  --output rerun/contention-20261028/new-figures-DRAFT --draft
+  --audit rerun/contention-20261028/offline-terminal-audit-v1 \
+  --output rerun/contention-20261028/new-final-figures
 ```
 
 Every draft figure has a prominent status label and watermark; captions and
@@ -35,10 +45,9 @@ synthetic-input acceptance flag and no status override. Output directories must
 be new and outside all immutable input trees. Render with the existing analysis
 environment, which pins Matplotlib 3.10.8.
 
-After the actual original attempt arrives, first create a new terminal audit
-using the complete replay command in `CONTENTION_REPLAY.md`. Then use that new
-audit without `--draft`, still in a new private output directory. Rendering does
-not publish these artifacts or authorize instance retirement.
+When inputs or the auditor change, create a new honest audit using the complete
+replay command in `CONTENTION_REPLAY.md`, preserving earlier receipts. Rendering
+does not publish these artifacts or authorize instance retirement.
 
 ## Figure choices and limits
 

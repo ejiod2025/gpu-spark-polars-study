@@ -1,0 +1,9 @@
+# Separate H100 contention: terminal independent replay
+
+The genuine terminal audit is COMPLETE, integrity PASS and publication-ready for this separate descriptive role. It verifies all four pilot and sixteen expansion waves, 460 SQL outputs, ten strict unsupported warmups and 110 common measured pairs. The original protected block-04 attempt is now present in the genuine off-host raw backup; all 34 expected files, worker endpoints, same-scheduler resume and action separation passed. The original parent scheduling envelope includes the managed hold and remains unchanged.
+
+Exact independent audit outputs and final figures are copied verbatim here, with lineage and hashes. All six actual PNG exports were visually inspected; the separate figure review does not attest a final paper or webpage. Pilot and expansion are separate descriptive samples, repetitions remain explicit, and pair-B complex CPU Q13/window measurements are unpaired diagnostics. The pairs do not support ranking the two GPU engines against one another.
+
+The earlier `h100-contention-final-checkpoint` retains its historical PARTIAL audit unchanged. Actual terminal driver, all final handoff files and raw controls/receipts remain in that private checkpoint; canonical prestart and held journal/session retain their original dedicated checkpoints. This checkpoint adds both original transport manifests and the protected worker results/schedule. Original tar archives and complete payloads remain outside Git under ignored `rerun/`; private durable release retrieval is still pending.
+
+Primary isolated collection was at 160/400 at the latest read-only observation. This checkpoint does not finish the isolated study, full paper, public webpage, private retrieval or Lambda retirement gates. Do not terminate the H100 from this receipt.
