@@ -1,8 +1,8 @@
 # Claim and evidence matrix
 
-Status: recovery incomplete and separate contention interlude in progress,
-2026-10-28 UTC. The recovery feasibility diagnostic and repeated readiness pass;
-primary and contention performance results remain pending.
+Status: recovery incomplete; contention workload and same-process resume recorded,
+2026-10-28 UTC. Terminal contention provenance is PARTIAL, and primary/contention
+performance interpretation remains pending.
 All paths below are repository-relative unless explicitly
 marked remote. JSON selectors are machine-readable `jq` expressions.
 
@@ -48,11 +48,16 @@ pre-start SHA256 is
 `4088b5302a7d42c8aa87ebaed06e229bed3b0783bd15cf6556a6110981bf9f25`.
 All 65 listed checksums match, for 66 canonical files including the manifest.
 Private pre-start commit `98c7ff4d6a9bbe82a021671c28fed28f71827b70`
-preceded execution. `U` denotes the separate contention phase harvest, whose
-complete results remain pending. `H` denotes managed interlude receipts; the
-initial local snapshot is under
-`rerun/contention-20261028/handoff-launch/study-h100-contention-handoff-20261028/`.
-Actual final drain/phase/resume receipts must be retained alongside that snapshot.
+preceded execution. `U_phase` denotes each extracted phase snapshot directory
+listed in `Q.snapshots[phase].directory`; phase files are under
+`U_phase/<phase>/`. `H` is `rerun/contention-20261028/final-handoff-v1/`;
+`D` is `rerun/contention-20261028/final-metadata-v1/`. `Q` is the independent
+`rerun/contention-20261028/offline-full-audit-v3/CONTENTION_REPLAY.json`, SHA256
+`a34a8de887225edf58f9211a2e1f184feaa0eac5165e0dd0d03697f517e30ee5`.
+`Q` verifies the complete contention workload and recorded same-process resume,
+with integrity PASS and no findings, but remains overall PARTIAL and
+`publication_ready: false` because actual original block04 attempt payload/
+worker endpoints are absent. The final original boundary binding is pending.
 None of these artifacts supplies an isolated primary observation or replaces
 `R`, the formal profile log or the original 400-session completion gates.
 
@@ -111,12 +116,14 @@ None of these artifacts supplies an isolated primary observation or replaces
 | --- | --- | --- | --- |
 | T01 | A genuine separate contention plan/source/instrumentation archive preceded execution. | `T/CONTENTION_PLAN.json`: `.experiment_id`, `.source_commit`, `.source_files_sha256`, `.tools_sha256`, `.reference_campaign_sha256`, `.reference_execution_profile_sha256`, `.synthetic`; `T/CONTENTION_PRESTART_MANIFEST.json`: `.files_sha256`, `.plan_sha256`; pre-start commit. | All 52 source identities match C84/reference; all 65 listed files match; `synthetic: false`. Its immutable `FROZEN_NOT_RUN` marker describes pre-start creation, not current execution or phase completion. |
 | T02 | Fixed staged pairs and resources are declared. | `T/CONTENTION_PLAN.json`: `.pilot`, `.main`, `.main_gate`, `.settings`, `.configs`, `.spark_submit_opts`; [contention protocol](../../docs/H100_CONTENTION_PROTOCOL.md). | Pair A Spark GPU + Polars CPU 2.0; pair B Spark CPU + strict Polars GPU. Each requests 26 CPU threads on the same 26-vCPU host; one 96 GiB Spark JVM and one GPU path per pair. Four SF30 pilot waves; sixteen SF30/SF100 expansion waves with two repetitions only if all pilot gates pass. No equal-resource or isolated-runtime claim. |
-| T03 | Contention action overlap is observed for a common measured query. | **Pending completed evidence:** `U/{pilot,main}/<wave>/VALIDATION.json`: `.measured_action_overlap[]` fields `query`, `phase`, `trial`, `overlap_seconds`, `utc_overlap_seconds`, `actual_start_skew_seconds`, `left_seconds`, `right_seconds`, `positive_actual_overlap`; both participant `results.json` action intervals. | Require positive actual action intersection on UTC and same-host monotonic clocks for every common pair; process lifetime or barrier release alone is insufficient. Pilot/main remain separate descriptive samples with no new p values or primary-family additions. |
+| T03 | Within-contention common action intersections are verified. | `Q.counts.common_measured_pairs` and `Q.waves[].overlap`; `U_phase/<phase>/<wave>/VALIDATION.json` and participant UTC/monotonic action intervals. | All 110 common measured pairs have positive intersection on both clocks. These are intended participant intersections, distinct from pending isolated-versus-contention separation. Pilot/main timing samples remain separate; no performance interpretation, new p values or primary-family additions. |
 | T04 | Pair B complex has four common measured pairs and two unpaired CPU diagnostics. | `T/tools/contention_worker.py` measured-query bypass; phase/wave records, strict GPU warmup diagnostics and participant outputs. | CPU measured `cx_q13`/`cx_window` bypass rendezvous because strict Polars GPU has no measured counterpart. No complete GPU complex score; a six-query CPU sum mixes paired/unpaired conditions and cannot represent uniformly contended execution. |
-| T05 | Timer boundaries are preserved while resource observations can include waits. | Frozen C84 `worker.py` identity; `T/tools/contention_worker.py`; `U/<phase>/<wave>/barriers/events-*.jsonl`; participant endpoints/counters; `WAVE.json`, `host-processes.jsonl`, `gpu.csv`. | Rendezvous follows the original first counter sample and precedes the timer. Original expressions/timers remain unchanged; wave/process wall and counter/memory samples may include untimed waits. Shared preheat/residency and 0.5 s/200 ms samples are observations, not guarantees or per-query causal power attribution. |
-| T06 | An owned scheduler hold separates isolated and contention actions. | [Interlude protocol](../../docs/H100_CONTENTION_INTERLUDE_20261028.md); `H/STATE.json`: `.held_at_utc`, `.phase`, `.snapshot`; `H/EVENTS.jsonl`: `HOLD_INTENT`, `SCHEDULER_STOPPED_PID_ONLY`; original child completion and later resume receipts. | Scheduler PID 179144 held at 04:44:23 UTC; existing SF30 Spark CPU runner/workers were not paused and finished before pilot start at 04:47:43 UTC. The isolated journal may remain running until scheduler resume. Its later end/orchestrator wall include the hold; action/host-result timers do not. Final end/resume proof remains pending. |
-| T07 | A completed contention phase has its exact disposition and preserved raw bytes. | **Pending:** `U/{pilot,main}/PHASE.json`, all exact `WAVE.json`/`VALIDATION.json`/participant artifacts and byte gates; separate raw snapshot, off-host verification and phase acknowledgements. | Require the full prescribed phase matrix, output/oracle/cleanup/configuration/overlap checks and final owned-worker cleanup. A wave validation label alone does not establish final phase cleanup. Preserve failures; do not impute times or retry until a clean result appears. Pilot failure blocks expansion unless a new explicit scientific decision is made. |
-| T08 | Final paper/page disclose the interlude and separate extension accurately. | Final §4.5–4.6/§5.7 tables; actual separate phase disposition; original journal and managed hold/drain/end/resume/idle/source/runtime/profile/input receipts. | Report all original 400 sessions and separate contention outcomes, including blocked/unrun expansion if its gate fails. Interlude checks remain outside the formal 24-record profile log. Resume the same owned scheduler after no contention descendants remain; no pooling, primary replacement or contention-only retirement. |
+| T05 | Timer boundaries are preserved while resource observations can include waits. | Frozen C84 `worker.py` identity; `T/tools/contention_worker.py`; `U_phase/<phase>/<wave>/barriers/events-*.jsonl`; `Q.waves[].barriers`; participant endpoints/counters, wave walls and telemetry. | All 250 barrier releases are verified. Rendezvous precedes the original timer; counter/memory samples may include untimed waits. Shared residency and 0.5 s/200 ms samples are observations, not guarantees or per-query causal power attribution. Timing/resource interpretation remains pending. |
+| T06 | Actual same-process scheduler resume is recorded. | `H/RESUMED.json`, `H/STATE.json`, `H/ORIGINAL_RUNNER_DRAINED.json`, cleanup/profile receipts; `D/PHASE_DRIVER.json`; `Q.handoff.same_scheduler_resumed`, `.scheduler`, `.resumed_at_utc`. | PID 179144, creation time 1793160829.75, resumed at 05:32:20.044724 UTC; STATE is COMPLETE_RESUMED, driver COMPLETE_OFFHOST. Operational drain/cleanup/resume are recorded, but missing original attempt bytes prevent independently verified action separation and exact original endpoint/wall accounting. |
+| T07 | The planned contention workload and phase backups completed. | `Q.disposition`, `.waves`, `.snapshots`, `.terminal_driver`; `U_phase/<phase>/PHASE.json` and all final wave/member artifacts; `D/backup-receipts/{pilot,main}.json`. | Pilot PASS 4/4, main PASS 16/16; all 460 SQL outputs pass (230 warmup/230 measured), ten expected strict rejections, zero unexpected errors and ten unpaired CPU diagnostics. Both raw phases are OFFHOST_SHA256_VERIFIED. This does not promote overall Q PARTIAL/publication_ready false or complete the isolated 400. |
+| T08 | Final paper/page disclose the interlude and separate extension accurately. | Final §4.5–4.6/§5.7 tables; actual twenty-wave phase disposition; original journal/attempt payload plus managed hold/drain/end/resume/idle/identity receipts. | Same-process resume is recorded; complete original action-boundary binding and the original 400-session study remain pending. Interlude checks stay outside the formal 24-record profile log. No pooling, primary replacement, PARTIAL-to-final promotion or contention-only retirement. |
+| T09 | Original isolated-versus-contention non-overlap proof is pending, not violated. | `Q.handoff`: `.status == "PENDING_ORIGINAL_ATTEMPT"`, `.original_payload_verified == false`, `.original_attempt_files_expected == 34`, `.pending_reasons`, `.no_action_overlap == false`; actual original `block-04-complex-sf30-spark_cpu` bytes/endpoints still required. | The false boolean records unavailable proof, not an observed overlap violation. Keep Q PARTIAL/publication_ready false until exact original payload/action bounds are supplied and freshly audited. Operational receipts and the 110 intended within-contention overlaps cannot substitute. |
+| T10 | The expansion raw archive is preserved with a specific identity. | `Q.snapshots.main`; verified main receipt and `D/backup-receipts/main.json`: 1,561 files, 487,321,600 tar bytes, SHA256 `98be99cf74690d01053de9670669e629a166b02bd67fd51a994425006f792197`. | Actual off-host archive identity only; preserve pilot separately. Archive/workload completion does not establish complete terminal provenance, final performance findings or retirement eligibility. |
 
 ## Historical, recovery and contention artifact locations
 
@@ -162,3 +169,7 @@ input/export hashes and produces `primary_contrasts.csv`,
    identify unpaired CPU complex diagnostics, retain wait-inclusive metric scope,
    and account for the same-scheduler resume and outer-wall inflation. These
    observations never replace or enter the isolated 26-test family.
+   Workload phases and actual same-process resume now pass their operational
+   checks, but v3 remains PARTIAL/publication_ready false until the 34 original
+   block04 attempt files/endpoints are bound. Its no_action_overlap false is
+   pending proof, not an observed overlap violation.
