@@ -2,24 +2,12 @@
 
 **Daniel Ejiofor**
 
-**Technical draft — isolated recovery incomplete; separate contention audit
-complete, 2026-10-28 UTC.** Four
-cohorts have distinct roles: an exploratory pilot, the incomplete campaign on
-a lost instance, an aborted default-profile replacement, and one fresh
-recovery campaign with a fixed JVM profile. Their timings are never pooled.
-A separately requested, descriptive same-host contention experiment completed
-its planned waves. Independent terminal replay verifies its outputs, actual
-action overlap, separation from the drained isolated attempt and the same
-scheduler's resume. Its descriptive observations neither replace nor augment
-the 400-session primary sample.
-The [replacement addendum](../../docs/H100_REPLACEMENT_20261027.md) and
-[prospective recovery protocol](../../docs/H100_GCLOCKER100_RECOVERY_PROTOCOL.md)
-record the host, input reuse, incident, feasibility gate and profile choice.
-The separate recovery feasibility diagnostic and repeated readiness have
-passed, and the fresh campaign has started. Ten-block estimates, superiority
-findings and sampled-scale conclusions remain pending. The separate contention
-results below do not establish a slowdown relative to isolated execution.
-This draft is not ready for external publication.
+**Complete ten-block recovery analysis, 2026-10-28 UTC.** The primary sample
+contains 400 fresh sessions under one fixed JVM profile. An exploratory pilot,
+an incomplete lost-host campaign and an aborted default-profile replacement
+have separate evidential roles; their timings are excluded from primary
+inference. A separate twenty-wave same-host contention extension is descriptive.
+Its observations neither replace nor augment the isolated primary sample.
 
 ## Abstract
 
@@ -37,15 +25,20 @@ blocks, independent SQL correctness checks, separate action/common-host-result
 endpoints, and 26 primary comparisons with Holm adjustment. Strict unsupported
 expressions receive no imputed times. The profile is a post-incident
 configuration choice, with no causal mitigation or reliability claim.
-A separate staged experiment coordinates one Spark process and one Polars
-process on this same H100. Its twenty completed waves yield 460 oracle-valid
-outputs and 110 common measured action pairs with verified overlap. A terminal
-audit also verifies separation from the drained isolated attempt and the same
-scheduler's resume. These descriptive observations are excluded from the
-primary family and isolated sample and do not estimate a causal contention
-slowdown.
-**Recovery performance estimates and conclusions await its completed ten-block
-campaign.** These
+All 400 recovery sessions completed, with 9,360 oracle-valid outputs. All 26
+prespecified tests reject after Holm adjustment: fifteen favor the GPU path
+and eleven favor its reference. At baseline SF300, CPU/GPU score ratios are
+3.296 (pointwise 95% interval 3.239-3.355) for Spark, 3.537 (3.473-3.602) for
+Polars 1.44.2 CPU/Polars GPU and 2.451 (2.405-2.498) for Polars 2.0 CPU/Polars
+GPU. GPU Spark does not beat CPU Polars 2.0 on a complete-suite score at any
+sampled condition: their SF300 ratios are 0.698 (0.687-0.710) for baseline and
+0.493 (0.479-0.507) for complex. Descriptive query results nevertheless favor
+GPU Spark for the window query and selected Q1/Q13 conditions. Strict Polars
+GPU supports four of six complex expressions and has no complete complex score.
+No available endpoint comparison changes point-estimate direction when measured
+through a common host result. A separate twenty-wave contention extension
+verifies 460 outputs and 110 common measured action pairs; it supplies no
+primary observations or causal slowdown estimate. These
 selected research workloads are not complete or certified
 TPC-H results.
 
@@ -74,7 +67,7 @@ blocks, addressing repetition levels, uncertainty and setup bias.
 [Kalibera and Jones](https://kar.kent.ac.uk/33611/45/p63-kaliber.pdf),
 [Mytkowicz et al.](https://research.ibm.com/publications/producing-wrong-data-without-doing-anything-obviously-wrong)
 
-The intended contribution is an auditable empirical comparison with four
+The contribution is an auditable empirical comparison with four
 linked properties: fresh process-level replication in a balanced prospective
 schedule; independent SQL checks of every successful action; explicit
 expression coverage without imputed unsupported times; and separate primary
@@ -86,7 +79,7 @@ comparison to be useful.
 The scope excludes distributed scaling, equal-cost performance, energy,
 controlled cold-cache latency and optimal per-engine tuning. Historical
 A100/H100 comparisons also change CPU allocation, software and file layout.
-Primary recovery conclusions will apply to the explicitly recorded JVM profile;
+Primary recovery conclusions apply to the explicitly recorded JVM profile;
 the aborted cohorts do not estimate its causal performance or reliability effect.
 The user-requested contention extension asks a different question about two
 coordinated workloads sharing the same host. It has separate sampling,
@@ -174,8 +167,8 @@ Python 3.10.12 and remains separate.
 Spark retains the `a100-parity` settings, including a 96 GiB driver heap,
 120 shuffle partitions, adaptive query execution, and UTC session time zone.
 GPU Spark uses two concurrent GPU tasks and a 2 GiB pinned-memory pool. The plan
-archives these settings and the plugin JAR SHA256; the complete audit must still
-check their effective values in every final session. Polars uses the
+archives these settings and the plugin JAR SHA256; the complete audit verifies
+their effective values in every final session. Polars uses the
 allocated 26-thread setting without an equivalent fixed host-memory limit.
 Consequently, common hardware does not imply equal memory budgets. Spark AQE
 can change joins and partitioning using runtime statistics; final plans are
@@ -196,8 +189,8 @@ builder. `EXECUTION_PROFILE.json` binds the exact startup environment,
 Java executable/runtime files, launcher sources, Python environments and
 diagnostic/input/oracle evidence before recovery timing. Its exact SHA256 and
 pre-start identity are recorded in §4.1. The four repeated Spark readiness
-driver logs verify the profile; proof for all formal sessions remains a final
-audit requirement. Allocation-retry and GC stalls within an action remain inside
+driver logs verify the profile, as do all 160 formal Spark driver logs and
+24 idle-boundary profile receipts in the complete audit. Allocation-retry and GC stalls within an action remain inside
 its normal endpoints; no such observation is excluded as an outlier.
 
 Polars GPU sets `raise_on_fail=True`, verifies the effective configuration, runs
@@ -223,7 +216,7 @@ recovery, which reuses the same 1,654 files and existing independent
 oracle bytes on the same VM. No recovery input regeneration or mutation is
 allowed. No claim of physical-byte identity with the lost instance is made.
 The archived replacement inventory is therefore also the recovery
-inventory below; its actual pre/post byte gates must still verify those bytes.
+inventory below; the recorded pre/post full-byte gates verify those bytes.
 Generation uses 30 export threads, a 64 GB memory setting, Snappy compression,
 122,880-row groups, per-thread output and a 128 MB target file size. Generation
 and export are outside competitor timings; timed configurations use 26 vCPUs.
@@ -300,7 +293,8 @@ The canonical pre-start snapshot contains 346 files, including its manifest;
 all 345 listed file checksums match. Private commit
 `6dbca2fbd4de1be8aa4408a639954bc9076bfa38` preceded the first session. The
 recorded full 1,654-file initial byte gate passed at 21:47:43.892782 UTC.
-The final post-session byte gate remains required.
+The final full-byte gate passed at 2026-10-28 23:33:18.564788 UTC, after the
+last session ended. All 1,654 files retain their recorded identities.
 
 Exactly one separately named full-complex-SF100 Spark CPU feasibility session
 completed before recovery preparation. It used seed 838471203, one warmup and
@@ -323,8 +317,9 @@ observations are excluded from the confirmatory performance sample.
 
 The recovery retains the same VM, 1,654 physical files, existing oracle bytes,
 five configurations and unchanged 52-file C84 source. The fixed Spark JVM
-profile is an explicitly disclosed post-incident change. Recovery collection
-is ongoing; no completed-sample performance result is asserted in this draft.
+profile is an explicitly disclosed post-incident change. All ten blocks and
+400 single-attempt sessions completed; the final replay binds the same profile
+and excludes every earlier timing cohort.
 
 The design is ten blocks by eight suite/scale conditions by five
 configurations, yielding 400 fresh sessions. Each supported query has one
@@ -363,7 +358,7 @@ asymmetry for continuity with the pilot.
 
 Secondary `host_result_seconds` continues from the same start through Python
 dictionary conversion in both paths, excluding normalization/serialization.
-Endpoint direction changes will be reported. Startup, process wall time and
+Endpoint direction changes are reported in §5.5. Startup, process wall time and
 action bounds are separate. A sum of six query medians is a suite score, not
 observed once-through latency.
 
@@ -407,9 +402,9 @@ worker or outer-wall timestamp is corrected. The longer between-block interval
 remains part of the host's temporal/cache history; no performance effect is
 inferred from it.
 
-The recovery additionally requires 24 idle-boundary execution-profile receipts:
+The recovery retains 24 idle-boundary execution-profile receipts:
 before/after repeated readiness, before/after each of ten blocks, and before/
-after final verification. The final complete audit must bind those receipts
+after final verification. The final complete audit binds those receipts
 to the sealed profile, unchanged Java/Python environments, session bounds and
 campaign completion. These new receipts are configuration checks, not extra
 timing observations.
@@ -484,11 +479,11 @@ shrink the family. Query-level and host-result estimates are descriptive
 secondary results, with pointwise intervals and no added primary claims.
 [Holm](https://www.jstor.org/stable/4615733)
 
-Crossover statements will identify only sampled scale points. The protocol's
+Crossover statements identify only sampled scale points. The protocol's
 supported-bracket rule requires a supported advantage at the upper measured
 point without a contradictory larger sampled point. A lower point lacking
 support is not evidence of reversal. No exact byte threshold or interpolation
-through unmeasured scales will be asserted.
+through unmeasured scales is asserted.
 
 ### 4.5 Separate coordinated same-host contention experiment
 
@@ -616,20 +611,19 @@ These interlude checks are separate receipts and do not replace or augment the
 formal 24-record profile log. The original unchanged schedule continues.
 The last contention host-result endpoint is 05:28:37.930202 UTC, before this
 resume. The terminal handoff audit reports PASS, verifies the original payload
-and action separation, and records no pending reasons. Temporal separation
+and action separation, and records no unresolved reasons. Temporal separation
 does not remove the interlude's change to pacing or demonstrate unchanged
 host/cache conditions; possible carryover remains a limitation.
 
-## 5. Results — recovery primary results pending
+## 5. Results
 
-The default-profile abort and passed recovery feasibility/readiness are observed
-outcomes; recovery primary results remain pending. No partial-block timing from
-either incomplete cohort enters the primary estimates, tables or conclusion.
-The completed primary presentation must come from a genuine replay of all 400
-fresh recovery sessions under its sealed profile. Historical evidence has
-separate cohort identities.
+All primary estimates below come from the complete fresh recovery cohort.
+The genuine portable replay is PASS, phase complete and nonsynthetic; no
+pilot, lost-host, aborted replacement, readiness, diagnostic or contention timing
+enters its ten-block estimates. The primary tables retain all prespecified
+contrasts, including supported reference advantages.
 
-### 5.1 Observed default-profile abort and ongoing recovery disposition
+### 5.1 Cohort disposition and completed recovery
 
 The default-profile replacement halted at 20:27:48 UTC on October 27. Its failed
 session, `block-03-complex-sf100-spark_cpu`, failed in `cx_q09`'s first warmup,
@@ -657,86 +651,231 @@ The original journal and attempts were not edited; no successful session was
 rerun within that cohort, and its failed attempt remains visible. This is a
 reported failure observation, not a complete primary comparison.
 
-The passing pre-start diagnostic/readiness evidence and exact recovery
-identities are reported in §4.1. For the ongoing collection, the final report
-must still establish its complete interval, all 400 session dispositions,
-attempts, deviations and final completion. Account for all ten
-40-session raw backups, 24 idle profile receipts and temporally bracketing input-
-byte gates. Independently check the four repeated SF1 Spark readiness driver
-logs. Require all 160 formal Spark driver logs to prove retry count 100,
-unlocked diagnostic options, G1 and maximum heap 103,079,215,104 bytes. Final
-validation, complete audit, replay and raw bundle remain pending; planned counts
-or successful tooling tests cannot establish their completion.
+The separate feasibility/readiness results in §4.1 preceded the fresh
+recovery sample. Its 400 sessions all completed in one successful attempt each,
+with no replacement observations. Recorded attempt bounds are 2026-10-27
+21:47:44.042050 UTC through 2026-10-28 23:26:10.952925 UTC. The final full-input
+hash gate passed at 23:33:18.564788 UTC and journal completion was recorded at
+23:33:18.565015 UTC. The original supervisor exited zero, with its end marker
+at 23:42:11 UTC. All ten 40-session block backups and final/completion snapshots
+were verified off-host. The separate managed contention hold and local-power
+handoff delay are retained as operational pacing disclosures, not removed from
+saved timestamps.
 
-### 5.2 Correctness and expression coverage — pending
+The independently replayed complete audit reports PASS with no findings. It
+verifies 400 session identities, 9,360 successful SQL comparisons, 60 specific
+strict translation rejections, 3,360 successful complex cleanup records and
+60 failed-action cleanup records. All 160 formal Spark driver logs prove the
+sealed retry-100/G1/96 GiB profile, and all 24 ordered idle-boundary receipts
+match the registered Java/runtime/environment identities. This is successful
+execution under the chosen profile, not a causal before/after mitigation study.
 
-Report all successful action/oracle comparisons, expected translation
-rejections and any unexpected errors, retaining the warmup/measured distinction.
-The unchanged supported-query pattern implies 9,360 successful comparisons:
-2,340 warmups and 7,020 measured actions, together with 60 unsupported warmup
-outcomes. These are expected counts, not observed recovery results in this
-draft. Every rejection must be the intended expression-translation limitation,
-verified from the retained diagnostic; no unrelated error may be counted as
-expected coverage. Pre-start recovery readiness already passes all five semantic
-fixture configurations: the three CPU configurations and GPU Spark pass all
-five cases, while strict Polars GPU passes three and retains the rank/window
-and DOTALL-regex rejections. These are diagnostic coverage outcomes, separate
-from the earlier default-profile preparation and from full-campaign correctness.
+| Evidence role | Observed disposition | Role in primary inference |
+| --- | --- | --- |
+| Exploratory H100 pilot | 40 historical sessions; 936 saved successful outputs later checked | Historical context only |
+| Lost October 26 host | 120 core-checkpoint sessions/2,808 outputs survive; full campaign unavailable | Excluded |
+| Default-profile replacement | 88 validated sessions/2,056 outputs, one failed session, 311 unstarted | Excluded |
+| Fixed-profile recovery | 400 single-attempt sessions, ten blocks, complete audit and replay PASS | Entire primary sample |
+| Separate feasibility/readiness | Twelve diagnostic outputs; 116 repeated readiness outputs | Excluded |
+| Separate contention extension | Twenty waves, 460 successful outputs, terminal audit COMPLETE | Descriptive only |
 
-The coverage table must retain all 40 configuration/condition cells, including
-the three complex Polars GPU cells with four of six supported expressions and
-no complete six-query score. Any departure from that expected coverage requires
-explicit review of the retained attempts, rather than a replacement query or
-an imputed time.
+### 5.2 Correctness, coverage and complete-suite scores
 
-### 5.3 Complete-suite scores and all primary contrasts — pending
+All 9,360 successful recovery outputs match the independent SQL references
+under the declared rules: 2,340 warmups and 7,020 measured actions. The 60
+expected outcomes are strict Polars GPU rejections of the original complex
+Q13 and grouped-window expressions, once per query in each of thirty complex
+sessions. They are retained translation limitations, not successful outputs or
+imputed measurements. No unexpected error or oracle failure is accepted by
+the completed audit.
 
-Present descriptive complete-suite scores for every configuration/condition
-cell and the entire 26-row primary comparison table. Each primary row gives
-its contrast ID, configuration pair, suite, nominal scale, ten-block geometric
-mean ratio, pointwise 95% interval, raw p value, Holm-adjusted p value and
-supported-advantage outcome. Report estimated reference advantages and
-comparisons without supported differences as well as supported GPU advantages.
-Do not reduce the table to favorable rows or describe an unadjusted interval
-as a familywise superiority decision.
+Table 1 retains all forty configuration/condition cells. Every numeric cell
+has ten complete blocks and six of six supported queries. Each Polars GPU
+complex N/A cell has zero complete six-query scores out of ten planned blocks,
+with four of six original queries supported. The score is the geometric mean
+of ten session sums of query medians, in seconds; it is not observed latency
+for one sequential suite execution. All configurations retain their recorded
+software versions and resource policies.
 
-Baseline and complex figures show the ten measured block ratios at each
-sampled scale, with the prespecified estimate and interval. They use discrete
-scale points and identify the unsupported complex Polars GPU comparisons.
-Full primary values remain available in machine-readable form even when the
-printed figure separates contrast families for readability.
+**Table 1. Complete-suite scores and coverage.** CPU144 and CPU200 denote
+Polars CPU 1.44.2 and 2.0.0; PGPU is strict Polars GPU 1.44.2; SCPU and SGPU
+are Spark CPU and GPU. Numeric cells: 10/10 complete blocks, 6/6 queries.
+N/A cells: 0/10 complete blocks, 4/6 queries.
 
-### 5.4 Scale patterns and descriptive query results — pending
+| Suite/SF | CPU144 (s) | CPU200 (s) | PGPU (s) | SCPU (s) | SGPU (s) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| baseline/1 | 0.164 | 0.152 | 0.408 | 2.002 | 2.718 |
+| baseline/10 | 1.107 | 0.950 | 0.742 | 6.833 | 4.470 |
+| baseline/30 | 3.659 | 2.800 | 1.433 | 17.273 | 7.206 |
+| baseline/100 | 12.144 | 9.039 | 3.810 | 47.633 | 15.273 |
+| baseline/300 | 40.579 | 28.122 | 11.473 | 132.767 | 40.275 |
+| complex/30 | 13.276 | 4.961 | N/A | 42.234 | 10.623 |
+| complex/100 | 51.149 | 19.657 | N/A | 132.131 | 37.523 |
+| complex/300 | 161.222 | 65.336 | N/A | 345.570 | 132.625 |
 
-Evaluate sampled-scale brackets only within each declared contrast family and
-suite. For every proposed bracket, inspect all larger measured points and
-state the supported upper point and lower observed condition explicitly.
-An inconclusive lower point cannot establish a CPU-favored region. Report
-nonmonotone observations directly; do not fit an unregistered exact crossover.
+![Values are descriptive geometric means of ten complete session scores in seconds. Each score sums six query medians, not an observed whole-suite latency. Every cell reports planned-block completeness and query coverage. Polars GPU complex retains four of six supported original queries and has zero complete six-query scores; a partial four-query sum is never substituted. Versions are the fixed study configuration; the renderer does not independently inventory hardware or runtimes.](replay/figures/complete_case_scores.png)
 
-The query heatmap and query-level table describe heterogeneity around the
-suite scores, including unsupported original expressions. Individual query
-ratios do not add primary significance claims. A selected physical operator
-may be documented from a final plan, but cannot establish its runtime share
-or explain a speed difference without separate profiling.
+### 5.3 All primary contrasts
 
-### 5.5 Common-host-result endpoint sensitivity — pending
+All twenty-six two-sided tests reject after Holm adjustment across the one
+prespecified family: fifteen favor the denominator GPU path and eleven favor
+the numerator reference. The largest adjusted p value is 5.545e-6. No contrast
+has zero observed log-ratio variance. Every estimate uses ten paired blocks;
+its displayed 95% interval is pointwise and is not a simultaneous confidence
+statement. The supported direction comes from the ratio and the Holm-adjusted
+test, not from a separate unadjusted-interval rule.
 
-Present all 32 descriptive configuration/condition pairs for the secondary
-endpoint, retaining the six unavailable Polars GPU complex pairs. Place each
-available action ratio beside the common-host-result ratio and its pointwise
-interval. Enumerate every point-estimate direction change and relate it to
-the declared conversion boundaries. Do not apply primary superiority language
-or add hypothesis tests to this secondary table.
+Tables 2a-2d give the complete family. B denotes baseline and C denotes
+complex; each row's exact contrast ID is its heading's code prefix followed
+by `-baseline-sf<scale>` or `-complex-sf<scale>`. Ratios are reference/GPU,
+so values above one favor GPU execution. CPU denotes the specific numerator
+reference, not a pooled CPU class. Values are rounded for display; full
+precision is retained in the bound JSON/CSV artifacts.
 
-### 5.6 Block order, cache observations and host state — pending
+**Table 2a. CPU Polars 2.0 / GPU Spark.** Prefix `polars_cpu_200_over_spark_gpu`.
 
-Show or tabulate block log-ratio spread and chronological order alongside
-preheat/post-session residency, host-memory pressure and recorded environmental
-warnings. Keep snapshots and sampled peaks distinct from continuous guarantees.
-Describe any conspicuous drift or uncertainty without silently trimming a
-block, changing the fixed family or asserting that balanced order removes all
-interference. Deviation and pacing disclosures belong beside these observations.
+| Condition | Ratio | Pointwise 95% CI | Raw p | Holm p | Supported path |
+| --- | ---: | --- | ---: | ---: | --- |
+| B/1 | 0.055945 | [0.054808, 0.057105] | 1.53980e-19 | 4.00348e-18 | CPU reference |
+| B/10 | 0.212549 | [0.208690, 0.216479] | 1.48899e-17 | 3.57358e-16 | CPU reference |
+| B/30 | 0.388511 | [0.382310, 0.394813] | 3.92243e-16 | 7.84485e-15 | CPU reference |
+| B/100 | 0.591820 | [0.580946, 0.602897] | 2.80633e-13 | 2.52570e-12 | CPU reference |
+| B/300 | 0.698245 | [0.686991, 0.709683] | 2.56562e-12 | 1.79594e-11 | CPU reference |
+| C/30 | 0.467006 | [0.431938, 0.504921] | 3.80945e-09 | 1.14283e-08 | CPU reference |
+| C/100 | 0.523867 | [0.515150, 0.532732] | 1.74612e-14 | 2.26996e-13 | CPU reference |
+| C/300 | 0.492635 | [0.478992, 0.506668] | 7.89815e-13 | 6.31852e-12 | CPU reference |
+
+**Table 2b. CPU Spark / GPU Spark.** Prefix `spark_cpu_over_spark_gpu`.
+
+| Condition | Ratio | Pointwise 95% CI | Raw p | Holm p | Supported path |
+| --- | ---: | --- | ---: | ---: | --- |
+| B/1 | 0.736771 | [0.685003, 0.792450] | 5.54466e-06 | 5.54466e-06 | CPU reference |
+| B/10 | 1.528723 | [1.451437, 1.610125] | 1.79765e-08 | 3.59529e-08 | GPU |
+| B/30 | 2.396972 | [2.300420, 2.497576] | 3.63646e-12 | 2.18188e-11 | GPU |
+| B/100 | 3.118779 | [3.055933, 3.182918] | 6.16814e-16 | 1.11026e-14 | GPU |
+| B/300 | 3.296495 | [3.239099, 3.354908] | 1.06637e-16 | 2.34602e-15 | GPU |
+| C/30 | 3.975933 | [3.678199, 4.297766] | 1.85028e-11 | 7.40110e-11 | GPU |
+| C/100 | 3.521337 | [3.472958, 3.570391] | 7.66732e-18 | 1.91683e-16 | GPU |
+| C/300 | 2.605614 | [2.556563, 2.655606] | 1.56222e-15 | 2.65578e-14 | GPU |
+
+**Table 2c. CPU Polars 1.44.2 / Polars GPU.** Prefix `polars_cpu_144_over_polars_gpu`.
+
+| Condition | Ratio | Pointwise 95% CI | Raw p | Holm p | Supported path |
+| --- | ---: | --- | ---: | ---: | --- |
+| B/1 | 0.401941 | [0.390084, 0.414158] | 1.45161e-13 | 1.45161e-12 | CPU reference |
+| B/10 | 1.491644 | [1.474820, 1.508659] | 3.87911e-14 | 4.26702e-13 | GPU |
+| B/30 | 2.554085 | [2.513373, 2.595456] | 4.17276e-16 | 7.92824e-15 | GPU |
+| B/100 | 3.187462 | [3.125726, 3.250418] | 3.62900e-16 | 7.62090e-15 | GPU |
+| B/300 | 3.536788 | [3.473146, 3.601596] | 8.58767e-17 | 1.97516e-15 | GPU |
+
+**Table 2d. CPU Polars 2.0 / Polars GPU.** Prefix `polars_cpu_200_over_polars_gpu`.
+
+| Condition | Ratio | Pointwise 95% CI | Raw p | Holm p | Supported path |
+| --- | ---: | --- | ---: | ---: | --- |
+| B/1 | 0.372908 | [0.365387, 0.380583] | 2.23869e-15 | 3.58190e-14 | CPU reference |
+| B/10 | 1.280664 | [1.265771, 1.295732] | 3.81639e-12 | 2.18188e-11 | GPU |
+| B/30 | 1.954230 | [1.918831, 1.990282] | 2.73543e-14 | 3.28252e-13 | GPU |
+| B/100 | 2.372428 | [2.320547, 2.425469] | 1.53940e-14 | 2.15516e-13 | GPU |
+| B/300 | 2.451064 | [2.405104, 2.497903] | 2.72844e-15 | 4.09266e-14 | GPU |
+
+GPU Spark has a supported complete-suite advantage over CPU Spark at baseline
+SF10, SF30, SF100 and SF300, and at all three complex scales. CPU Spark is
+supported at baseline SF1. Against CPU Polars 2.0, GPU Spark has no supported
+complete-suite advantage in any of the eight sampled conditions; CPU Polars
+2.0 is supported in all eight. At SF300 their ratios are 0.698245 for baseline
+and 0.492635 for complex.
+
+Strict Polars GPU has a supported baseline advantage over each CPU Polars
+version at SF10, SF30, SF100 and SF300. Both CPU versions are supported at SF1.
+At SF300 the ratio is 3.536788 against CPU 1.44.2 and 2.451064 against CPU 2.0.
+The choice of CPU control therefore changes the reported GPU gain. Neither
+CPU version supplies a complete complex-suite comparison with Polars GPU.
+
+![Each small point is one of ten paired block ratios. Diamonds and bars show the geometric mean and pointwise 95% Student-t interval on block log ratios; intervals are not simultaneous. The 26 prespecified suite tests form one Holm family; adjusted p values are in primary_contrasts.csv. Ratio >1 favors the GPU. Each session score sums six query medians from three inner actions; this is not an observed suite latency. Action time excludes startup. Blocks, rather than inner actions, are the inference units. Independent, approximately normal block log ratios are assumed; ten blocks do not guarantee power.](replay/figures/suite_ratios_baseline.png)
+
+![Each small point is one of ten paired block ratios. Diamonds and bars show the geometric mean and pointwise 95% Student-t interval on block log ratios; intervals are not simultaneous. The 26 prespecified suite tests form one Holm family; adjusted p values are in primary_contrasts.csv. Ratio >1 favors the GPU. Each session score sums six query medians from three inner actions; this is not an observed suite latency. Action time excludes startup. Blocks, rather than inner actions, are the inference units. Independent, approximately normal block log ratios are assumed; ten blocks do not guarantee power.](replay/figures/suite_ratios_complex.png)
+
+### 5.4 Sampled-scale brackets and descriptive query heterogeneity
+
+For baseline Spark CPU/GPU and both baseline CPU Polars/Polars GPU comparisons,
+SF1 favors the CPU reference and SF10 favors the GPU, with no contradictory
+larger sampled point. The supported sampled-scale bracket is therefore SF1 to
+SF10 for each of these three declared comparisons. It does not identify an
+exact intermediate threshold. GPU Spark never crosses CPU Polars 2.0 on the
+sampled complete-suite conditions. The complex Spark CPU/GPU comparison already
+favors the GPU at its smallest measured scale, SF30; no lower crossover bracket
+is observed. The complex Spark CPU/GPU ratio falls from 3.975933 at SF30 to
+2.605614 at SF300, so the gain is not monotone increasing with input scale.
+
+Complete-suite results do not apply uniformly to individual queries. GPU Spark
+has a shorter descriptive query estimate than CPU Polars 2.0 for baseline Q1
+at SF30/SF100/SF300, complex window at all three measured scales, and complex
+Q13 at SF100/SF300. For example, at SF300 the CPU Polars 2.0/GPU Spark ratio
+is 5.145 for window but 0.149 for Q9. Table 3 shows all SF300 expressions;
+the heatmap retains all measured scales. These are geometric means of paired
+query ratios, without query-level significance tests or additional primary
+claims. The four supported complex Polars GPU expressions cannot establish
+a complete six-query score.
+
+**Table 3. SF300 descriptive action ratios, CPU Polars 2.0 / GPU path.**
+Ratios above one have the shorter GPU point estimate. N/A denotes an original
+strict translation rejection and receives no imputed time.
+
+| Suite | Query | CPU200 / SGPU | CPU200 / PGPU |
+| --- | --- | ---: | ---: |
+| baseline | `q01` | 2.259 | 3.924 |
+| baseline | `q03` | 0.576 | 2.600 |
+| baseline | `q06` | 0.603 | 1.162 |
+| baseline | `q10` | 0.494 | 2.564 |
+| baseline | `q12` | 0.417 | 1.940 |
+| baseline | `q14` | 0.606 | 1.508 |
+| complex | `cx_q09` | 0.149 | 3.603 |
+| complex | `cx_q13` | 1.826 | N/A |
+| complex | `cx_semi_anti` | 0.755 | 2.558 |
+| complex | `cx_window` | 5.145 | N/A |
+| complex | `cx_distinct` | 0.634 | 4.600 |
+| complex | `cx_self_join` | 0.847 | 1.522 |
+
+![Cells show geometric means of ten paired block query ratios for CPU Polars 2.0.0 / GPU, using the action endpoint. Color encodes log2(ratio), centered symmetrically on 1×. These query comparisons are descriptive; no query significance tests or multiplicity-adjusted query claims are made. Gray N/A cells retain the original strict GPU regex and grouped-window rejections. They are not a ratio of 1 and receive no imputed latency. The original correlated query does not establish an executed nonempty anti join.](replay/figures/query_ratios_action.png)
+
+### 5.5 Common-host-result endpoint sensitivity
+
+All thirty-two prespecified descriptive configuration/condition pairs are
+retained in Appendix B. Twenty-six have ten paired block observations at both
+endpoints; six Polars GPU complex comparisons remain unavailable. No available
+point estimate changes direction relative to the action endpoint. This
+agreement is specific to the saved outputs and conversion boundaries and does
+not establish that conversion costs are absent.
+
+For example, CPU Polars 2.0/Polars GPU at baseline SF1 changes from 0.372908
+(action) to 0.373832 (common host result); at SF300 it changes from 2.451064
+to 2.451062. CPU Polars 2.0/GPU Spark complex SF300 changes from 0.492635
+to 0.492637. Appendix B preserves each endpoint's pointwise interval; these
+secondary rows introduce no hypothesis tests or familywise superiority claims.
+
+### 5.6 Block spread, temporal order and host state
+
+Appendix C displays all 260 primary block ratios in chronological block order,
+without trimming or selective repetition. For every contrast the ten observed
+ratios are on the same side of one. This is a description of these observations,
+not proof of independence or a separate inferential test. Standard deviations
+of block log ratios range from 0.015856 to 0.109119. The largest is CPU Polars
+2.0/GPU Spark complex SF30, whose raw ratios range from 0.403222 to 0.537869;
+Spark CPU/GPU Spark complex SF30 ranges from 3.439022 to 4.470605. The saved
+raw ratios make this variation visible beside the pointwise intervals.
+
+The complete audit checks the required session configurations, cache
+inventories, cleanup records and input-byte chronology. Per-session preheat
+and instantaneous residency observations do not guarantee constant in-query
+residency or host clocks. No formal drift or carryover test is added. The
+managed contention hold in §4.6 and the distinct local low-power/backup gap
+in §4.2 change temporal spacing and possible later cache/host state. In the
+latter event, block06's backup creation-to-off-host-ACK interval was
+10,641.118307 s; remote collection completed the block during the local gap.
+Original action, worker and outer-wall
+timestamps are preserved; no interval is subtracted to improve a performance
+estimate. The post-incident fixed profile and all recorded pacing conditions
+bound interpretation of the complete sample.
 
 ### 5.7 Separate descriptive contention results
 
@@ -764,14 +903,15 @@ in 487,321,600 tar bytes, SHA256
 The final handoff independently binds the actual original 34-file attempt and
 same-process scheduler resume described in §4.6. The terminal receipt has
 `status: COMPLETE`, `integrity_status: PASS`, `publication_ready: true`, no
-findings and no pending handoff reasons. This completes the separate extension's
-provenance gate; the original 400-session study remains incomplete.
+findings and no unresolved handoff reasons. This completes the separate
+extension's provenance gate; its sample remains separate from the completed
+400-session study.
 
 The terminal `CONTENTION_REPLAY.json` SHA256 is
 `0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3`.
 The earlier 06:17 v3 receipt remains an unchanged historical PARTIAL audit:
 its then-missing original payload is now supplied to this new terminal audit.
-Its former `no_action_overlap: false` denoted pending proof, not an observed
+Its former `no_action_overlap: false` denoted then-unavailable proof, not an observed
 violation. The terminal handoff verifies `original_payload_verified: true`
 and `no_action_overlap: true`; the latter concerns separation from isolated
 work, distinct from intended overlap within each contention pair.
@@ -823,61 +963,80 @@ and sampled memory can include untimed waits and are not action-only costs.
 No new confidence interval, p value, superiority decision or primary result
 is inferred from this extension.
 
-## 6. Discussion — primary interpretation pending
+### 5.8 Separate contention figures
 
-The primary practical interpretation will concern supported complete
-workloads under the five fixed configurations. A useful GPU path must satisfy
-the study's expression and correctness contract before its speed ratio is
-interpreted. An unsupported complete suite remains unavailable even when its
-supported constituent queries are fast. Conversely, lack of a supported
-difference does not establish equivalence or rule out a useful effect that
-this fixed allocation measures imprecisely.
+The following exports show the pilot and expansion separately. They retain
+individual observations, different competitors, unsupported expressions and
+actual action intervals; they introduce no isolated-versus-contended effect
+estimate or cross-pair GPU ranking.
 
-The two CPU Polars controls serve different comparisons. Polars 1.44.2 aligns
-the frontend version with the selected GPU integration; Polars 2.0.0 supplies
-a newer same-Python CPU control. Differences among them include software
-versions and dependencies, while Spark and Polars also use different memory
-policies and materialization APIs. Ratios therefore describe deployable fixed
-paths on this host, rather than an isolated GPU-hardware effect or an estimate
-of the best tuning each engine could achieve.
+![Separate descriptive extension · COMPLETE. Each point is one measured action from a fresh concurrent wave; no averaging, confidence intervals or tests. Pilot has one repetition at SF30 and is not pooled with expansion. Common queries only. Pair B complex excludes Q13 and window: its CPU-only measurements remain unpaired diagnostics. Pairs have different competitors and do not rank the two GPU engines. Action timers exclude setup and rendezvous waits.](contention/figures/pilot_pair_A_common_actions.png)
 
-Endpoint sensitivity is substantive: the primary boundary preserves the
-pilot's action API, while the secondary boundary ends at the same Python
-dictionary representation. Any changed direction will narrow the practical
-claim to the relevant boundary. Neither endpoint includes process startup;
-suite scores are sums of per-query medians and must not be presented as the
-latency of a once-through application workload.
+![Separate descriptive extension · COMPLETE. Each point is one measured action from a fresh concurrent wave; no averaging, confidence intervals or tests. Pilot has one repetition at SF30 and is not pooled with expansion. Common queries only. Pair B complex excludes Q13 and window: its CPU-only measurements remain unpaired diagnostics. Pairs have different competitors and do not rank the two GPU engines. Action timers exclude setup and rendezvous waits.](contention/figures/pilot_pair_B_common_actions.png)
 
-The four cohorts delimit the comparison. A driver/kernel change and regenerated
-files separate the lost host from the replacement VM. The default-profile
-replacement then halted, motivating the fixed recovery JVM profile on the same
-VM and input bytes. This post-incident choice is not an unchanged continuation
-and cannot support a causal before/after estimate of speed or reliability.
-Primary estimates, if recovery completes, apply to that recorded profile.
-The pilot, lost checkpoints, aborted replacement and separate feasibility
-diagnostic contribute no extra independent primary blocks. The passed
-feasibility diagnostic does not prove that the failure was a false OOM, that the
-profile cured its cause, or that future runs are robust. Any allocation-retry
-overhead during a measured action remains part of the reported action.
+![Separate descriptive extension · COMPLETE. Every attempted pilot wave appears in planned execution order. Bars retain actual measured UTC start/end intervals and gaps, with a shared linear scale; fast bars are never widened. Zero is each wave's first measured action, not process startup. CPU/GPU lanes show concurrent participants; warmups are omitted. A: Spark GPU + CPU Polars 2.0.0. B: CPU Spark + Polars GPU. Hatched pair-B Q13/window CPU actions are unpaired diagnostics. Labels appear only where space permits. Both-clock common-query overlap is independently checked in the source audit; the timeline is not a process-lifetime proxy.](contention/figures/pilot_actual_action_timeline.png)
 
-The contention extension has a distinct interpretation. Both processes request
-the original full CPU budget while sharing one host, so observed action times
-describe that coordinated competing workload. Barrier synchronization does not
-make resources equal or reproduce arbitrary user arrivals. Pair B complex
-further separates common contended queries from two unpaired CPU diagnostics.
-Any isolated/contention comparison will be descriptive and will preserve the
-different replication and cache/barrier conditions. The scheduler hold affects
-the isolated outer orchestration envelope and temporal history, even though
-its already launched worker and query timers were not paused. Terminal replay
-verifies action separation, not unchanged host/cache state. The recorded
-within-pair ordering in §5.7 is descriptive; a causal slowdown or resource-cost
-claim would require an appropriate matched isolated comparison.
+![Separate descriptive extension · COMPLETE. Each point is one measured action from a fresh concurrent wave; no averaging, confidence intervals or tests. Expansion has two repetitions per cell; pilot is shown separately. Common queries only. Pair B complex excludes Q13 and window: its CPU-only measurements remain unpaired diagnostics. Pairs have different competitors and do not rank the two GPU engines. Action timers exclude setup and rendezvous waits.](contention/figures/main_pair_A_common_actions.png)
 
-The final discussion must connect each observed result to these questions,
-address conflicting scale/query/endpoint patterns, and distinguish statistical
-support from effect magnitude and practical relevance. Claims about bandwidth,
-data transfer, GPU kernels, spilling, cost or energy require evidence beyond
-the planned action timings and saved physical plans.
+![Separate descriptive extension · COMPLETE. Each point is one measured action from a fresh concurrent wave; no averaging, confidence intervals or tests. Expansion has two repetitions per cell; pilot is shown separately. Common queries only. Pair B complex excludes Q13 and window: its CPU-only measurements remain unpaired diagnostics. Pairs have different competitors and do not rank the two GPU engines. Action timers exclude setup and rendezvous waits.](contention/figures/main_pair_B_common_actions.png)
+
+![Separate descriptive extension · COMPLETE. Every attempted expansion wave appears in planned execution order. Bars retain actual measured UTC start/end intervals and gaps, with a shared linear scale; fast bars are never widened. Zero is each wave's first measured action, not process startup. CPU/GPU lanes show concurrent participants; warmups are omitted. A: Spark GPU + CPU Polars 2.0.0. B: CPU Spark + Polars GPU. Hatched pair-B Q13/window CPU actions are unpaired diagnostics. Labels appear only where space permits. Both-clock common-query overlap is independently checked in the source audit; the timeline is not a process-lifetime proxy.](contention/figures/main_actual_action_timeline.png)
+
+## 6. Discussion
+
+The complete-suite and query-level answers differ. Under these fixed settings,
+GPU Spark reduces the complete-suite score relative to CPU Spark beyond
+baseline SF1 and throughout the sampled complex workload. It does not reduce
+the complete-suite score relative to CPU Polars 2.0 at any sampled condition.
+Nevertheless, its window-query estimates and selected Q1/Q13 estimates are
+shorter than CPU Polars 2.0. The workload mix therefore matters: a suite-level
+CPU preference does not imply that every selected operator favors the CPU.
+These observations identify useful conditions for further profiling without
+attributing the result to a particular GPU kernel, transfer path or runtime
+fraction that was not measured.
+
+Strict Polars GPU provides the supported baseline gains from SF10 onward,
+including a 2.451-fold CPU Polars 2.0/GPU score ratio at SF300. Its unsupported
+Q13/window expressions limit the complex result more strongly than its fast
+supported queries can resolve. Users requiring the unchanged full complex
+workload cannot substitute the four-query GPU subset. GPU Spark supplies
+complete execution for that workload, while CPU Polars 2.0 has the lower
+complete-suite score in this experiment.
+
+The two CPU Polars controls answer different configuration questions. CPU
+1.44.2 aligns the frontend with the selected GPU integration; CPU 2.0.0 supplies
+a newer same-Python control. The SF300 baseline ratio is 3.537 against the
+former and 2.451 against the latter. These are comparisons of recorded software
+paths and dependencies, not an isolated causal estimate of a frontend-version
+change. Likewise, Spark and Polars differ in memory policies, execution APIs
+and dependency inventories. Common hardware does not turn these comparisons
+into GPU-hardware-only effects or estimates of globally optimal tuning.
+
+Both endpoints retain the same direction for all available complete-suite
+pairs. This narrows the endpoint concern for these saved output shapes; it
+does not justify treating action time as application latency. Neither endpoint
+includes process startup. A sum of query medians is a defined score, not the
+elapsed time of an application running a complete suite once. The pointwise
+intervals express ten-block log-ratio uncertainty, while Holm decisions address
+the one declared family. The small p values do not expand generalization beyond
+this host, workload and profile.
+
+The cohort history is part of the result. The replacement host changes driver,
+kernel and physical file generation relative to the lost host; the later
+recovery reuses replacement inputs while changing the Spark allocation-retry
+profile after a failure. The completed fresh sample avoids pooling incompatible
+timings but does not remove configuration-selection history. The passed
+feasibility diagnostic and successful recovery do not prove a false OOM,
+a GCLocker root cause, a cure or a causal reliability gain. Allocation-retry
+and GC time inside measured actions remains part of the normal endpoints.
+
+The separate contention extension describes synchronized pairs requesting the
+original full CPU budget on one shared host. Its query observations do not
+rank GPU engines because the competitors differ. Pair B complex also retains
+two unpaired CPU diagnostics. No matched isolated-versus-contention slowdown
+analysis is claimed. Verified action separation and scheduler resume do not
+establish unchanged cache/host conditions; the managed hold and local-power
+handoff delay remain visible temporal changes in the primary collection.
 
 ## 7. Validity and interpretation limits
 
@@ -905,67 +1064,74 @@ while remote block06 completed. Its added temporal spacing may affect later
 host/cache conditions, without establishing a measured effect or changing any
 action/worker timing value.
 
-## 8. Reproducibility and release status
+## 8. Reproducibility and availability
 
-The [claim/evidence matrix](claim-evidence-matrix.md) links the private pre-start
-archive and pending raw sessions, journal, integrity gates, deviations, plans,
-telemetry, validation, tables and figure manifests.
-It also separates the lost and aborted evidence from the recovery and binds
-`EXECUTION_PROFILE.json`, its actual SHA256, diagnostic/repeated-readiness
-proof, all 24 profile receipts and all 160 effective Spark driver logs. The
-final complete audit and paper build must identify the same recovery profile;
-neither earlier campaign identity can satisfy this primary-results gate.
-The separate contention plan/pre-start/instrumentation hashes, phase and wave
-validations, participant outputs, barrier/overlap events, telemetry and managed
-handoff receipts must also be preserved. They retain separate schemas and
-cannot satisfy the isolated campaign's final journal, 24 profile receipts or
-400-session analysis. The immutable contention pre-start status
-`FROZEN_NOT_RUN` describes its creation point, not live execution or completion.
+The exact registered recovery campaign, pre-start and execution-profile
+identities are given in §4.1. The 52-file C84 source remains unchanged.
+All thirteen original transport snapshots were independently verified and
+reconciled into a separate harvest with explicit per-file lineage; canonical
+pre-start bytes and original snapshots remain separate. The reconstruction
+manifest SHA256 is
+`6ef171eaaebbda72bfd928b2b12c468a19529e15ec86224d3921c1fcad281b2d`.
+Original JSON bytes retain their recorded paths. Portable replay uses path
+remapping rather than editing those source artifacts.
 
-`research_validate.py` gates `research_analysis.py`; the separate
-`research_reporting/render.py` produces PNG/SVG/PDF figures from complete real
-analysis. Synthetic test exports are excluded. Copied artifacts preserve
-hashed JSON bytes and use path remapping. Final harvested-archive replay is
-required.
+The genuine replay completed at 2026-10-28 23:50:00.745311 UTC. Its manifest
+SHA256 is `b59450d0731180b5b9cc642c5174f872ab460ab585445b87230175a07c48655c`;
+the complete audit SHA256 is
+`cb03c639c0b428f50f07a142d1201e8a3c39ad82ea21a2192db95d4ebfc5585d`.
+The final journal SHA256 is
+`3648cfe093d239af6b6ffd9e14bb6e41926a57f8058604225dc47bf055a27d67`.
+Replay runs the frozen validator, preserves its raw output, records a path-only
+adapter for Spark plan-source provenance, runs the frozen analyzer, completes
+the separate configuration/integrity audit and renders the genuine figures.
+All four subprocesses passed. No GPU, JVM benchmark process or source Parquet
+read is required for this artifact replay.
 
-The one-command replay retains the frozen validator's raw relocated output and
-records a path-only adapter for Spark GPU plan-source identities before running
-the frozen analyzer. It changes no original result or scientific gate. A
-separate complete-evidence audit checks chronological pre/post byte gates,
-all effective configurations, cache inventories, strict rejection diagnostics,
-and exact action/cleanup totals. It also exports descriptive host-result
-sensitivity tables. Raw evidence is packaged with per-file, per-part and joined
-archive hashes after collection ends. These tools have passed synthetic
-workflow tests; their final execution on the harvested study remains pending.
+The audit binds all 24 idle-boundary profile receipts and 160 effective Spark
+driver logs to the same sealed profile, Java/runtime hashes and session
+chronology. It checks all successful outputs, specific unsupported diagnostics,
+cleanup counts, physical-byte gates and required cache inventories. Its
+nonsynthetic PASS/no-findings result is an evidence-completeness assessment,
+not an additional performance hypothesis test.
 
-Development remains private. Availability, attribution and unresolved
-[notice/provenance items](../NOTICE_RESEARCH.md) require the separate release
-process. This draft supplies no publication clearance or legal conclusion.
+The [claim/evidence matrix](claim-evidence-matrix.md) and
+[result ledger](RESULTS_FINALIZATION.md) link exact inputs to all 26 primary
+rows, forty score/coverage cells, thirty-two secondary pairs and 260 primary
+block ratios. Machine-readable artifacts preserve full precision. Appendix B
+and C retain secondary endpoints and raw primary block ratios; the four
+primary figures are copied from the bound replay exports without altering
+estimates. Separate contention raw archives, terminal audit, full handoff and
+six final figures retain their own identities and do not satisfy any isolated
+session requirement.
 
-The paper's source, build instructions and result-insertion ledger reside
-under `publication/h100-confirmatory/`. The ledger specifies exact inputs and
-required row counts for every final table, figure and summary claim. The
-author is Daniel Ejiofor; no institutional affiliation is asserted. A final
-data/code availability statement must describe the actual private archive
-access and any separately authorized release, without implying public access.
+Data and code availability: the frozen source, complete raw evidence, transport
+snapshots, reconstruction lineage and derived replay artifacts are retained
+in a private research archive. Raw archive access is controlled by the author;
+this paper does not imply a public raw-data or source-code release. The paper
+provides complete summary tables and figures, with exact artifact hashes for
+verification. Workload provenance and software references are identified below;
+these selected research workloads are not certified TPC-H results. Daniel
+Ejiofor is the author; no institutional affiliation is asserted.
 
-## 9. Conclusion — pending
+## 9. Conclusion
 
-One fresh ten-block recovery experiment is collecting after a passed separate
-feasibility diagnostic and repeated readiness. Its post-incident
-fixed JVM profile, reused input/oracle bytes and unpooled cohort history are
-explicit. Supported performance advantages, endpoint-sensitive interpretation
-and sampled-scale conclusions await all 400 recovery sessions, final integrity/
-profile audit and genuine replay. The pre-start feasibility/readiness milestone
-does not establish a causal mitigation finding or a primary performance result.
+A complete ten-block, 400-session comparison on the recorded H100 host supports
+GPU gains for specific configuration pairs and scales. GPU Spark beats CPU
+Spark from baseline SF10 onward and at all three complex scales, but CPU
+Polars 2.0 has the lower complete-suite score at every sampled condition.
+GPU Spark still has shorter descriptive estimates for the window query and
+selected Q1/Q13 conditions. Strict Polars GPU beats both CPU Polars versions
+on the baseline suite from SF10 onward, while its two unsupported complex
+expressions prevent any complete complex-suite score.
 
-The separately requested contention workload completed its twenty waves, with
-460 oracle-valid outputs, 110 common measured pairs and verified terminal
-action separation and same-scheduler resume. Its per-query observations apply
-to the two recorded competing pairs; they establish no causal slowdown relative
-to isolated execution or ranking between GPU engines. These observations do
-not replace the original 400 sessions, supply primary superiority conclusions
-or complete the paper/publication/preservation requirements by themselves.
+All 26 prespecified tests reject after Holm adjustment, with fifteen
+GPU-favoring and eleven reference-favoring directions. Available common-host-
+result comparisons preserve direction. These findings apply to the fixed
+post-incident JVM profile, tested input domain and recorded host/pacing history;
+they establish no general GPU-hardware effect, exact unmeasured crossover,
+causal mitigation or contention slowdown. The separately completed contention
+extension remains descriptive and excluded from primary inference.
 
 ## Appendix A. Historical evidence excluded from recovery inference
 
@@ -977,8 +1143,8 @@ inner/outer/semi-anti cases. CPU configurations and GPU Spark pass all five
 diagnostics; Polars GPU passes three and rejects rank/window and DOTALL-regex
 cases. The tiny Spark GPU final plan contains `LeftAnti`. This establishes
 small-input semantics/selection, not anti-join performance or a nonempty anti
-branch in the original correlated workload. These facts cannot establish
-replacement readiness until repeated and archived for that cohort.
+branch in the original correlated workload. These facts are historical; replacement/recovery readiness was independently
+repeated and archived for its own cohort, as reported in §4.1.
 
 Eight complete independent oracles are archived for the earlier measured
 conditions. Its separate post-hoc pilot supplement compares all 936 saved
@@ -1000,3 +1166,136 @@ CPU control or its prospective results.
 
 Primary literature and official implementation references are collected in
 [references.md](references.md).
+
+## Appendix B. All secondary endpoint pairs
+
+These thirty-two rows retain all four configuration pairs at every measured
+condition. Each available row has ten paired blocks; the six Polars GPU complex
+rows have zero complete blocks and N/A estimates/intervals. B denotes baseline,
+C complex. Prefixes and contrast IDs use the same rule as Table 2. Values are
+reference/GPU ratios with pointwise 95% intervals. Every available direction-
+change flag is false; unavailable comparisons have no such flag. No secondary
+hypothesis test is performed.
+
+### B. CPU Polars 2.0 / GPU Spark
+
+Prefix `polars_cpu_200_over_spark_gpu`.
+
+| Condition | Action ratio [95% CI] | Host-result ratio [95% CI] | Direction change |
+| --- | --- | --- | --- |
+| B/1 | 0.055945 [0.054808, 0.057105] | 0.056103 [0.054965, 0.057265] | No |
+| B/10 | 0.212549 [0.208690, 0.216479] | 0.212647 [0.208785, 0.216581] | No |
+| B/30 | 0.388511 [0.382310, 0.394813] | 0.388567 [0.382366, 0.394869] | No |
+| B/100 | 0.591820 [0.580946, 0.602897] | 0.591842 [0.580966, 0.602921] | No |
+| B/300 | 0.698245 [0.686991, 0.709683] | 0.698254 [0.687000, 0.709692] | No |
+| C/30 | 0.467006 [0.431938, 0.504921] | 0.467039 [0.431972, 0.504954] | No |
+| C/100 | 0.523867 [0.515150, 0.532732] | 0.523873 [0.515156, 0.532738] | No |
+| C/300 | 0.492635 [0.478992, 0.506668] | 0.492637 [0.478994, 0.506669] | No |
+
+### B. CPU Spark / GPU Spark
+
+Prefix `spark_cpu_over_spark_gpu`.
+
+| Condition | Action ratio [95% CI] | Host-result ratio [95% CI] | Direction change |
+| --- | --- | --- | --- |
+| B/1 | 0.736771 [0.685003, 0.792450] | 0.736787 [0.685025, 0.792460] | No |
+| B/10 | 1.528723 [1.451437, 1.610125] | 1.528691 [1.451411, 1.610086] | No |
+| B/30 | 2.396972 [2.300420, 2.497576] | 2.396925 [2.300381, 2.497521] | No |
+| B/100 | 3.118779 [3.055933, 3.182918] | 3.118748 [3.055905, 3.182884] | No |
+| B/300 | 3.296495 [3.239099, 3.354908] | 3.296483 [3.239086, 3.354896] | No |
+| C/30 | 3.975933 [3.678199, 4.297766] | 3.975507 [3.677842, 4.297263] | No |
+| C/100 | 3.521337 [3.472958, 3.570391] | 3.521231 [3.472850, 3.570287] | No |
+| C/300 | 2.605614 [2.556563, 2.655606] | 2.605594 [2.556545, 2.655584] | No |
+
+### B. CPU Polars 1.44.2 / Polars GPU
+
+Prefix `polars_cpu_144_over_polars_gpu`.
+
+| Condition | Action ratio [95% CI] | Host-result ratio [95% CI] | Direction change |
+| --- | --- | --- | --- |
+| B/1 | 0.401941 [0.390084, 0.414158] | 0.402791 [0.390931, 0.415011] | No |
+| B/10 | 1.491644 [1.474820, 1.508659] | 1.491864 [1.475029, 1.508891] | No |
+| B/30 | 2.554085 [2.513373, 2.595456] | 2.554047 [2.513355, 2.595398] | No |
+| B/100 | 3.187462 [3.125726, 3.250418] | 3.187412 [3.125680, 3.250363] | No |
+| B/300 | 3.536788 [3.473146, 3.601596] | 3.536763 [3.473122, 3.601571] | No |
+| C/30 | N/A | N/A | N/A |
+| C/100 | N/A | N/A | N/A |
+| C/300 | N/A | N/A | N/A |
+
+### B. CPU Polars 2.0 / Polars GPU
+
+Prefix `polars_cpu_200_over_polars_gpu`.
+
+| Condition | Action ratio [95% CI] | Host-result ratio [95% CI] | Direction change |
+| --- | --- | --- | --- |
+| B/1 | 0.372908 [0.365387, 0.380583] | 0.373832 [0.366307, 0.381512] | No |
+| B/10 | 1.280664 [1.265771, 1.295732] | 1.280971 [1.266093, 1.296023] | No |
+| B/30 | 1.954230 [1.918831, 1.990282] | 1.954278 [1.918890, 1.990318] | No |
+| B/100 | 2.372428 [2.320547, 2.425469] | 2.372422 [2.320539, 2.425466] | No |
+| B/300 | 2.451064 [2.405104, 2.497903] | 2.451062 [2.405102, 2.497900] | No |
+| C/30 | N/A | N/A | N/A |
+| C/100 | N/A | N/A | N/A |
+| C/300 | N/A | N/A | N/A |
+
+## Appendix C. All 260 primary block ratios
+
+Each row contains the ten original paired score ratios in chronological block
+order, split into blocks 01-05 and 06-10 for readability. Ratios above one favor
+the denominator GPU. B denotes baseline, C complex. No observation is trimmed
+or promoted from inner actions. The final column is the analyzer's sample
+standard deviation of block log ratios. Display rounding does not alter the
+full-precision raw CSV, estimates or tests.
+
+### C. CPU Polars 2.0 / GPU Spark
+
+Prefix `polars_cpu_200_over_spark_gpu`.
+
+| Condition | Blocks 01-05 | Blocks 06-10 | SD(log ratio) |
+| --- | --- | --- | ---: |
+| B/1 | 0.054063, 0.053971, 0.055719, 0.054146, 0.058632 | 0.057650, 0.055877, 0.055740, 0.057407, 0.056452 | 0.028692 |
+| B/10 | 0.215024, 0.202382, 0.207919, 0.217156, 0.213920 | 0.206890, 0.214846, 0.219111, 0.217686, 0.211178 | 0.025611 |
+| B/30 | 0.395199, 0.401695, 0.386869, 0.384770, 0.402371 | 0.378507, 0.385338, 0.379086, 0.391375, 0.380791 | 0.022492 |
+| B/100 | 0.618452, 0.617574, 0.575760, 0.593368, 0.598619 | 0.583303, 0.586346, 0.589722, 0.575713, 0.581139 | 0.025924 |
+| B/300 | 0.714452, 0.709582, 0.694008, 0.659544, 0.709835 | 0.703856, 0.700667, 0.705643, 0.694495, 0.691968 | 0.022714 |
+| C/30 | 0.537869, 0.425208, 0.410391, 0.508820, 0.413406 | 0.504791, 0.491621, 0.497294, 0.502238, 0.403222 | 0.109119 |
+| C/100 | 0.543660, 0.545121, 0.513816, 0.507641, 0.514115 | 0.528068, 0.517334, 0.520681, 0.526083, 0.523459 | 0.023457 |
+| C/300 | 0.509055, 0.543185, 0.486766, 0.471604, 0.491981 | 0.485654, 0.485750, 0.482175, 0.489604, 0.484071 | 0.039262 |
+
+### C. CPU Spark / GPU Spark
+
+Prefix `spark_cpu_over_spark_gpu`.
+
+| Condition | Blocks 01-05 | Blocks 06-10 | SD(log ratio) |
+| --- | --- | --- | ---: |
+| B/1 | 0.741002, 0.828107, 0.640948, 0.832348, 0.783368 | 0.750979, 0.645271, 0.696457, 0.666928, 0.816548 | 0.101842 |
+| B/10 | 1.385768, 1.528677, 1.571238, 1.334650, 1.692699 | 1.505768, 1.621462, 1.501497, 1.626154, 1.555042 | 0.072522 |
+| B/30 | 2.520604, 2.619520, 2.307546, 2.352377, 2.626103 | 2.305448, 2.385720, 2.278130, 2.233508, 2.376803 | 0.057474 |
+| B/100 | 3.110696, 3.184578, 3.058913, 3.095247, 3.339951 | 3.022086, 3.089980, 3.130072, 3.041960, 3.125821 | 0.028457 |
+| B/300 | 3.393600, 3.292255, 3.253117, 3.116730, 3.394407 | 3.283167, 3.314862, 3.308136, 3.350535, 3.267018 | 0.024553 |
+| C/30 | 4.470605, 3.663226, 3.439022, 4.292144, 3.482143 | 4.206460, 4.274886, 4.403158, 4.260007, 3.476870 | 0.108807 |
+| C/100 | 3.517463, 3.594915, 3.545761, 3.476678, 3.539327 | 3.650396, 3.397398, 3.500960, 3.496736, 3.499669 | 0.019339 |
+| C/300 | 2.645298, 2.676885, 2.595402, 2.484677, 2.735584 | 2.597053, 2.602963, 2.552902, 2.559945, 2.613717 | 0.026567 |
+
+### C. CPU Polars 1.44.2 / Polars GPU
+
+Prefix `polars_cpu_144_over_polars_gpu`.
+
+| Condition | Blocks 01-05 | Blocks 06-10 | SD(log ratio) |
+| --- | --- | --- | ---: |
+| B/1 | 0.400257, 0.395735, 0.407849, 0.395027, 0.411838 | 0.444925, 0.399975, 0.391239, 0.380285, 0.395506 | 0.041857 |
+| B/10 | 1.538215, 1.448493, 1.486887, 1.489769, 1.501365 | 1.480161, 1.508776, 1.485460, 1.504017, 1.474984 | 0.015856 |
+| B/30 | 2.619186, 2.621674, 2.515631, 2.553846, 2.644609 | 2.521852, 2.538134, 2.554014, 2.461788, 2.515920 | 0.022462 |
+| B/100 | 3.336093, 3.337681, 3.156181, 3.150904, 3.127925 | 3.109042, 3.159279, 3.233560, 3.188369, 3.086386 | 0.027341 |
+| B/300 | 3.603691, 3.527948, 3.422343, 3.553108, 3.437838 | 3.526619, 3.637225, 3.512336, 3.703602, 3.453455 | 0.025383 |
+
+### C. CPU Polars 2.0 / Polars GPU
+
+Prefix `polars_cpu_200_over_polars_gpu`.
+
+| Condition | Blocks 01-05 | Blocks 06-10 | SD(log ratio) |
+| --- | --- | --- | ---: |
+| B/1 | 0.362049, 0.366898, 0.372836, 0.356355, 0.390534 | 0.385444, 0.368173, 0.369242, 0.380264, 0.378645 | 0.028481 |
+| B/10 | 1.293475, 1.266002, 1.265692, 1.255747, 1.315376 | 1.260364, 1.304095, 1.301997, 1.273458, 1.271980 | 0.016351 |
+| B/30 | 1.960146, 2.007904, 1.946052, 1.948911, 2.056975 | 1.879625, 1.966359, 1.923969, 1.903699, 1.954431 | 0.025554 |
+| B/100 | 2.483902, 2.505675, 2.365012, 2.330760, 2.350356 | 2.323908, 2.356211, 2.369079, 2.393728, 2.255895 | 0.030909 |
+| B/300 | 2.572266, 2.503877, 2.447094, 2.392706, 2.411307 | 2.543350, 2.425765, 2.385693, 2.434968, 2.401390 | 0.026461 |
