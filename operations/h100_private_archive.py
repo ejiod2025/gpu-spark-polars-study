@@ -37,6 +37,7 @@ RECONSTRUCTION = "6ef171eaaebbda72bfd928b2b12c468a19529e15ec86224d3921c1fcad281b
 REPLAY = "b59450d0731180b5b9cc642c5174f872ab460ab585445b87230175a07c48655c"
 AUDIT = "cb03c639c0b428f50f07a142d1201e8a3c39ad82ea21a2192db95d4ebfc5585d"
 CONTENTION = "0cad03b7ab2edc7e0d62dbcc7b84f8fa0ea51325aba41eb354b5baae0c51a2d3"
+SCIENTIFIC_CHECKPOINT = "1f9b67f7675f9438a0d1cb373f2684714ca2e1e5a199db196b4b297766a9cf72"
 TAG = "h100-confirmatory-gclocker100-20261027-evidence-v1"
 REPO = "ejiod2025/gpu-spark-polars-study"
 PHASES = ["prestart"] + [f"block-{i:02d}" for i in range(1, 11)] + ["final", "completion"]
@@ -434,6 +435,15 @@ def stage_study(root, stage, records):
     return statement
 
 
+def verify_git_reference(root, commit, reference):
+    """Verify historical bytes in A even when a current operational tool advanced."""
+    common.safe_relative(reference["path"])
+    body = subprocess.check_output(["git", "show", commit + ":" + reference["path"]], cwd=root)
+    if len(body) != reference["bytes"] or hashlib.sha256(body).hexdigest() != reference["sha256"]:
+        raise ValueError("Scientific commit bytes differ: " + reference["path"])
+    return reference
+
+
 def catalog(root, records, commit, output):
     if not output.is_relative_to(root) or output.exists() or output.is_symlink():
         raise ValueError("Catalog must be a new regular file within this repository")
@@ -455,23 +465,66 @@ def catalog(root, records, commit, output):
         actual = ref(stage / asset["name"], root)
         if any(actual[k] != asset[k] for k in ("bytes", "sha256")):
             raise ValueError("Staged bytes changed before catalog finalization")
+    staging_ref = ref(records / "STAGING_MANIFEST.json", root)
+    fresh_ref = ref(records / "FRESH_STAGED_BYTES_VERIFICATION.json", root)
+    correction_ref = ref(records / "STAGING_SOURCE_CORRECTION.json", root)
+    fresh, correction = read(root / fresh_ref["path"]), read(root / correction_ref["path"])
+    if (fresh.get("status") != "LOCAL_STAGED_BYTES_REVERIFIED"
+            or fresh.get("original_staging_manifest") != staging_ref
+            or fresh.get("assets_verified") != len(staged["assets"])
+            or fresh.get("bytes_verified") != sum(a["bytes"] for a in staged["assets"])
+            or fresh.get("private_download_verification_performed") is not False
+            or correction.get("original_staging_manifest") != staging_ref
+            or correction.get("fresh_local_verification") != fresh_ref
+            or correction.get("original_manifest_unchanged") is not True):
+        raise ValueError("Fresh staging verification/source correction do not bind exact original records")
+    for asset in staged["assets"]:
+        checked = fresh["assets"][asset["name"]]
+        if any(checked[k] != asset[k] for k in ("bytes", "sha256")):
+            raise ValueError("Fresh verification asset identity differs")
+    provenance = {"original_staging_manifest": staging_ref, "fresh_staged_bytes_verification": fresh_ref,
+                  "staging_source_correction": correction_ref,
+                  "exact_executed_staging_source": correction["actual_executed_staging_source"],
+                  "staging_source_provenance_note": correction["source_provenance_note"],
+                  "fresh_verification_helper_source_in_A": fresh["verification_helper_source"],
+                  "executed_fresh_verification_script": fresh["executed_verification_script"]}
+    for reference in provenance.values():
+        verify_git_reference(root, commit, reference)
+    checkpoint = root / "evidence-research/20261028/h100-final-scientific-checkpoint"
+    checkpoint_ref = match(checkpoint / "CHECKPOINT_MANIFEST.json", SCIENTIFIC_CHECKPOINT, root)
+    verify_git_reference(root, commit, checkpoint_ref)
+    checkpoint_files = read(checkpoint / "CHECKPOINT_MANIFEST.json")["files"]
+    checkpoint_git_paths = subprocess.check_output(
+        ["git", "ls-tree", "-r", "--name-only", commit, "--", checkpoint.relative_to(root).as_posix()],
+        cwd=root, text=True).splitlines()
+    expected_paths = {str(checkpoint.relative_to(root) / p) for p in checkpoint_files} | {checkpoint_ref["path"]}
+    if set(checkpoint_git_paths) != expected_paths:
+        raise ValueError("Scientific commit checkpoint inventory differs")
+    for name, identity in checkpoint_files.items():
+        verify_git_reference(root, commit, {"path": str(checkpoint.relative_to(root) / name), **identity})
     for path, expected in [
             ("evidence-research/20261027/h100-confirmatory-gclocker100-v1/PRESTART_MANIFEST.json", PRESTART),
             ("evidence-research/20261028/h100-contention-v1/CONTENTION_PRESTART_MANIFEST.json", staged["contention_prestart_sha256"])]:
         body = subprocess.check_output(["git", "show", commit + ":" + path], cwd=root)
         if hashlib.sha256(body).hexdigest() != expected:
             raise ValueError("Scientific commit does not preserve exact canonical identity")
+    if len(staged["assets"]) + 1 != 42:
+        raise ValueError("This reviewed genuine stage must contain exactly 42 release assets including catalog")
+    bindings = {**staged["bindings"], "scientific_checkpoint_manifest": checkpoint_ref}
     value = {"schema_version": "h100-private-evidence-asset-catalog-v1", "status": "CATALOGED_LOCAL_BYTES",
              "created_at_utc": now(), "repository": REPO, "repository_url": "https://github.com/" + REPO,
              "release_tag": TAG, "scientific_evidence_commit": commit,
              "commit_binding": "Commit A above preserves scientific evidence; this catalog is committed in child B. Target release at actual B; record B and this catalog SHA256 in later retrieval receipts. No own-containing-commit hash is embedded.",
              "catalog_asset": {"name": "ASSET_CATALOG.json", "restoration_path": str(output.relative_to(root)),
                                "identity": "Exact Git blob in release target B; byte count and SHA256 recorded externally in actual retrieval receipts"},
-             "bindings": staged["bindings"], "campaign_sha256": CAMPAIGN, "prestart_sha256": PRESTART,
+             "scope": "Scientific raw-evidence preservation catalog; no assertion of completed paper, public deployment, release upload or independent private download verification",
+             "bindings": bindings, "campaign_sha256": CAMPAIGN, "prestart_sha256": PRESTART,
              "execution_profile_sha256": PROFILE, "contention_plan_sha256": staged["contention_plan_sha256"],
              "contention_prestart_sha256": staged["contention_prestart_sha256"], "contention_replay_sha256": CONTENTION,
              "assets": staged["assets"], "original_transports": staged["original_transports"],
-             "staging_manifest": ref(records / "STAGING_MANIFEST.json", root),
+             "staging_manifest": staging_ref, "provenance_preserved_in_scientific_commit_A": provenance,
+             "scientific_checkpoint_files_verified_in_A": len(expected_paths),
+             "cataloging_tool_source_for_child_B": ref(Path(__file__), root),
              "historical_failure_scope": "Default-JVM incident retained as excluded historical failure; never pooled with recovery observations",
              "release_asset_count_including_catalog": len(staged["assets"]) + 1,
              "private_download_verification_performed": False}

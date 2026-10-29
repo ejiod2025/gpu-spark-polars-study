@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import tarfile
 
 import pytest
@@ -91,3 +92,21 @@ def test_stage_refuses_missing_real_inputs_before_creation(tmp_path):
         archive.stage_study(tmp_path, stage, records)
     assert not stage.exists()
     assert not records.exists()
+
+
+def test_historical_source_binding_uses_git_commit_bytes(tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "Fixture"], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "config", "user.email", "fixture@example.invalid"], check=True)
+    source = tmp_path / "archival_tool.py"
+    source.write_bytes(b"preserved earlier source\n")
+    expected = archive.ref(source, tmp_path)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "--", source.name], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "fabricated source fixture"], check=True)
+    commit = subprocess.check_output(["git", "-C", str(tmp_path), "rev-parse", "HEAD"], text=True).strip()
+    source.write_bytes(b"later catalog-only changes\n")
+    assert archive.verify_git_reference(tmp_path, commit, expected) == expected
+    with pytest.raises(ValueError, match="commit bytes differ"):
+        archive.verify_git_reference(tmp_path, commit, archive.ref(source, tmp_path))
+    with pytest.raises(ValueError, match="Unsafe"):
+        archive.verify_git_reference(tmp_path, commit, {**expected, "path": "../outside"})

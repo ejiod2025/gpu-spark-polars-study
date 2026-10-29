@@ -209,9 +209,10 @@ bundle extraction, rechecks the original directories/controls/tars, splits the
 final transport without changing it, builds explicit supplemental archives and
 records staging provenance. `catalog` requires the actual full scientific
 commit A and does not embed its own containing commit. Both commands refuse
-overwrites. Six fabricated local byte/safety tests exercise splitting, exact
+overwrites. Seven fabricated local byte/safety tests exercise splitting, exact
 allowlists, changed files, link/overwrite rejection and the synthetic gate;
-these tests do not establish actual measured-study PASS.
+the catalog test also distinguishes earlier Git source bytes from later tool
+changes. These tests do not establish actual measured-study PASS.
 
 The raw packager itself does not split original transport tars or build
 supplemental archives. There is still no automatic upload/pagination/retrieval
