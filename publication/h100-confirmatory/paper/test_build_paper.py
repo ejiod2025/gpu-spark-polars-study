@@ -359,6 +359,34 @@ class PaperGates(unittest.TestCase):
             self.assertEqual(builder.sha256(source), original_sha256)
             self.assertEqual(builder.sha256(output / "replay/figures/layout.png"), original_sha256)
 
+    def test_consecutive_figures_do_not_create_empty_portrait_pages(self):
+        from PIL import Image
+        from pypdf import PdfReader
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            replay, output = root / "SYNTHETIC-replay", root / "SYNTHETIC-output"
+            (replay / "figures").mkdir(parents=True)
+            output.mkdir()
+            source = replay / "figures/layout.png"
+            Image.new("RGB", (600, 500), "white").save(source)
+            def image_block(caption):
+                return {"t": "Para", "c": [{"t": "Image", "c": [["", [], []],
+                    [{"t": "Str", "c": caption}], ["replay/figures/layout.png", ""]]}]}
+            ast = {"blocks": [image_block("SYNTHETIC first caption."),
+                              image_block("SYNTHETIC second caption."),
+                              {"t": "Para", "c": [{"t": "Str", "c": "Portrait body after both figures."}]}]}
+            manifest = {"output_files_sha256": {"figures/layout.png": builder.sha256(source)}}
+            builder.render_pdf(ast, output / "SYNTHETIC-consecutive.pdf", "SYNTHETIC LAYOUT ONLY",
+                               False, output, replay, manifest)
+            pages = PdfReader(output / "SYNTHETIC-consecutive.pdf").pages
+            self.assertEqual(len(pages), 4)
+            for index, caption in [(1, "SYNTHETIC first caption."), (2, "SYNTHETIC second caption.")]:
+                self.assertGreater(pages[index].mediabox.width, pages[index].mediabox.height)
+                self.assertEqual(len(pages[index].images), 1)
+                self.assertIn(caption, pages[index].extract_text())
+            self.assertLess(pages[3].mediabox.width, pages[3].mediabox.height)
+            self.assertIn("Portrait body after both figures.", pages[3].extract_text())
+
 
 if __name__ == "__main__":
     unittest.main()

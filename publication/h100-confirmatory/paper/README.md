@@ -106,6 +106,8 @@ an unfit caption is refused. The copied image bytes are unchanged. Final visual
 review must still assess small labels and dense timelines after scaling.
 Pandoc's implicit `Figure` wrapper is supported for a single standalone image
 whose caption matches its description; it uses the same verified embedding path.
+Consecutive figures stay on consecutive landscape pages before body text
+returns to portrait, without intervening empty portrait pages.
 Local repository documentation links are rendered as their labels in
 the standalone paper; external primary references remain linked. No absolute
 home-directory or private host path is needed in the manuscript.

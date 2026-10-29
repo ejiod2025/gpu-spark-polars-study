@@ -476,11 +476,13 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
                           PageTemplate("landscape", [wide], onPage=page, pagesize=landscape(letter))])
     story = [Paragraph(html.escape(title), styles["title"]), Paragraph(AUTHOR, styles["author"])]
     figure_bindings = {}
+    figure_return = None
 
     def cell_text(blocks):
         return "<br/>".join(inline(block["c"]) for block in blocks if block["t"] in ("Plain", "Para"))
 
     def add_image(item):
+        nonlocal figure_return
         label, reference = item["c"][1], item["c"][2][0]
         if reference.startswith("replay/figures/"):
             if replay_root is None:
@@ -515,9 +517,15 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
         image = Image(str(destination_image))
         scale = min(figure_width / image.imageWidth, image_height / image.imageHeight)
         image.drawWidth, image.drawHeight = image.imageWidth * scale, image.imageHeight * scale
+        if (figure_return is not None and len(story) >= 2 and
+                story[-2] is figure_return[0] and story[-1] is figure_return[1]):
+            # Consecutive figures transition directly to the next landscape
+            # page, rather than opening an otherwise empty portrait page.
+            del story[-2:]
+        figure_return = (NextPageTemplate("portrait"), PageBreak())
         story.extend([NextPageTemplate("landscape"), PageBreak(),
                       KeepTogether([image, Spacer(1, image_caption_gap), caption]),
-                      NextPageTemplate("portrait"), PageBreak()])
+                      *figure_return])
 
     def blocks(items, numbered=None):
         for block in items:
