@@ -7,6 +7,37 @@ The paper author is **Daniel Ejiofor**, with no institutional affiliation suppli
 These instructions add publication and conditional retirement to the existing
 fixed research campaign; they do not reduce the experiment to a pilot or draft.
 
+## Publication milestone, 2026-10-29 UTC
+
+All 400 isolated sessions and the separate 20-wave contention experiment are
+complete and genuinely audited. Both original controllers/schedulers finished;
+do not resume or recreate benchmark jobs. The approved 37-page paper and public
+H100 webpage are deployed and verified without sign-in at
+https://a100-spark-polars-study-oct2026.ejiod.chatgpt.site/h100/ . Native version 5,
+source `264cf9668815bf0598af258c622041efeac2026c`, deployment
+`appgdep_6ae294095cd08191887d6cc6c9f98469`. The canonical HTML and 41 other public
+files, including the final PDF, matched exact SHA256 through anonymous HTTP200
+requests without redirects. Actual desktop/tablet/phone UI and downloads passed.
+Private publication checkpoint commit `ba9ee59a67240cd76a3939c173b8ce6ae6023fc1`
+was privately pushed and its remote readback matched.
+
+The remaining work is independently retrieved private evidence preservation,
+final private Git receipt, fresh exact-instance identity/idle capture, conditional
+Lambda termination, terminal-state verification and follow-up/credential cleanup.
+Do not terminate before these pending gates pass. The v2 private transport uses
+lossless gzip envelopes of all 13 original recovery tars, preserving their exact
+decoded SHA256/bytes and original controls. Both contention tar bytes stay
+unchanged. Catalog B2 `0646d7095e45cb22b417e1b0e8eb13f39128ba4a` is privately
+pushed; its separate draft upload/retrieval is ongoing. The v1 incomplete draft
+and seven actual assets remain preserved as superseded transport, never as a
+complete preservation receipt. No scientific observation/source changed.
+
+A preliminary read-only guest probe at 00:42:13 UTC confirmed the exact GPU and
+original supervisor exit 0, with no benchmark/GPU compute processes. It is not
+the fresh final retirement capture. Keep owned caffeinate active until closure.
+The identity/PID details below include historical records; verify liveness and
+creation identity before acting. Never signal a reused PID.
+
 ## Current execution and identities
 
 - Private development repository: `ejiod2025/gpu-spark-polars-study`, branch

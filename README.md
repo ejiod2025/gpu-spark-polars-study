@@ -2,43 +2,68 @@
 
 Private development and reproducibility repository for the [public study](https://a100-spark-polars-study-oct2026.ejiod.chatgpt.site). It preserves the author-created benchmark and publication sources, historical source snapshots, final reports, and curated evidence. Repository visibility and the public website are separate: this repository is intended to remain private.
 
-## H100 development
+## Completed H100 study
 
-The completed exploratory [H100 study](reports/H100_STUDY.md) includes five baseline scales,
-three complex scales, and separate CPU Polars 2.0 controls. All 936 successful
-formal outputs agree, and all 1,776 input files passed post-run re-hashing.
-At SF300, Polars GPU's baseline score is 12.774 s versus 31.540 s for CPU Polars
-2.0 (2.47× faster). GPU Spark wins selected queries but has no aggregate win
-against that CPU control; strict Polars GPU mode rejects two original complex cases.
+The [public H100 webpage](https://a100-spark-polars-study-oct2026.ejiod.chatgpt.site/h100/)
+and [37-page paper by Daniel Ejiofor](https://a100-spark-polars-study-oct2026.ejiod.chatgpt.site/h100/downloads/h100-study.pdf)
+report the completed fixed recovery campaign: **400 fresh sessions in ten paired
+blocks**, 9,360 oracle-valid outputs and 60 specific expected strict Polars GPU
+translation rejections. The same 1,654 physical Parquet files passed the final
+byte checks. Complete replay and audit passed with no findings. Final paper,
+source, figures, all-page QA and actual public deployment evidence are preserved
+in [the private publication checkpoint](evidence-research/20261029/h100-final-publication-v1/).
 
-A prospective [confirmatory protocol](docs/H100_CONFIRMATORY_PROTOCOL.md) adds
-ten paired blocks (400 fresh engine sessions), independent SQL oracles, balanced
-execution order, and a common Python 3.11 build for both CPU Polars versions.
-The pilot observations are kept separate from those new measurements. See
-[the research runbook](docs/H100_RESEARCH_RUNBOOK.md) for execution and validation.
-The [campaign status](reports/H100_RESEARCH_STATUS.md) records the latest saved
-progress snapshot; confirmatory conclusions remain pending full collection.
-After the original instance was lost, a [replacement campaign](docs/H100_REPLACEMENT_20261027.md)
-starts all 400 sessions afresh with off-host raw backups between blocks. The
-three surviving blocks from the lost instance remain separate evidence.
+The host has one H100 80 GB, 26 Xeon Platinum 8480+ vCPUs and approximately
+221 GiB RAM. Five configurations cover four execution paths: CPU Polars 1.44.2,
+CPU Polars 2.0.0 as a current CPU control, strict Polars GPU 1.44.2/cuDF-Polars
+26.10.2, Spark CPU 3.5.9 and Spark GPU 3.5.9/RAPIDS 26.08.1. Both Spark paths use
+the fixed, disclosed GCLocker retry-count 100 recovery profile and a 96 GiB heap.
+These are configuration comparisons on one host, with unequal memory budgets;
+they do not isolate the causal effect of the GPU or JVM flag.
 
-Branch `H100_main_dev` extends the experiment to four engines: Polars CPU, Polars GPU with cuDF, CPU Spark, and GPU Spark. The H100 host has one 80 GB H100, 26 Intel Xeon vCPUs, and about 221 GiB RAM. Both Polars engines use 1.44.2 with `cudf-polars-cu12==26.10.2` on Python 3.11; the A100 record below used Polars 2.0.0 on Python 3.10. Within-H100 comparisons are the primary result. Hardware, CPU allocation, and software differences prevent interpreting A100/H100 ratios as an isolated GPU upgrade effect.
+- GPU Spark has no complete six-query suite-score advantage over CPU Polars 2.0
+  in any of the eight measured suite/scale conditions.
+- Selected queries favor GPU Spark. At SF300, the descriptive CPU Polars 2.0 /
+  GPU Spark window-query action-time ratio is 5.15×; Q1 and Q13 also favor GPU
+  Spark at that scale. There are no query significance tests.
+- At SF300, the original-suite CPU Polars 2.0 / Polars GPU score ratio is 2.45×,
+  and CPU Spark / GPU Spark is 3.30×, both favoring the named GPU configuration.
+  Two unchanged complex expressions are unsupported by strict Polars GPU, so
+  its full complex-suite score remains N/A.
+- The separate same-H100 contention experiment completed four pilot and sixteen
+  expansion waves, with 460 valid outputs and ten expected strict rejections.
+  Its small descriptive samples stay separate from the isolated campaign and
+  do not rank the GPU engines under equivalent competing workloads.
 
-The original query expressions and saved A100 evidence remain available. Polars GPU disables CPU fallback and verifies this with a successful GPU query, resolved engine settings, and an unsupported Python-UDF canary before timing. Streaming may use a single GPU partition with a recorded warning; this is distinct from CPU fallback. Unsupported queries and other failures are retained and cannot create a complete suite score.
+A score sums six query medians; it is not an observed whole-suite latency.
+Primary inference uses ten paired block ratios, pointwise 95% intervals and one
+Holm family of 26 two-sided tests. Three inner measured actions do not increase
+independent N. The workloads are selected TPC-H-derived/custom queries, not
+complete or certified TPC-H, TPC-DS or NDS results. Source, raw logs and private
+infrastructure evidence are not published on the website.
 
-See [the H100 plan](docs/H100_PLAN.md), [compatibility notes](docs/POLARS_GPU_COMPAT.md), `setup_h100.sh`, `preflight.py`, and `verify_generated_inputs.py`. Revalidate historical evidence with the commands below. `SOURCE_MANIFEST.json` describes the original repository import; new runs record their own source hashes.
+Historical cohorts remain separate: the exploratory 40-session H100 study
+([report](reports/H100_STUDY.md)), the lost instance's 120 surviving sessions,
+and the aborted default-JVM replacement campaign's 88 successful sessions.
+None contributes observations to the completed recovery estimates. The paper
+retains the failure, prospective fixed-profile decision, managed contention hold,
+local-power backup delay, timing/coverage limits and data-regeneration limits.
+A100/H100 differences also include CPU allocation, software and physical layout;
+no isolated GPU-upgrade effect is claimed.
 
-The four-engine invocation explicitly adds `polars_gpu`:
+Branch `H100_main_dev` contains benchmark development, strict GPU-mode canaries,
+SQL oracles, recovery/backup/replay tools, publication builders and conditional
+retirement checks. See [the completion record](docs/H100_AUTONOMOUS_COMPLETION.md),
+[offline reconstruction/replay](operations/H100_RECONSTRUCTION_RUNBOOK.md),
+[private preservation](operations/H100_PRIVATE_ARCHIVE_STORAGE.md), and
+[the exact lossless transport catalog](evidence-research/20261028/h100-private-storage-v2/).
+Full private-release retrieval and verified instance retirement are separate
+operational gates; publication alone does not establish them.
 
-```bash
-python run_experiment.py \
-  --data-root data --output rerun/h100-baseline-new \
-  --scales 1 10 30 100 300 --runs 3 --cpus 26 --driver-memory 96g \
-  --engines polars polars_gpu spark_cpu spark_gpu \
-  --jar jars/rapids-4-spark_2.12-26.08.1.jar --keep-going
-```
-
-For the complex suite, add `--suite complex --query-cleanup verified_gc` and use scales `30 100 300` with a separate output directory. Validate data and run the SF1 preflight before formal timings. New H100 development does not change the published A100 website.
+For future independent experiments, consult [the research runbook](docs/H100_RESEARCH_RUNBOOK.md),
+[compatibility notes](docs/POLARS_GPU_COMPAT.md), `setup_h100.sh`, `preflight.py`
+and `verify_generated_inputs.py`. Do not restart or replace completed measured
+attempts. Historical A100 results below retain their original protocol.
 
 ## Recorded A100 experiment
 
