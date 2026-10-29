@@ -13,6 +13,12 @@ byte checks. Complete replay and audit passed with no findings. Final paper,
 source, figures, all-page QA and actual public deployment evidence are preserved
 in [the private publication checkpoint](evidence-research/20261029/h100-final-publication-v1/).
 
+The replacement Lambda H100 was terminated only after publication, independent
+private preservation and every final guard passed. A separate cloud readback
+verified `terminated`; [the retirement checkpoint](evidence-research/20261029/h100-verified-retirement-v1/)
+preserves the actual proof. The public website is hosted independently of that
+retired benchmark VM. Development and raw-evidence storage remain private.
+
 The host has one H100 80 GB, 26 Xeon Platinum 8480+ vCPUs and approximately
 221 GiB RAM. Five configurations cover four execution paths: CPU Polars 1.44.2,
 CPU Polars 2.0.0 as a current CPU control, strict Polars GPU 1.44.2/cuDF-Polars

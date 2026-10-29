@@ -7,6 +7,28 @@ The paper author is **Daniel Ejiofor**, with no institutional affiliation suppli
 These instructions add publication and conditional retirement to the existing
 fixed research campaign; they do not reduce the experiment to a pilot or draft.
 
+## Verified instance retirement, 2026-10-29 UTC
+
+The full 400-session study, separate 20-wave contention role, final 37-page paper,
+public webpage, independent private 33-asset download and genuine replay all
+passed. The final private evidence/source commit is
+`5e4d03fd7993b7819b5d2ceffe681e759a12c258`; authenticated privacy/branch readbacks
+matched, with 372 exact committed file hashes in the private Git receipt.
+The local guard prepare passed, then the terminate invocation rechecked all
+scientific/publication/contention/private/identity gates and matched the live
+Lambda target before exactly one POST. Its accepted response was terminating;
+a separate read-only exact-instance GET subsequently returned **terminated**.
+See `evidence-research/20261029/h100-verified-retirement-v1` for actual timestamps,
+manifest, stdout and closure proofs. No other instance was targeted.
+
+The local authorized API-key file was deleted only after terminal verification.
+Only the owned caffeinate and this turn's exact local preview process were
+stopped, after checking their ownership/creation identities. Original archives,
+all independent downloads, decoded transports, code and public study remain.
+The remaining native administrative step is removing the now-completed
+follow-up; its actual deletion receipt will be stored separately. Do not
+restart any benchmark, controller or instance from the historical details below.
+
 ## Publication milestone, 2026-10-29 UTC
 
 All 400 isolated sessions and the separate 20-wave contention experiment are
