@@ -157,6 +157,13 @@ def upload():
             if release() is None:
                 raise
         actual = release()
+        # A successful draft creation can briefly precede visibility in the
+        # authenticated REST list. Only repeat reads; never repeat creation.
+        for _ in range(10):
+            if actual is not None:
+                break
+            time.sleep(2)
+            actual = release()
     if actual is None or actual["draft"] is not True:
         raise ValueError("Uploads require the exact matching private draft")
     observed = match_remote(assets(actual["id"]), expected)

@@ -235,6 +235,48 @@ stable private repository/release locators. An uploaded asset or this runbook
 cannot stand in for that receipt. The final guard requires this separate role
 in addition to the original study's private preservation and public deliverables.
 
+## Actual lossless transport v2
+
+The initial raw-tar transport catalog remains preserved at commit
+`9315acbe1cf1f0dd47ac82767b3eb9674c3cdfa6`. Its private v1 draft is explicitly
+superseded and incomplete, with seven uploaded assets retained. No v1 asset or
+original tar was deleted or overwritten.
+
+Root separately reviewed and privately pushed the lossless transport v2 catalog
+at commit `0646d7095e45cb22b417e1b0e8eb13f39128ba4a`. It is
+`evidence-research/20261028/h100-private-storage-v2/ASSET_CATALOG.json`, SHA256
+`8b0a8e213b01ba89eaa3db827abd802d11e72b99c66536b84899ad213b050226`.
+The scientific evidence commit remains
+`9faf7648e04233de3d3ca44cfe96b2cc15048ade`; transport compression changes no
+measured observation, original tar byte, historical receipt or scientific source.
+
+The separate v2 release tag is
+`h100-confirmatory-gclocker100-20261027-evidence-v2`. Its 33 intended assets
+total 2,829,856,326 wire bytes including the catalog. Each of thirteen original
+recovery tars is encoded as one deterministic gzip envelope, with both actual
+wire SHA256/bytes and decoded original tar SHA256/bytes/restoration/control
+bindings. The two contention tars, merged raw bundle and supplemental archives
+retain their exact original wire bytes. The historical default-JVM failure is
+explicitly excluded from recovery observations and separately preserved.
+
+Follow the actual [v2 restoration instructions](../evidence-research/20261028/h100-private-storage-v2/README.md).
+After authenticated download and compressed-byte verification, decode each
+recovery gzip envelope into a genuinely new tar file. Require its original
+historical control hash and byte count, then call the unchanged
+`research_backup.verify_archive` and `verify_directory` in fresh directories.
+Use the original contention tar bytes with `contention_backup` directly. The
+normal safe member checks, all-file hashes, canonical Git prestart verification,
+genuine portable replay and independent inode checks remain mandatory.
+
+The configured transfer entry point is `operations/h100_private_release_v2.py`;
+actual reviewed catalog commit and SHA256 arguments are required. A staging
+success or an uploaded draft is never a final private retrieval receipt.
+`operations/h100_private_preservation_finalize.py` requires actual downloaded
+wire/decoded tar/member inventories and genuine retrieved replay before private
+publication, then verifies the published release/tag/privacy/assets and a new
+authenticated published-state catalog download before creating either final
+preservation receipt. Root retains paper, public Site and retirement ownership.
+
 ## Verified service and CLI references
 
 - [GitHub release access and asset limits](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases).

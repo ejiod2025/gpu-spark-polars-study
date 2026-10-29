@@ -30,6 +30,8 @@ except ImportError:
     import contention_backup
 
 ROOT, BASE, RECORDS, DOWNLOAD = transfer.ROOT, transfer.BASE, transfer.RECORDS, transfer.DOWNLOAD
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 TREES = BASE / "retrieval-verification-trees-v1"
 RAW = BASE / "retrieved-raw-bundle-v1"
 CANONICAL = BASE / "retrieved-canonical-prestart-v1"
@@ -55,14 +57,28 @@ def cleanup_new_tree(path, reason):
                                  "path_absent_after_cleanup": not path.exists(), "original_evidence_removed": False}) + "\n")
 
 
-def trusted_downloads():
+def trusted_downloads(require_full=True):
     catalog_ref, expected = transfer.trusted()
-    receipt = archive.read(RECORDS / "DOWNLOADED_ASSETS.json")
-    if receipt["status"] != "AUTHENTICATED_ASSET_BYTES_VERIFIED" or receipt["catalog"] != catalog_ref:
-        raise ValueError("Actual authenticated downloaded-byte record is required")
-    if {p.name for p in DOWNLOAD.iterdir()} != set(expected):
-        raise ValueError("Actual retrieved asset set differs")
+    full_path = RECORDS / "DOWNLOADED_ASSETS.json"
     catalog = archive.read(ROOT / transfer.CATALOG_PATH)
+    partial = not full_path.exists()
+    if partial and require_full:
+        raise ValueError("All cataloged downloads are required before transport verification")
+    receipt = archive.read(RECORDS / "PREPARE_READY_ASSETS.json" if partial else full_path)
+    status = "AUTHENTICATED_REQUIRED_REPLAY_ASSET_BYTES_VERIFIED" if partial else "AUTHENTICATED_ASSET_BYTES_VERIFIED"
+    if receipt["status"] != status or receipt["catalog"] != catalog_ref:
+        raise ValueError("Actual authenticated downloaded-byte record is required")
+    actual_names = {p.name for p in DOWNLOAD.iterdir()}
+    if actual_names - set(expected) or (not partial and actual_names != set(expected)):
+        raise ValueError("Actual retrieved asset set differs")
+    if partial:
+        needed = {a["name"] for a in catalog["assets"] if a.get("transport_encoding") != "gzip"}
+        if set(receipt["downloaded_assets"]) != needed or not needed <= actual_names:
+            raise ValueError("Exact complete replay-ready subset is required")
+        for name in needed:
+            actual = archive.ref(DOWNLOAD / name, ROOT)
+            if actual != receipt["downloaded_assets"][name]["downloaded_file"] or any(actual[k] != expected[name][k] for k in ("bytes", "sha256")):
+                raise ValueError("Actual partial replay-ready downloaded bytes changed")
     return catalog, receipt
 
 
@@ -98,7 +114,7 @@ def extract_members(tar_path, destination, expected):
 
 def prepare():
     tool = archive.ref(Path(__file__), ROOT)
-    catalog, downloaded = trusted_downloads()
+    catalog, downloaded = trusted_downloads(require_full=False)
     if TREES.exists() or RAW.exists() or CANONICAL.exists() or REPLAY.exists():
         raise ValueError("All initial verification/extraction/replay paths must be new")
     TREES.mkdir()

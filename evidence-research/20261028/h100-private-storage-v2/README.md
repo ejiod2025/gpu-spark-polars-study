@@ -49,3 +49,41 @@ by this local catalog. The incomplete v1 release is never promoted to verified
 preservation. After actual v2 downloads, decoded-original verifications and
 fresh genuine portable replay pass, create real preservation receipts, publish
 the private draft, and read back privacy, release/tag target and all assets.
+
+## Actual completed preservation
+
+The private v2 release was published at `2026-10-29T00:56:38Z`, release ID
+`427336261`, with exact tag target
+`0646d7095e45cb22b417e1b0e8eb13f39128ba4a` and freshly verified PRIVATE repository
+visibility. [Open the private evidence release](https://github.com/ejiod2025/gpu-spark-polars-study/releases/tag/h100-confirmatory-gclocker100-20261027-evidence-v2).
+All 33 wire files were independently downloaded to new files and checked against
+the trusted catalog. All 13 newly decoded recovery tars match original controls;
+both newly downloaded contention tars retain independent inodes. Every original
+transport member and all 8 supplemental inventories passed safe extraction and
+both applicable archive/directory verification helpers. The actual portable
+replay of independently retrieved raw bytes passed validation, analysis,
+complete audit and figure rendering, with all 13,900 raw files and 346 canonical
+Git prestart files verified. These quantities describe the executed checks,
+not an upload-only or local staging claim.
+
+Final records are under
+`rerun/gclocker100-20261027/private-storage-retrieval-v2`:
+
+- `PRIVATE_RELEASE_RETRIEVAL_RECEIPT.json`, SHA256
+  `873496bc5d7e295674690ac7d0b12de76a866ac16c5751e333a65f67e0b5d81b`;
+- `CONTENTION_PRIVATE_PRESERVATION.json`, SHA256
+  `fa4a0ff604847b3186e8db8b995f80b8f1173b823f1a8f679f015c58c743d6c4`;
+- `RECEIPT_SCOPE_CLARIFICATION.json`, preserving the original general receipt
+  while explicitly separating private GitHub release publication from root's
+  public paper/Site and VM retirement roles.
+
+GitHub reports `immutable:false`; no repository setting was changed. Published
+asset IDs/names/sizes/digests were read back against the independent downloads,
+the published tag resolved to exact B2, and an additional authenticated download
+of the published catalog matched its trusted SHA256. The 33 independent wire
+files remain in `release-retrieval-v2`; all 13 new decoded recovery tars remain
+in `release-retrieval-reassembled-v2`. Both new contention tar files remain
+available through conditional retirement. Every original archive and extracted
+tree is retained. Only newly created, fully verified extraction trees were
+removed, with cleanup recorded. No public deployment or VM operation was
+performed by the storage operator.
