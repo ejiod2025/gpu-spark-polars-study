@@ -633,7 +633,8 @@ def request_json(method, path, key, body=None):
     require(method != "POST" or body == {"instance_ids": [AUTHORIZED_INSTANCE_ID]}, "Unapproved termination target")
     data = None if body is None else json.dumps(body).encode()
     request = Request(API_BASE + path, method=method, data=data,
-                      headers={"Authorization": "Bearer " + key, "Accept": "application/json", "Content-Type": "application/json"})
+                      headers={"Authorization": "Bearer " + key, "Accept": "application/json",
+                               "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"})
     try:
         with build_opener(NoRedirect).open(request, timeout=30) as response:
             return json.loads(response.read(2 * 1024 * 1024))

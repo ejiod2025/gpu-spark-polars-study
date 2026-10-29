@@ -646,6 +646,72 @@ def test_request_layer_refuses_wrong_termination_target():
         guard.NoRedirect().redirect_request(None, None, 302, "Found", {}, "https://elsewhere.example/")
 
 
+@pytest.mark.parametrize("method,path,body", [
+    ("GET", "/instances/" + guard.AUTHORIZED_INSTANCE_ID, None),
+    ("POST", "/instance-operations/terminate", {"instance_ids": [guard.AUTHORIZED_INSTANCE_ID]}),
+])
+def test_api_request_keeps_exact_authorized_operation_and_explicit_user_agent(monkeypatch, method, path, body):
+    from types import SimpleNamespace
+    calls = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self, limit):
+            assert limit == 2 * 1024 * 1024
+            return b'{"fixture_only": true}'
+
+    def open_api(request, timeout):
+        assert request.full_url == guard.API_BASE + path and request.get_method() == method
+        assert request.data == (None if body is None else json.dumps(body).encode())
+        assert {name.lower(): value for name, value in request.header_items()} == {
+            "authorization": "Bearer fixture-secret-only", "accept": "application/json",
+            "content-type": "application/json", "user-agent": "Mozilla/5.0"}
+        assert request.unredirected_hdrs == {} and timeout == 30
+        calls.append(request)
+        return Response()
+
+    def opener(*handlers):
+        assert handlers == (guard.NoRedirect,)
+        return SimpleNamespace(open=open_api)
+
+    monkeypatch.setattr(guard, "build_opener", opener)
+    assert guard.request_json(method, path, "fixture-secret-only", body) == {"fixture_only": True}
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("method,path,body", [
+    ("GET", "/instances/" + "0" * 32, None),
+    ("POST", "/instance-operations/restart", {"instance_ids": [guard.AUTHORIZED_INSTANCE_ID]}),
+    ("GET", "/instance-operations/terminate", None),
+    ("POST", "/instances/" + guard.AUTHORIZED_INSTANCE_ID, None),
+    ("GET", "/instances/" + guard.AUTHORIZED_INSTANCE_ID, {}),
+    ("POST", "/instance-operations/terminate", {"instance_ids": ["0" * 32]}),
+])
+def test_api_user_agent_does_not_expand_fixed_endpoint_method_or_body(monkeypatch, method, path, body):
+    monkeypatch.setattr(guard, "build_opener", lambda *args: pytest.fail("unapproved operation reached transport"))
+    with pytest.raises(ValueError, match="Unapproved"):
+        guard.request_json(method, path, "fixture-secret-only", body)
+
+
+def test_api_http_error_stays_sanitized_and_is_not_retried(monkeypatch):
+    from types import SimpleNamespace
+    calls = []
+
+    def open_api(request, timeout):
+        calls.append(request)
+        raise guard.HTTPError(request.full_url, 403, "fixture response", {}, None)
+
+    monkeypatch.setattr(guard, "build_opener", lambda *args: SimpleNamespace(open=open_api))
+    with pytest.raises(ValueError, match="^Lambda API HTTP 403; no automatic retry$") as error:
+        guard.request_json("GET", "/instances/" + guard.AUTHORIZED_INSTANCE_ID, "fixture-secret-only")
+    assert len(calls) == 1 and "fixture-secret-only" not in str(error.value)
+
+
 @pytest.mark.parametrize("body,accepted", [(b"fixture-secret-only", True), (b"", False),
                                           (b"fixture-secret-only\nsecond-line\n", False),
                                           (b"fixture secret with spaces\n", False)])

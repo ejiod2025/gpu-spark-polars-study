@@ -1,0 +1,72 @@
+{
+  "actual_read_only_observation": {
+    "bytes": 323,
+    "path": "rerun/gclocker100-20261027/final-delivery-v1/LAMBDA_READ_ONLY_COMPATIBILITY.json",
+    "sha256": "7d185f52e4eb0d783c866b1d4874046b67c1fbe083f960646e2108df2e52dd39"
+  },
+  "classification": "HTTP client User-Agent compatibility; no authorization or scientific change",
+  "guard_source": {
+    "bytes": 49843,
+    "path": "operations/lambda_shutdown_guard.py",
+    "sha256": "42520fcfa3090203a24088be178bf85f75f3b68b0885ee97aa5b40e58d809e20"
+  },
+  "observation_source": "Actual authenticated read-only root observation; reviewer did not read a real key or issue any API request.",
+  "previous_guard_commit": "ede0f7ad9e79eb835e483792f860e8bcf6ccc68f",
+  "production_AST_delta": "Only the User-Agent: Mozilla/5.0 header was added inside request_json; removing that dictionary entry yields exactly the prior guard AST.",
+  "request_contract": {
+    "NoRedirect_unchanged": true,
+    "added_header": {
+      "User-Agent": "Mozilla/5.0"
+    },
+    "all_completion_contention_identity_freshness_gates_unchanged": true,
+    "existing_headers_retained": [
+      "Authorization",
+      "Accept",
+      "Content-Type"
+    ],
+    "fixed_endpoint_method_body_allowlist_unchanged": true,
+    "maximum_read_bytes": 2097152,
+    "sanitized_errors_and_no_automatic_retry_unchanged": true,
+    "timeout_seconds": 30
+  },
+  "reviewed_at_utc": "2026-10-29T01:02:36.747062+00:00",
+  "root_reported_prior_default_client_result": "Default Python urllib received HTTP403; no mutation. The preserved benign-User-Agent observation reports HTTP200 for the same authorized instance.",
+  "schema_version": "h100-lambda-api-client-compatibility-review-v1",
+  "scope": "Local code review and actual tests plus hash binding to the preserved root read-only observation. No real API/key/SSH/VM or termination action by reviewer. This does not replace any final completion, private push or fresh identity gate.",
+  "status": "PASS_CLIENT_COMPATIBILITY_REVIEW",
+  "test_source": {
+    "bytes": 59178,
+    "path": "operations/tests/test_lambda_shutdown_guard.py",
+    "sha256": "e4535cc00e11894c8e97c2d228db2e7691080a149f1361a8f4d33ee4e38feddd"
+  },
+  "validation": {
+    "checks": [
+      "Exact authorized GET and POST URL/method/body/header contracts",
+      "Six unapproved endpoint/method/body cases refused before transport",
+      "HTTP403 error remains sanitized and is not retried",
+      "Existing full completion, contention, public body, identity and freshness tests pass"
+    ],
+    "focused_command": [
+      "/tmp/h100-analysis-audit-venv/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "operations/tests/test_lambda_shutdown_guard.py",
+      "-q",
+      "-k",
+      "api_request_keeps_exact or api_user_agent_does_not_expand or api_http_error_stays or request_layer_refuses_wrong_termination_target or duplicate_json_and_unapproved_api_operation_refused"
+    ],
+    "focused_result": "11 passed, 129 deselected in 12.50s",
+    "full_command": [
+      "/tmp/h100-analysis-audit-venv/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "operations/tests/test_lambda_shutdown_guard.py",
+      "-q"
+    ],
+    "full_result": "140 passed in 80.82s",
+    "returncode": 0,
+    "transport": "All API regression transport calls mocked; dummy fixture key only."
+  }
+}
