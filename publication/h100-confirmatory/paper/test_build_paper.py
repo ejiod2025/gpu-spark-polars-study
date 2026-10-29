@@ -319,6 +319,43 @@ class PaperGates(unittest.TestCase):
             self.assertIn("After figure.", pages[2].extract_text())
             self.assertTrue(all("DRAFT" in page.extract_text() for page in pages))
 
+    def test_long_caption_shares_the_image_page_before_portrait_body_returns(self):
+        from PIL import Image, ImageDraw
+        from pypdf import PdfReader
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            replay, output = root / "SYNTHETIC-replay", root / "SYNTHETIC-output"
+            (replay / "figures").mkdir(parents=True)
+            output.mkdir()
+            image = Image.new("RGB", (1000, 1000), "white")
+            ImageDraw.Draw(image).text((20, 20), "SYNTHETIC LONG-CAPTION LAYOUT ONLY", fill="black")
+            source = replay / "figures/layout.png"
+            image.save(source)
+            original_sha256 = builder.sha256(source)
+            caption = ("SYNTHETIC_CAPTION_START. " +
+                       "Long descriptive caption text must remain beside its verified image. " * 30 +
+                       "SYNTHETIC_CAPTION_END.")
+            ast = {"blocks": [
+                {"t": "Para", "c": [{"t": "Str", "c": "Body before the figure."}]},
+                {"t": "Para", "c": [{"t": "Image", "c": [["", [], []],
+                    [{"t": "Str", "c": caption}], ["replay/figures/layout.png", ""]]}]},
+                {"t": "Para", "c": [{"t": "Str", "c": "Portrait body after the complete caption."}]}]}
+            manifest = {"output_files_sha256": {"figures/layout.png": original_sha256}}
+            builder.render_pdf(ast, output / "SYNTHETIC-long-caption.pdf", "SYNTHETIC LAYOUT ONLY",
+                               False, output, replay, manifest)
+            pages = PdfReader(output / "SYNTHETIC-long-caption.pdf").pages
+            page_text = [page.extract_text() for page in pages]
+            self.assertEqual(len(pages), 3)
+            self.assertEqual(len(pages[1].images), 1)
+            self.assertIn("SYNTHETIC_CAPTION_START.", page_text[1])
+            self.assertIn("SYNTHETIC_CAPTION_END.", page_text[1])
+            self.assertEqual([i for i, text in enumerate(page_text) if "SYNTHETIC_CAPTION_END." in text], [1])
+            self.assertGreater(pages[1].mediabox.width, pages[1].mediabox.height)
+            self.assertLess(pages[2].mediabox.width, pages[2].mediabox.height)
+            self.assertIn("Portrait body after the complete caption.", page_text[2])
+            self.assertEqual(builder.sha256(source), original_sha256)
+            self.assertEqual(builder.sha256(output / "replay/figures/layout.png"), original_sha256)
+
 
 if __name__ == "__main__":
     unittest.main()

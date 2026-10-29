@@ -99,7 +99,12 @@ replay and are copied unchanged for paper embedding.
 Figures must occupy their own Markdown paragraph and use verified PNG/JPEG
 exports. The builder copies their exact bytes and records hashes. PDF figures
 receive a separate landscape page for legibility; surrounding prose remains
-portrait. Local repository documentation links are rendered as their labels in
+portrait. The builder measures the complete caption at the landscape frame's
+actual width and reserves its height, spacing and a small layout tolerance
+before scaling the image. Image and caption stay together on that one page;
+an unfit caption is refused. The copied image bytes are unchanged. Final visual
+review must still assess small labels and dense timelines after scaling.
+Local repository documentation links are rendered as their labels in
 the standalone paper; external primary references remain linked. No absolute
 home-directory or private host path is needed in the manuscript.
 

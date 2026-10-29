@@ -469,7 +469,8 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
     portrait = Frame(margin, .64 * inch, text_width, height - 1.36 * inch,
                      leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     wide_width, wide_height = landscape(letter)
-    wide = Frame(margin, .64 * inch, wide_width - 2 * margin, wide_height - 1.36 * inch,
+    figure_width, figure_height = wide_width - 2 * margin, wide_height - 1.36 * inch
+    wide = Frame(margin, .64 * inch, figure_width, figure_height,
                  leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     doc.addPageTemplates([PageTemplate("portrait", [portrait], onPage=page, pagesize=letter),
                           PageTemplate("landscape", [wide], onPage=page, pagesize=landscape(letter))])
@@ -504,12 +505,18 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
         figure_bindings[reference] = sha256(source)
         if source.suffix.lower() not in (".png", ".jpg", ".jpeg"):
             raise ValueError("Use the verified PNG/JPEG export for paper raster embedding")
+        caption = Paragraph(inline(label), styles["caption"])
+        _, caption_height = caption.wrap(figure_width, figure_height)
+        caption_spacing = caption.getSpaceBefore() + caption.getSpaceAfter()
+        image_caption_gap, layout_tolerance = 6, 2
+        image_height = figure_height - caption_height - caption_spacing - image_caption_gap - layout_tolerance
+        if image_height <= 0:
+            raise ValueError("Figure caption leaves no room for its image on one landscape page")
         image = Image(str(destination_image))
-        scale = min((wide_width - 2 * margin) / image.imageWidth,
-                    (wide_height - 1.75 * inch) / image.imageHeight)
+        scale = min(figure_width / image.imageWidth, image_height / image.imageHeight)
         image.drawWidth, image.drawHeight = image.imageWidth * scale, image.imageHeight * scale
-        story.extend([NextPageTemplate("landscape"), PageBreak(), image,
-                      Paragraph(inline(label), styles["caption"]),
+        story.extend([NextPageTemplate("landscape"), PageBreak(),
+                      KeepTogether([image, Spacer(1, image_caption_gap), caption]),
                       NextPageTemplate("portrait"), PageBreak()])
 
     def blocks(items, numbered=None):
