@@ -601,10 +601,11 @@ def sanitize(text):
     findings = [{"kind": name, "count": len(re.findall(pattern, text))}
                 for name, pattern in checks.items() if re.search(pattern, text)]
     ips = set()
-    # This dotted value is the cited public NIST handbook section identifier,
-    # not a host address. Only its explicitly labeled bibliographic context is
-    # excluded; an unlabelled occurrence still receives the address check.
+    # These dotted values are a public handbook section and the pinned Java
+    # version, not host addresses. Only the exact explicitly labeled contexts
+    # are excluded; an unlabelled occurrence still receives the address check.
     address_text = re.sub(r"(?i)\bsection\s+5\.3\.3\.2\b", "NIST handbook section", text)
+    address_text = re.sub(r"(?i)\b(?:Java|OpenJDK)\s+17\.0\.20\.1\b", "recorded Java version", address_text)
     for value in re.findall(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])", address_text):
         try:
             ips.add(str(ipaddress.IPv4Address(value)))
@@ -613,7 +614,7 @@ def sanitize(text):
     if ips:
         findings.append({"kind": "ipv4_address", "count": len(ips)})
     return {"status": "FAIL" if findings else "PASS", "findings": findings,
-            "scope": "PDF extracted text and standalone HTML: IPv4 (excluding labeled NIST section 5.3.3.2), private-key markers, credential patterns, local home paths; not release authorization"}
+            "scope": "PDF extracted text and standalone HTML: IPv4 (excluding labeled NIST section 5.3.3.2 and Java/OpenJDK 17.0.20.1), private-key markers, credential patterns, local home paths; not release authorization"}
 
 
 CSS = """body{max-width:900px;margin:3rem auto;padding:0 1.5rem;color:#162a3b;font:17px/1.65 Georgia,serif}

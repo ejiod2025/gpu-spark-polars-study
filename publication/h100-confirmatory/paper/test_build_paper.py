@@ -264,7 +264,8 @@ class PaperGates(unittest.TestCase):
 
     def test_sanitization_preserves_public_bibliography_and_detects_private_patterns(self):
         self.assertEqual(builder.sanitize("NIST section 5.3.3.2; Polars 1.44.2")["status"], "PASS")
-        for text in ("192.0.2.1", "/Users/example/private", "OPENAI_API_KEY=example",
+        self.assertEqual(builder.sanitize("Java 17.0.20.1; OpenJDK 17.0.20.1")["status"], "PASS")
+        for text in ("192.0.2.1", "17.0.20.1", "Java 192.0.2.1", "/Users/example/private", "OPENAI_API_KEY=example",
                      "-----BEGIN PRIVATE KEY-----", "sk-" + "x" * 25):
             self.assertEqual(builder.sanitize(text)["status"], "FAIL")
 

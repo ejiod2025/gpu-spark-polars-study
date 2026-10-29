@@ -138,6 +138,9 @@ This is the integration contract for the separate H100 webpage builder.
 `public_sanitization.status: PASS` records a bounded scan of extracted PDF
 text/HTML for private-key, token, credential-assignment, home-path and IPv4
 patterns. It is not publication or redistribution authorization.
+The exact explicitly labeled NIST section 5.3.3.2 and pinned Java/OpenJDK
+17.0.20.1 are recognized as public identifiers; unlabeled addresses remain
+subject to the IPv4 check.
 
 Inspect every PDF page after each meaningful edit. For example:
 
