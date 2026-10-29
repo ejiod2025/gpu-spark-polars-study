@@ -488,7 +488,7 @@ through unmeasured scales is asserted.
 ### 4.5 Separate coordinated same-host contention experiment
 
 The owner subsequently requested concurrent sessions on the existing H100.
-The separate [contention protocol](../../docs/H100_CONTENTION_PROTOCOL.md)
+The separate contention protocol
 defines `h100-contention-20261028`, with canonical pre-start archive
 `evidence-research/20261028/h100-contention-v1`. Its plan SHA256 is
 `670f37af6c1a6f2dbea5fc110d213b148a0acb83858786a21add8252acc89031` and
@@ -573,7 +573,7 @@ keep both designs' observations separate.
 
 ### 4.6 Managed interlude in isolated collection
 
-The [interlude record](../../docs/H100_CONTENTION_INTERLUDE_20261028.md)
+The interlude record
 discloses a requested operational amendment after isolated collection began.
 The manager held only the exact isolated scheduler, PID 179144, at
 2026-10-28 04:44:23 UTC, preserving its process, locks and journal. The already
@@ -1052,7 +1052,7 @@ The recovery profile was chosen after an observed failure, limiting inference
 to that post-incident configuration. A fresh complete sample avoids pooling
 incompatible timings; it does not erase the configuration-selection history
 or establish a causal mitigation effect. The fixed single-recovery decision
-must remain visible, including any later collection failure.
+and its completed disposition remain part of the interpretation scope.
 The same-host contention extension is small and synchronized, with only two
 planned expansion repetitions. Its process-counter and memory observations may
 span untimed waits; GPU board samples are shared and can miss peaks. The
@@ -1095,8 +1095,7 @@ cleanup counts, physical-byte gates and required cache inventories. Its
 nonsynthetic PASS/no-findings result is an evidence-completeness assessment,
 not an additional performance hypothesis test.
 
-The [claim/evidence matrix](claim-evidence-matrix.md) and
-[result ledger](RESULTS_FINALIZATION.md) link exact inputs to all 26 primary
+The claim/evidence matrix and result ledger link exact inputs to all 26 primary
 rows, forty score/coverage cells, thirty-two secondary pairs and 260 primary
 block ratios. Machine-readable artifacts preserve full precision. Appendix B
 and C retain secondary endpoints and raw primary block ratios; the four
@@ -1165,7 +1164,7 @@ Historical Python 3.10 timings do not populate the replacement same-Python
 CPU control or its prospective results.
 
 Primary literature and official implementation references are collected in
-[references.md](references.md).
+the bibliography below.
 
 ## Appendix B. All secondary endpoint pairs
 
