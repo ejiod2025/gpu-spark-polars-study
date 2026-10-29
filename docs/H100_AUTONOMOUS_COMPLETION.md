@@ -7,6 +7,19 @@ The paper author is **Daniel Ejiofor**, with no institutional affiliation suppli
 These instructions add publication and conditional retirement to the existing
 fixed research campaign; they do not reduce the experiment to a pilot or draft.
 
+## Project complete and follow-up removed
+
+All authorized research, final paper/public webpage, independent private
+preservation, exact-instance retirement and local cleanup are complete.
+The native follow-up `finish-h100-study-and-retire-instance` was deleted in the
+app after verified terminal cloud status and a successful private push of the
+retirement proof. Its actual deletion receipt and final project record are in
+`evidence-research/20261029/h100-project-complete-v1`. No heartbeat, benchmark,
+controller or instance restart is required. The dated milestones below retain
+their original historical pending states; this completion section supersedes
+them for future continuation decisions. Keep this repository private and retain
+the research/publication history.
+
 ## Verified instance retirement, 2026-10-29 UTC
 
 The full 400-session study, separate 20-wave contention role, final 37-page paper,
