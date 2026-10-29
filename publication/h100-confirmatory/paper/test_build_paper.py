@@ -3,6 +3,7 @@ import importlib.util
 import copy
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -322,6 +323,8 @@ class PaperGates(unittest.TestCase):
     def test_long_caption_shares_the_image_page_before_portrait_body_returns(self):
         from PIL import Image, ImageDraw
         from pypdf import PdfReader
+        if not shutil.which("pandoc"):
+            self.skipTest("Pandoc is required for the actual Markdown-to-PDF integration check")
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             replay, output = root / "SYNTHETIC-replay", root / "SYNTHETIC-output"
@@ -335,11 +338,10 @@ class PaperGates(unittest.TestCase):
             caption = ("SYNTHETIC_CAPTION_START. " +
                        "Long descriptive caption text must remain beside its verified image. " * 30 +
                        "SYNTHETIC_CAPTION_END.")
-            ast = {"blocks": [
-                {"t": "Para", "c": [{"t": "Str", "c": "Body before the figure."}]},
-                {"t": "Para", "c": [{"t": "Image", "c": [["", [], []],
-                    [{"t": "Str", "c": caption}], ["replay/figures/layout.png", ""]]}]},
-                {"t": "Para", "c": [{"t": "Str", "c": "Portrait body after the complete caption."}]}]}
+            markdown = ("Body before the figure.\n\n![" + caption + "]"
+                        "(replay/figures/layout.png)\n\nPortrait body after the complete caption.\n")
+            ast = json.loads(subprocess.run(["pandoc", "--from=markdown", "--to=json"],
+                                            input=markdown, check=True, capture_output=True, text=True).stdout)
             manifest = {"output_files_sha256": {"figures/layout.png": original_sha256}}
             builder.render_pdf(ast, output / "SYNTHETIC-long-caption.pdf", "SYNTHETIC LAYOUT ONLY",
                                False, output, replay, manifest)

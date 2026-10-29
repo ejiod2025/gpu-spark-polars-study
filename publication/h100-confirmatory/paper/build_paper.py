@@ -527,6 +527,15 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
                     add_image(content[0])
                 else:
                     story.append(Paragraph(inline(content), styles["body"]))
+            elif kind == "Figure":
+                figure_body = content[2]
+                if (len(figure_body) != 1 or figure_body[0]["t"] not in ("Para", "Plain") or
+                        len(figure_body[0]["c"]) != 1 or figure_body[0]["c"][0]["t"] != "Image"):
+                    raise ValueError("Paper figures require one standalone verified image")
+                item = figure_body[0]["c"][0]
+                if cell_text(content[1][1]) != inline(item["c"][1]):
+                    raise ValueError("Figure caption differs from its image description")
+                add_image(item)
             elif kind == "Header":
                 level, _, words = content
                 story.append(Paragraph(inline(words), styles[f"h{min(3, max(1, level - 1))}"]))
