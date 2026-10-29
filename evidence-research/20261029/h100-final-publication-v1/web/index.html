@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A prospective, paired-block comparison of CPU and GPU dataframe execution with Polars and Spark on one H100 host. Research by Daniel Ejiofor.">
+  <meta name="robots" content="index,follow">
+  <meta name="author" content="Daniel Ejiofor">
+  <title>CPU &amp; GPU dataframe execution on one H100 host · Daniel Ejiofor</title>
+  <link rel="stylesheet" href="styles.css">
+  <script>window.H100_PREVIEW = false;</script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to study</a>
+  <div id="preview-banner" class="preview-banner" hidden><strong>Unpublished methods preview</strong><span>Collection and publication gates are pending. This page contains no performance results.</span></div>
+  <header class="site-header wrap">
+    <a class="wordmark" href="../">Systems <span>/ field notes</span></a>
+    <nav aria-label="Study navigation"><a href="#results">Results</a><a href="#contention">Contention</a><a href="#methods">Methods</a><a href="#evidence">Paper &amp; data <span aria-hidden="true">↗</span></a></nav>
+  </header>
+  <main id="main">
+    <section class="hero wrap" aria-labelledby="title">
+      <div class="hero-copy"><p class="eyebrow"><span class="edition-dot" aria-hidden="true"></span>H100 confirmatory study · October 2026</p>
+        <h1 id="title">CPU &amp; GPU<br>dataframe execution<br><em>on one H100 host.</em></h1>
+        <p class="deck">A prospective, paired-block comparison of Polars and Spark. Complete workloads, explicit coverage, and uncertainty at the level of fresh sessions.</p>
+        <div class="byline"><span>Daniel Ejiofor</span><span class="byline-rule" aria-hidden="true"></span><span>October 2026</span></div>
+        <div class="hero-actions"><a class="button" id="paper-hero" href="downloads/h100-study.pdf">Read the paper <span aria-hidden="true">↗</span></a><a class="text-link" href="#results">Explore the measurements <span aria-hidden="true">↓</span></a></div>
+      </div>
+      <aside class="study-card" aria-label="Experiment design">
+        <div class="card-top"><span>Study design</span><span class="plate-label">H / 100</span></div>
+        <div class="block-visual" aria-hidden="true"><span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span><span>07</span><span>08</span><span>09</span><span>10</span></div>
+        <p class="card-number">10 <span>paired blocks</span></p>
+        <p class="card-description">Forty fresh sessions per block.<br>Three measured actions inside each session.</p>
+        <dl class="card-facts"><div><dt>Execution paths</dt><dd>4</dd></div><div><dt>Software configurations</dt><dd>5</dd></div><div><dt>Query × scale cases</dt><dd>48</dd></div><div><dt>Primary comparisons</dt><dd>26</dd></div></dl>
+        <p class="card-foot">The block is the inference unit.<br>Inner actions do not increase N.</p>
+      </aside>
+    </section>
+
+    <section class="abstract-band"><div class="wrap abstract-layout"><p class="eyebrow light">The research question</p><div><h2>When does a complete GPU path<br>outperform its CPU comparison?</h2><p>The experiment measures six selected TPC-H-derived queries at five scales and six complex queries at three scales. It pairs configurations within ten planned blocks, validates every successful output with independent SQL references, and retains unsupported expressions as coverage limits.</p><p class="abstract-caveat">One host, fixed software and settings. Selected research workloads; not complete or certified TPC-H results.</p></div></div></section>
+
+    <div class="wrap">
+      <section class="section" id="results" aria-labelledby="results-title">
+        <div class="section-heading"><p class="section-index">01 / Primary evidence</p><h2 id="results-title">Read the comparisons.</h2><p class="section-deck">Every primary estimate pairs ten complete block scores. Use the controls to inspect the prespecified comparisons.</p></div>
+        <div id="pending-results" class="pending-panel" hidden><span class="status-label">No performance data loaded</span><h3>Results await final evidence.</h3><p>The publication builder requires the genuine registered recovery campaign, all 400 fresh sessions, a passing replay and completeness audit, the separate terminal contention review, and a final paper PDF. Readiness checks and earlier incomplete cohorts do not supply performance findings.</p></div>
+        <div id="result-error" class="error-panel" role="alert" hidden></div>
+        <div id="verified-results" hidden>
+          <div class="verification-line"><span class="verified-dot" aria-hidden="true"></span><strong>Complete, validated replacement campaign</strong><span id="completion-date"></span></div>
+          <div class="findings-grid" aria-label="Key findings from the complete study">
+            <article><h3>No GPU Spark suite crossover</h3><p id="finding-suites"></p></article>
+            <article><h3>Where GPU Spark beats Polars</h3><p id="finding-query"></p></article>
+            <article><h3>Polars GPU: speed and coverage</h3><p id="finding-polars-gpu"></p></article>
+            <article><h3>GPU acceleration within Spark</h3><p id="finding-spark"></p></article>
+          </div>
+          <div class="explorer">
+            <div class="controls"><label>Comparison<select id="pair-select"><option value="polars_cpu_200|spark_gpu">CPU Polars 2.0.0 / GPU Spark</option><option value="spark_cpu|spark_gpu">CPU Spark / GPU Spark</option><option value="polars_cpu_144|polars_gpu">CPU Polars 1.44.2 / Polars GPU</option><option value="polars_cpu_200|polars_gpu">CPU Polars 2.0.0 / Polars GPU</option></select></label><label>Workload<select id="suite-select"><option value="baseline">Original six queries</option><option value="complex">Complex six queries</option></select></label><label class="checkbox"><input id="show-blocks" type="checkbox" checked> Show paired blocks</label></div>
+            <div class="chart-title-row"><div><p class="mini-label">Primary action endpoint</p><h3 id="comparison-title"></h3></div><span class="ratio-key">CPU score ÷ GPU score</span></div>
+            <p class="axis-explanation">Below 1× favors CPU <span aria-hidden="true">← &nbsp; | &nbsp; →</span> Above 1× favors GPU</p>
+            <div id="primary-chart" class="chart-container" role="img" aria-label="Primary paired-block comparisons with pointwise confidence intervals"></div>
+            <div id="unavailable-suite" class="coverage-notice" hidden><strong>N/A · no complete complex-suite score for Polars GPU</strong><p>The unchanged regex and grouped-window expressions are unsupported. Four supported queries cannot replace a six-query suite.</p></div>
+            <div class="chart-legend"><span><i class="diamond" aria-hidden="true"></i> Geometric mean</span><span><i class="interval" aria-hidden="true"></i> Pointwise 95% interval</span><span><i class="small-dot" aria-hidden="true"></i> One paired block</span></div>
+            <p class="chart-caption">Intervals use Student’s t on ten block log ratios and are <strong>pointwise, not simultaneous</strong>. The full family of 26 two-sided primary tests receives Holm adjustment. A suite score sums six query medians; it is not an observed whole-suite latency. Independent, approximately normal block log ratios are assumed. Ten blocks do not guarantee power.</p>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="Primary estimates and adjusted tests"><table id="primary-table"></table></div>
+          </div>
+          <div class="download-line"><a href="downloads/primary_contrasts.csv" download>All 26 primary comparisons <span>CSV ↗</span></a><a href="downloads/paired_block_ratios.csv" download>260 paired block ratios <span>CSV ↗</span></a></div>
+        </div>
+      </section>
+
+      <section class="section" id="queries" aria-labelledby="queries-title">
+        <div class="section-heading"><p class="section-index">02 / Coverage &amp; detail</p><h2 id="queries-title">A faster subset is a different answer.</h2><p class="section-deck">Query estimates describe the unchanged individual expressions. They carry no query significance tests or multiplicity-adjusted query claims.</p></div>
+        <div id="query-pending" class="quiet-placeholder"><p>Descriptive query comparisons and complete-case scores appear after final evidence passes.</p></div>
+        <div id="query-results" hidden>
+          <div class="controls"><label>Workload<select id="query-suite"><option value="baseline">Original six queries</option><option value="complex">Complex six queries</option></select></label><label>Scale factor<select id="query-scale"></select></label><label>GPU path<select id="query-gpu"><option value="spark_gpu">GPU Spark</option><option value="polars_gpu">Polars GPU</option></select></label></div>
+          <div id="query-chart" class="query-grid" aria-live="polite"></div>
+          <p class="chart-caption">Ratios compare CPU Polars 2.0.0 with the selected GPU path, using geometric means of ten paired query ratios. N/A retains translation rejections, with no imputed latency or ratio. The original correlated semi/anti expression does not establish an executed nonempty anti join.</p>
+          <details class="score-details"><summary>Inspect complete-case suite scores and coverage</summary><div class="table-scroll" tabindex="0" role="region" aria-label="Complete-case scores for selected workload and scale"><table id="scores-table"></table></div><p class="chart-caption">Scores are descriptive geometric means across ten complete sessions, in seconds. No partial sum substitutes for an unsupported suite.</p></details>
+          <div class="download-line"><a href="downloads/descriptive_query_ratios.csv" download>Descriptive query ratios <span>CSV ↗</span></a><a href="downloads/complete_case_scores.csv" download>Complete-case scores <span>CSV ↗</span></a></div>
+        </div>
+        <div class="coverage-editorial"><span class="coverage-mark" aria-hidden="true">4/6</span><div><h3>Keep the original coverage limit.</h3><p>Strict Polars GPU retains the original outer-join regex and grouped-window translation rejections in the complex suite. Supported expressions remain measurable. The complete complex suite remains unavailable.</p></div></div>
+      </section>
+
+      <section class="section" id="contention" aria-labelledby="contention-title">
+        <div class="section-heading"><p class="section-index">03 / Separate descriptive extension</p><h2 id="contention-title">Two sessions, one shared host.</h2><p class="section-deck">A coordinated same-query contention experiment examines a different condition. The isolated 400-session study remains the sole confirmatory evidence for the primary comparisons and crossover story.</p></div>
+        <div class="contention-design"><article><h3>Pair A</h3><p>GPU Spark + CPU Polars 2.0.0</p></article><article><h3>Pair B</h3><p>CPU Spark + strict Polars GPU</p></article></div>
+        <p class="contention-method">Each process requests 26 CPU threads on the same 26-vCPU host, without disjoint CPU allocation. Spark retains its 96 GiB heap; each pair has one GPU path. CPU, RAM, filesystem cache, disk and GPU interactions form the shared-host condition. Shared preheat occurs outside timers and does not guarantee residency.</p>
+        <p class="contention-method">The SF30 pilot has one repetition per pair and suite. The separately gated expansion has two fresh-wave repetitions per pair, suite and SF30/SF100 cell (n = 2 per cell). Each query has one warmup and one measured action per process. These small samples are descriptive; pilot and expansion are shown separately. They supply no new p-values, winner decisions or crossover thresholds.</p>
+        <p class="contention-method">The protocol parks the isolated scheduler, lets its current worker finish, then requires unchanged source, runtime and input identities before returning to the same scheduler. The original session’s outer orchestration envelope includes this scheduling hold; it is not a query latency and is never rewritten.</p>
+        <aside class="limits contention-limit"><p class="mini-label">Interpretation boundary</p><p>Pair B complex has four common measured query pairs. Q13 and window reject translation on strict Polars GPU; their CPU-only measured actions are unpaired diagnostics. A six-query CPU sum would mix conditions and is not a uniformly contended suite score. The pairs have different competing workloads, so they do not rank the two GPU engines.</p></aside>
+        <div id="contention-pending" class="quiet-placeholder"><p>Contention findings remain unpublished until a genuine terminal replay verifies the original worker payload, separation of action intervals and return to the same isolated-study scheduler. This methods preview includes no timings.</p></div>
+        <div id="contention-results" hidden>
+          <p id="contention-status" class="verification-line" role="status"></p>
+          <div class="table-scroll" tabindex="0" role="region" aria-label="Separate pilot and expansion dispositions"><table id="contention-disposition"></table></div>
+          <div class="explorer contention-explorer">
+            <div class="controls"><label>Study phase<select id="contention-phase"><option value="main">Expansion · two repetitions per cell</option><option value="pilot">Pilot · one repetition at SF30</option></select></label><label>Concurrent pair<select id="contention-pair"><option value="A">A · GPU Spark + CPU Polars 2.0.0</option><option value="B">B · CPU Spark + Polars GPU</option></select></label><label>Workload<select id="contention-suite"><option value="baseline">Original six queries</option><option value="complex">Complex six queries</option></select></label><label>Scale factor<select id="contention-scale"><option value="30">SF30</option><option value="100">SF100</option></select></label></div>
+            <p id="contention-selection" class="mini-label" aria-live="polite"></p>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="Every observed measured action with repetition and pairing status"><table id="contention-actions"></table></div>
+            <p class="chart-caption">Actual per-repetition action and common-host-result durations, in seconds. Action timers exclude startup and rendezvous waits. Unavailable actions receive no imputed time. Process counter deltas can include untimed rendezvous waits; sampled memory can miss transient peaks, and board GPU utilization cannot identify a causal query contribution.</p>
+            <details open class="score-details"><summary>Inspect actual common-query overlap on both clocks</summary><div class="table-scroll" tabindex="0" role="region" aria-label="Common measured action intersections and start skew"><table id="contention-overlap"></table></div><p class="chart-caption">Intersection is recomputed from saved action intervals on the same-host monotonic clock and UTC clock. Positive process-lifetime overlap alone is insufficient. Start skew is the absolute difference between the two measured action starts.</p></details>
+          </div>
+          <div class="download-line"><a href="downloads/contention_query_actions.csv" download>All observed contention actions <span>CSV ↗</span></a><a href="downloads/contention_common_overlap.csv" download>Common measured action overlap <span>CSV ↗</span></a></div>
+          <div id="contention-figures" class="figure-downloads" hidden><h3>Separate contention figures</h3><div id="contention-figure-links"></div></div>
+        </div>
+      </section>
+
+      <section class="section" id="methods" aria-labelledby="methods-title">
+        <div class="section-heading"><p class="section-index">04 / Experimental frame</p><h2 id="methods-title">What the experiment holds fixed.</h2></div>
+        <div class="method-columns"><article><h3>One host. Five configurations.</h3><p>Four execution paths share one H100 80 GB HBM3 host with 26 Xeon Platinum 8480+ vCPUs and approximately 221 GiB of RAM. A second CPU Polars version separates the GPU-compatible baseline from a current CPU control.</p><p>Spark uses a 96 GiB driver heap; Polars has no equivalent fixed host-memory limit. <strong>The same host does not imply equal memory budgets.</strong> This is a comparison of configurations, not an isolated causal effect of the GPU.</p></article><div class="config-table"><table><caption>Fixed software configurations</caption><thead><tr><th scope="col">Path</th><th scope="col">Configuration</th></tr></thead><tbody><tr><td>Polars CPU streaming</td><td>1.44.2</td></tr><tr><td>Polars CPU streaming · CPU control</td><td>2.0.0</td></tr><tr><td>Strict Polars GPU streaming</td><td>1.44.2 / cuDF-Polars 26.10.2</td></tr><tr><td>CPU Spark · local[26]</td><td>3.5.9</td></tr><tr><td>GPU Spark · local[26]</td><td>3.5.9 / RAPIDS 26.08.1</td></tr></tbody></table></div></div>
+        <div class="method-rows"><article><span>01</span><div><h3>Fresh sessions, paired blocks</h3><p>Ten fixed blocks contain all eight suite/scale conditions and five configurations: 400 sessions. Three measured actions follow warmup inside each session. Their median summarizes the query; the ten paired block ratios supply inference. The design does not treat thirty inner actions as thirty independent replicates.</p></div></article><article><span>02</span><div><h3>Shared inputs, explicit timing</h3><p>All engines read the same frozen Snappy Parquet inputs. Full byte checks run outside measured work. A preheated filesystem policy is used without an application DataFrame cache; preheating does not guarantee that every page remains in memory. Action time excludes startup. Common-host-result time is a descriptive endpoint sensitivity.</p></div></article><article><span>03</span><div><h3>Correctness and execution coverage</h3><p>Every successful warmup and measured output is compared with independent SQL references. Monetary and quantity expressions use Float64/DOUBLE with declared reduction tolerances. Strict Polars GPU rejects CPU translation fallback. GPU Spark can retain CPU operators; saved final plans describe coverage, not the fraction of runtime on GPU.</p></div></article><article><span>04</span><div><h3>A separate JVM recovery cohort</h3><p>The initial replacement campaign stopped after 88 validated sessions when CPU Spark reported a Java heap-space allocation failure during warmup. The log also contained a GCLocker retry warning; it does not prove a root cause. Its observations are retained and excluded from the recovery estimates.</p><p>The recovery fixes <code>GCLockerRetryAllocationCount=100</code> for both Spark configurations, retaining Java 17.0.20.1, G1, the 96 GiB heap and the other recorded settings. Startup flag dumps verify the actual JVM configuration. The 52-file experimental source and 1,654 physical input files stay unchanged. This study measures that recovery profile; it does not estimate the causal benefit of the JVM options.</p><p>The earlier lost instance’s 120 surviving sessions are also excluded. Off-host backup pauses occur between complete blocks while engines are stopped. Readiness checks establish readiness, not performance.</p></div></article></div>
+        <aside class="limits"><p class="mini-label">Scope of interpretation</p><p>Conditional evidence for one host, these queries, these versions, and these settings. The study does not establish distributed scaling, equivalent-cost performance, energy efficiency, optimal per-engine tuning, or controlled cold-cache latency. Historical A100/H100 comparisons also change CPU allocation, software, and file layout.</p></aside>
+      </section>
+
+      <section class="section" id="evidence" aria-labelledby="evidence-title">
+        <div class="section-heading"><p class="section-index">05 / Review &amp; reuse</p><h2 id="evidence-title">Follow a claim to its evidence.</h2><p class="section-deck">The paper, numerical exports, and figures retain the distinction between primary tests, descriptive comparisons, and unsupported cases.</p></div>
+        <div id="evidence-pending" class="quiet-placeholder"><p>Final publication files are unavailable in this unpublished preview.</p></div>
+        <div id="evidence-links" hidden>
+          <div class="resource-grid"><a class="resource paper-resource" href="downloads/h100-study.pdf"><span class="resource-type">Research paper · PDF</span><h3>The full study.</h3><p>Methods, results, endpoint sensitivity, limitations, references and provenance.</p><span class="resource-action">Read Daniel Ejiofor’s paper ↗</span></a><a class="resource" href="downloads/provenance.json" download><span class="resource-type">Provenance · JSON</span><h3>Exact identities.</h3><p>Campaign, prestart, frozen source, analysis and final replay checksums.</p><span class="resource-action">Download provenance ↗</span></a></div>
+          <div class="figure-downloads"><h3>Publication figures</h3><div id="figure-links"></div></div>
+          <details class="provenance-details"><summary>Inspect publication identity</summary><dl id="provenance-list" class="provenance-list"></dl></details>
+          <p class="small-note">Public downloads contain allowlisted tables, figures, the paper, and sanitized provenance. Source development and raw infrastructure evidence remain private.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer><div class="wrap footer-inner"><a class="wordmark" href="../">Systems <span>/ field notes</span></a><p>Research by Daniel Ejiofor<br><span>One experiment. A bounded conclusion.</span></p><a href="#title">Back to top ↑</a></div></footer>
+  <noscript><p class="wrap">Enable JavaScript to explore the checked numerical results. The final paper and CSV downloads remain available at their links.</p></noscript>
+</body>
+</html>
