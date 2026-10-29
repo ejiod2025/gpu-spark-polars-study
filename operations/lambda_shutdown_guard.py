@@ -665,7 +665,12 @@ def terminate(manifest_path, expected, key, api=request_json, page_fetch=None):
     web = verified["web"]
     if page_fetch is None:
         def page_fetch(url):
-            with build_opener(NoRedirect).open(url, timeout=30) as response:
+            # Public CDN compatibility only: this request carries no API
+            # authorization, cookie or access-bypass token.
+            # Cloudflare excludes AJAX calls from JavaScript Detections:
+            # https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/
+            request = Request(url, headers={"User-Agent": "Mozilla/5.0", "X-Requested-With": "XMLHttpRequest"})
+            with build_opener(NoRedirect).open(request, timeout=30) as response:
                 require(response.status == 200, "Public deployment did not return HTTP 200")
                 return response.read(16 * 1024 * 1024 + 1)
     page = page_fetch(public_url(web["version_url"]))

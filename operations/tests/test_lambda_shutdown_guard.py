@@ -527,6 +527,55 @@ def test_complete_matching_public_result_allows_one_exact_post(complete):
     assert result["status"] == "terminating" and "fixture-secret-only" not in json.dumps(result)
 
 
+@pytest.mark.parametrize("http_status", [200, 403])
+def test_default_public_fetch_uses_only_benign_client_headers_and_keeps_http_gate(complete, monkeypatch, http_status):
+    from types import SimpleNamespace
+    calls, fetched = [], []
+    expected_url = guard.read_json(complete["paths"]["web_receipt"])["version_url"]
+
+    class Response:
+        status = http_status
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self, limit):
+            assert limit == 16 * 1024 * 1024 + 1
+            return complete["page"]
+
+    def open_public(request, timeout):
+        assert isinstance(request, guard.Request)
+        assert request.full_url == expected_url and request.get_method() == "GET" and request.data is None
+        assert {name.lower(): value for name, value in request.header_items()} == {
+            "user-agent": "Mozilla/5.0", "x-requested-with": "XMLHttpRequest"}
+        assert request.unredirected_hdrs == {} and timeout == 30
+        fetched.append(request.full_url)
+        return Response()
+
+    def opener(*handlers):
+        assert handlers == (guard.NoRedirect,)
+        return SimpleNamespace(open=open_public)
+
+    def api(method, path, key, body=None):
+        calls.append(method)
+        return {"data": cloud(complete)} if method == "GET" else {
+            "data": {"terminated_instances": [{"id": complete["expected"]["instance_id"], "status": "terminating"}]}}
+
+    monkeypatch.setattr(guard, "build_opener", opener)
+    monkeypatch.setattr(guard.time, "sleep", lambda _: None)
+    if http_status == 200:
+        assert guard.terminate(complete["path"], complete["expected"], "fixture-secret-only", api)["status"] == "terminating"
+        assert calls == ["GET", "POST"]
+    else:
+        with pytest.raises(ValueError, match="did not return HTTP 200"):
+            guard.terminate(complete["path"], complete["expected"], "fixture-secret-only", api)
+        assert calls == ["GET"]
+    assert fetched == [expected_url]
+
+
 def test_corrupt_raw_archive_cannot_use_old_verified_receipt(complete):
     (complete["base"] / complete["manifest"]["raw_backups"]["final"]["archive"]["path"]).write_bytes(b"corrupt")
     with pytest.raises(ValueError, match="SHA256 differs"):
