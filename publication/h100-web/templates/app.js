@@ -68,6 +68,16 @@
     });
     table($("primary-table"),["Scale","Geometric mean ratio","Pointwise 95% CI","Holm p · family 26","Two-sided α = .05"],rows,"Ten paired blocks per estimate. No rejection does not establish equivalence.");
   }
+  function drawFindings(data) {
+    const primary=(numerator,denominator,suite,scale)=>data.primary.find(row=>row.numerator===numerator&&row.denominator===denominator&&row.suite===suite&&Number(row.scale)===scale).geometric_mean_speedup;
+    const sparkComparisons=data.primary.filter(row=>row.numerator==="polars_cpu_200"&&row.denominator==="spark_gpu");
+    if(sparkComparisons.length!==8||!sparkComparisons.every(row=>row.geometric_mean_speedup<1))throw new Error("The suite finding differs from the checked cohort.");
+    const window=data.queries.find(row=>row.suite==="complex"&&Number(row.scale)===300&&row.query==="cx_window"&&row.denominator==="spark_gpu");
+    $("finding-suites").textContent=`CPU Polars 2.0.0 has a lower six-query score in all eight tested conditions. At SF300, its score is ${fmt(primary("polars_cpu_200","spark_gpu","baseline",300))}× GPU Spark for the original suite and ${fmt(primary("polars_cpu_200","spark_gpu","complex",300))}× for the complex suite.`;
+    $("finding-query").textContent=`Individual queries differ: at SF300, the window query’s CPU Polars 2.0.0 / GPU Spark action-time ratio is ${fmt(window.geometric_mean_speedup)}×. Q1 and Q13 also favor GPU Spark at that scale. These are descriptive query estimates, with no query significance tests.`;
+    $("finding-polars-gpu").textContent=`At SF300, the original-suite CPU Polars 2.0.0 / Polars GPU score ratio is ${fmt(primary("polars_cpu_200","polars_gpu","baseline",300))}×, favoring GPU. The unchanged regex and grouped-window expressions remain unsupported, so the complete complex-suite GPU score is N/A.`;
+    $("finding-spark").textContent=`At SF300, the original-suite CPU Spark / GPU Spark score ratio is ${fmt(primary("spark_cpu","spark_gpu","baseline",300))}×, favoring GPU Spark. This compares the recorded configurations on one host; it does not establish distributed scaling or equal-cost performance.`;
+  }
   function updateScales() {
     const values=$("query-suite").value==="baseline"?["1","10","30","100","300"]:["30","100","300"];
     const previous=$("query-scale").value;$("query-scale").replaceChildren(...values.map(value=>{const option=document.createElement("option");option.value=value;option.textContent=`SF${value}`;return option;}));
@@ -137,7 +147,7 @@
     ["query-scale","query-gpu"].forEach(id=>$(id).addEventListener("change",()=>drawQueries(data)));
     $("contention-phase").addEventListener("change",()=>{updateContentionScales();drawContention(data);});
     ["contention-pair","contention-suite","contention-scale"].forEach(id=>$(id).addEventListener("change",()=>drawContention(data)));
-    updateScales();drawPrimary(data);drawQueries(data);evidence(data);updateContentionScales();drawContention(data);contentionEvidence(data);
+    drawFindings(data);updateScales();drawPrimary(data);drawQueries(data);evidence(data);updateContentionScales();drawContention(data);contentionEvidence(data);
   }).catch(error=>{
     $("result-error").hidden=false;$("result-error").textContent=`Results could not be displayed: ${error.message}`;
     $("verified-results").hidden=true;$("query-results").hidden=true;$("evidence-links").hidden=true;
