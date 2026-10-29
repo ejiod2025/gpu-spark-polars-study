@@ -326,6 +326,61 @@ This profile choice is disclosed, and no causal cure or speed benefit is claimed
 No prior timing is pooled and no further clean restart is automatic if recovery
 fails. The final paper/web builders accept only this registered recovery cohort.
 
+## Completed scientific collection and replay, 2026-10-28/29 UTC
+
+The original fixed recovery campaign completed all 400 sessions exactly once.
+Its final action ended at 23:26:10.952925 UTC on October 28; the full final
+input-byte gate passed at 23:33:18.564788 UTC and the supervisor exited zero at
+23:42:11 UTC. The existing local controller reached COMPLETE_RAW_BACKUP at
+23:43:16.761776 UTC. No measured attempt was restarted or replaced.
+
+All thirteen original recovery phase transports are verified off host, including
+the 10,420,008,960-byte final tar (SHA256
+`f16f8b045b391b5882b96c0d2ffdbcf3bd751c3d63d7decc1abc1d9ac678db1a`)
+and the 13,291,520-byte post-exit completion tar (SHA256
+`69ec60399932f13dca5fd202937a3653cf58a1aaefa4a46abd191ec4d7db300e`).
+The original watcher and remote scheduler have finished; preserve their closure
+records rather than relaunching them.
+
+The new immutable `reconstruction-v1` has status
+RECONSTRUCTED_TRANSPORT_VERIFIED and manifest SHA256
+`6ef171eaaebbda72bfd928b2b12c468a19529e15ec86224d3921c1fcad281b2d`.
+The genuine `replay-v1` is PASS, nonsynthetic and complete, with manifest SHA256
+`b59450d0731180b5b9cc642c5174f872ab460ab585445b87230175a07c48655c`.
+Its full audit is PASS with no findings (SHA256
+`cb03c639c0b428f50f07a142d1201e8a3c39ad82ea21a2192db95d4ebfc5585d`),
+accounting for 9,360 valid outputs, 60 expected strict translation rejections,
+3,360 successful/60 failed complex cleanup records, 24 profile gates and 160
+actual formal Spark JVM flag logs. All 1,654 original Parquet files passed the
+chronological byte checks; data bytes remain unvendored.
+
+The complete raw evidence bundle is PASS with 13,900 payload files. Its one
+675,326,539-byte part has SHA256
+`0334816271a422b2b95a71cb0a346f8f2da801a2c194d4ef7b71456459e45c0f`;
+the bundle manifest SHA256 is
+`ee8885eb23395609543898138b7031567d0823da91b7364b32c37230a1aaf2a7`.
+The scientific checkpoint is privately pushed in commit
+`9faf7648e04233de3d3ca44cfe96b2cc15048ade`. Its 106-file manifest SHA256 is
+`1f9b67f7675f9438a0d1cb373f2684714ca2e1e5a199db196b4b297766a9cf72`.
+
+An independent numeric review recomputed all 26 primary contrasts, 260 paired
+block ratios, 40 score cells, 32 secondary pairs and 384 descriptive query
+estimates. All 26 Holm tests reject (15 GPU-favoring and 11 reference-favoring),
+and no available secondary endpoint reverses the point-estimate direction.
+GPU Spark has no complete-suite score advantage over CPU Polars 2.0.0 in any
+of the eight measured conditions. Selected query estimates do favor GPU Spark;
+these remain descriptive, without query significance claims. Strict Polars GPU
+has two unchanged complex-query translation rejections and no complete complex
+suite score. The separate contention experiment remains unpooled and complete.
+
+The reviewed 42-asset private-storage catalog is committed in
+`9315acbe1cf1f0dd47ac82767b3eb9674c3cdfa6`, with SHA256
+`8c193cea70498201c9eefdb5b8bd13c633c994e199876788d536bc57d5fe664e`.
+The scientific and catalog commits were privately pushed and the remote readback
+matched. Actual large-asset upload/retrieval, full final PDF layout review,
+public webpage deployment and retirement are separate subsequent operations;
+this collection/replay milestone does not satisfy them.
+
 ## Required completion gates
 
 1. Finish all 400 fresh sessions in ten fixed paired blocks, without silently
