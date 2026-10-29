@@ -387,6 +387,32 @@ class PaperGates(unittest.TestCase):
             self.assertLess(pages[3].mediabox.width, pages[3].mediabox.height)
             self.assertIn("Portrait body after both figures.", pages[3].extract_text())
 
+    def test_bold_table_label_moves_with_table_at_page_boundary(self):
+        from pypdf import PdfReader
+        if not shutil.which("pandoc"):
+            self.skipTest("Pandoc is required for the actual Markdown-to-PDF integration check")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            # Layout-only filler leaves enough room for a label but not the
+            # table, reproducing the final manuscript's former orphan caption.
+            filler = "\n".join(f"SYNTHETIC layout line {index:02d}" for index in range(48))
+            markdown = (f"```\n{filler}\n```\n\n"
+                        "**Table 2c. SYNTHETIC table label.** Layout regression only.\n\n"
+                        "| SYNTHETIC column | Value |\n|---|---|\n"
+                        "| SYNTHETIC first row | 1 |\n| SYNTHETIC second row | 2 |\n"
+                        "| SYNTHETIC third row | 3 |\n")
+            ast = json.loads(subprocess.run(["pandoc", "--from=markdown", "--to=json"],
+                                            input=markdown, check=True, capture_output=True, text=True).stdout)
+            builder.render_pdf(ast, root / "SYNTHETIC-table-label.pdf", "SYNTHETIC LAYOUT ONLY",
+                               False, root, None)
+            pages = PdfReader(root / "SYNTHETIC-table-label.pdf").pages
+            page_text = [page.extract_text() for page in pages]
+            self.assertEqual(len(pages), 2)
+            self.assertNotIn("Table 2c.", page_text[0])
+            self.assertIn("Table 2c.", page_text[1])
+            self.assertIn("SYNTHETIC first row", page_text[1])
+            self.assertIn("SYNTHETIC third row", page_text[1])
+
 
 if __name__ == "__main__":
     unittest.main()

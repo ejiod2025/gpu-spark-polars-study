@@ -528,13 +528,20 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
                       *figure_return])
 
     def blocks(items, numbered=None):
-        for block in items:
+        for block_index, block in enumerate(items):
             kind, content = block["t"], block.get("c")
             if kind in ("Para", "Plain"):
                 if len(content) == 1 and content[0]["t"] == "Image":
                     add_image(content[0])
                 else:
-                    story.append(Paragraph(inline(content), styles["body"]))
+                    paragraph = Paragraph(inline(content), styles["body"])
+                    # The manuscript's bold table label introduces the next
+                    # table. Keep it with that table's first rows at a page end.
+                    if (content and content[0]["t"] == "Strong" and
+                            re.match(r"^Table\s+\d+[a-z]?\.", cell_text([{"t": "Plain", "c": content[0]["c"]}])) and
+                            block_index + 1 < len(items) and items[block_index + 1]["t"] == "Table"):
+                        paragraph.keepWithNext = True
+                    story.append(paragraph)
             elif kind == "Figure":
                 figure_body = content[2]
                 if (len(figure_body) != 1 or figure_body[0]["t"] not in ("Para", "Plain") or
@@ -570,7 +577,15 @@ def render_pdf(ast, destination, title, final, output, replay_root, replay_manif
                                            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
                                            ("ROWBACKGROUNDS", (0, header_count), (-1, -1), [colors.HexColor("#f0f4f7"), colors.white]),
                                            ("LINEBELOW", (0, 0), (-1, -1), .35, colors.HexColor("#d7e0e7"))]))
-                story.extend([Spacer(1, 5), KeepTogether([table]) if len(rows) <= 8 else table, Spacer(1, 9)])
+                has_kept_label = bool(story and story[-1].getKeepWithNext())
+                before_table = Spacer(1, 5)
+                # Continue a preceding table-label paragraph's keep chain
+                # through the visual gap to the table itself.
+                before_table.keepWithNext = has_kept_label
+                # A nested KeepTogether would end ReportLab's keep chain
+                # before the table. The label's chain already groups it.
+                table_flowable = table if has_kept_label or len(rows) > 8 else KeepTogether([table])
+                story.extend([before_table, table_flowable, Spacer(1, 9)])
                 if caption[1]:
                     blocks(caption[1])
             elif kind in ("OrderedList", "BulletList"):
