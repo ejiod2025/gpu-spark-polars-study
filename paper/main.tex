@@ -1,0 +1,2174 @@
+% main.tex -- H100 four-engine study (CPU/GPU Polars, CPU/GPU Spark).
+%
+% DRAFT. Methods written before any timed data existed; results prose drafted
+% from the final analysis outputs (2026-10-30). Every result is a \stat{} macro
+% filled from the analysis output (tools/stats_to_tex.py), and every claim's
+% strength follows its interval. The methods must match
+% docs/H100_EXPERIMENT_DESIGN.md (locked 2026-10-29, amendments A1--A4); any
+% further amendment must be reflected here.
+%
+% Host-conditional text (amendments A2, A3): the A100, GH200 and B200
+% campaigns each either ran or did not. Their text sits between
+% "% BEGIN-RAN:<host>" and "% END-RAN:<host>" lines (or NOTRUN for the
+% not-run case; <host> "any" = at least one of them ran) and inside the
+% matching \if<flag>ran conditional from macros.tex. The final build refuses
+% to proceed until every host's outcome is stated (paper/README.md).
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{xspace}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+\usepackage{authblk}
+\usepackage{seqsplit}  % line-breakable commit hashes and SHA-256 digests
+
+\input{macros.tex}
+\setlength{\emergencystretch}{3em}
+
+% Title. The suffix appears only if at least one additional ladder host ran.
+% TODO(author): choose a title once the ladder outcome is known. Options:
+%  (a) [current] CPU Dataframes versus GPU Acceleration on a Single Host: A
+%      Pre-registered, Randomized Comparison of Polars and Spark on a
+%      TPC-H-Derived Workload, Replicated across GPU Generations
+%  (b) [all four hosts ran] Does a Newer GPU Help? Polars and Spark, on the CPU
+%      and the GPU, from A100 to B200: A Pre-registered Comparison
+%  (c) [result-led; only if the CIs support it] When Does a GPU Beat a Fast
+%      CPU Dataframe Engine? A Pre-registered Four-Engine Study on Four GPU
+%      Generations
+%  (d) [no additional host ran] keep (a) without the suffix.
+\title{CPU Dataframes versus GPU Acceleration on a Single Host:\\
+  A Pre-registered, Randomized Comparison of Polars and Spark\\
+  on a TPC-H-Derived Workload\ifladderran, Replicated across GPU Generations\fi}
+% TODO(author): affiliation, email, ORCID and target venue are pending.
+\author{Daniel Ejiofor}
+\affil{\todoplaceholder{affiliation}}
+\affil{\todoplaceholder{email}}
+\date{Draft of \today\watermarknotice}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+% Result sentences drafted from the final analysis outputs (2026-10-30);
+% every number is a \stat{} macro and every claim follows its interval.
+We compare Polars and Spark, each on the CPU and on the GPU (both GPU paths
+use NVIDIA cuDF), on one NVIDIA H100 host. The workload
+is TPC-H-derived (six adapted TPC-H queries, SF1--SF300; six complex queries,
+SF30--SF300), not a TPC-H benchmark result. Its pre-registered design uses
+four rounds in a Williams Latin square, timing-independent integrity gates and
+95\% intervals across rounds. At SF300, GPU speedups over the same
+framework's CPU engine were \ratiotext{c1.baseline.sf300} for Polars and
+\ratiotext{c2.baseline.sf300} for Spark on the baseline suite, and
+\ratiotext{c1.complex.sf300} and \ratiotext{c2.complex.sf300} on the complex
+suite. The best GPU engine was faster than Polars CPU from
+\stat{crossover.baseline.c4.scale} (baseline) and
+\stat{crossover.complex.c4.scale} (complex), and slower at
+\stat{c4.baseline.summary.below}. Polars GPU rejected
+\stat{coverage.polars_gpu.complex.unsupported} of the six complex queries as
+unsupported (CPU fallback disabled by design). However, the GPU engine
+requires Polars 1.44.x, and Polars 2.0.0 on the CPU was
+\stat{bridge_summary.both}. In an exploratory, post-hoc comparison with
+Polars 2.0.0 (E1), the Polars GPU advantage shrank but stayed above 1
+\stat{exploratory.e1.baseline.summary.above_phrase} (baseline).
+% BEGIN-RAN:any
+\ifladderran
+Campaigns on \stat{hosts.other_ran_list} showed the same pattern, with GPU
+time ratios to the H100 of
+% BEGIN-RAN:a100
+\ifaonehundredran
+\stat{ladder.xhost_gpu.a100.min} to \stat{ladder.xhost_gpu.a100.max} on the
+A100 (slower) and
+\fi
+% END-RAN:a100
+\stat{ladder.xhost_gpu.later.min} to \stat{ladder.xhost_gpu.later.max} on the
+\stat{ladder.xhost_gpu.later.hosts}.
+\fi
+% END-RAN:any
+Across \stat{ladder.hosts_count} hosts, \stat{ladder.outputs_failed_total} of
+\stat{ladder.outputs_compared_total} output comparisons disagreed with Polars CPU.
+\end{abstract}
+
+\noindent\textbf{Scope notice.} \tpcdisclaimer{} The queries are a selected
+and adapted subset with additional custom queries, Float64 normalization of
+decimal columns, and our own timing and summary method; see
+Section~\ref{sec:scope}.
+
+% ======================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Practitioners who outgrow a laptop-scale dataframe face two common routes. One
+is a faster single-node engine: Polars~\citep{polars1442} executes lazy,
+optimized query plans with a multi-threaded and streaming engine written in
+Rust. The other is GPU acceleration, either inside the same dataframe API (the
+Polars GPU engine built on NVIDIA cuDF~\citep{polars_gpu_guide,cudf_polars_docs})
+or underneath an existing Spark SQL workload (NVIDIA's cuDF plugin for Apache
+Spark~\citep{nvidia_cudf_spark_docs}). Vendor and project material reports
+large speedups for both routes~\citep{semaan2024polarsgpu,nvidia_spark_benchmarks},
+usually against a CPU baseline from the same framework.
+
+The decision a practitioner actually faces is broader: \emph{for this kind of
+query at this data size, is a GPU engine faster than the best CPU engine I could
+use on the same machine?} Answering that requires holding the host, the input
+files, the query semantics and the timing boundary fixed across all engines,
+checking that every engine returns the same answer, and checking that a ``GPU''
+timing really ran on the GPU. It also requires enough repeated, order-balanced
+measurement to separate engine effects from run-to-run noise and order
+effects~\citep{mytkowicz2009wrong,kalibera2013rigorous,hoefler2015scientific,raasveldt2018fair}.
+
+An earlier study by the author compared three of these engines (Polars CPU,
+Spark CPU, and Spark with the GPU plugin) on an A100 40\,GB host. It found that
+the plugin accelerated Spark on the larger scales but that Polars CPU retained
+the lower aggregate score at every observed scale, with GPU Spark winning only
+selected queries. That study ran one session per engine and scale, so it
+had no replication across sessions and no interval estimates, and it did not
+include the Polars GPU engine. This paper extends it.
+
+\paragraph{Contributions.}
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item A four-engine comparison (CPU and GPU variants of Polars and Spark) on
+    one H100 host with identical, verified inputs, from SF1 to SF300
+    (1.8~billion \texttt{lineitem} rows).
+  \item A pre-registered design~(Section~\ref{sec:design}): a Williams Latin
+    square over four rounds, fixed contrasts, and a statistical plan that
+    reports geometric-mean ratios with across-round confidence intervals rather
+    than single-run point values.
+  \item Integrity gates that are independent of timings: cross-engine output
+    agreement, a strict no-CPU-fallback guard for the Polars GPU engine, and
+    final-plan checks for the Spark plugin.
+  \item A GPU coverage analysis that reports which queries cannot run on each
+    GPU engine, rather than silently timing a CPU fallback.
+  \item A side study measuring how much the Polars version (1.44.2 versus
+    2.0.0) changes CPU timings, bridging to the earlier A100 study.
+% BEGIN-RAN:any
+\ifladderran
+  \item A GPU-generation ladder: the complete campaign repeated, with the same
+    design, software versions, inputs and engine thread count, on
+    \stat{hosts.other_ran_list}, each analyzed separately and compared
+    descriptively with the H100 (Section~\ref{sec:ladder}).
+% BEGIN-RAN:a100
+\ifaonehundredran
+    On the A100 it supplies the four-engine result that the earlier A100
+    study lacked.
+\fi
+% END-RAN:a100
+\fi
+% END-RAN:any
+  \item A complete artifact: code, saved outputs, plans, telemetry and
+    manifests (Section~\ref{sec:artifact}).
+\end{enumerate}
+
+% ======================================================================
+\section{Background and Related Work}
+\label{sec:background}
+
+\paragraph{Dataframe engines.} The pandas library~\citep{mckinney2010pandas}
+made the dataframe the default interface for tabular analysis in Python;
+\citet{petersohn2020dataframes} discuss why its eager, single-threaded execution
+model is hard to scale. Polars~\citep{polars1442,polars200} provides a lazy API
+whose query plans are optimized (predicate and projection pushdown, among other
+rewrites) and executed by a multi-threaded engine; its streaming engine
+processes data in batches. DuckDB~\citep{raasveldt2019duckdb} is an embedded
+analytical SQL engine; here it is used only to generate data.
+
+\paragraph{GPU dataframes.} cuDF is NVIDIA's GPU dataframe library, built on the
+C++ library libcudf. The Polars GPU engine (package \texttt{cudf-polars}) takes
+an optimized Polars plan and executes it with cuDF; when a plan contains an
+unsupported operation it falls back to the CPU engine unless the user sets
+\texttt{raise\_on\_fail=True}~\citep{polars_gpu_guide,cudf_polars_docs}. The
+Polars user guide states that the engine is in open beta, that speedups are
+most likely for workloads dominated by grouped aggregations and joins, and that
+I/O-bound queries perform about the same as on the CPU~\citep{polars_gpu_guide}.
+Each \texttt{cudf-polars} release supports a bounded range of Polars versions;
+this constraint shaped our version choice (Section~\ref{sec:arms}).
+
+\paragraph{Spark and its GPU plugin.} Apache Spark generalizes MapReduce with
+resilient distributed datasets~\citep{zaharia2012rdd,zaharia2016spark}; Spark
+SQL adds a relational optimizer (Catalyst) and DataFrame
+API~\citep{armbrust2015sparksql}. Adaptive query execution re-optimizes plans
+at runtime using shuffle statistics~\citep{spark359docs}. NVIDIA's cuDF plugin
+for Apache Spark~\citep{nvidia_cudf_spark_docs,nvidia_cudf_spark_repo}
+replaces supported physical operators with GPU implementations through libcudf
+and leaves the rest on the CPU, so a GPU-enabled Spark plan can be hybrid. We
+therefore inspect final plans rather than assume GPU execution.
+
+\paragraph{TPC-H and derived use.} TPC-H is the Transaction Processing
+Performance Council's decision-support benchmark~\citep{tpch301,poess2000tpc}.
+\citet{boncz2014tpch} analyze which ``choke points'' its 22 queries exercise.
+Many engine evaluations reuse its schema, generator and queries without
+following the full specification, under names that mark the derivation: the
+Polars project's PDS-H~\citep{vink2025pdsh} and NVIDIA's NDS-H for the Spark
+plugin~\citep{nvidia_spark_benchmarks} both state that their results are
+derived from TPC-H and are not comparable to published TPC-H results. We
+generate data with DuckDB's \texttt{tpch} extension, which documents small
+differences from the official specification and fixed substitution
+parameters~\citep{duckdb_tpch_ext}. TPC's fair-use material requires such
+studies to carry a prescribed disclaimer, disclose deviations and the test
+environment, and avoid comparison with official
+results~\citep{tpcfairuse2019,tpcpolicies620}.
+
+\paragraph{GPU and CPU analytics.} \citet{bress2014gpudb} and
+\citet{rosenfeld2022heterogeneous} survey GPU-accelerated and heterogeneous
+CPU/GPU query processing. \citet{shanbhag2020gpucpu} argue that because
+analytical operators are usually memory-bandwidth bound, GPU speedups over
+well-implemented CPU code should be expected near the GPU-to-CPU bandwidth
+ratio rather than orders of magnitude, and analyze when and why measured
+speedups depart from it. \citet{lutz2020pump} show that the CPU--GPU transfer
+link bottlenecks GPU query processing on data larger than device memory, and
+that faster interconnects relieve it. Public GPU dataframe comparisons are
+mostly vendor or project benchmarks: the Polars GPU announcement reports
+speedups over Polars CPU on PDS-H using an H100~\citep{semaan2024polarsgpu},
+and the long-running database-like ops benchmark~\citep{dbbenchmark} compares
+CPU tools on grouping and joins. To our knowledge, independent, replicated
+comparisons of a GPU dataframe engine and a GPU Spark plugin against a strong
+single-node CPU engine on identical inputs remain scarce.
+% TODO(author): extend with any further related work the author knows of;
+% candidates that could not be verified are listed in CITATIONS_TODO.md.
+
+\paragraph{Benchmarking methodology.} Hidden factors such as environment
+layout can bias measurements~\citep{mytkowicz2009wrong}; repeated, randomized
+execution with interval estimates is recommended~\citep{kalibera2013rigorous,
+hoefler2015scientific}, and database comparisons have many fairness
+pitfalls~\citep{raasveldt2018fair}. Ratios of times should be summarized with
+the geometric mean~\citep{fleming1986geomean}. Williams designs balance
+first-order carryover in crossover experiments~\citep{williams1949latin}.
+
+% ======================================================================
+\section{Experimental Design}
+\label{sec:design}
+
+\subsection{Pre-registration and amendments}
+\label{sec:prereg}
+
+The research questions, arms, workload, order design, integrity gates,
+pre-declared GPU gaps and statistical plan below were written down and locked
+in the study repository (\texttt{docs/H100\_EXPERIMENT\_DESIGN.md}) on
+2026-10-29, before any timed data existed on any host. The lock rule is that
+the locked sections are never edited; any change is appended as a dated
+amendment with its reason. Four amendments were made, A1--A3 before any
+timed data existed on any host and A4 before any B200 data existed:
+\begin{description}[leftmargin=*,itemsep=2pt]
+  \item[A1 (failure classification, 2026-10-29).] As first written, a
+    deterministic GPU resource exhaustion (for example, running out of device
+    memory at SF300) would have failed a round and stopped the campaign, even
+    though RQ4 treats such failures as results. A1 separates \emph{coverage
+    outcomes}, which are reported, from \emph{integrity failures}, which fail
+    a round (Sections~\ref{sec:gates} and~\ref{sec:coverage-design}).
+  \item[A2 (B200 host, 2026-10-29).] A second host with an NVIDIA B200 runs
+    its own complete campaign under the unchanged design. The H100 campaign
+    remains the primary analysis (Sections~\ref{sec:hosts}
+    and~\ref{sec:stats}).
+  \item[A3 (GPU-generation ladder, 2026-10-30).] Two further hosts, an A100
+    and a GH200, each run their own complete campaign exactly as A2 specifies,
+    so the H100 result sits on a ladder from Ampere through Hopper and
+    Grace~Hopper to Blackwell, and the four-engine result missing from the
+    earlier A100 study is supplied. All hosts use 26 engine threads
+    (Section~\ref{sec:ladder-design}).
+  \item[A4 (known Blackwell compiler defect, 2026-10-30).] Checking the B200
+    precondition found an open defect in the CUDA 12.9 \texttt{ptxas}
+    compiler on Blackwell that can make
+    \texttt{thrust::exclusive\_scan\_by\_key} return wrong results silently
+    beyond its first tile~\citep{cccl11167}. The \texttt{libcudf} build used by
+    \polarsgpu{} contains cuDF's workaround~\citep{cudf23973}; the plugin JAR
+    used by \sparkgpu{} predates it. A4 changes no gate and no analysis: on the
+    B200, an output disagreement remains an integrity failure, and its diagnosis
+    records whether the evidence fits the defect (Section~\ref{sec:threats}).
+\end{description}
+No decision about the design, stopping or analysis was based on observed
+speeds.
+
+\paragraph{Timestamp.} The locked design together with amendments A1--A3 was
+committed as \texttt{ee2e6a7} (full hash
+\texttt{\seqsplit{ee2e6a76a0f0b8ddd28bc4a9293dde5176c34ffe}}) on branch
+\texttt{H100\_Test} of
+\url{https://github.com/ejiod2025/gpu-spark-polars-study} and pushed on
+2026-10-30 (commit time 2026-10-30 03:55\,UTC). The design file at that commit
+has SHA-256
+\texttt{\seqsplit{6b7544ee23b4ad40d66c8ba0866772ce0fec0ca6a6db92b6435f064979dcddff}};
+readers can check it with \texttt{git show
+ee2e6a7:docs/H100\_EXPERIMENT\_DESIGN.md | sha256sum}. The lock and
+amendments A1--A3 were first published in this one commit, so the repository
+history does not timestamp them separately; it shows only that all of them
+existed by that time. Amendment A4 was committed and pushed separately as
+\texttt{afd07c0} (full hash
+\texttt{\seqsplit{afd07c0b77f9f69c6c2dc873bde0e24a4c43060b}}; commit time 2026-10-30
+04:17\,UTC); the design file at that commit has SHA-256
+\texttt{\seqsplit{8650efdfa0d282614430c5b0a8d895cf69af0a5f25506e4af5316e20529776ef}}.
+A4 appends to the amendment section only; the H100 campaign runs under the
+\texttt{ee2e6a7} version of the design, which A4 does not affect. Each
+campaign records the SHA-256 of the design document it ran under, and the
+analysis resolves it to the oldest commit holding that version: for the H100,
+commit \texttt{\stat{meta.design_commit_short}} with \stat{meta.amendments}
+amendments; amendments added after it: \stat{meta.later_amendments_list}. The
+H100 campaign started at \stat{meta.campaign_start_utc}, after that commit.
+% BEGIN-RAN:any
+\ifladderran
+The other campaigns recorded commit
+% BEGIN-RAN:a100
+\ifaonehundredran
+\texttt{\stat{a100.meta.design_commit_short}} (A100, started
+\stat{a100.meta.campaign_start_utc}),
+\fi
+% END-RAN:a100
+% BEGIN-RAN:gh200
+\ifghtwohundredran
+\texttt{\stat{gh200.meta.design_commit_short}} (GH200, started
+\stat{gh200.meta.campaign_start_utc}),
+\fi
+% END-RAN:gh200
+% BEGIN-RAN:b200
+\ifbtwohundredran
+\texttt{\stat{b200.meta.design_commit_short}} (B200, started
+\stat{b200.meta.campaign_start_utc}),
+\fi
+% END-RAN:b200
+each after the commit time it records.
+\fi
+% END-RAN:any
+% Checked 2026-10-30 against the final analysis outputs: every campaign's first
+% session started after the commit of the design version it records. An
+% external archive (e.g. a Zenodo snapshot of the commits) would be stronger
+% evidence than a repository the author controls.
+
+\subsection{Research questions}
+\label{sec:rqs}
+\begin{description}[leftmargin=*,itemsep=2pt]
+  \item[RQ1] How much does the GPU accelerate each framework (Polars GPU versus
+    Polars CPU; Spark GPU versus Spark CPU)?
+  \item[RQ2] Which engine is fastest per query, suite and scale? Does any GPU
+    engine beat Polars CPU?
+  \item[RQ3] At which scale from SF1 to SF300, if any, does a GPU engine
+    overtake the best CPU engine?
+  \item[RQ4] Which queries cannot run on each GPU engine, and why?
+  \item[RQ5] (side study) How much does the Polars version (1.44.2 versus
+    2.0.0, CPU) change Polars CPU timings?
+\end{description}
+
+\subsection{Hosts and the GPU-generation ladder}
+\label{sec:hosts}
+
+\begin{table}[t]
+\centering
+\caption{Hosts (Lambda on-demand instances). The H100 campaign is the primary
+analysis; each other host runs its own complete campaign (amendments A2, A3)
+and is never pooled with it. Every host runs the engines with 26 threads
+(\texttt{--cpus 26}), leaving any further vCPUs idle. Driver and CPU model
+are as recorded in each campaign; \hostnotrun{} means the host's campaign did
+not run. GPU memory, vCPUs and RAM are the values each host reports
+(\texttt{nvidia-smi}, \texttt{lscpu}, \texttt{free}); for a host whose campaign
+did not run, the provider's listing, marked~$^{*}$. \stat{hosts.listing_note}
+vCPUs: the count the host reports, then the 26 engine threads and the
+physical cores they can occupy (\texttt{lscpu} topology, as reported inside
+the virtual machine). Driver: version and, in parentheses, the highest CUDA
+version it supports;
+every host runs the CUDA \stat{hosts.cuda_runtime} runtime.}
+\label{tab:hosts}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{@{}llllllp{1.45cm}p{1.9cm}l@{}}
+\toprule
+Host & Instance type & \shortstack[l]{GPU\\memory} & ISA & \shortstack[l]{vCPUs (threads\\on cores)} & RAM & \shortstack[l]{Driver\\(CUDA)} & CPU model & Campaign \\
+\midrule
+A100  & \texttt{gpu\_1x\_a100\_sxm4} & \hoststator{a100}{host.gpu_memory_gib}{40$^{*}$}\,GiB & x86\_64 & \hoststator{a100}{host.cpu_layout}{30$^{*}$ (26)} & \hoststator{a100}{host.host_ram_gib}{200$^{*}$}\,GiB
+      & \hoststat{a100}{meta.driver_cuda} & \hoststat{a100}{meta.cpu_model} & \stat{hosts.a100.status} \\
+H100  & \texttt{gpu\_1x\_h100\_sxm5} & \stat{host.gpu_memory_gib}\,GiB & x86\_64 & \stat{host.cpu_layout} & \stat{host.host_ram_gib}\,GiB
+      & \stat{meta.driver_cuda} & \stat{meta.cpu_model} & primary \\
+GH200 & \texttt{gpu\_1x\_gh200} & \hoststator{gh200}{host.gpu_memory_gib}{96$^{*}$}\,GiB & aarch64 & \hoststator{gh200}{host.cpu_layout}{64$^{*}$ (26)} & \hoststator{gh200}{host.host_ram_gib}{432$^{*}$}\,GiB
+      & \hoststat{gh200}{meta.driver_cuda} & \hoststat{gh200}{meta.cpu_model} & \stat{hosts.gh200.status} \\
+B200  & \texttt{gpu\_1x\_b200\_sxm6} & \hoststator{b200}{host.gpu_memory_gib}{180$^{*}$}\,GiB & x86\_64 & \hoststator{b200}{host.cpu_layout}{26$^{*}$ (26)} & \hoststator{b200}{host.host_ram_gib}{360$^{*}$}\,GiB
+      & \hoststat{b200}{meta.driver_cuda} & \hoststat{b200}{meta.cpu_model} & \stat{hosts.b200.status} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Primary: H100.} All engines ran sequentially on one Lambda
+\texttt{gpu\_1x\_h100\_sxm5} instance: one NVIDIA H100 80\,GB SXM5
+(\stat{meta.gpu_name}, driver \stat{meta.driver_version}), \stat{host.vcpus} vCPUs
+(\stat{meta.cpu_model}), \stat{host.host_ram_gib}\,GiB RAM, and a 2,816\,GiB local volume holding
+the data and Spark's local directory. GPU clocks were not locked; they were
+recorded (Section~\ref{sec:controls}).
+
+\subsubsection{The ladder (amendments A2, A3)}
+\label{sec:ladder-design}
+Three further hosts (Table~\ref{tab:hosts}) place the H100 on a ladder of GPU
+generations: an A100 40\,GB (Ampere; the GPU of the earlier study), a GH200
+(Grace~Hopper: a 96\,GB Hopper GPU joined to an Arm-based Grace CPU by a
+coherent NVLink-C2C link~\citep{nvidia_gh200}) and a B200 (Blackwell, 180\,GB). The provider
+offered no GB300 or H200 instances, so the B200 is the newest GPU available.
+The ladder hosts differ in more than the GPU: CPU model and instruction set,
+vCPU count, RAM and the CPU--GPU link all change between rungs.
+
+Each host runs its \emph{own complete campaign} under the unchanged design
+(same seed, Latin square, gates and side study), in its own campaign root, with
+host identity (instance type, GPU, driver, CPU model, RAM) recorded. Data are
+never pooled across hosts; every primary estimate (Section~\ref{sec:stats}) is
+computed per host, and the H100 remains the primary analysis. Each host
+regenerates its inputs with the same recipe and must pass the same input gate
+(Section~\ref{sec:inputs}) and preflight before its round~1.
+
+\paragraph{Same thread count everywhere.} All hosts run the engines with
+\texttt{--cpus 26}, so engine thread counts are identical across the ladder;
+any further vCPUs (on the A100 and GH200 hosts; Table~\ref{tab:hosts}) are left idle. This favours
+comparability across hosts over each host's peak CPU performance
+(Section~\ref{sec:threats}). Equal threads are not equal physical cores: where
+a host exposes two hardware threads per core, the 26 threads share fewer cores
+than on a host without simultaneous multithreading (SMT). On the H100, with
+\stat{host.smt_threads_per_core} threads per core, they occupy
+\stat{host.cpus_arg_cores_text} physical cores; Table~\ref{tab:hosts} gives
+every host's layout. It also differs from the earlier A100 study,
+which used 30 threads on the same instance type.
+
+\paragraph{CUDA runtime and drivers.} Every host runs the pinned CUDA
+\stat{hosts.cuda_runtime} user-space runtime with the NVIDIA driver of its
+provider image (Table~\ref{tab:hosts}); where a host's driver supports only an
+older CUDA minor version (here: \stat{hosts.minor_compat_list}), the runtime
+runs through CUDA minor-version compatibility, which lets applications built
+within one major CUDA release run on an older driver of that release, with
+some feature limitations~\citep{nvidia_cuda_compat}; the pinned stack is not
+changed.
+
+\paragraph{Conditions for each additional host.} A host's campaign runs only if
+the provider has capacity for the instance and the pinned software stack passes
+preflight and input verification on it. Software versions are never changed
+to make a host run. On the GH200 (aarch64), the same package \emph{versions}
+are used where aarch64 builds exist; the platform-specific artifacts (Python
+wheels, the plugin JAR's classifier, the JDK build) are recorded with their
+SHA-256. If any pinned version has no aarch64 build, the GH200 campaign is not
+run. A host that does not run is reported with its reason, below and in
+Section~\ref{sec:ladder}; none of these conditions depends on timings. On the
+A100 (40\,GB), coverage outcomes from device-memory exhaustion at SF300 are
+more likely than on the other hosts; under A1 they are results, not failures.
+% BEGIN-NOTRUN:a100
+\ifaonehundredran\else
+The A100 campaign was not run: \stat{a100.not_run_reason}.
+\fi
+% END-NOTRUN:a100
+% BEGIN-NOTRUN:gh200
+\ifghtwohundredran\else
+The GH200 campaign was not run: \stat{gh200.not_run_reason}.
+\fi
+% END-NOTRUN:gh200
+% BEGIN-NOTRUN:b200
+\ifbtwohundredran\else
+The B200 campaign was not run: \stat{b200.not_run_reason}.
+\fi
+% END-NOTRUN:b200
+
+\subsection{Arms}
+\label{sec:arms}
+
+\begin{table}[t]
+\centering
+\caption{The four arms. No arm was tuned during the campaign; the Spark
+configurations are byte-identical to the earlier A100 study.}
+\label{tab:arms}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Id & Engine & Version and settings \\
+\midrule
+\idpolarscpu  & Polars, CPU streaming engine & Polars 1.44.2, Python 3.11, 26 threads \\
+\idpolarsgpu  & Polars + cuDF GPU engine & cudf-polars-cu12 26.10.2; \texttt{raise\_on\_fail=True}; \\
+            &                         & executor \texttt{streaming} (defaults) \\
+\idsparkcpu   & PySpark, \texttt{local[26]} & Spark 3.5.9, Java 17, 96\,GiB driver heap, \\
+            &                         & 120 shuffle partitions, AQE on \\
+\idsparkgpu   & PySpark + cuDF plugin   & \texttt{rapids-4-spark\_2.12} 26.08.1 (SHA-256 recorded), \\
+            &                         & profile \texttt{a100-parity} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:arms} lists the arms. Polars runs at version 1.44.2 rather than
+the 2.0.0 used on the A100, because no released \texttt{cudf-polars} supports
+Polars 2.0: the newest release, 26.10.2, requires Polars ${\ge}1.35,{<}1.45$
+and Python ${\ge}3.11$. Both Polars arms share the same Polars build, so the
+RQ1 contrast is not confounded by version; RQ5 measures the version effect on
+the CPU engine separately.
+
+Both Spark arms share the settings below; the GPU arm adds the plugin JAR
+and the \texttt{spark.rapids} and \texttt{spark.plugins} lines:
+\begin{flushleft}\small\ttfamily
+spark.sql.shuffle.partitions=120\\
+spark.sql.adaptive.enabled=true\\
+spark.sql.files.maxPartitionBytes=134217728\quad\rmfamily(128\,MiB)\ttfamily\\
+spark.sql.session.timeZone=UTC\quad\rmfamily driver heap 96\,GiB\ttfamily\\[2pt]
+spark.plugins=com.nvidia.spark.SQLPlugin\\
+spark.rapids.sql.enabled=true\\
+spark.rapids.sql.concurrentGpuTasks=2\\
+spark.rapids.memory.pinnedPool.size=2G\\
+spark.rapids.sql.variableFloatAgg.enabled=true\\
+spark.rapids.sql.explain=NOT\_ON\_GPU
+\end{flushleft}
+These are the A100 study's fixed settings, not tuned values. The Polars GPU engine uses
+\texttt{cudf-polars}' default streaming-executor options and default memory
+resource; its resolved options are recorded per session. Thread counts set
+engine worker pools (\texttt{POLARS\_MAX\_THREADS=26}, \texttt{local[26]});
+they do not cap total operating-system threads.
+
+\subsection{Workload}
+\label{sec:workload}
+
+\begin{table}[t]
+\centering
+\caption{Queries. Baseline queries are adapted from DuckDB 1.5.6's bundled
+TPC-H query text; \q{cx\_q09} and \q{cx\_q13} are derived from TPC-H Q9 and
+Q13; the other complex queries are custom. Spark runs the SQL; Polars runs
+equivalent native lazy expressions.}
+\label{tab:queries}
+\small
+\begin{tabular}{@{}llp{0.62\linewidth}@{}}
+\toprule
+Suite & Query & Main work \\
+\midrule
+\multirow{6}{*}{baseline}
+ & \q{q01} & Broad ship-date filter; grouped sums, averages, counts \\
+ & \q{q03} & 3-table join, selective predicates, revenue per order, top 10 \\
+ & \q{q06} & Selective filter, single revenue sum \\
+ & \q{q10} & 4-table join, customer grouping with strings, top 20 \\
+ & \q{q12} & 2-table join, conditional counts by ship mode \\
+ & \q{q14} & 2-table join, promotional revenue share \\
+\midrule
+\multirow{6}{*}{complex}
+ & \q{cx\_q09} & 6-table join incl.\ composite key, substring filter, nation/year profit \\
+ & \q{cx\_q13} & Left outer join, comment pattern filter, nested aggregation \\
+ & \q{cx\_semi\_anti} & Correlated \texttt{EXISTS}/\texttt{NOT EXISTS} design (semi/anti joins) \\
+ & \q{cx\_window} & \texttt{LAG} and \texttt{ROW\_NUMBER} over two orderings per customer \\
+ & \q{cx\_distinct} & 4-table join, three exact distinct counts \\
+ & \q{cx\_self\_join} & \texttt{lineitem} self-join with residual inequality \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:queries} lists the twelve queries. The baseline suite runs at
+SF1, 10, 30, 100 and 300 with the A100 study's session lifecycle (no explicit
+cleanup between queries). The complex suite (version 2) runs at SF30, 100 and
+300 with a \texttt{verified\_gc} barrier after every query action, outside the
+timer: Python garbage collection for Polars; Python and JVM garbage collection
+for Spark, followed by waiting until the session owns zero shuffle files and
+bytes and has no active jobs. A failed barrier aborts the session. Extra sort
+keys make top-$N$ ties deterministic.
+
+\paragraph{Type normalization.} Decimal quantity and money columns (the
+\texttt{FLOAT\_COLUMNS} set: e.g.\ \texttt{l\_quantity},
+\texttt{l\_extendedprice}, \texttt{l\_discount}, \texttt{l\_tax},
+\texttt{o\_totalprice}) are cast to Float64/\texttt{DOUBLE} by every engine.
+This permits parallel floating-point reductions and does not measure exact
+decimal arithmetic.
+
+\subsection{Inputs and verification}
+\label{sec:inputs}
+
+Inputs are generated on the host with DuckDB 1.5.6's \texttt{tpch}
+extension~\citep{duckdb_tpch_ext} using the A100 study's parameters: SF1--SF30
+as a single \texttt{dbgen} call (30 threads, 64\,GB memory limit), SF100 as 20
+\texttt{dbgen(children, step)} partitions with 12 workers, and SF300 as 60
+partitions with 16 workers. Tables are written as Snappy Parquet. The largest
+scale has 1,799,989,091 \texttt{lineitem} rows.
+
+Before round~1, \texttt{verify\_generated\_inputs.py} must report
+\texttt{RESULT: OK} for SF1--SF300 (gate result: \stat{meta.input_gate}): row
+counts, schemas, generation parameters and order-independent content
+fingerprints must match the A100 manifests. Byte identity is not required:
+we showed that DuckDB's per-thread output makes the assignment of rows to files
+depend on scheduling, so compressed file hashes differ between regenerations
+while table contents do not. All engines read the same files and the same
+manifest.
+
+\subsection{Sessions, rounds and campaign}
+\label{sec:structure}
+
+A \emph{session} is one engine process for one (suite, scale). It preheats the
+input files (untimed; residency is not guaranteed), runs one warmup per query
+(untimed), and then $R=3$ measured trials per query in a seeded, shuffled
+order. The timer covers query construction, optimization, Parquet reading,
+execution and result collection, including the device-to-host transfer for
+GPU engines. For Polars the timer stops when \texttt{collect} returns a host
+DataFrame; conversion with \texttt{to\_dicts()} is outside. For Spark the timer
+stops when \texttt{collect()} returns Python \texttt{Row} objects; conversion
+with \texttt{asDict()} is outside (Section~\ref{sec:threats}).
+
+A \emph{round} runs every engine on every (suite, scale) once: $4 \times 8 = 32$
+sessions. The \emph{campaign} is four rounds (128 sessions); the round is the
+block for analysis. The planned measured trials number
+$4 \text{ rounds} \times (6 \times 5 + 6 \times 3) \text{ cases} \times 4
+\text{ engines} \times 3 = 2{,}304$ executions, of which those for the two
+pre-declared unsupported \polarsgpu{} queries (Section~\ref{sec:coverage-design})
+are recorded as errors.
+
+\subsection{Order design}
+\label{sec:latin}
+
+\begin{table}[t]
+\centering
+\caption{Engine order: a Williams balanced Latin square for $n=4$, with
+letters assigned by \texttt{random.Random(20261029).shuffle} (A~=~\idsparkcpu,
+B~=~\idpolarsgpu, C~=~\idpolarscpu, D~=~\idsparkgpu). Each engine takes each position
+once; each ordered pair of engines is adjacent exactly once.}
+\label{tab:latin}
+\small
+\begin{tabular}{@{}cclc@{}}
+\toprule
+Round & Sequence & Engine order within every (suite, scale) & First suite \\
+\midrule
+1 & A B D C & \sparkcpu{} $\to$ \polarsgpu{} $\to$ \sparkgpu{} $\to$ \polarscpu{} & baseline \\
+2 & B C A D & \polarsgpu{} $\to$ \polarscpu{} $\to$ \sparkcpu{} $\to$ \sparkgpu{} & complex \\
+3 & C D B A & \polarscpu{} $\to$ \sparkgpu{} $\to$ \polarsgpu{} $\to$ \sparkcpu{} & baseline \\
+4 & D A C B & \sparkgpu{} $\to$ \sparkcpu{} $\to$ \polarscpu{} $\to$ \polarsgpu{} & complex \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Engine order follows the Williams design~\citep{williams1949latin} in
+Table~\ref{tab:latin}, seeded with 20261029. The twelve adjacent ordered pairs
+(AB, BD, DC; BC, CA, AD; CD, DB, BA; DA, AC, CB) are all distinct, so
+first-order carryover (for example, page-cache or thermal state left by the
+previous engine) is balanced across engines. Suite order alternates between
+rounds; scales run in ascending order within a suite; within-session query
+order uses the worker's fixed seed.
+
+\subsection{Controls}
+\label{sec:controls}
+\begin{itemize}[leftmargin=*,itemsep=1pt]
+  \item No other workload ran on the host during rounds; data generation was
+    finished and verified first.
+  \item Before each session: no GPU compute processes, input files preheated,
+    previous session's processes exited.
+  \item Telemetry: GPU utilization, memory, power, temperature and SM/memory
+    clocks every 200\,ms; host CPU, memory, swap and disk every 1\,s.
+  \item \texttt{--cpus 26} for all engines; same data root and manifest.
+  \item After every round, results were copied off the host and checksummed.
+\end{itemize}
+
+\subsection{Integrity gates}
+\label{sec:gates}
+
+Each round must pass all of the following, or it is repeated once and the
+repeat is reported; a second failure stops the campaign. None depends on
+timings.
+\begin{enumerate}[leftmargin=*,itemsep=1pt]
+  \item Every session exits; no engine timeout; no unclassified error.
+  \item Every output agrees with \polarscpu{} for the same query: relative
+    tolerance $10^{-8}$, absolute $10^{-6}$, integers exact.
+  \item \polarsgpu{}: the strict GPU session guard passes, and every query
+    failure is a classified coverage outcome (below). The guard confirms the resolved
+    executor and \texttt{raise\_on\_fail=True}, and runs a canary query with a
+    Python user-defined function, which must raise; if it does not, the
+    engine could be falling back to the CPU silently.
+  \item \sparkgpu{}: final plans contain GPU scan and GPU compute operators and
+    no CPU core operators (complex rule), or GPU scan and aggregation
+    (baseline rule).
+  \item Complex suite: every \texttt{verified\_gc} barrier passes.
+\end{enumerate}
+\paragraph{Coverage outcomes versus integrity failures (amendment A1).}
+Failures are classified, and only integrity failures fail a round. A
+\emph{coverage outcome} is a GPU engine rejecting or failing to complete a
+query or session because of (a) an unsupported operation (for example a
+\texttt{cudf-polars} \texttt{NotImplementedError} under
+\texttt{raise\_on\_fail=True}) or (b) resource exhaustion (device or host
+out of memory, an RMM allocation failure, or Spark GPU out-of-memory after
+retries). The same rule covers a CPU engine that exhausts host resources.
+Coverage outcomes are recorded with their error class and scale, reported
+under RQ4, and excluded from contrasts involving that engine. An
+\emph{integrity failure} is an output disagreement, a silent CPU fallback or
+CPU core operators in a GPU plan, a failed \texttt{verified\_gc} barrier, an
+engine timeout, an unclassified error, or a crash not attributable to (a) or
+(b). If a coverage outcome occurs in some rounds but not others for the same
+engine, suite, scale and query, the cell is \emph{unstable coverage} and is
+excluded from contrasts in all rounds. The classification rules (error
+type and message patterns) are fixed in the preflight tool, and any error
+that matches no rule counts as an integrity failure.
+
+A post-round-1 review checked integrity only. No stopping or modification was
+based on observed speeds.
+
+\subsection{Pre-declared GPU coverage gaps}
+\label{sec:coverage-design}
+
+Preflight on 2026-10-26 showed that \polarsgpu{} rejects \q{cx\_q13} (the
+inline regular-expression flag \texttt{(?s)} is unsupported) and
+\q{cx\_window} (\texttt{cum\_count().over(...)} is unsupported) under
+\texttt{raise\_on\_fail=True}. Under A1 they are coverage outcomes of type
+(a): reported as not supported on the GPU (RQ4) and excluded from ratios
+involving \polarsgpu{}. Queries are never rewritten for the GPU within this
+campaign.
+
+\subsection{Statistical analysis plan}
+\label{sec:stats}
+
+Let $t_{e,q,r}$ be the median of the three measured trials of engine $e$ on
+query $q$ in round $r$ (for a fixed suite and scale). Each contrast compares a
+reference engine $a$ with an engine $b$ as the speedup ratio
+$\rho_{q,r} = t_{a,q,r} / t_{b,q,r}$, so $\rho > 1$ means $b$ is faster:
+\begin{itemize}[leftmargin=*,itemsep=1pt]
+  \item \textbf{C1} \polarscpu{}\,/\,\polarsgpu{} (RQ1: Polars GPU speedup);
+  \item \textbf{C2} \sparkcpu{}\,/\,\sparkgpu{} (RQ1: Spark GPU speedup);
+  \item \textbf{C3} \sparkgpu{}\,/\,\polarsgpu{} (RQ2: GPU engine head-to-head);
+  \item \textbf{C4} \polarscpu{}\,/\,best GPU engine, the faster of the
+    GPU engines that ran the query in that round (RQ2, RQ3). A stricter
+    variant, C4$_\text{strict}$, limits C4 to queries that both GPU engines
+    ran; it is reported in the artifact.
+\end{itemize}
+Per query, let $\ell_{q,r} = \log \rho_{q,r}$. The estimate is
+$\exp(\bar\ell_q)$, the geometric mean over the four rounds; the 95\%
+interval is $\exp\!\bigl(\bar\ell_q \pm t_{0.975,3}\, s_q / \sqrt{4}\bigr)$
+with $t_{0.975,3} \approx 3.182$ and $s_q$ the standard deviation of
+$\ell_{q,r}$ across rounds. We also report the across-round minimum and
+maximum. Per (suite, scale), the per-round suite statistic is the mean of
+$\ell_{q,r}$ over the queries supported by both engines, and the same
+$t$-interval is taken across rounds (the round is the block). Geometric means
+of ratios follow~\citet{fleming1986geomean}. For comparison with the A100 study
+we also report legacy sums of per-query medians, never mixed with geometric
+means.
+
+Secondary, descriptive analyses: within-session (across trials) and
+between-round coefficients of variation per engine; mean log-time by session
+position (1--4) and by predecessor engine (order and carryover check); peak GPU
+memory; process wall time and startup; cleanup cost; an energy proxy (mean
+board power $\times$ time); and a comparison of the GPU Spark engine between
+the earlier A100 study and the H100 campaign, labelled as a comparison of
+non-equivalent hosts. CPU engines are not compared with the earlier study
+(30 versus 26 threads); the A100 ladder campaign below is the like-for-like
+comparison.
+
+\paragraph{Cross-host analysis (amendments A2, A3, secondary).} For each
+additional host whose campaign runs, all primary estimates above are computed
+from that host's campaign alone. Cross-host comparison is descriptive and uses
+the H100 as the reference: for each host $h$, suite, scale, query and engine,
+the ratio of the per-host geometric-mean round medians,
+$t_{h}/t_{\mathrm{H100}}$ (below 1: faster on host $h$), with an interval from
+the two hosts' round distributions (Welch-type, on the log scale); the suite
+summary is the geometric mean over queries supported on both hosts. For GPU
+engines, a cross-host difference confounds the GPU with the CPU, memory, CPU--GPU
+link and driver. CPU engines are compared across hosts only with the caveat
+that the CPU model, instruction set and RAM differ; all are recorded.
+
+\textbf{RQ3 crossover} is the smallest scale, per suite, at which the C4
+interval lies entirely above 1, if any. \textbf{Multiplicity:} four contrasts
+$\times$ suites $\times$ scales are reported as estimates with intervals; no
+hypothesis tests or $p$-values are used for claims. With four rounds and
+$\text{df}=3$, intervals are expected to be wide.
+
+\subsection{Side study: Polars version bridge (RQ5)}
+\label{sec:bridge-design}
+After the main rounds, on the same host, \polarscpu{} 1.44.2 (Python 3.11) is
+compared with Polars 2.0.0 (Python 3.10, the A100 environment) on both suites
+and all scales, in four rounds ordered AB, BA, BA, AB, using the same session
+protocol. The estimate is the geometric-mean ratio
+$t_{2.0.0} / t_{1.44.2}$ per suite and scale with the same $t$-interval.
+
+\subsection{Scope, deviations and notice}
+\label{sec:scope}
+\tpcdisclaimer{} Deviations from the TPC-H specification include: a selected
+subset of six adapted queries with fixed substitution parameters, plus two
+TPC-H-derived and four custom complex queries; data from DuckDB's generator,
+which differs slightly from the specification~\citep{duckdb_tpch_ext};
+Float64 instead of decimal arithmetic; extra sort keys; Parquet files rather
+than a loaded database; no refresh functions, power or throughput tests, or
+TPC metrics; and our own timing boundary and summary statistics. No result in
+this paper may be compared with official TPC-H results. Use of the benchmark
+name and the TPC software is subject to the TPC
+policies~\citep{tpcpolicies620,tpcfairuse2019} and the TPC
+EULA~\citep{tpceula22}.
+% TODO(author): confirm TPC written-permission status for benchmark-name use
+% (Policies 6.20 sec. 8.1.4) and the final name of the derived workload
+% (\workloadname in macros.tex). See paper/README.md.
+
+% ======================================================================
+\section{Results}
+\label{sec:results}
+
+% Every result sentence is drawn from \stat{} keys; claim strength follows the
+% interval verdicts (above 1, below 1, includes 1).
+
+All results in this section come from the primary H100 campaign, except
+Section~\ref{sec:ladder}, which reports the other hosts.
+
+\paragraph{Campaign integrity.} \stat{meta.rounds_completed} rounds completed
+(\stat{meta.rounds_excluded_count} excluded, \stat{meta.rounds_repeated} repeated under the gate rule) with
+\stat{meta.sessions_completed} sessions and \stat{meta.measured_trials}
+measured trials. All \stat{meta.outputs_compared} saved outputs were compared
+with \polarscpu{}; \stat{meta.outputs_failed} failed (largest relative
+difference \stat{meta.max_rel_diff}). \stat{meta.spark_gpu_plans_checked}
+\sparkgpu{} final plans passed the plan rule, and
+\stat{meta.cleanup_barriers_passed} \texttt{verified\_gc} barriers passed. The
+largest relative difference from \polarscpu{} was
+\stat{agreement_max.polars_gpu.max_rel_diff} for \polarsgpu{}
+(\stat{agreement_max.polars_gpu.where}) and
+\stat{agreement_max.spark_gpu.max_rel_diff} for \sparkgpu{}
+(\stat{agreement_max.spark_gpu.where}), against a relative tolerance of
+$10^{-8}$.
+Campaign window: \stat{meta.campaign_start_utc} to \stat{meta.campaign_end_utc}.
+
+\begin{figure}[t]
+\centering
+\studyfig{f10_headline_times}{\linewidth}
+\caption{Per-query median time for each engine at SF300 (geometric mean over
+four rounds of per-round medians; one marker per engine). Bars span the fastest
+to slowest round and are hidden behind the marker where the rounds agree
+closely. A query with no timing on an engine appears as a hollow marker of
+that engine in the hatched ``no timing'' strip below the axis, labelled with
+the reason (here: not supported). Log scale; lower is better. \chartnote}
+\label{fig:f10}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Suite-level geometric-mean speedup ratios with 95\% CIs ($t$,
+df~=~3, across four rounds). $>1$: the second-named engine is faster. C1 and
+C3 exclude \q{cx\_q13} and \q{cx\_window} in the complex suite. \chartnote}
+\label{tab:contrasts}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+Suite & Scale & \shortstack{C1\\\polarscpu/\\\polarsgpu} & \shortstack{C2\\\sparkcpu/\\\sparkgpu} & \shortstack{C3\\\sparkgpu/\\\polarsgpu} & \shortstack{C4\\\polarscpu/\\best GPU} \\
+\midrule
+baseline & SF1   & \ratioci{c1.baseline.sf1}   & \ratioci{c2.baseline.sf1}   & \ratioci{c3.baseline.sf1}   & \ratioci{c4.baseline.sf1} \\
+         & SF10  & \ratioci{c1.baseline.sf10}  & \ratioci{c2.baseline.sf10}  & \ratioci{c3.baseline.sf10}  & \ratioci{c4.baseline.sf10} \\
+         & SF30  & \ratioci{c1.baseline.sf30}  & \ratioci{c2.baseline.sf30}  & \ratioci{c3.baseline.sf30}  & \ratioci{c4.baseline.sf30} \\
+         & SF100 & \ratioci{c1.baseline.sf100} & \ratioci{c2.baseline.sf100} & \ratioci{c3.baseline.sf100} & \ratioci{c4.baseline.sf100} \\
+         & SF300 & \ratioci{c1.baseline.sf300} & \ratioci{c2.baseline.sf300} & \ratioci{c3.baseline.sf300} & \ratioci{c4.baseline.sf300} \\
+\midrule
+complex  & SF30  & \ratioci{c1.complex.sf30}   & \ratioci{c2.complex.sf30}   & \ratioci{c3.complex.sf30}   & \ratioci{c4.complex.sf30} \\
+         & SF100 & \ratioci{c1.complex.sf100}  & \ratioci{c2.complex.sf100}  & \ratioci{c3.complex.sf100}  & \ratioci{c4.complex.sf100} \\
+         & SF300 & \ratioci{c1.complex.sf300}  & \ratioci{c2.complex.sf300}  & \ratioci{c3.complex.sf300}  & \ratioci{c4.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{RQ1: GPU speedup within each framework}
+\label{sec:rq1}
+
+\begin{figure}[t]
+\centering
+\studyfig{f01_forest_sf300}{\linewidth}
+\caption{Per-query speedup ratios at SF300 (geometric mean over four rounds)
+with 95\% CIs, by contrast (C1--C4) and suite; the other scales are in
+Appendix~\ref{app:forest}. Vertical line at 1: no difference;
+right of 1: the second-named engine is faster. Log scale. Intervals have
+df~=~3 and are wide by design. \chartnote}
+\label{fig:f1}
+\end{figure}
+
+Table~\ref{tab:contrasts} and Figure~\ref{fig:f1} give the C1 and C2 estimates.
+On the baseline suite at SF300, the Polars GPU engine's geometric-mean speedup
+over Polars CPU was \ratiotext{c1.baseline.sf300}; the Spark plugin's speedup
+over CPU Spark was \ratiotext{c2.baseline.sf300}. On the complex suite at
+SF300 the corresponding values were \ratiotext{c1.complex.sf300} (over
+\stat{c1.complex.sf300.n_queries} supported queries) and
+\ratiotext{c2.complex.sf300}. At SF1, C1 was \ratiotext{c1.baseline.sf1} and C2
+was \ratiotext{c2.baseline.sf1}.
+
+On the baseline suite, C1 \stat{c1.baseline.summary.trend}; its interval lay
+below~1 at \stat{c1.baseline.summary.below} (Polars CPU faster) and above~1 at
+\stat{c1.baseline.summary.above}. On the complex suite C1 ranged from
+\stat{c1.complex.summary.min} to \stat{c1.complex.summary.max} and its interval
+lay above~1 at \stat{c1.complex.summary.above}; it
+\stat{c1.complex.summary.trend}. C2 behaved similarly: on the baseline suite
+its interval was \stat{c2.baseline.summary.pattern}; on the complex suite it
+ranged from
+\stat{c2.complex.summary.min} to \stat{c2.complex.summary.max}, above~1 at
+\stat{c2.complex.summary.above}. Comparing suites,
+\stat{c12.complex_larger_text}. Per query (Figure~\ref{fig:f1}), the smallest
+C1 at SF300 was the selective scan-and-sum \q{q06}
+(\ratiotext{c1.baseline.sf300.q.q06}; interval
+\stat{c1.baseline.sf300.q.q06.verdict}), against
+\ratiotext{c1.baseline.sf300.q.q01} for the grouped aggregation \q{q01} and
+\ratiotext{c1.baseline.sf300.q.q03} for the three-table join \q{q03}.
+
+\paragraph{A version-locked CPU baseline.} C1 and C4 use Polars 1.44.2 on the
+CPU, the version the GPU engine requires, not the current release. In the
+side study (Section~\ref{sec:rq5}), Polars 2.0.0 on the CPU was
+\stat{bridge_summary.both}; the most extreme query was
+\q{\stat{bridge_summary.complex.extreme_query}}, from
+\stat{bridge_summary.complex.extreme.min} to
+\stat{bridge_summary.complex.extreme.max} across scales. C1 is therefore the
+GPU speedup over the CPU engine of the same Polars build, not over the
+fastest Polars CPU release available. A post-hoc comparison against Polars
+2.0.0 is reported separately as exploratory
+(Section~\ref{sec:exploratory}).
+% The direction wording is generated from the intervals (statskeys._bridge_summary).
+
+\subsection{RQ2: Fastest engine per query, suite and scale}
+\label{sec:rq2}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[t]{\linewidth}
+  \centering\studyfig{f03_heatmap_baseline}{\linewidth}
+  \caption{Baseline suite.}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[t]{\linewidth}
+  \centering\studyfig{f03_heatmap_complex}{\linewidth}
+  \caption{Complex suite.}
+\end{subfigure}
+\caption{Median time (seconds) for each query, scale and engine, with the
+fastest engine marked per row. Grey: no timing (coverage outcome on that GPU
+engine). \chartnote}
+\label{fig:f3}
+\end{figure}
+
+Across the \stat{fastest.total.baseline.count} baseline query--scale cells,
+the fastest engine (lowest geometric-mean median over rounds) was \polarscpu{}
+in \stat{fastest.polars.baseline.count}, \polarsgpu{} in
+\stat{fastest.polars_gpu.baseline.count}, \sparkcpu{} in
+\stat{fastest.spark_cpu.baseline.count} and \sparkgpu{} in
+\stat{fastest.spark_gpu.baseline.count} (Figure~\ref{fig:f3}). Across the
+\stat{fastest.total.complex.count} complex cells the counts were
+\stat{fastest.polars.complex.count}, \stat{fastest.polars_gpu.complex.count},
+\stat{fastest.spark_cpu.complex.count} and
+\stat{fastest.spark_gpu.complex.count}. The two GPU engines compared
+head-to-head (C3) at \ratiotext{c3.baseline.sf300} on the baseline suite and
+\ratiotext{c3.complex.sf300} on the complex suite at SF300. Against Polars
+CPU, the best GPU engine per query (C4) reached \ratiotext{c4.baseline.sf300}
+and \ratiotext{c4.complex.sf300}. A ``fastest'' count does not imply a
+resolved difference; Figure~\ref{fig:f1} shows which per-query intervals
+exclude~1. \polarsgpu{} won \stat{fastest.polars_gpu.complex.of_supported}
+complex cells it could run; the complex cells it did not win were won by
+\sparkgpu{} (\stat{fastest.spark_gpu.complex.won_text}) and \polarscpu{}
+(\stat{fastest.polars.complex.won_text}). On the baseline suite, \polarscpu{}
+won its cells at \stat{fastest.polars.baseline.won_text}, and \polarsgpu{} the
+others. \sparkcpu{} won no cell on either suite. Between the two GPU engines,
+C3 ranged from \stat{c3.baseline.summary.min} to \stat{c3.baseline.summary.max}
+on the baseline suite (it \stat{c3.baseline.summary.trend}) and from
+\stat{c3.complex.summary.min} to \stat{c3.complex.summary.max} on the complex
+suite, with intervals above~1 \stat{c3.both.above_text}.
+
+Table~\ref{tab:sf300} reports per-query medians at SF300, and
+Table~\ref{tab:legacy} the legacy sums of medians.
+
+\begin{table}[t]
+\centering
+\caption{SF300 per-query medians in seconds (geometric mean over four
+rounds of per-round medians). ``n/s'': not supported on that GPU engine;
+``unstable'': unstable coverage (a coverage outcome in some rounds only),
+excluded under A1.
+\chartnote}
+\label{tab:sf300}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Query & \polarscpu & \polarsgpu & \sparkcpu & \sparkgpu \\
+\midrule
+\q{q01} & \stat{median.polars.baseline.sf300.q01} & \stat{median.polars_gpu.baseline.sf300.q01} & \stat{median.spark_cpu.baseline.sf300.q01} & \stat{median.spark_gpu.baseline.sf300.q01} \\
+\q{q03} & \stat{median.polars.baseline.sf300.q03} & \stat{median.polars_gpu.baseline.sf300.q03} & \stat{median.spark_cpu.baseline.sf300.q03} & \stat{median.spark_gpu.baseline.sf300.q03} \\
+\q{q06} & \stat{median.polars.baseline.sf300.q06} & \stat{median.polars_gpu.baseline.sf300.q06} & \stat{median.spark_cpu.baseline.sf300.q06} & \stat{median.spark_gpu.baseline.sf300.q06} \\
+\q{q10} & \stat{median.polars.baseline.sf300.q10} & \stat{median.polars_gpu.baseline.sf300.q10} & \stat{median.spark_cpu.baseline.sf300.q10} & \stat{median.spark_gpu.baseline.sf300.q10} \\
+\q{q12} & \stat{median.polars.baseline.sf300.q12} & \stat{median.polars_gpu.baseline.sf300.q12} & \stat{median.spark_cpu.baseline.sf300.q12} & \stat{median.spark_gpu.baseline.sf300.q12} \\
+\q{q14} & \stat{median.polars.baseline.sf300.q14} & \stat{median.polars_gpu.baseline.sf300.q14} & \stat{median.spark_cpu.baseline.sf300.q14} & \stat{median.spark_gpu.baseline.sf300.q14} \\
+\midrule
+\q{cx\_q09} & \stat{median.polars.complex.sf300.cx_q09} & \stat{median.polars_gpu.complex.sf300.cx_q09} & \stat{median.spark_cpu.complex.sf300.cx_q09} & \stat{median.spark_gpu.complex.sf300.cx_q09} \\
+\q{cx\_q13} & \stat{median.polars.complex.sf300.cx_q13} & \stat{median.polars_gpu.complex.sf300.cx_q13} & \stat{median.spark_cpu.complex.sf300.cx_q13} & \stat{median.spark_gpu.complex.sf300.cx_q13} \\
+\q{cx\_semi\_anti} & \stat{median.polars.complex.sf300.cx_semi_anti} & \stat{median.polars_gpu.complex.sf300.cx_semi_anti} & \stat{median.spark_cpu.complex.sf300.cx_semi_anti} & \stat{median.spark_gpu.complex.sf300.cx_semi_anti} \\
+\q{cx\_window} & \stat{median.polars.complex.sf300.cx_window} & \stat{median.polars_gpu.complex.sf300.cx_window} & \stat{median.spark_cpu.complex.sf300.cx_window} & \stat{median.spark_gpu.complex.sf300.cx_window} \\
+\q{cx\_distinct} & \stat{median.polars.complex.sf300.cx_distinct} & \stat{median.polars_gpu.complex.sf300.cx_distinct} & \stat{median.spark_cpu.complex.sf300.cx_distinct} & \stat{median.spark_gpu.complex.sf300.cx_distinct} \\
+\q{cx\_self\_join} & \stat{median.polars.complex.sf300.cx_self_join} & \stat{median.polars_gpu.complex.sf300.cx_self_join} & \stat{median.spark_cpu.complex.sf300.cx_self_join} & \stat{median.spark_gpu.complex.sf300.cx_self_join} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Legacy score: sum of per-query medians (seconds), averaged over
+rounds, for comparability with the A100 study's reporting. Not a once-through
+suite time and not comparable with the geometric means above. A total is
+reported only when every query has a valid median in every round, so the
+\polarsgpu{} complex totals are n/a (two unsupported queries). \chartnote}
+\label{tab:legacy}
+\small
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+Suite & Scale & \polarscpu & \polarsgpu & \sparkcpu & \sparkgpu \\
+\midrule
+baseline & SF1   & \stat{legacy.sum_medians.polars.baseline.sf1}   & \stat{legacy.sum_medians.polars_gpu.baseline.sf1}   & \stat{legacy.sum_medians.spark_cpu.baseline.sf1}   & \stat{legacy.sum_medians.spark_gpu.baseline.sf1} \\
+         & SF10  & \stat{legacy.sum_medians.polars.baseline.sf10}  & \stat{legacy.sum_medians.polars_gpu.baseline.sf10}  & \stat{legacy.sum_medians.spark_cpu.baseline.sf10}  & \stat{legacy.sum_medians.spark_gpu.baseline.sf10} \\
+         & SF30  & \stat{legacy.sum_medians.polars.baseline.sf30}  & \stat{legacy.sum_medians.polars_gpu.baseline.sf30}  & \stat{legacy.sum_medians.spark_cpu.baseline.sf30}  & \stat{legacy.sum_medians.spark_gpu.baseline.sf30} \\
+         & SF100 & \stat{legacy.sum_medians.polars.baseline.sf100} & \stat{legacy.sum_medians.polars_gpu.baseline.sf100} & \stat{legacy.sum_medians.spark_cpu.baseline.sf100} & \stat{legacy.sum_medians.spark_gpu.baseline.sf100} \\
+         & SF300 & \stat{legacy.sum_medians.polars.baseline.sf300} & \stat{legacy.sum_medians.polars_gpu.baseline.sf300} & \stat{legacy.sum_medians.spark_cpu.baseline.sf300} & \stat{legacy.sum_medians.spark_gpu.baseline.sf300} \\
+\midrule
+complex  & SF30  & \stat{legacy.sum_medians.polars.complex.sf30}   & \stat{legacy.sum_medians.polars_gpu.complex.sf30}   & \stat{legacy.sum_medians.spark_cpu.complex.sf30}   & \stat{legacy.sum_medians.spark_gpu.complex.sf30} \\
+         & SF100 & \stat{legacy.sum_medians.polars.complex.sf100}  & \stat{legacy.sum_medians.polars_gpu.complex.sf100}  & \stat{legacy.sum_medians.spark_cpu.complex.sf100}  & \stat{legacy.sum_medians.spark_gpu.complex.sf100} \\
+         & SF300 & \stat{legacy.sum_medians.polars.complex.sf300}  & \stat{legacy.sum_medians.polars_gpu.complex.sf300}  & \stat{legacy.sum_medians.spark_cpu.complex.sf300}  & \stat{legacy.sum_medians.spark_gpu.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{RQ3: Scale at which a GPU engine overtakes the best CPU engine}
+\label{sec:rq3}
+
+\begin{figure}[t]
+\centering
+\studyfig{f02_suite_speedup_vs_scale}{\linewidth}
+\caption{Suite geometric-mean speedup versus scale factor for C1--C4, with 95\%
+CI bands (df~=~3). Lines connect measured scales only; they are not a fitted
+model and do not extrapolate. \chartnote}
+\label{fig:f2}
+\end{figure}
+
+By the pre-registered rule (the smallest scale at which the C4 interval lies
+entirely above~1), the baseline crossover scale was
+\stat{crossover.baseline.c4.scale} and the complex crossover scale was
+\stat{crossover.complex.c4.scale} (Figure~\ref{fig:f2}).
+Below the crossover, C4's interval lay below~1 at
+\stat{c4.baseline.summary.below} on the baseline suite, so there Polars CPU was
+faster than either GPU engine. On the complex suite the interval lay above~1 at
+\stat{c4.complex.summary.above}. A crossover reported at a suite's smallest
+measured scale (SF1 for the baseline suite, SF30 for the complex suite) only
+says that the GPU was already ahead there; a crossover between two measured
+scales is not localized more precisely than that interval. Per-query
+crossovers are visible in Figure~\ref{fig:f1}.
+
+\subsection{RQ4: GPU coverage}
+\label{sec:rq4}
+
+\begin{figure}[t]
+\centering
+\studyfig{f04_gpu_coverage}{0.8\linewidth}
+\caption{GPU coverage by query, scale and GPU engine (amendment A1
+classes): ran on the GPU with all gates passed; not supported (unsupported
+operation); resource exhaustion (for example out of device memory); other
+error (not a coverage outcome; an integrity failure under A1); or partial
+(hatched: unstable coverage, a coverage outcome in some rounds only).}
+\label{fig:f4}
+\end{figure}
+
+\polarsgpu{} ran \stat{coverage.polars_gpu.baseline.supported} of
+\stat{coverage.polars_gpu.baseline.total} baseline and
+\stat{coverage.polars_gpu.complex.supported} of
+\stat{coverage.polars_gpu.complex.total} complex query--scale cells on the GPU
+(Figure~\ref{fig:f4}). The unsupported queries were
+\stat{coverage.polars_gpu.unsupported_list}; the number of failures not
+pre-declared in Section~\ref{sec:coverage-design} was
+\stat{coverage.polars_gpu.unexpected_failures}. \sparkgpu{} ran
+\stat{coverage.spark_gpu.baseline.supported} of
+\stat{coverage.spark_gpu.baseline.total} and
+\stat{coverage.spark_gpu.complex.supported} of
+\stat{coverage.spark_gpu.complex.total} cells with plans meeting the GPU plan
+rule. Both pre-declared \polarsgpu{} gaps are expression-level: the
+\texttt{(?s)} inline regex flag in \q{cx\_q13}, and
+\texttt{cum\_count().over(...)} in \q{cx\_window}, whose
+\texttt{GroupedWindow} translation in \texttt{cudf-polars} 26.10.2 accepts only
+a fixed set of window functions. Resource exhaustion accounted for
+\stat{coverage.polars_gpu.baseline.resource_exhaustion} baseline and
+\stat{coverage.polars_gpu.complex.resource_exhaustion} complex \polarsgpu{}
+cells and \stat{coverage.spark_gpu.baseline.resource_exhaustion} and
+\stat{coverage.spark_gpu.complex.resource_exhaustion} \sparkgpu{} cells;
+unstable coverage, \stat{coverage.polars_gpu.baseline.unstable},
+\stat{coverage.polars_gpu.complex.unstable},
+\stat{coverage.spark_gpu.baseline.unstable} and
+\stat{coverage.spark_gpu.complex.unstable} cells respectively. Across the
+\stat{ladder.hosts_count} hosts of the ladder, \stat{ladder.resource_exhaustion_total}
+GPU-engine cells were lost to resource exhaustion and
+\stat{ladder.unexpected_failures_total} \polarsgpu{} failures were not
+pre-declared (Table~\ref{tab:ladder-coverage}).
+
+\begin{figure}[t]
+\centering
+\studyfig{f07_gpu_memory}{0.8\linewidth}
+\caption{GPU memory per query and GPU engine (maximum over rounds); the two
+engines' values measure different things. \polarsgpu{}: the worker process's
+device memory sampled every 200\,ms during the timed action; cudf-polars'
+memory pool keeps freed blocks, so within a session where the sample never
+falls it is the pool's high-water mark, an upper bound on what a query needs
+rather than its working set (see text for how many sessions). \sparkgpu{}: the
+task-reported maximum, the largest device allocation that a single task
+reported (RAPIDS task metric) among the tasks of the action; not a total over
+concurrent tasks. The plugin's pool reservation is drawn as a line only for a
+host where the sampled value was constant in every session. Sampling can miss
+short peaks.}
+\label{fig:f7}
+\end{figure}
+
+The two GPU engines' device memory is measured differently
+(Figure~\ref{fig:f7}). For \polarsgpu{}, the sampled device memory of the
+worker process at SF300 reached
+\stat{peak_gpu_mem_gib.polars_gpu.baseline.sf300.max}\,GiB (baseline) and
+\stat{peak_gpu_mem_gib.polars_gpu.complex.sf300.max}\,GiB (complex). cudf-polars
+allocates from a memory pool that keeps freed blocks; on the H100,
+\stat{gpu_mem_note.polars_gpu}. For \sparkgpu{}, the
+sampled value (\stat{pool_gpu_mem_gib.spark_gpu.complex.sf300.max}\,GiB on the
+complex suite at SF300) does not follow the action's own use: on the H100,
+\stat{gpu_mem_note.spark_gpu}. We therefore report the task-reported maximum instead: the
+largest device allocation that a single task reported among the tasks of the
+timed action, \stat{task_gpu_mem_gib.spark_gpu.baseline.sf300.max}\,GiB
+(baseline) and \stat{task_gpu_mem_gib.spark_gpu.complex.sf300.max}\,GiB
+(complex) at SF300, available for
+\stat{secondary.gpu_memory.task_reported_cells.spark_gpu.with_value} of
+\stat{secondary.gpu_memory.task_reported_cells.spark_gpu.cells} query--scale
+cells. It is not a total over concurrently running tasks, so neither engine's
+value is the minimum memory a query needs.
+
+\subsection{RQ5: Polars version bridge}
+\label{sec:rq5}
+
+\begin{figure}[t]
+\centering
+\studyfig{f08_polars_version_bridge}{0.8\linewidth}
+\caption{Polars CPU version bridge: geometric-mean ratio
+$t_{2.0.0}/t_{1.44.2}$ per suite and scale with 95\% CIs (four rounds, orders
+AB, BA, BA, AB). Above 1: 1.44.2 is faster. \chartnote}
+\label{fig:f8}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Polars version bridge, $t_{2.0.0}/t_{1.44.2}$, geometric mean with
+95\% CI.}
+\label{tab:bridge}
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Suite & SF1 & SF10 & SF30 & SF100 & SF300 \\
+\midrule
+baseline & \ratioci{bridge.baseline.sf1} & \ratioci{bridge.baseline.sf10} & \ratioci{bridge.baseline.sf30} & \ratioci{bridge.baseline.sf100} & \ratioci{bridge.baseline.sf300} \\
+complex  & --- & --- & \ratioci{bridge.complex.sf30} & \ratioci{bridge.complex.sf100} & \ratioci{bridge.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The version ratio at SF300 was \ratiotext{bridge.baseline.sf300} on the
+baseline suite and \ratiotext{bridge.complex.sf300} on the complex suite
+(Table~\ref{tab:bridge}, Figure~\ref{fig:f8}). Polars~2.0.0 was
+\stat{bridge_summary.both}. The effect is
+not small next to the engine contrasts: it bears directly on C1 and C4, whose
+CPU side is the older version (Section~\ref{sec:rq1}), and on any comparison
+with the earlier A100 study, which used Polars \stat{a100_h100.study.polars_version}.
+Each side-study estimate rests on
+\stat{bridge_summary.baseline.n_rounds} accepted rounds (four were planned,
+orders AB, BA, BA, AB).
+% Four side-study rounds were accepted on the H100 (checked 2026-10-30).
+
+\subsection{Secondary analyses}
+\label{sec:secondary}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[t]{0.49\linewidth}
+  \centering\studyfig{f05_variability}{\linewidth}
+  \caption{Coefficient of variation within sessions and between rounds.}
+  \label{fig:f5}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.49\linewidth}
+  \centering\studyfig{f06_order_effects}{\linewidth}
+  \caption{Mean log-time deviation by session position and predecessor.}
+  \label{fig:f6}
+\end{subfigure}
+\caption{Variability and order checks (descriptive). \chartnote}
+\label{fig:f56}
+\end{figure}
+
+\paragraph{Variability.} The median within-session CV was
+\stat{cv.within.polars.median}\% (\polarscpu{}),
+\stat{cv.within.polars_gpu.median}\% (\polarsgpu{}),
+\stat{cv.within.spark_cpu.median}\% (\sparkcpu{}) and
+\stat{cv.within.spark_gpu.median}\% (\sparkgpu{}); the median between-round CVs
+were \stat{cv.between.polars.median}\%, \stat{cv.between.polars_gpu.median}\%,
+\stat{cv.between.spark_cpu.median}\% and \stat{cv.between.spark_gpu.median}\%
+(Figure~\ref{fig:f5}). Engines whose between-round CV exceeded their
+within-session CV: \stat{cv.between_exceeds_within}. Repeating rounds was
+still necessary for the intervals, but on this host session-to-session drift
+was not larger than trial-to-trial noise.
+
+\paragraph{Order and carryover.} The largest absolute deviation of mean
+log-time by session position was \stat{order.position.max_abs_pct}\%, and by
+predecessor engine \stat{order.carryover.max_abs_pct}\%
+(Figure~\ref{fig:f6}); \stat{order.intervals_including_zero} of the
+\stat{order.intervals_total} position and predecessor intervals include zero.
+These are descriptive; the Latin square balances but does not remove such
+effects, and they are small next to the engine contrasts.
+
+\paragraph{Startup and wall time.} Median launch-to-ready time was
+\stat{startup.polars.median_s}\,s, \stat{startup.polars_gpu.median_s}\,s,
+\stat{startup.spark_cpu.median_s}\,s and \stat{startup.spark_gpu.median_s}\,s
+for the four engines. Startup is outside the query timer but matters for short
+jobs: \sparkgpu{}'s median start-up (\stat{startup.spark_gpu.median_s}\,s) was
+longer than the sum of its six SF1 baseline query medians
+(\stat{legacy.sum_medians.spark_gpu.baseline.sf1}\,s).
+
+\paragraph{Energy proxy.} Mean GPU board power multiplied by query time is
+reported in the artifact as a descriptive proxy only; it excludes CPU, memory
+and host power and is not an energy measurement.
+
+\paragraph{Earlier A100 study versus H100.}
+
+\begin{figure}[t]
+\centering
+\studyfig{f09_a100_vs_h100}{0.8\linewidth}
+\caption{GPU Spark in the earlier study (\stat{a100_h100.study.label}; saved
+evidence of a previous study, not the A100 ladder campaign) versus the H100
+campaign, per suite and scale ($t_{\mathrm{A100}}/t_{\mathrm{H100}}$).
+Non-equivalent hosts and protocols: \stat{a100_h100.study.difference_headline}
+Descriptive only; the A100 ladder campaign (Section~\ref{sec:ladder}) is the
+like-for-like comparison. \chartnote}
+\label{fig:f9}
+\end{figure}
+
+The \sparkgpu{} ratio $t_{\mathrm{A100}}/t_{\mathrm{H100}}$ at SF300 was
+\stat{a100_h100.spark_gpu.baseline.sf300.estimate} (baseline) and
+\stat{a100_h100.spark_gpu.complex.sf300.estimate} (complex)
+(Figure~\ref{fig:f9}). The earlier study (\stat{a100_h100.study.gpu},
+\stat{a100_h100.study.vcpus} vCPUs, \stat{a100_h100.study.host_ram_gib}\,GiB
+RAM) ran \stat{a100_h100.study.cpu_threads} engine threads against
+\stat{a100_h100.study.cpu_threads_h100} here, with
+\stat{a100_h100.study.sessions_per_cell} session per cell against
+\stat{a100_h100.study.rounds_h100} rounds, and recorded
+\stat{a100_h100.study.spark_conf_keys_recorded.a100_study} Spark configuration
+keys against \stat{a100_h100.study.spark_conf_keys_recorded.h100_campaign} in
+this campaign; the artifact lists every recorded difference. This is
+therefore not a GPU-only comparison. The earlier study did not run the Polars
+GPU engine, so only \sparkgpu{} is compared, and its CPU engines are not
+compared with this campaign.
+
+% ======================================================================
+\subsection{The GPU-generation ladder (amendments A2, A3)}
+\label{sec:ladder}
+% Each host's campaign is analyzed exactly as the H100 campaign; comparisons
+% between hosts are descriptive only.
+% BEGIN-RAN:any
+\ifladderran
+Campaigns ran on \stat{hosts.ran_list} (\stat{hosts.n_ran} hosts); hosts not
+run: \stat{hosts.not_run_list}. Each campaign is analyzed on its own, exactly
+as the H100 campaign above; Appendix~\ref{app:ladder} gives every host's full
+contrast table. Table~\ref{tab:ladder} sets the SF300 contrasts side by side,
+Table~\ref{tab:ladder-xhost} and Figure~\ref{fig:f11} compare each engine's
+times with the H100, and Table~\ref{tab:ladder-coverage} gives GPU coverage per
+host. \hostnotrun{} marks a host whose campaign did not run.
+
+\begin{table}[t]
+\centering
+\caption{Within-host contrasts at SF300 on each host of the ladder:
+suite-level geometric-mean speedup ratios with 95\% CIs ($t$, df~=~3,
+across that host's four rounds). Each row comes from one host's campaign
+alone; rows are not pooled. Crossover: the smallest scale at which the C4
+interval lies entirely above~1. \chartnote}
+\label{tab:ladder}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}llccccc@{}}
+\toprule
+Suite & Host & \shortstack{C1\\\polarscpu/\\\polarsgpu} & \shortstack{C2\\\sparkcpu/\\\sparkgpu} & \shortstack{C3\\\sparkgpu/\\\polarsgpu} & \shortstack{C4\\\polarscpu/\\best GPU} & Crossover \\
+\midrule
+baseline & A100  & \hostratioci{a100}{c1.baseline.sf300} & \hostratioci{a100}{c2.baseline.sf300} & \hostratioci{a100}{c3.baseline.sf300} & \hostratioci{a100}{c4.baseline.sf300} & \hoststat{a100}{crossover.baseline.c4.scale} \\
+         & H100  & \ratioci{c1.baseline.sf300} & \ratioci{c2.baseline.sf300} & \ratioci{c3.baseline.sf300} & \ratioci{c4.baseline.sf300} & \stat{crossover.baseline.c4.scale} \\
+         & GH200 & \hostratioci{gh200}{c1.baseline.sf300} & \hostratioci{gh200}{c2.baseline.sf300} & \hostratioci{gh200}{c3.baseline.sf300} & \hostratioci{gh200}{c4.baseline.sf300} & \hoststat{gh200}{crossover.baseline.c4.scale} \\
+         & B200  & \hostratioci{b200}{c1.baseline.sf300} & \hostratioci{b200}{c2.baseline.sf300} & \hostratioci{b200}{c3.baseline.sf300} & \hostratioci{b200}{c4.baseline.sf300} & \hoststat{b200}{crossover.baseline.c4.scale} \\
+\midrule
+complex  & A100  & \hostratioci{a100}{c1.complex.sf300} & \hostratioci{a100}{c2.complex.sf300} & \hostratioci{a100}{c3.complex.sf300} & \hostratioci{a100}{c4.complex.sf300} & \hoststat{a100}{crossover.complex.c4.scale} \\
+         & H100  & \ratioci{c1.complex.sf300} & \ratioci{c2.complex.sf300} & \ratioci{c3.complex.sf300} & \ratioci{c4.complex.sf300} & \stat{crossover.complex.c4.scale} \\
+         & GH200 & \hostratioci{gh200}{c1.complex.sf300} & \hostratioci{gh200}{c2.complex.sf300} & \hostratioci{gh200}{c3.complex.sf300} & \hostratioci{gh200}{c4.complex.sf300} & \hoststat{gh200}{crossover.complex.c4.scale} \\
+         & B200  & \hostratioci{b200}{c1.complex.sf300} & \hostratioci{b200}{c2.complex.sf300} & \hostratioci{b200}{c3.complex.sf300} & \hostratioci{b200}{c4.complex.sf300} & \hoststat{b200}{crossover.complex.c4.scale} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Cross-host time ratios at SF300, $t_{h}/t_{\mathrm{H100}}$: suite
+geometric mean over queries supported on both hosts, with Welch-type 95\%
+intervals on the log scale. Below~1: faster on host~$h$ than on the H100.
+Descriptive only: for GPU engines the ratio confounds GPU, CPU, memory,
+CPU--GPU link and driver; for CPU engines it reflects a different CPU model
+(and, on the GH200, instruction set) at the same 26 threads. \chartnote}
+\label{tab:ladder-xhost}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+Suite & Host $h$ & \polarscpu & \polarsgpu & \sparkcpu & \sparkgpu \\
+\midrule
+baseline & A100  & \xhostratioci{a100}{polars.baseline.sf300} & \xhostratioci{a100}{polars_gpu.baseline.sf300} & \xhostratioci{a100}{spark_cpu.baseline.sf300} & \xhostratioci{a100}{spark_gpu.baseline.sf300} \\
+         & GH200 & \xhostratioci{gh200}{polars.baseline.sf300} & \xhostratioci{gh200}{polars_gpu.baseline.sf300} & \xhostratioci{gh200}{spark_cpu.baseline.sf300} & \xhostratioci{gh200}{spark_gpu.baseline.sf300} \\
+         & B200  & \xhostratioci{b200}{polars.baseline.sf300} & \xhostratioci{b200}{polars_gpu.baseline.sf300} & \xhostratioci{b200}{spark_cpu.baseline.sf300} & \xhostratioci{b200}{spark_gpu.baseline.sf300} \\
+\midrule
+complex  & A100  & \xhostratioci{a100}{polars.complex.sf300} & \xhostratioci{a100}{polars_gpu.complex.sf300} & \xhostratioci{a100}{spark_cpu.complex.sf300} & \xhostratioci{a100}{spark_gpu.complex.sf300} \\
+         & GH200 & \xhostratioci{gh200}{polars.complex.sf300} & \xhostratioci{gh200}{polars_gpu.complex.sf300} & \xhostratioci{gh200}{spark_cpu.complex.sf300} & \xhostratioci{gh200}{spark_gpu.complex.sf300} \\
+         & B200  & \xhostratioci{b200}{polars.complex.sf300} & \xhostratioci{b200}{polars_gpu.complex.sf300} & \xhostratioci{b200}{spark_cpu.complex.sf300} & \xhostratioci{b200}{spark_gpu.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\studyfig{f11_gpu_ladder}{\linewidth}
+\caption{The GPU-generation ladder: suite geometric-mean time ratio
+$t_{h}/t_{\mathrm{H100}}$ (log axis) for each engine (columns) and suite
+(rows), with hosts on the horizontal axis in generation order (A100, H100,
+GH200, B200) and the H100 as the reference at~1. Within each host, one marker
+per scale factor, SF1 to SF300 from left to right (lighter to darker); bars
+are Welch-type 95\% intervals (rounds unpaired). Open markers: fewer queries
+compared than at the other hosts (for example after resource exhaustion).
+Hosts whose campaign did not run are omitted. Below~1: faster than on the
+H100. Descriptive only; the hosts differ in more than the GPU
+(Table~\ref{tab:hosts}). \chartnote}
+\label{fig:f11}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{GPU coverage per host (amendment A1 classes): query--scale cells
+that ran on the GPU with all gates passed, out of all cells, and cells lost
+to resource exhaustion (for example out of device memory).}
+\label{tab:ladder-coverage}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+& \multicolumn{4}{c}{\polarsgpu} & \multicolumn{4}{c}{\sparkgpu} \\
+\cmidrule(lr){2-5}\cmidrule(l){6-9}
+& \multicolumn{2}{c}{ran / total} & \multicolumn{2}{c}{exhausted} & \multicolumn{2}{c}{ran / total} & \multicolumn{2}{c}{exhausted} \\
+Host & baseline & complex & baseline & complex & baseline & complex & baseline & complex \\
+\midrule
+A100  & \hoststat{a100}{coverage.polars_gpu.baseline.supported} / \hoststat{a100}{coverage.polars_gpu.baseline.total} & \hoststat{a100}{coverage.polars_gpu.complex.supported} / \hoststat{a100}{coverage.polars_gpu.complex.total} & \hoststat{a100}{coverage.polars_gpu.baseline.resource_exhaustion} & \hoststat{a100}{coverage.polars_gpu.complex.resource_exhaustion} & \hoststat{a100}{coverage.spark_gpu.baseline.supported} / \hoststat{a100}{coverage.spark_gpu.baseline.total} & \hoststat{a100}{coverage.spark_gpu.complex.supported} / \hoststat{a100}{coverage.spark_gpu.complex.total} & \hoststat{a100}{coverage.spark_gpu.baseline.resource_exhaustion} & \hoststat{a100}{coverage.spark_gpu.complex.resource_exhaustion} \\
+H100  & \stat{coverage.polars_gpu.baseline.supported} / \stat{coverage.polars_gpu.baseline.total} & \stat{coverage.polars_gpu.complex.supported} / \stat{coverage.polars_gpu.complex.total} & \stat{coverage.polars_gpu.baseline.resource_exhaustion} & \stat{coverage.polars_gpu.complex.resource_exhaustion} & \stat{coverage.spark_gpu.baseline.supported} / \stat{coverage.spark_gpu.baseline.total} & \stat{coverage.spark_gpu.complex.supported} / \stat{coverage.spark_gpu.complex.total} & \stat{coverage.spark_gpu.baseline.resource_exhaustion} & \stat{coverage.spark_gpu.complex.resource_exhaustion} \\
+GH200 & \hoststat{gh200}{coverage.polars_gpu.baseline.supported} / \hoststat{gh200}{coverage.polars_gpu.baseline.total} & \hoststat{gh200}{coverage.polars_gpu.complex.supported} / \hoststat{gh200}{coverage.polars_gpu.complex.total} & \hoststat{gh200}{coverage.polars_gpu.baseline.resource_exhaustion} & \hoststat{gh200}{coverage.polars_gpu.complex.resource_exhaustion} & \hoststat{gh200}{coverage.spark_gpu.baseline.supported} / \hoststat{gh200}{coverage.spark_gpu.baseline.total} & \hoststat{gh200}{coverage.spark_gpu.complex.supported} / \hoststat{gh200}{coverage.spark_gpu.complex.total} & \hoststat{gh200}{coverage.spark_gpu.baseline.resource_exhaustion} & \hoststat{gh200}{coverage.spark_gpu.complex.resource_exhaustion} \\
+B200  & \hoststat{b200}{coverage.polars_gpu.baseline.supported} / \hoststat{b200}{coverage.polars_gpu.baseline.total} & \hoststat{b200}{coverage.polars_gpu.complex.supported} / \hoststat{b200}{coverage.polars_gpu.complex.total} & \hoststat{b200}{coverage.polars_gpu.baseline.resource_exhaustion} & \hoststat{b200}{coverage.polars_gpu.complex.resource_exhaustion} & \hoststat{b200}{coverage.spark_gpu.baseline.supported} / \hoststat{b200}{coverage.spark_gpu.baseline.total} & \hoststat{b200}{coverage.spark_gpu.complex.supported} / \hoststat{b200}{coverage.spark_gpu.complex.total} & \hoststat{b200}{coverage.spark_gpu.baseline.resource_exhaustion} & \hoststat{b200}{coverage.spark_gpu.complex.resource_exhaustion} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The H100's qualitative pattern recurred on every host that ran
+(Table~\ref{tab:ladder}). C4's baseline interval lay below~1
+\stat{ladder.c4.baseline.below_text}, and above~1 from each host's crossover
+scale onwards; on the complex suite it lay above~1
+\stat{ladder.c4.complex.above_text}. \polarsgpu{} was faster
+than \sparkgpu{} in \stat{ladder.c3.cells_above} of \stat{ladder.c3.cells}
+suite--scale cells across the ladder.
+
+Across hosts (Table~\ref{tab:ladder-xhost}, Figure~\ref{fig:f11}):
+% BEGIN-RAN:a100
+\ifaonehundredran
+the GPU engines were slower on the A100 than on the H100, with
+$t_{\mathrm{A100}}/t_{\mathrm{H100}}$ from \stat{ladder.xhost_gpu.a100.min} to
+\stat{ladder.xhost_gpu.a100.max};
+\fi
+% END-RAN:a100
+on the \stat{ladder.xhost_gpu.later.hosts} the GPU engines' ratios ranged from
+\stat{ladder.xhost_gpu.later.min} to \stat{ladder.xhost_gpu.later.max}. The CPU
+engines followed a different pattern from the GPU engines:
+% BEGIN-RAN:gh200
+\ifghtwohundredran
+\polarscpu{} was faster on the GH200 (ratios from
+\stat{xhost.gh200.polars.overall.min} to \stat{xhost.gh200.polars.overall.max}),
+\fi
+% END-RAN:gh200
+% BEGIN-RAN:a100
+\ifaonehundredran
+slower on the A100 (\stat{xhost.a100.polars.overall.min} to
+\stat{xhost.a100.polars.overall.max}),
+\fi
+% END-RAN:a100
+which is consistent with the hosts' different CPUs and with the number of
+physical cores the 26 threads occupy (\hoststat{gh200}{host.cpus_arg_cores_text}
+on the GH200 against \stat{host.cpus_arg_cores_text} on the H100;
+Table~\ref{tab:hosts}). We report these differences as observed and do not
+attribute them to a cause; each rung changes the whole host
+(Section~\ref{sec:threats}).
+
+\begin{table}[t]
+\centering
+\caption{GPU telemetry at SF300 (\stat{secondary.gpu_telemetry.meta.label}).
+Pooled nvidia-smi samples every \stat{secondary.gpu_telemetry.meta.sample_interval_ms}\,ms
+inside measured actions of at least \stat{secondary.gpu_telemetry.meta.min_action_seconds}\,s.
+Util: median \texttt{utilization.gpu} (share of the sample period in which a
+kernel was executing, not SM occupancy), \%. Idle: share of samples below
+\stat{secondary.gpu_telemetry.meta.idle_threshold_pct}\% utilization, \%. Power:
+median board power as a share of the card's power limit, \%. Mem: median
+memory-controller utilization (\texttt{utilization.memory}), \%. The median SM
+clock was at the card's maximum in \stat{ladder.gpu_tel.clock_at_max} of
+\stat{ladder.gpu_tel.cells} populated suite--scale--engine cells.}
+\label{tab:ladder-telemetry}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llrrrrrrrr@{}}
+\toprule
+& & \multicolumn{4}{c}{baseline} & \multicolumn{4}{c}{complex} \\
+\cmidrule(lr){3-6}\cmidrule(l){7-10}
+Host & Engine & Util & Idle & Power & Mem & Util & Idle & Power & Mem \\
+\midrule
+A100  & \polarsgpu & \hoststat{a100}{gpu_tel.polars_gpu.baseline.sf300.util} & \hoststat{a100}{gpu_tel.polars_gpu.baseline.sf300.idle} & \hoststat{a100}{gpu_tel.polars_gpu.baseline.sf300.power} & \hoststat{a100}{gpu_tel.polars_gpu.baseline.sf300.memutil} & \hoststat{a100}{gpu_tel.polars_gpu.complex.sf300.util} & \hoststat{a100}{gpu_tel.polars_gpu.complex.sf300.idle} & \hoststat{a100}{gpu_tel.polars_gpu.complex.sf300.power} & \hoststat{a100}{gpu_tel.polars_gpu.complex.sf300.memutil} \\
+      & \sparkgpu & \hoststat{a100}{gpu_tel.spark_gpu.baseline.sf300.util} & \hoststat{a100}{gpu_tel.spark_gpu.baseline.sf300.idle} & \hoststat{a100}{gpu_tel.spark_gpu.baseline.sf300.power} & \hoststat{a100}{gpu_tel.spark_gpu.baseline.sf300.memutil} & \hoststat{a100}{gpu_tel.spark_gpu.complex.sf300.util} & \hoststat{a100}{gpu_tel.spark_gpu.complex.sf300.idle} & \hoststat{a100}{gpu_tel.spark_gpu.complex.sf300.power} & \hoststat{a100}{gpu_tel.spark_gpu.complex.sf300.memutil} \\
+\addlinespace
+H100  & \polarsgpu & \stat{gpu_tel.polars_gpu.baseline.sf300.util} & \stat{gpu_tel.polars_gpu.baseline.sf300.idle} & \stat{gpu_tel.polars_gpu.baseline.sf300.power} & \stat{gpu_tel.polars_gpu.baseline.sf300.memutil} & \stat{gpu_tel.polars_gpu.complex.sf300.util} & \stat{gpu_tel.polars_gpu.complex.sf300.idle} & \stat{gpu_tel.polars_gpu.complex.sf300.power} & \stat{gpu_tel.polars_gpu.complex.sf300.memutil} \\
+      & \sparkgpu & \stat{gpu_tel.spark_gpu.baseline.sf300.util} & \stat{gpu_tel.spark_gpu.baseline.sf300.idle} & \stat{gpu_tel.spark_gpu.baseline.sf300.power} & \stat{gpu_tel.spark_gpu.baseline.sf300.memutil} & \stat{gpu_tel.spark_gpu.complex.sf300.util} & \stat{gpu_tel.spark_gpu.complex.sf300.idle} & \stat{gpu_tel.spark_gpu.complex.sf300.power} & \stat{gpu_tel.spark_gpu.complex.sf300.memutil} \\
+\addlinespace
+GH200 & \polarsgpu & \hoststat{gh200}{gpu_tel.polars_gpu.baseline.sf300.util} & \hoststat{gh200}{gpu_tel.polars_gpu.baseline.sf300.idle} & \hoststat{gh200}{gpu_tel.polars_gpu.baseline.sf300.power} & \hoststat{gh200}{gpu_tel.polars_gpu.baseline.sf300.memutil} & \hoststat{gh200}{gpu_tel.polars_gpu.complex.sf300.util} & \hoststat{gh200}{gpu_tel.polars_gpu.complex.sf300.idle} & \hoststat{gh200}{gpu_tel.polars_gpu.complex.sf300.power} & \hoststat{gh200}{gpu_tel.polars_gpu.complex.sf300.memutil} \\
+      & \sparkgpu & \hoststat{gh200}{gpu_tel.spark_gpu.baseline.sf300.util} & \hoststat{gh200}{gpu_tel.spark_gpu.baseline.sf300.idle} & \hoststat{gh200}{gpu_tel.spark_gpu.baseline.sf300.power} & \hoststat{gh200}{gpu_tel.spark_gpu.baseline.sf300.memutil} & \hoststat{gh200}{gpu_tel.spark_gpu.complex.sf300.util} & \hoststat{gh200}{gpu_tel.spark_gpu.complex.sf300.idle} & \hoststat{gh200}{gpu_tel.spark_gpu.complex.sf300.power} & \hoststat{gh200}{gpu_tel.spark_gpu.complex.sf300.memutil} \\
+\addlinespace
+B200  & \polarsgpu & \hoststat{b200}{gpu_tel.polars_gpu.baseline.sf300.util} & \hoststat{b200}{gpu_tel.polars_gpu.baseline.sf300.idle} & \hoststat{b200}{gpu_tel.polars_gpu.baseline.sf300.power} & \hoststat{b200}{gpu_tel.polars_gpu.baseline.sf300.memutil} & \hoststat{b200}{gpu_tel.polars_gpu.complex.sf300.util} & \hoststat{b200}{gpu_tel.polars_gpu.complex.sf300.idle} & \hoststat{b200}{gpu_tel.polars_gpu.complex.sf300.power} & \hoststat{b200}{gpu_tel.polars_gpu.complex.sf300.memutil} \\
+      & \sparkgpu & \hoststat{b200}{gpu_tel.spark_gpu.baseline.sf300.util} & \hoststat{b200}{gpu_tel.spark_gpu.baseline.sf300.idle} & \hoststat{b200}{gpu_tel.spark_gpu.baseline.sf300.power} & \hoststat{b200}{gpu_tel.spark_gpu.baseline.sf300.memutil} & \hoststat{b200}{gpu_tel.spark_gpu.complex.sf300.util} & \hoststat{b200}{gpu_tel.spark_gpu.complex.sf300.idle} & \hoststat{b200}{gpu_tel.spark_gpu.complex.sf300.power} & \hoststat{b200}{gpu_tel.spark_gpu.complex.sf300.memutil} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\studyfig{f12_gpu_idle_fraction}{0.8\linewidth}
+\caption{Share of GPU-idle samples (utilization below
+\stat{secondary.gpu_telemetry.meta.idle_threshold_pct}\%) inside measured
+actions of at least \stat{secondary.gpu_telemetry.meta.min_action_seconds}\,s,
+by scale, GPU engine and host (\stat{secondary.gpu_telemetry.meta.label}).
+Cells with no qualifying action are omitted.}
+\label{fig:f12}
+\end{figure}
+
+GPU telemetry (Table~\ref{tab:ladder-telemetry}, Figure~\ref{fig:f12};
+\stat{secondary.gpu_telemetry.meta.label}) describes how busy the GPU was during
+measured actions; it is not part of any estimate. At SF300 on the H100, the
+median utilization was \stat{gpu_tel.polars_gpu.complex.sf300.util}\% for
+\polarsgpu{} and \stat{gpu_tel.spark_gpu.complex.sf300.util}\% for \sparkgpu{} on
+the complex suite, with GPU-idle shares of
+\stat{gpu_tel.polars_gpu.complex.sf300.idle}\% and
+\stat{gpu_tel.spark_gpu.complex.sf300.idle}\%. The median SM clock was at the
+card's maximum in \stat{ladder.gpu_tel.clock_at_max} of \stat{ladder.gpu_tel.cells}
+populated cells. Utilization here is the share of time a kernel was running, not
+how much of the GPU it used, and we draw no causal conclusion from it.
+
+% BEGIN-RAN:a100
+\ifaonehundredran
+\paragraph{A100.} The A100 campaign completed
+\stat{a100.meta.rounds_completed} rounds (\stat{a100.meta.rounds_excluded_count} excluded,
+\stat{a100.meta.rounds_repeated} repeated; input gate \stat{a100.meta.input_gate}; design
+version \texttt{\stat{a100.meta.design_commit_short}} with
+\stat{a100.meta.amendments} amendments). On the
+baseline suite at SF300, the time ratio $t_{\mathrm{A100}}/t_{\mathrm{H100}}$
+was \ratiotext{xhost.a100.polars_gpu.baseline.sf300} for \polarsgpu{} and
+\ratiotext{xhost.a100.spark_gpu.baseline.sf300} for \sparkgpu{}. Peak sampled
+device memory on the complex suite at SF300 reached
+\stat{a100.peak_gpu_mem_gib.polars_gpu.complex.sf300.max}\,GiB for \polarsgpu{}
+(sampled device memory; on the A100, \stat{a100.gpu_mem_note.polars_gpu}) and
+\stat{a100.task_gpu_mem_gib.spark_gpu.complex.sf300.max}\,GiB for \sparkgpu{}
+(task-reported maximum), against
+\stat{a100.host.gpu_memory_gib}\,GiB of device memory.
+Resource exhaustion removed \stat{a100.coverage.polars_gpu.baseline.resource_exhaustion}
+baseline and \stat{a100.coverage.polars_gpu.complex.resource_exhaustion} complex
+\polarsgpu{} cells and \stat{a100.coverage.spark_gpu.complex.resource_exhaustion}
+complex \sparkgpu{} cells on the A100. With the Polars GPU engine included,
+the A100's C4 at SF300 was \ratiotext{a100.c4.baseline.sf300} (baseline) and
+\ratiotext{a100.c4.complex.sf300} (complex), with the crossover at
+\stat{a100.crossover.c4.text}; the earlier three-engine study, which
+had no Polars GPU engine, could not measure this contrast.
+\fi
+% END-RAN:a100
+% BEGIN-RAN:gh200
+\ifghtwohundredran
+\paragraph{GH200.} The GH200 campaign completed
+\stat{gh200.meta.rounds_completed} rounds (\stat{gh200.meta.rounds_excluded_count} excluded,
+\stat{gh200.meta.rounds_repeated} repeated; input gate \stat{gh200.meta.input_gate}; design
+version \texttt{\stat{gh200.meta.design_commit_short}} with
+\stat{gh200.meta.amendments} amendments) on aarch64.
+On the baseline suite at SF300, the time ratio
+$t_{\mathrm{GH200}}/t_{\mathrm{H100}}$ of the CPU engines, running on the
+Grace CPU against the H100 host's x86\_64 CPU at the same 26 threads, was
+\ratiotext{xhost.gh200.polars.baseline.sf300} for \polarscpu{} and
+\ratiotext{xhost.gh200.spark_cpu.baseline.sf300} for \sparkcpu{}; for the
+GPU engines it was \ratiotext{xhost.gh200.polars_gpu.baseline.sf300}
+(\polarsgpu{}) and \ratiotext{xhost.gh200.spark_gpu.baseline.sf300}
+(\sparkgpu{}). The CPU and GPU sides moved differently: \polarscpu{}'s
+interval lay below~1 (faster on the GH200)
+\stat{xhost.gh200.polars.both.below_text}, while
+\polarsgpu{} ranged from \stat{xhost.gh200.polars_gpu.overall.min} to
+\stat{xhost.gh200.polars_gpu.overall.max}. Because C1 and C4 use each host's
+own CPU engine, the GH200's C4 at SF300 was
+\stat{gh200.c4.baseline.sf300.vs_h100} on the baseline suite and
+\stat{gh200.c4.complex.sf300.vs_h100} on the complex suite.
+\fi
+% END-RAN:gh200
+% BEGIN-RAN:b200
+\ifbtwohundredran
+\paragraph{B200.} The B200 campaign completed
+\stat{b200.meta.rounds_completed} rounds (\stat{b200.meta.rounds_excluded_count} excluded,
+\stat{b200.meta.rounds_repeated} repeated; input gate \stat{b200.meta.input_gate}; design
+version \texttt{\stat{b200.meta.design_commit_short}} with
+\stat{b200.meta.amendments} amendments). At SF300
+the time ratio $t_{\mathrm{B200}}/t_{\mathrm{H100}}$ was
+\ratiotext{xhost.b200.polars_gpu.baseline.sf300} for \polarsgpu{} and
+\ratiotext{xhost.b200.spark_gpu.baseline.sf300} for \sparkgpu{} on the
+baseline suite, and \ratiotext{xhost.b200.polars_gpu.complex.sf300} and
+\ratiotext{xhost.b200.spark_gpu.complex.sf300} on the complex suite.
+For the \sparkgpu{} device-memory sample on the B200,
+\stat{b200.gpu_mem_note.spark_gpu}; on the H100,
+\stat{gpu_mem_note.spark_gpu}. Where the sample is not constant in every
+session, Figure~\ref{fig:f7}'s convention omits the pool-reservation line. We
+report this as observed; the task-reported maxima do not depend on it.
+\polarsgpu{} on the complex suite was slower on the B200 than on the H100
+(interval above~1 at \stat{xhost.b200.polars_gpu.complex.summary.above}, up to
+\stat{xhost.b200.polars_gpu.complex.summary.max}), while \sparkgpu{} ranged from
+\stat{xhost.b200.spark_gpu.overall.min} to \stat{xhost.b200.spark_gpu.overall.max}.
+The B200's C4 at SF300 was \stat{b200.c4.baseline.sf300.vs_h100} on the
+baseline suite and \stat{b200.c4.complex.sf300.vs_h100} on the complex suite,
+with the crossover at \stat{b200.crossover.c4.text}. These timings alone do not explain the
+differences between the B200 and the H100.
+\fi
+% END-RAN:b200
+\fi
+% END-RAN:any
+% BEGIN-NOTRUN:any
+\ifladderran\else
+None of the additional ladder campaigns ran (reasons in
+Section~\ref{sec:ladder-design}). As pre-registered, no software versions
+were changed to make them run, so all results in this paper come from the H100
+campaign.
+\fi
+% END-NOTRUN:any
+
+% ======================================================================
+\subsection{Exploratory analyses (not pre-registered)}
+\label{sec:exploratory}
+The analyses in this subsection were \emph{not} pre-registered. They were
+added after the side study showed how much the Polars CPU version matters
+(Section~\ref{sec:rq5}), and they are reported only here: they do not enter
+Table~\ref{tab:contrasts}, the ladder tables, the RQ3 crossover rule or any
+primary claim. E1 compares Polars~2.0.0 on the CPU with \polarsgpu{} (which
+runs on Polars~1.44.2), and E4 compares Polars~2.0.0 on the CPU with the best
+GPU engine per query. Because the two Polars versions come from different
+sessions (side study versus main rounds), these ratios also combine two
+measurement protocols.
+
+\begin{table}[t]
+\centering
+\caption{\textsc{Exploratory}, \stat{exploratory.e1.meta.label}: E1 and E4
+next to the pre-registered C1 and C4. E1 = $t$(Polars \stat{exploratory.e1.meta.cpu_version}
+CPU, side-study sessions) / $t$(\polarsgpu{}, main rounds); E4 uses the
+faster GPU engine per query and round instead. Above~1: the GPU side was
+faster. C1 and C4: paired $t$-interval across rounds (df~=~3). E1 and E4:
+\stat{exploratory_summary.interval_note}. Not part of any primary result or
+the crossover rule. \chartnote}
+\label{tab:exploratory}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+Suite & Scale & \shortstack{C1\\(pre-registered)} & \shortstack{E1\\(exploratory)} & \shortstack{C4\\(pre-registered)} & \shortstack{E4\\(exploratory)} \\
+\midrule
+baseline & SF1   & \ratioci{c1.baseline.sf1} & \ratioci{exploratory.e1.baseline.sf1} & \ratioci{c4.baseline.sf1} & \ratioci{exploratory.e4.baseline.sf1} \\
+         & SF10  & \ratioci{c1.baseline.sf10} & \ratioci{exploratory.e1.baseline.sf10} & \ratioci{c4.baseline.sf10} & \ratioci{exploratory.e4.baseline.sf10} \\
+         & SF30  & \ratioci{c1.baseline.sf30} & \ratioci{exploratory.e1.baseline.sf30} & \ratioci{c4.baseline.sf30} & \ratioci{exploratory.e4.baseline.sf30} \\
+         & SF100 & \ratioci{c1.baseline.sf100} & \ratioci{exploratory.e1.baseline.sf100} & \ratioci{c4.baseline.sf100} & \ratioci{exploratory.e4.baseline.sf100} \\
+         & SF300 & \ratioci{c1.baseline.sf300} & \ratioci{exploratory.e1.baseline.sf300} & \ratioci{c4.baseline.sf300} & \ratioci{exploratory.e4.baseline.sf300} \\
+\midrule
+complex  & SF30  & \ratioci{c1.complex.sf30} & \ratioci{exploratory.e1.complex.sf30} & \ratioci{c4.complex.sf30} & \ratioci{exploratory.e4.complex.sf30} \\
+         & SF100 & \ratioci{c1.complex.sf100} & \ratioci{exploratory.e1.complex.sf100} & \ratioci{c4.complex.sf100} & \ratioci{exploratory.e4.complex.sf100} \\
+         & SF300 & \ratioci{c1.complex.sf300} & \ratioci{exploratory.e1.complex.sf300} & \ratioci{c4.complex.sf300} & \ratioci{exploratory.e4.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\studyfig{f02x_c1_e1_exploratory}{\linewidth}
+\caption{\textsc{Exploratory} (post-hoc; not in the locked design): suite
+geometric-mean ratios versus scale for C1 and C4 (pre-registered) and E1 and
+E4 (exploratory, against Polars~2.0.0 on the CPU). The exploratory panels are
+marked as such in the figure; their bands are Welch-type 95\% intervals.
+\chartnote}
+\label{fig:f2x}
+\end{figure}
+
+At SF300, E1 (exploratory, post-hoc) was
+\ratiotext{exploratory.e1.baseline.sf300} on the baseline suite and
+\ratiotext{exploratory.e1.complex.sf300} on the complex suite, against C1 of
+\ratiotext{c1.baseline.sf300} and \ratiotext{c1.complex.sf300}; E4
+(exploratory, post-hoc) was \ratiotext{exploratory.e4.baseline.sf300} and
+\ratiotext{exploratory.e4.complex.sf300}, against C4 of
+\ratiotext{c4.baseline.sf300} and \ratiotext{c4.complex.sf300}
+(Table~\ref{tab:exploratory}, Figure~\ref{fig:f2x}). E1 and E4 use
+\stat{exploratory.e1.complex.sf300.n_queries} complex queries at SF300 for E1
+and \stat{exploratory.e4.complex.sf300.n_queries} for E4 (queries the GPU side
+could not run are excluded, as in C1 and C4). E1 was smaller than C1
+\stat{exploratory.e1.both.below_c1_text}: against
+Polars~2.0.0 on the CPU, \polarsgpu{}'s advantage shrank. E1's interval still
+lay above~1 \stat{exploratory.e1.both.above_text}, and below~1 at
+\stat{exploratory.e1.baseline.summary.below} on the baseline suite. These are
+exploratory (post-hoc) results; no crossover statement is drawn from E1 or
+E4.
+% NOTE: every E number must keep its "exploratory" label.
+
+% ======================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{When does a GPU help?} On this workload the answer depends on scale
+and query shape. At the smallest scale both GPU engines lost to their own
+framework's CPU engine (C1 below~1 at \stat{c1.baseline.summary.below}, C2 at
+\stat{c2.baseline.summary.below}), which is consistent with fixed per-query
+costs that a small input cannot amortize. \polarsgpu{} was faster than Polars
+1.44.2 on the CPU \stat{c1.both.above_text}. The largest per-query gains were on grouped aggregations
+and joins and the smallest on the selective scan-and-sum \q{q06}, whose
+SF300 interval \stat{c1.baseline.sf300.q.q06.verdict}. That pattern matches the
+Polars guide's statement that grouped aggregations and joins benefit most and
+I/O-bound queries least~\citep{polars_gpu_guide}, although our design does not
+isolate query shape as a factor.
+
+\paragraph{GPU versus a strong CPU baseline.} C4 asks whether the faster GPU
+engine beats Polars on the CPU of the same host, a different question from the
+within-framework speedups C1 and C2. On the H100 it did so from
+\stat{crossover.baseline.c4.scale} (baseline) and
+\stat{crossover.complex.c4.scale} (complex), reaching
+\ratiotext{c4.baseline.sf300} and \ratiotext{c4.complex.sf300} at SF300. These
+are multiples of a few, not orders of magnitude, in line with the expectation
+of \citet{shanbhag2020gpucpu} that well-implemented CPU code bounds GPU speedups
+near the bandwidth ratio; with Parquet reads and device-to-host transfers inside
+the timer, the transfer costs analyzed by \citet{lutz2020pump} are part of
+every GPU time here.
+
+\paragraph{A version-locked CPU baseline.} The Polars GPU engine is tied to
+Polars 1.44.x, and Polars 2.0.0 on the CPU was \stat{bridge_summary.both}. The
+exploratory E1 (Section~\ref{sec:exploratory}) shows the GPU's advantage
+shrinking against the newer release but, as an exploratory and post-hoc result,
+still above~1 from \stat{exploratory.e1.baseline.summary.above} on the baseline
+suite. The largest single C4 value at SF300,
+\ratiotext{c4.complex.sf300.q.cx_window} for \q{cx\_window} (run by \sparkgpu{},
+since \polarsgpu{} rejects it as unsupported), is on the query where Polars 2.0.0 gained
+most on the CPU (\q{\stat{bridge_summary.complex.extreme_query}},
+\stat{bridge_summary.complex.extreme.min}--\stat{bridge_summary.complex.extreme.max}).
+This value comes largely from the slow Polars~1.44.2 CPU path and is not a
+measure of GPU performance. The version lock is itself a practical cost of
+choosing the GPU engine: it ties the CPU side to an older Polars.
+
+\paragraph{Two routes to the GPU.} \polarsgpu{} was faster than \sparkgpu{} in
+\stat{ladder.c3.cells_above} of \stat{ladder.c3.cells} suite--scale cells across
+the hosts (C3 from \stat{ladder.c3.min} to \stat{ladder.c3.max}). Both engines
+execute through libcudf (in different releases), so the gap may reflect what
+surrounds the device work: Spark's JVM, task scheduling, shuffle and plan
+translation, which are inside our timer, against a single-process Polars plan.
+We did not measure these components separately. The descriptive telemetry is
+compatible with, but does not establish, such an overhead: on the H100's
+complex suite at SF300, \sparkgpu{}'s samples were GPU-idle
+\stat{gpu_tel.spark_gpu.complex.sf300.idle}\% of the time against
+\stat{gpu_tel.polars_gpu.complex.sf300.idle}\% for \polarsgpu{}
+(\stat{secondary.gpu_telemetry.meta.label}). \sparkgpu{} has the
+coverage advantage: it ran every complex query, including the two that
+\polarsgpu{} rejects (RQ4), and won most of the complex cells \polarsgpu{} did
+not win (\stat{fastest.spark_gpu.complex.won_text}).
+
+\paragraph{Practical guidance.} Within the limits of this study: for data at or
+above the crossover scale (here \stat{crossover.baseline.c4.scale} on the
+H100's baseline suite) on a host like these, try the Polars GPU engine first
+and run it once with \texttt{raise\_on\_fail=True} to find queries it would
+silently hand back to the CPU; for small inputs Polars on the CPU was faster;
+compare against the newest Polars on the CPU, not only the version the GPU
+engine supports; and if a query is not supported by the Polars GPU engine,
+Spark with the cuDF plugin may run it on the GPU.
+
+% BEGIN-RAN:any
+\ifladderran
+\paragraph{Does a newer GPU help?} Two questions need separating. First, does
+the same engine get faster on a newer GPU (Table~\ref{tab:ladder-xhost},
+Figure~\ref{fig:f11})? From the A100 to the H100, yes, for both GPU engines
+($t_{\mathrm{A100}}/t_{\mathrm{H100}}$ from \stat{ladder.xhost_gpu.a100.min} to
+\stat{ladder.xhost_gpu.a100.max}). Beyond the H100, the GPU engines' ratios on
+the GH200 and B200 ranged from \stat{ladder.xhost_gpu.later.min} to
+\stat{ladder.xhost_gpu.later.max}, and \polarsgpu{} on the complex suite was
+slower on the B200. Second, does a newer GPU change the decision, that is, C4
+on that host (Table~\ref{tab:ladder})? Not qualitatively: every host showed the
+same pattern of CPU wins at the smallest scale and GPU wins at the largest. A
+faster GPU engine need not raise C4 if the host's CPU engine also changes, as
+on the GH200. Why the GPU engines did not speed up beyond the H100 is not
+answered by these timings. The GPU telemetry
+(Table~\ref{tab:ladder-telemetry}, Figure~\ref{fig:f12}) is descriptive and not
+pre-registered (\stat{secondary.gpu_telemetry.meta.label}). It pools nvidia-smi
+samples taken every \stat{secondary.gpu_telemetry.meta.sample_interval_ms}\,ms and
+leaves out actions shorter than \stat{secondary.gpu_telemetry.meta.min_action_seconds}\,s,
+so \polarsgpu{} has qualifying cells only from
+\stat{gpu_tel.ladder.polars_gpu.smallest_scale} upward and none at SF1. Its
+utilization measure, \texttt{utilization.gpu}, is the share of time any kernel
+was running, not SM occupancy or throughput. At SF300, \polarsgpu{}'s GPU-idle
+share was at most \stat{gpu_tel.ladder.polars_gpu.sf300.idle.max}\% on every
+host, while its median power was only \stat{gpu_tel.ladder.polars_gpu.sf300.power.min}\%
+to \stat{gpu_tel.ladder.polars_gpu.sf300.power.max}\% of the board limit and its
+median memory-controller utilization \stat{gpu_tel.ladder.polars_gpu.sf300.memutil.min}\%
+to \stat{gpu_tel.ladder.polars_gpu.sf300.memutil.max}\%, with SM clocks at their
+maximum. This is consistent with \polarsgpu{} work that keeps the device
+occupied without saturating power or memory bandwidth, which would limit the
+gains from a faster GPU. \sparkgpu{}'s GPU-idle share at SF300 ranged from
+\stat{gpu_tel.ladder.spark_gpu.sf300.idle.min}\% to
+\stat{gpu_tel.ladder.spark_gpu.sf300.idle.max}\% (highest:
+\stat{gpu_tel.ladder.spark_gpu.sf300.idle.max_where}), which is consistent with
+\sparkgpu{} waiting on host-side work. Each rung changes the whole host, so we
+do not attribute the timings to any one component.
+
+\paragraph{Is the H100 picture robust?} For RQ1 to RQ4 the direction of the
+H100 conclusions recurred on the other hosts: C4 below~1 at SF1 and above~1 at
+the larger scales, \polarsgpu{} ahead of \sparkgpu{} everywhere, and coverage
+limited to the pre-declared gaps. Individual intervals near the crossover
+differ (for example, some C2 intervals at the smallest scales include~1 on
+other hosts; Appendix~\ref{app:ladder}). The
+magnitudes differ between hosts (Table~\ref{tab:ladder}), and some crossovers
+moved by one scale step. Because every campaign used the same author, code and
+software, this is robustness to hardware, not independent replication.
+% BEGIN-RAN:gh200
+\ifghtwohundredran
+
+\paragraph{The Grace~Hopper rung.} The GH200 pairs a Hopper GPU with an Arm CPU
+and a coherent CPU--GPU link. \polarscpu{} was faster there than on the H100
+(ratios from \stat{xhost.gh200.polars.overall.min} to
+\stat{xhost.gh200.polars.overall.max}), with 26 threads on
+\stat{gh200.host.cpus_arg_cores_text} physical cores against
+\stat{host.cpus_arg_cores_text} on the H100, while its GPU engines stayed within
+\stat{ladder.xhost_gpu.gh200.min}--\stat{ladder.xhost_gpu.gh200.max} of the
+H100's. The faster CPU baseline lowers C1 and C4 on this host. A faster
+CPU--GPU link would be expected to help transfer-bound queries
+\citep{lutz2020pump}; the GPU engines' small ratios do not show a large effect,
+but our design cannot separate the link from the other host differences.
+\fi
+% END-RAN:gh200
+% BEGIN-RAN:a100
+\ifaonehundredran
+
+\paragraph{The four-engine A100 result.} The earlier A100 study found that
+Polars CPU kept the lower aggregate time at every observed scale, with GPU
+Spark winning only selected queries. With the Polars GPU engine added, the
+A100 campaign shows the best GPU engine ahead of Polars CPU from
+\stat{a100.crossover.c4.text}, so the earlier conclusion was
+specific to the engines it compared. The 40\,GB device did not cost coverage
+(Table~\ref{tab:ladder-coverage}), although \polarsgpu{}'s memory pool came
+close to its capacity at complex SF300 (Section~\ref{sec:ladder}).
+\fi
+% END-RAN:a100
+\fi
+% END-RAN:any
+
+\paragraph{Comparison with the earlier A100 study.} GPU Spark was faster on the
+H100 than in the earlier study ($t_{\mathrm{A100}}/t_{\mathrm{H100}}$
+\stat{a100_h100.spark_gpu.baseline.sf300.estimate} and
+\stat{a100_h100.spark_gpu.complex.sf300.estimate} at SF300), but that
+comparison mixes hosts, thread counts and protocols (Figure~\ref{fig:f9}). The
+A100 ladder campaign is the like-for-like A100 result, and it is the one we use
+for A100 statements.
+
+% ======================================================================
+\section{Threats to Validity}
+\label{sec:threats}
+
+\subsection{Internal validity}
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{Few rounds.} Four rounds give $\text{df}=3$ and a $t$
+    multiplier of about 3.18, so intervals are wide. A non-overlapping
+    interval is informative; an interval including~1 does not show
+    equivalence.
+  \item \textbf{Order and carryover.} The Williams square balances position
+    and first-order carryover across engines but does not remove them;
+    higher-order carryover is not balanced. We report position and predecessor
+    effects descriptively (Figure~\ref{fig:f6}).
+  \item \textbf{Within-session trials are not independent.} Three trials share
+    one process, JIT and memory-pool state; we use their median as one
+    observation per round rather than as replicates.
+  \item \textbf{Unlocked clocks.} GPU and CPU clocks were not locked; they and
+    the temperatures were recorded at 200\,ms. Thermal or power throttling would
+    show up as between-round variation; it is not controlled.
+  \item \textbf{Page cache.} Files are preheated before every session, but
+    residency is not verified; at SF300 the inputs approach half of host RAM
+    and compete with engine memory.
+  \item \textbf{Garbage-collection barriers} in the complex suite change the
+    heap state each query sees; they apply equally to all engines but differ
+    in cost (Polars versus JVM).
+  \item \textbf{Adaptive plans vary between trials.} Spark's adaptive query
+    execution can end the same query in different final plans in different
+    trials. On the H100, \stat{plan_variability.cells_variable} of
+    \stat{plan_variability.cells_checked} Spark query--scale cells had trials
+    ending in more than one final plan (\stat{plan_variability.trials_with_plan}
+    trials with a saved plan; the cells are listed in the artifact). This is a
+    statement about trials, not a defect: every measured trial enters its
+    cell's median as designed, so in such a cell the median also reflects which
+    plan adaptive execution chose, and its spread is larger. On the H100 the
+    variable cell was \stat{plan_variability.cells_text}; the other hosts' are
+    listed in the artifact.
+% BEGIN-RAN:any
+\ifladderran
+    The same Spark GPU cell varied on the other hosts as well
+    (\hoststat{a100}{plan_variability.cells_text} on the A100;
+    \hoststat{gh200}{plan_variability.cells_text} on the GH200;
+    \hoststat{b200}{plan_variability.cells_text} on the B200).
+\fi
+% END-RAN:any
+  \item \textbf{Selecting the best GPU engine for C4.} In each round, C4
+    uses the faster of the two GPU engines for each query. Taking the minimum
+    of two noisy times biases C4 towards the GPU side, most when the two GPU
+    engines are close. The analyzer records which engine was selected in each
+    round, so readers can check how often the selection switched.
+\end{itemize}
+
+\subsection{Construct validity}
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{Timing scope differs at the result boundary.} The Spark timer
+    includes collecting results into Python \texttt{Row} objects; the Polars
+    timer stops at a host DataFrame and excludes \texttt{to\_dicts()}. Python
+    object conversion is therefore partly inside Spark's timer and outside
+    Polars'. Result sets are small (at most 20 rows per baseline query and at
+    most 175 rows per complex query in the A100 study's saved outputs), so we
+    expect the effect to be small, but it is not measured separately.
+  \item \textbf{Float64 normalization.} Decimal money and quantity columns are
+    cast to Float64 in every engine. This removes decimal-arithmetic costs and
+    any GPU decimal support from the measurement.
+  \item \textbf{Median-of-medians metrics.} The suite geometric mean weights
+    every query equally regardless of its duration; the legacy sum is dominated
+    by long queries. Neither is a once-through suite time, throughput, or
+    TPC metric.
+  \item \textbf{Strict GPU coverage.} Under \texttt{raise\_on\_fail=True},
+    \polarsgpu{} does not time a query it cannot fully run on the GPU; a user with
+    default settings would see a CPU fallback instead. The Spark plugin can run
+    hybrid plans; our plan rule checks operator selection, not the fraction of
+    runtime spent on the GPU. For \polarsgpu{}, the streaming executor's
+    single-partition fallback still runs on the GPU and is captured as
+    warnings, not counted as a CPU fallback.
+  \item \textbf{Final-plan evidence} shows which operators were selected, not
+    whether each did nonempty work (for example, an anti-join branch whose
+    input is empty).
+  \item \textbf{Startup excluded.} Session start, JVM launch and table
+    registration are outside the timer; they are reported separately.
+\end{itemize}
+
+\subsection{External validity}
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{One primary host.} All primary results come from one Lambda
+    H100 SXM5 instance with \stat{host.vcpus} vCPUs, local NVMe and \stat{host.host_ram_gib}\,GiB RAM. They do not
+    describe distributed Spark clusters, object storage, or equal-cost CPU
+    instances. A CPU-only host of the same price could have many more cores.
+  \item \textbf{GPU choice limited by availability.} GB300 and H200 instances
+    were not available from the provider, so the newest rung is a B200. The
+    results say nothing about GPUs that are not on the ladder.
+  \item \textbf{Earlier A100 study.} The earlier study
+    (\stat{a100_h100.study.label}) ran \stat{a100_h100.study.cpu_threads}
+    threads, \stat{a100_h100.study.sessions_per_cell} session per cell and
+    Polars \stat{a100_h100.study.polars_version} (against
+    \stat{a100_h100.study.polars_version_h100} here), so its comparison with
+    the H100 (Figure~\ref{fig:f9}) is descriptive only and its CPU engines are
+    not compared; the A100 ladder campaign, which runs this design at 26
+    threads, replaces it as the like-for-like A100 result.
+  \item \textbf{Version-locked CPU baseline.} Polars 1.44.2 is used because no
+    released \texttt{cudf-polars} supports 2.0, so the CPU reference in C1 and
+    C4 is an older Polars than the current release. In the side study, 2.0.0
+    on the CPU was \stat{bridge_summary.both}.
+    Where 2.0.0 is faster, C1 and C4 overstate the GPU's advantage over the
+    newest CPU Polars, by roughly that ratio. We cannot measure a GPU engine on
+    Polars 2.0; the post-hoc E1/E4 (Section~\ref{sec:exploratory}) are not a
+    substitute for a pre-registered contrast.
+  \item \textbf{Fixed, untuned configurations.} The Spark settings are those
+    of the A100 study, not tuned for the H100 or for each scale; the Polars GPU
+    engine uses defaults. Tuning could change any contrast, in either
+    direction.
+  \item \textbf{Derived, uncertified workload.} Twelve selected or custom
+    queries on DuckDB-generated data with fixed parameters are not TPC-H and
+    do not represent all analytical workloads. Results may not transfer to
+    other query shapes, data distributions, string-heavy or skewed data.
+  \item \textbf{Software snapshot.} Results describe specific releases
+    (Polars 1.44.2, cudf-polars 26.10.2, Spark 3.5.9, plugin 26.08.1) as of
+    October 2026; the Polars GPU engine is labelled open beta and changes
+    quickly.
+  \item \textbf{GPU coverage gaps} remove two complex queries from every
+    \polarsgpu{} contrast, so C1 and C3 complex-suite estimates average over a
+    different query set than C2 and C4.
+\end{itemize}
+
+\subsection{Validity of the ladder comparisons}
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{Each rung changes the whole host.} Between rungs the GPU,
+    device memory, CPU model, RAM, CPU--GPU link and driver
+    all change (Table~\ref{tab:hosts}). Cross-host ratios describe hosts, not
+    GPUs; no cross-host difference is attributed to the GPU generation alone.
+  \item \textbf{26 threads on hosts with more vCPUs.} Every host runs the
+    engines with 26 threads, so the A100 and GH200 hosts' larger vCPU counts
+    (Table~\ref{tab:hosts}) are not used fully. This keeps engine thread counts equal across the ladder but
+    understates what the CPU engines could do on those hosts, and with them
+    the C4 reference on that host: on the GH200 especially, a CPU engine using
+    all of the host's vCPUs could narrow or reverse a GPU advantage. On the A100 and
+    GH200 the idle vCPUs can also absorb operating-system, JVM and telemetry
+    threads, which on the H100 and B200, with fewer vCPUs, compete with the engines; this
+    slightly favours the larger hosts. Each host's result is a 26-thread
+    result.
+  \item \textbf{Equal threads, unequal cores.} The hosts can differ in
+    simultaneous multithreading and core count, as reported by \texttt{lscpu}
+    inside each virtual machine (Table~\ref{tab:hosts}). Where a host has two
+    hardware threads per core, the 26 engine threads share half as many
+    physical cores as on a host with one, so cross-host ratios for the CPU
+    engines, and each host's CPU reference in C1, C2 and C4, also reflect the
+    number of physical cores in use, not only the CPU model. The topology is
+    guest-reported; how virtual CPUs map to host cores is not visible to us.
+  \item \textbf{Arm versus x86 CPU engines.} On the GH200 the CPU engines run
+    aarch64 builds of the same versions (Polars wheel, JDK and JIT, Spark, and
+    the plugin's aarch64 artifact) on a Grace CPU. Differences in the CPU
+    engines across that rung mix the instruction set, compiler output, SIMD
+    code paths, memory system and core count of the CPU; they are not a
+    measure of the H100 versus the GH200's GPU. Because C4 and C1/C2 use the
+    host's own CPU engines as the reference, a change in those contrasts on
+    the GH200 can come from the CPU side. The platform-specific artifacts are
+    recorded with their SHA-256.
+  \item \textbf{Drivers differ.} Each host runs the NVIDIA driver of its
+    provider image (Table~\ref{tab:hosts}); drivers are recorded, not
+    equalized. The pinned packages are identical, but driver-level behaviour
+    (for example, memory management and clock policy) is confounded with the
+    host.
+  \item \textbf{Each additional host is conditional.} A host's campaign runs
+    only if the provider has capacity and the pinned stack passes preflight
+    and input verification on that GPU and instruction set; versions are never
+    changed to make a host run. The ladder that ran may therefore be
+    incomplete (hosts not run: \stat{hosts.not_run_list}). These conditions
+    were fixed before any timing and do not depend on results, so a missing
+    rung does not select hosts by outcome, but it does limit which
+    generations the paper can speak to.
+  \item \textbf{Campaigns run at different times.} The hosts' campaigns run
+    one after another with identical software, so they share the software
+    snapshot but not the moment; provider-side conditions (for example, a
+    different physical host behind the same instance type) are not
+    controlled.
+  \item \textbf{Device and host memory.} The A100's 40\,GB device memory makes
+    resource-exhaustion coverage outcomes at SF300 more likely there, which
+    shrinks the set of queries in its \polarsgpu{} and \sparkgpu{} contrasts;
+    its host RAM, the smallest in the provider's listing
+    (Table~\ref{tab:hosts}), also leaves less room for the page cache.
+    Cross-host suite ratios are computed over queries
+    supported on both hosts, so they can average over different query sets
+    for different hosts.
+% BEGIN-RAN:b200
+\ifbtwohundredran
+  \item \textbf{Known Blackwell compiler defect (amendment A4).} On
+    Blackwell, the CUDA 12.9 \texttt{ptxas} compiler can miscompile
+    \texttt{thrust::exclusive\_scan\_by\_key}, silently corrupting results from
+    the second tile onward~\citep{cccl11167}. The reports reproduce it only on
+    another Blackwell variant (sm\_120); whether it affects the B200 (sm\_100)
+    is not established either way. Reported manifestations include Parquet
+    reads of files with many string pages and splits of many buffers, which
+    are most likely at SF100 and SF300. The \polarsgpu{} build contains cuDF's
+    workaround~\citep{cudf23973}, though other code built by the same compiler
+    could still be affected; the \sparkgpu{} plugin JAR predates the
+    workaround. The guard is the output-agreement gate: every B200 output is
+    compared with \polarscpu{} (Section~\ref{sec:gates}), so a corrupted
+    result that changes a query answer fails the round as an integrity failure
+    and is never reported as a timing. In the B200 campaign,
+    \stat{b200.agreement_cells.polars_gpu.within_gate} of
+    \stat{b200.agreement_cells.polars_gpu.total} \polarsgpu{} and
+    \stat{b200.agreement_cells.spark_gpu.within_gate} of
+    \stat{b200.agreement_cells.spark_gpu.total} \sparkgpu{} suite--scale cells
+    had no output outside the gate's tolerance. The largest relative
+    differences from \polarscpu{} were
+    \stat{b200.agreement_max.polars_gpu.max_rel_diff} (\polarsgpu{}) and
+    \stat{b200.agreement_max.spark_gpu.max_rel_diff} (\sparkgpu{}), against
+    \stat{agreement_max.polars_gpu.max_rel_diff} and
+    \stat{agreement_max.spark_gpu.max_rel_diff} on the H100 (ratios of the
+    maxima \stat{xagree.b200.polars_gpu.max_ratio} and
+    \stat{xagree.b200.spark_gpu.max_ratio}); the B200's largest difference
+    exceeded the H100's in \stat{xagree.b200.polars_gpu.cells_larger} of
+    \stat{xagree.b200.polars_gpu.cells} and
+    \stat{xagree.b200.spark_gpu.cells_larger} of
+    \stat{xagree.b200.spark_gpu.cells} cells, respectively. This is absence of
+    evidence that the defect affected these outputs, not proof that it did
+    not.
+% NOTE: if any within_gate count is below its total, the B200 round
+% failed integrity; rewrite this sentence around that outcome.
+    Its diagnosis records whether the
+    evidence (engine, operator, scale) fits the defect; the defect is not used
+    to reclassify a failure. If B200 rounds fail integrity twice, the B200
+    campaign is reported as not completed, without version changes. The gate
+    compares final answers only: a defect that slows a query or corrupts an
+    intermediate result without changing the answer would not be detected.
+\fi
+% END-RAN:b200
+  \item \textbf{The ladder is not independent replication.} Every campaign
+    uses the same author, code, software versions, input recipe and provider,
+    so the ladder tests whether the results hold on other hardware, not
+    whether another team would reproduce them.
+\end{itemize}
+
+% ======================================================================
+\section{Reproducibility and Artifact}
+\label{sec:artifact}
+
+The repository contains the generators, query definitions (SQL and native
+Polars), runner, worker, cleanup helper, analyzers and plotting code; the
+locked design document; the per-round saved results (every trial time, every
+materialized output, Spark final plans, Polars GPU session guard records,
+telemetry and manifests); the input manifests; and checksums of all copied
+results. Generated Parquet data and NVIDIA binaries are not redistributed; the
+generation recipe and pinned dependency versions (with the plugin JAR's
+SHA-256) are provided; for the GH200, the aarch64 artifacts and their
+SHA-256 are recorded as well. Each host's campaign (A100, H100, GH200, B200,
+where run) has its own campaign root, host record and analysis output and is
+analyzed separately; the cross-host comparison is a separate output computed
+from the per-host results. Table~\ref{tab:jars} identifies the Spark plugin
+JAR each host ran: the GH200 uses the plugin's aarch64 (\texttt{arm64}) build
+of the same version.
+
+\begin{table}[h]
+\centering
+\caption{Spark plugin JAR per host, as recorded in each campaign's host
+identity (first 16 hexadecimal digits of the SHA-256; the full digest is in
+each campaign's \texttt{stats.json}). \hostnotrun{}: campaign not run.}
+\label{tab:jars}
+\scriptsize
+\begin{tabular}{@{}lll@{}}
+\toprule
+Host & JAR & SHA-256 (prefix) \\
+\midrule
+A100  & \hoststat{a100}{host.rapids_jar}  & \texttt{\hoststat{a100}{host.rapids_jar_sha256_short}} \\
+H100  & \stat{host.rapids_jar}             & \texttt{\stat{host.rapids_jar_sha256_short}} \\
+GH200 & \hoststat{gh200}{host.rapids_jar} & \texttt{\hoststat{gh200}{host.rapids_jar_sha256_short}} \\
+B200  & \hoststat{b200}{host.rapids_jar}  & \texttt{\hoststat{b200}{host.rapids_jar_sha256_short}} \\
+\bottomrule
+\end{tabular}
+\end{table} The statistics and every number in this paper are
+regenerated from saved results by the campaign analyzer, and the paper's
+numbers are inserted from its \texttt{stats.json} output rather than typed.
+% TODO(author): repository URL, archive DOI (e.g. Zenodo), licence of
+% original contributions (unresolved; see NOTICES.md), and TPC/DuckDB notice
+% material to accompany the artifact.
+Artifact location: \pending{repository URL and archive DOI}.
+
+% ======================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We designed and pre-registered a four-engine, four-round randomized comparison
+of CPU and GPU variants of Polars and Spark on one H100 host, with integrity
+gates that do not depend on timings and interval estimates for every contrast.
+On the H100, \polarsgpu{} was slower than Polars~1.44.2 on the CPU at
+\stat{c1.baseline.summary.below} and faster \stat{c1.both.above_text}; the best
+GPU engine
+was faster than Polars~1.44.2 on the CPU from
+\stat{crossover.baseline.c4.scale} (baseline) and
+\stat{crossover.complex.c4.scale} (complex), by
+\ratiotext{c4.baseline.sf300} and \ratiotext{c4.complex.sf300} at SF300.
+\polarsgpu{} was the faster GPU engine everywhere but rejected
+\stat{coverage.polars_gpu.complex.unsupported} of the twelve queries as
+unsupported (CPU fallback disabled by design). Polars~2.0.0 on the CPU, which the GPU engine cannot use, was
+\stat{bridge_summary.both}, and against it the GPU's advantage was smaller
+(exploratory, post-hoc).
+% BEGIN-RAN:any
+\ifladderran
+Repeating the campaign on \stat{hosts.other_ran_list} did not change that
+answer qualitatively: the GPU engines were slower on the A100 and not
+consistently faster on the GH200 or B200 than on the H100.
+\fi
+% END-RAN:any
+These results describe specific hosts at 26 engine threads, one derived
+workload and specific software releases; they do not establish a universal
+winner.
+
+\section*{Acknowledgements}
+% TODO(author)
+\pending{funding, compute provider, reviewers.} No endorsement by NVIDIA,
+the Polars project, DuckDB, the Apache Software Foundation or TPC is implied.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\appendix
+\section{Per-query speedups at every scale}
+\label{app:forest}
+Figure~\ref{fig:f1} shows SF300. The remaining scales follow with the same
+layout; the complex suite starts at SF30. \chartnote
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[t]{0.49\linewidth}\centering\studyfig{f01_forest_sf1}{\linewidth}\caption{SF1}\end{subfigure}\hfill
+\begin{subfigure}[t]{0.49\linewidth}\centering\studyfig{f01_forest_sf10}{\linewidth}\caption{SF10}\end{subfigure}\\[4pt]
+\begin{subfigure}[t]{0.49\linewidth}\centering\studyfig{f01_forest_sf30}{\linewidth}\caption{SF30}\end{subfigure}\hfill
+\begin{subfigure}[t]{0.49\linewidth}\centering\studyfig{f01_forest_sf100}{\linewidth}\caption{SF100}\end{subfigure}
+\caption{Per-query speedup ratios with 95\% CIs (four rounds, df~=~3) at SF1
+to SF100. \chartnote}
+\label{fig:f1-all}
+\end{figure}
+
+% BEGIN-RAN:any
+\ifladderran
+\section{Full contrast tables for the other ladder hosts}
+\label{app:ladder}
+Each table repeats Table~\ref{tab:contrasts} for one additional host,
+computed from that host's campaign alone (four rounds, df~=~3). Hosts whose
+campaign did not run are omitted.
+% BEGIN-RAN:a100
+\ifaonehundredran
+\begin{table}[h]
+\centering
+\caption{A100 campaign: suite-level geometric-mean speedup ratios with
+95\% CIs (compare Table~\ref{tab:contrasts}). \chartnote}
+\label{tab:contrasts-a100}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+Suite & Scale & \shortstack{C1\\\polarscpu/\\\polarsgpu} & \shortstack{C2\\\sparkcpu/\\\sparkgpu} & \shortstack{C3\\\sparkgpu/\\\polarsgpu} & \shortstack{C4\\\polarscpu/\\best GPU} \\
+\midrule
+baseline & SF1   & \ratioci{a100.c1.baseline.sf1} & \ratioci{a100.c2.baseline.sf1} & \ratioci{a100.c3.baseline.sf1} & \ratioci{a100.c4.baseline.sf1} \\
+         & SF10  & \ratioci{a100.c1.baseline.sf10} & \ratioci{a100.c2.baseline.sf10} & \ratioci{a100.c3.baseline.sf10} & \ratioci{a100.c4.baseline.sf10} \\
+         & SF30  & \ratioci{a100.c1.baseline.sf30} & \ratioci{a100.c2.baseline.sf30} & \ratioci{a100.c3.baseline.sf30} & \ratioci{a100.c4.baseline.sf30} \\
+         & SF100 & \ratioci{a100.c1.baseline.sf100} & \ratioci{a100.c2.baseline.sf100} & \ratioci{a100.c3.baseline.sf100} & \ratioci{a100.c4.baseline.sf100} \\
+         & SF300 & \ratioci{a100.c1.baseline.sf300} & \ratioci{a100.c2.baseline.sf300} & \ratioci{a100.c3.baseline.sf300} & \ratioci{a100.c4.baseline.sf300} \\
+\midrule
+complex  & SF30  & \ratioci{a100.c1.complex.sf30} & \ratioci{a100.c2.complex.sf30} & \ratioci{a100.c3.complex.sf30} & \ratioci{a100.c4.complex.sf30} \\
+         & SF100 & \ratioci{a100.c1.complex.sf100} & \ratioci{a100.c2.complex.sf100} & \ratioci{a100.c3.complex.sf100} & \ratioci{a100.c4.complex.sf100} \\
+         & SF300 & \ratioci{a100.c1.complex.sf300} & \ratioci{a100.c2.complex.sf300} & \ratioci{a100.c3.complex.sf300} & \ratioci{a100.c4.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\fi
+% END-RAN:a100
+% BEGIN-RAN:gh200
+\ifghtwohundredran
+\begin{table}[h]
+\centering
+\caption{GH200 campaign: suite-level geometric-mean speedup ratios with
+95\% CIs (compare Table~\ref{tab:contrasts}). \chartnote}
+\label{tab:contrasts-gh200}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+Suite & Scale & \shortstack{C1\\\polarscpu/\\\polarsgpu} & \shortstack{C2\\\sparkcpu/\\\sparkgpu} & \shortstack{C3\\\sparkgpu/\\\polarsgpu} & \shortstack{C4\\\polarscpu/\\best GPU} \\
+\midrule
+baseline & SF1   & \ratioci{gh200.c1.baseline.sf1} & \ratioci{gh200.c2.baseline.sf1} & \ratioci{gh200.c3.baseline.sf1} & \ratioci{gh200.c4.baseline.sf1} \\
+         & SF10  & \ratioci{gh200.c1.baseline.sf10} & \ratioci{gh200.c2.baseline.sf10} & \ratioci{gh200.c3.baseline.sf10} & \ratioci{gh200.c4.baseline.sf10} \\
+         & SF30  & \ratioci{gh200.c1.baseline.sf30} & \ratioci{gh200.c2.baseline.sf30} & \ratioci{gh200.c3.baseline.sf30} & \ratioci{gh200.c4.baseline.sf30} \\
+         & SF100 & \ratioci{gh200.c1.baseline.sf100} & \ratioci{gh200.c2.baseline.sf100} & \ratioci{gh200.c3.baseline.sf100} & \ratioci{gh200.c4.baseline.sf100} \\
+         & SF300 & \ratioci{gh200.c1.baseline.sf300} & \ratioci{gh200.c2.baseline.sf300} & \ratioci{gh200.c3.baseline.sf300} & \ratioci{gh200.c4.baseline.sf300} \\
+\midrule
+complex  & SF30  & \ratioci{gh200.c1.complex.sf30} & \ratioci{gh200.c2.complex.sf30} & \ratioci{gh200.c3.complex.sf30} & \ratioci{gh200.c4.complex.sf30} \\
+         & SF100 & \ratioci{gh200.c1.complex.sf100} & \ratioci{gh200.c2.complex.sf100} & \ratioci{gh200.c3.complex.sf100} & \ratioci{gh200.c4.complex.sf100} \\
+         & SF300 & \ratioci{gh200.c1.complex.sf300} & \ratioci{gh200.c2.complex.sf300} & \ratioci{gh200.c3.complex.sf300} & \ratioci{gh200.c4.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\fi
+% END-RAN:gh200
+% BEGIN-RAN:b200
+\ifbtwohundredran
+\begin{table}[h]
+\centering
+\caption{B200 campaign: suite-level geometric-mean speedup ratios with
+95\% CIs (compare Table~\ref{tab:contrasts}). \chartnote}
+\label{tab:contrasts-b200}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+Suite & Scale & \shortstack{C1\\\polarscpu/\\\polarsgpu} & \shortstack{C2\\\sparkcpu/\\\sparkgpu} & \shortstack{C3\\\sparkgpu/\\\polarsgpu} & \shortstack{C4\\\polarscpu/\\best GPU} \\
+\midrule
+baseline & SF1   & \ratioci{b200.c1.baseline.sf1} & \ratioci{b200.c2.baseline.sf1} & \ratioci{b200.c3.baseline.sf1} & \ratioci{b200.c4.baseline.sf1} \\
+         & SF10  & \ratioci{b200.c1.baseline.sf10} & \ratioci{b200.c2.baseline.sf10} & \ratioci{b200.c3.baseline.sf10} & \ratioci{b200.c4.baseline.sf10} \\
+         & SF30  & \ratioci{b200.c1.baseline.sf30} & \ratioci{b200.c2.baseline.sf30} & \ratioci{b200.c3.baseline.sf30} & \ratioci{b200.c4.baseline.sf30} \\
+         & SF100 & \ratioci{b200.c1.baseline.sf100} & \ratioci{b200.c2.baseline.sf100} & \ratioci{b200.c3.baseline.sf100} & \ratioci{b200.c4.baseline.sf100} \\
+         & SF300 & \ratioci{b200.c1.baseline.sf300} & \ratioci{b200.c2.baseline.sf300} & \ratioci{b200.c3.baseline.sf300} & \ratioci{b200.c4.baseline.sf300} \\
+\midrule
+complex  & SF30  & \ratioci{b200.c1.complex.sf30} & \ratioci{b200.c2.complex.sf30} & \ratioci{b200.c3.complex.sf30} & \ratioci{b200.c4.complex.sf30} \\
+         & SF100 & \ratioci{b200.c1.complex.sf100} & \ratioci{b200.c2.complex.sf100} & \ratioci{b200.c3.complex.sf100} & \ratioci{b200.c4.complex.sf100} \\
+         & SF300 & \ratioci{b200.c1.complex.sf300} & \ratioci{b200.c2.complex.sf300} & \ratioci{b200.c3.complex.sf300} & \ratioci{b200.c4.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\fi
+% END-RAN:b200
+\fi
+% END-RAN:any
+
+\end{document}

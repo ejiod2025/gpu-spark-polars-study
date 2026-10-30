@@ -1,0 +1,123 @@
+% macros.tex -- statistics lookup, figure inclusion and notice macros.
+%
+% Numbers in the paper are never typed in. Every result is written as \stat{key},
+% where key is a dotted stats.json key (e.g. c1.baseline.sf300.estimate).
+% paper/tools/stats_to_tex.py turns <analysis-out>/stats.json into
+% generated/stats.tex, which contains one \defstat{key}{value} per key and
+% \statsfinaltrue. In final mode a missing key is a hard LaTeX error; in draft
+% mode (no generated/stats.tex) the key is printed in a box so the gaps are visible.
+
+\makeatletter
+\newif\ifstatsfinal
+\statsfinalfalse
+\newcommand{\defstat}[2]{\expandafter\def\csname stat@#1\endcsname{#2}}
+\newcommand{\statplaceholder}[1]{%
+  \fcolorbox{red}{yellow!20}{\scriptsize\ttfamily\detokenize{#1}}}
+\newcommand{\stat}[1]{%
+  \ifcsname stat@#1\endcsname
+    \csname stat@#1\endcsname
+  \else
+    \ifstatsfinal
+      \PackageError{stats}{Missing statistic '#1' in generated/stats.tex}%
+        {Re-run tools/stats_to_tex.py; the analysis output lacks this key.}%
+    \else
+      \statplaceholder{#1}%
+    \fi
+  \fi}
+% "estimate [ci_low, ci_high]" for a ratio prefix such as c1.baseline.sf300
+\newcommand{\ratioci}[1]{%
+  \stat{#1.estimate}\,{\footnotesize[\stat{#1.ci_low},\,\stat{#1.ci_high}]}}
+% "estimate x (95% CI ci_low--ci_high)" for running text
+\newcommand{\ratiotext}[1]{%
+  \stat{#1.estimate}$\times$ (95\%~CI \stat{#1.ci_low}--\stat{#1.ci_high})}
+\makeatother
+
+% GPU-generation ladder (amendments A2, A3). One flag per additional host;
+% the H100 is primary and always present. Draft builds show every host's text
+% with placeholders; stats_to_tex.py --not-run HOST=REASON writes
+% \<flag>ranfalse, and \ladderranfalse when no additional host ran. Wrap
+% host text in \if<flag>ran ... \fi inside "% BEGIN-RAN:<host>" /
+% "% END-RAN:<host>" comment lines (NOTRUN for the \else case) so the key
+% scanner knows which keys each case needs.
+\newif\ifaonehundredran  \aonehundredrantrue   % a100
+\newif\ifghtwohundredran \ghtwohundredrantrue  % gh200
+\newif\ifbtwohundredran  \btwohundredrantrue   % b200
+\newif\ifladderran       \ladderrantrue        % any of the three ran
+\expandafter\def\csname hostflag@a100\endcsname{aonehundred}
+\expandafter\def\csname hostflag@gh200\endcsname{ghtwohundred}
+\expandafter\def\csname hostflag@b200\endcsname{btwohundred}
+
+% Disclosure watermarks, set by generated/stats.tex: hand-filled _display values
+% (stats_to_tex.py --allow-manual-overrides, or a draft) and synthetic stats.
+% Printed diagonally on every page and in the title block.
+\newif\ifmanualvalues
+\newif\ifsyntheticstats
+
+\IfFileExists{generated/stats.tex}{\input{generated/stats.tex}}{}
+
+\newcommand{\watermarktext}{%
+  \ifmanualvalues MANUAL VALUES\fi
+  \ifmanualvalues\ifsyntheticstats\ \textperiodcentered\ \fi\fi
+  \ifsyntheticstats SYNTHETIC -- NOT RESULTS\fi}
+\newcommand{\watermarkpage}{%
+  \put(0.5\paperwidth,-0.5\paperheight){\makebox(0,0){\rotatebox{45}{%
+    \scalebox{4}{\sffamily\bfseries\textcolor{red!30}{\watermarktext}}}}}}
+\AddToHook{shipout/background}{%
+  \ifmanualvalues\watermarkpage\else\ifsyntheticstats\watermarkpage\fi\fi}
+\newcommand{\watermarknotice}{%
+  \ifmanualvalues\\\textcolor{red}{\textbf{\watermarktext}}%
+  \else\ifsyntheticstats\\\textcolor{red}{\textbf{\watermarktext}}\fi\fi}
+
+% Host-conditional values for tables: the value if the host's campaign ran,
+% \hostnotrun otherwise. Keys: <host>.<key>, <host>.<prefix>.{estimate,...}
+% and xhost.<host>.<rest>.{estimate,...}. Not for use inside \if...\fi text
+% that may be skipped (they are not conditionals themselves).
+\makeatletter
+\newcommand{\hostnotrun}{---}
+\newcommand{\ifhost@ran}[1]{\csname if\csname hostflag@#1\endcsname ran\endcsname}
+\newcommand{\hoststat}[2]{\ifhost@ran{#1}\stat{#1.#2}\else\hostnotrun\fi}
+% \hoststator{host}{key}{fallback}: the value if the host ran, else the fallback text.
+\newcommand{\hoststator}[3]{\ifhost@ran{#1}\stat{#1.#2}\else#3\fi}
+\newcommand{\hostratioci}[2]{\ifhost@ran{#1}\ratioci{#1.#2}\else\hostnotrun\fi}
+\newcommand{\xhostratioci}[2]{\ifhost@ran{#1}\ratioci{xhost.#1.#2}\else\hostnotrun\fi}
+\makeatother
+
+% Figures are copied into figures/ by tools/sync_figures.py. Until then a
+% labelled placeholder box keeps the layout and cross-references working.
+\newcommand{\studyfig}[2]{%
+  \IfFileExists{figures/#1.pdf}{\includegraphics[width=#2]{figures/#1.pdf}}{%
+  \IfFileExists{figures/#1.png}{\includegraphics[width=#2]{figures/#1.png}}{%
+  \fbox{\parbox[c][0.28\textheight][c]{0.9\linewidth}{\centering\ttfamily
+    figure pending: \detokenize{#1}}}}}}
+
+% Author-supplied detail still missing (affiliation, email, venue, ...).
+\newcommand{\todoplaceholder}[1]{\textcolor{red}{[TODO: #1]}}
+
+% Results-not-yet-available marker for draft prose (also flagged with
+% "% TODO(results)" comments in the source).
+\newcommand{\pending}[1]{\textcolor{gray}{[pending results: #1]}}
+
+% TPC fair-use disclaimer. The template wording is TPC's (Fair Use of TPC
+% Benchmarks quick reference, 2019-06-05; current Policies v6.20 sec. 8.1.5).
+% The name of the derived work is an open author decision; see paper/README.md.
+\newcommand{\workloadname}{H100 study workload}
+\newcommand{\tpcdisclaimer}{The \workloadname{} is derived from the TPC-H
+  Benchmark and as such is not comparable to published TPC-H Benchmark results,
+  as the \workloadname{} results do not comply with the TPC-H Benchmark
+  Specification.}
+\newcommand{\chartnote}{\emph{Derived from TPC-H; not comparable to published
+  TPC-H results (see Section~\ref{sec:scope}).}}
+
+% Engine and contrast names
+\newcommand{\eng}[1]{\texttt{#1}}
+% Prose names for running text and tables; \id... for the code identifiers
+% (arm ids in run configuration and the seeded order assignment).
+\newcommand{\polarscpu}{Polars CPU}
+\newcommand{\polarsgpu}{Polars GPU}
+\newcommand{\sparkcpu}{Spark CPU}
+\newcommand{\sparkgpu}{Spark GPU}
+\newcommand{\idpolarscpu}{\eng{polars}}
+\newcommand{\idpolarsgpu}{\eng{polars\_gpu}}
+\newcommand{\idsparkcpu}{\eng{spark\_cpu}}
+\newcommand{\idsparkgpu}{\eng{spark\_gpu}}
+\newcommand{\q}[1]{\texttt{#1}}
