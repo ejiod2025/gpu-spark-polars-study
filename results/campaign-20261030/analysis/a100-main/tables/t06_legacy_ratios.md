@@ -1,0 +1,46 @@
+### Legacy ratio of mean sums of medians
+
+| Suite | Scale | Contrast | Ratio of mean totals |
+|---|---|---|---|
+| baseline | SF1 | Polars CPU / Polars GPU | 0.374 |
+| baseline | SF1 | Spark CPU / Spark GPU | 0.769 |
+| baseline | SF1 | Spark GPU / Polars GPU | 5.76 |
+| baseline | SF1 | Polars CPU / best GPU engine | 0.374 |
+| baseline | SF1 | Polars CPU / best GPU (both GPU engines supported) | 0.374 |
+| baseline | SF10 | Polars CPU / Polars GPU | 1.17 |
+| baseline | SF10 | Spark CPU / Spark GPU | 1.47 |
+| baseline | SF10 | Spark GPU / Polars GPU | 5.23 |
+| baseline | SF10 | Polars CPU / best GPU engine | 1.17 |
+| baseline | SF10 | Polars CPU / best GPU (both GPU engines supported) | 1.17 |
+| baseline | SF30 | Polars CPU / Polars GPU | 2.00 |
+| baseline | SF30 | Spark CPU / Spark GPU | 2.03 |
+| baseline | SF30 | Spark GPU / Polars GPU | 4.68 |
+| baseline | SF30 | Polars CPU / best GPU engine | 2.00 |
+| baseline | SF30 | Polars CPU / best GPU (both GPU engines supported) | 2.00 |
+| baseline | SF100 | Polars CPU / Polars GPU | 2.46 |
+| baseline | SF100 | Spark CPU / Spark GPU | 2.40 |
+| baseline | SF100 | Spark GPU / Polars GPU | 3.76 |
+| baseline | SF100 | Polars CPU / best GPU engine | 2.46 |
+| baseline | SF100 | Polars CPU / best GPU (both GPU engines supported) | 2.46 |
+| baseline | SF300 | Polars CPU / Polars GPU | 2.41 |
+| baseline | SF300 | Spark CPU / Spark GPU | 2.30 |
+| baseline | SF300 | Spark GPU / Polars GPU | 2.92 |
+| baseline | SF300 | Polars CPU / best GPU engine | 2.41 |
+| baseline | SF300 | Polars CPU / best GPU (both GPU engines supported) | 2.41 |
+| complex | SF30 | Polars CPU / Polars GPU | – |
+| complex | SF30 | Spark CPU / Spark GPU | 2.90 |
+| complex | SF30 | Spark GPU / Polars GPU | – |
+| complex | SF30 | Polars CPU / best GPU engine | 1.04 |
+| complex | SF30 | Polars CPU / best GPU (both GPU engines supported) | – |
+| complex | SF100 | Polars CPU / Polars GPU | – |
+| complex | SF100 | Spark CPU / Spark GPU | 2.84 |
+| complex | SF100 | Spark GPU / Polars GPU | – |
+| complex | SF100 | Polars CPU / best GPU engine | 1.37 |
+| complex | SF100 | Polars CPU / best GPU (both GPU engines supported) | – |
+| complex | SF300 | Polars CPU / Polars GPU | – |
+| complex | SF300 | Spark CPU / Spark GPU | 2.03 |
+| complex | SF300 | Spark GPU / Polars GPU | – |
+| complex | SF300 | Polars CPU / best GPU engine | 1.22 |
+| complex | SF300 | Polars CPU / best GPU (both GPU engines supported) | – |
+
+Not comparable with the geometric means of t01: a sum is dominated by the longest queries.

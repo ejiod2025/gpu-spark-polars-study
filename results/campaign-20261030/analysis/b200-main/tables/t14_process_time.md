@@ -1,0 +1,36 @@
+### Process wall time and startup (mean over rounds, seconds; overlapping scopes, do not add)
+
+| Suite | Scale | Engine | Process wall | Launch → ready | Setup | Warmups | Measured |
+|---|---|---|---|---|---|---|---|
+| baseline | SF1 | Polars CPU | 1.12 | 0.110 | 0.0597 | 0.216 | 0.602 |
+| baseline | SF1 | Polars GPU | 4.47 | 1.43 | 1.38 | 0.655 | 1.32 |
+| baseline | SF1 | Spark CPU | 18.8 | 3.81 | 2.81 | 6.57 | 6.70 |
+| baseline | SF1 | Spark GPU | 30.9 | 15.2 | 14.1 | 5.31 | 7.04 |
+| baseline | SF10 | Polars CPU | 5.58 | 0.109 | 0.0599 | 1.36 | 3.61 |
+| baseline | SF10 | Polars GPU | 5.93 | 1.41 | 1.36 | 1.00 | 2.39 |
+| baseline | SF10 | Spark CPU | 40.1 | 3.84 | 2.84 | 13.3 | 20.5 |
+| baseline | SF10 | Spark GPU | 38.3 | 15.2 | 14.1 | 7.43 | 12.2 |
+| baseline | SF30 | Polars CPU | 16.1 | 0.111 | 0.0601 | 3.98 | 11.3 |
+| baseline | SF30 | Polars GPU | 8.78 | 1.46 | 1.40 | 1.71 | 4.51 |
+| baseline | SF30 | Spark CPU | 86.4 | 3.86 | 2.85 | 24.4 | 53.8 |
+| baseline | SF30 | Spark GPU | 50.7 | 15.3 | 14.1 | 10.3 | 20.5 |
+| baseline | SF100 | Polars CPU | 52.3 | 0.110 | 0.0594 | 13.1 | 38.7 |
+| baseline | SF100 | Polars GPU | 18.9 | 1.44 | 1.39 | 4.10 | 12.3 |
+| baseline | SF100 | Spark CPU | 220 | 3.85 | 2.85 | 55.1 | 152 |
+| baseline | SF100 | Spark GPU | 83.9 | 15.2 | 14.1 | 18.5 | 44.4 |
+| baseline | SF300 | Polars CPU | 178 | 0.111 | 0.0602 | 45.1 | 132 |
+| baseline | SF300 | Polars GPU | 51.8 | 1.57 | 1.51 | 12.4 | 36.6 |
+| baseline | SF300 | Spark CPU | 583 | 3.88 | 2.88 | 146 | 411 |
+| baseline | SF300 | Spark GPU | 194 | 15.3 | 14.2 | 41.6 | 119 |
+| complex | SF30 | Polars CPU | 53.0 | 0.110 | 0.0601 | 13.0 | 38.8 |
+| complex | SF30 | Polars GPU | 8.55 | 1.45 | 1.40 | 1.58 | 4.14 |
+| complex | SF30 | Spark CPU | 249 | 4.03 | 3.02 | 49.1 | 133 |
+| complex | SF30 | Spark GPU | 128 | 15.3 | 14.2 | 13.3 | 34.2 |
+| complex | SF100 | Polars CPU | 208 | 0.110 | 0.0594 | 51.5 | 154 |
+| complex | SF100 | Polars GPU | 19.6 | 1.45 | 1.40 | 4.22 | 12.5 |
+| complex | SF100 | Spark CPU | 607 | 4.01 | 3.00 | 134 | 395 |
+| complex | SF100 | Spark GPU | 256 | 15.6 | 14.4 | 45.2 | 121 |
+| complex | SF300 | Polars CPU | 654 | 0.112 | 0.0606 | 163 | 488 |
+| complex | SF300 | Polars GPU | 61.1 | 1.47 | 1.42 | 14.8 | 43.4 |
+| complex | SF300 | Spark CPU | 1476 | 4.10 | 3.09 | 344 | 1023 |
+| complex | SF300 | Spark GPU | 691 | 15.3 | 14.2 | 148 | 426 |

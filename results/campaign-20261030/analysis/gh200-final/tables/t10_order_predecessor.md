@@ -1,0 +1,9 @@
+### Time deviation by predecessor engine (first-order carryover, descriptive)
+
+| Predecessor | Cells | Mean deviation [95% CI] |
+|---|---|---|
+| none (first in block) | 186 | -0.5% [-2.4, +1.3] |
+| Polars CPU | 138 | +0.6% [-1.3, +2.6] |
+| Polars GPU | 144 | +1.0% [-2.0, +4.0] |
+| Spark CPU | 138 | -0.5% [-1.0, -0.1] |
+| Spark GPU | 138 | -0.4% [-2.5, +1.8] |
