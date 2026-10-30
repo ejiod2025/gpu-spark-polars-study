@@ -1,0 +1,95 @@
+# GPU-side Python pins for the GH200 (aarch64) host: amendment A3 of docs/H100_EXPERIMENT_DESIGN.md.
+#
+# SAME VERSIONS as requirements-gpu.txt (tests/test_setup_arch.py fails on any name or version difference;
+# the rationale for them is in that file), each pinned to the sha256 of its aarch64 PyPI artifact so uv
+# refuses any other file. setup_h100.sh uses this file instead of requirements-gpu.txt when `uname -m` is
+# aarch64; the lock layering, Python 3.11 and the single resolver call are unchanged. The lock's own pins
+# (duckdb, psutil, py4j, pyarrow, pyspark) keep version pins only; their aarch64 sha256 are tabulated in
+# docs/POLARS_GPU_COMPAT.md, section "GH200 / aarch64".
+#
+# Artifact selection: for CPython 3.11 on Linux aarch64 with glibc 2.35 (Ubuntu 22.04) exactly one PyPI
+# file per pin is installable (cp311 or abi3 manylinux_2_17..2_28 aarch64 wheels, py3-none aarch64 wheels,
+# or an architecture-independent wheel). Its sha256 is `urls[].digests.sha256` in
+# https://pypi.org/pypi/<name>/<version>/json, read on 2026-10-29. Re-verify the closure (identical
+# 42 packages and versions on aarch64 and x86_64, no drift) with
+#   grep -vE '^(polars|polars-runtime-32)==' evidence/requirements.lock.txt > /tmp/lock-nopolars.txt
+#   uv pip compile --python-version 3.11 --python-platform aarch64-manylinux_2_35 --only-binary :all: \
+#       --no-binary pyspark --generate-hashes /tmp/lock-nopolars.txt requirements-gpu.txt
+#
+# --- Polars override (replaces the lock's polars==2.0.0 / polars-runtime-32==2.0.0) ---
+polars-runtime-32==1.44.2 \
+    --hash=sha256:bbf9b45040291dc1c6c588c837019c33557bde25ec536562a9cca9e1f6dfcc45
+polars==1.44.2 \
+    --hash=sha256:1bb331f17a40d9d931101533dcd33637b66edc61eb377b07020dac16a0f0377b
+#
+# --- cudf-polars and its resolved closure (CUDA 12, RAPIDS 26.10) ---
+cuda-bindings==12.9.10 \
+    --hash=sha256:d0fd232e51597c0527e053421937cdce8861b6a21d7b2429d3dd0f7c62f2b946
+cuda-core==1.2.2 \
+    --hash=sha256:50f2d3e484f50dd7ceaf34e2107aafdf3b7cbcacd73ae38889ca6e477ca3ad5b
+cuda-pathfinder==1.8.4 \
+    --hash=sha256:85a4e708c725d603f576042ef32781a3d1737c51e84c35fe361d2680191af65a
+cuda-toolkit==12.9.2.0 \
+    --hash=sha256:b54b8f2fd4200090b44843d48fc5411198e8b3e47a3db56e2518ab588c0ef1e0
+cudf-polars-cu12==26.10.2 \
+    --hash=sha256:e24bef1b4b0488249097fe18194792609bbe669b5fd76b89c1fb8cec37cfe318
+cudf-streaming-cu12==26.10.2 \
+    --hash=sha256:dafd9cde9557d02c215d2eb70350b5ad11bff715bf790d0f4150b8fc968454b4
+cupy-cuda12x==14.2.0 \
+    --hash=sha256:1c775069f0af34662a8d4ae90848e29afcaf4ba63762d556ff22b6011683e571
+kvikio-cu12==26.10.0 \
+    --hash=sha256:5eda330d5ce2d3de852f28eeaca8d634e1a2c82ef4bb039182dba9f2c007bbad
+libcudf-cu12==26.10.2 \
+    --hash=sha256:e5ec794278cf1354b1d50c8a658069fa020d123d9a3c706ebe3b7bbad5cd1986
+libcudf-streaming-cu12==26.10.2 \
+    --hash=sha256:207cfc9c9021014be7140c0449f7d47cfca1887bbf397f894e5ceb95e3ceaf50
+libkvikio-cu12==26.10.0 \
+    --hash=sha256:d80e99b266c7ff74c7216f14ef5b41b68d7e9377cea62e5f7927f5f51e0c90f8
+librapidsmpf-cu12==26.10.0 \
+    --hash=sha256:f6d66d5bfe3920f928d155440afab877758e5001a321195b953c4dfd56d16fe8
+librmm-cu12==26.10.0 \
+    --hash=sha256:f65b204faaa2c35251a9ef405b0153d84f1d300aa906a885c52546d0ad6f48da
+libucx-cu12==1.21.0 \
+    --hash=sha256:fabca9bd270b4726083c4d4da2cfa4d54b2163688b2f6df202171eeadd3f5e51
+libucxx-cu12==0.52.0 \
+    --hash=sha256:5ad37efbfd0360b581e6eee7c72f2a4f3623a075dde4d6f041bddbaf4e299cc3
+numpy==2.4.6 \
+    --hash=sha256:0ab0a9c4ffb1a6d95ef519fe4247dba8eb6b18ad93999f76b7f657039acabd47
+nvidia-cublas-cu12==12.9.2.10 \
+    --hash=sha256:5572131a59c3eebeeb1c4c8144f772d49372c20124916e072a0e3fc30df421d5
+nvidia-cuda-nvrtc-cu12==12.9.86 \
+    --hash=sha256:096d4de6bda726415dfaf3198d4f5c522b8e70139c97feef5cd2ca6d4cd9cead
+nvidia-cuda-runtime-cu12==12.9.79 \
+    --hash=sha256:83469a846206f2a733db0c42e223589ab62fd2fabac4432d2f8802de4bded0a4
+nvidia-cufft-cu12==11.4.1.4 \
+    --hash=sha256:1a28c9b12260a1aa7a8fd12f5ebd82d027963d635ba82ff39a1acfa7c4c0fbcf
+nvidia-cufile-cu12==1.14.1.1 \
+    --hash=sha256:8dea77590761e02cb6dd955a57cb6414c58aa3cb1b7adbf9919869a11509cf65
+nvidia-curand-cu12==10.3.10.19 \
+    --hash=sha256:de663377feb1697e1d30ed587b07d5721fdd6d2015c738d7528a6002a6134d37
+nvidia-cusolver-cu12==11.7.5.82 \
+    --hash=sha256:62efa83e4ace59a4c734d052bb72158e888aa7b770e1a5f601682f16fe5b4fd2
+nvidia-cusparse-cu12==12.5.10.65 \
+    --hash=sha256:221c73e7482dd93eda44e65ce567c031c07e2f93f6fa0ecd3ba876a195023e83
+nvidia-libnvcomp-cu12==5.3.0.16 \
+    --hash=sha256:3b6f06cefc44465f6c0e406a7b4bc80ad399511623ff3308372cb05940edf942
+nvidia-ml-py==13.615.71 \
+    --hash=sha256:959bf4adf6fe1308e4bd739e722236b0d1ec8392e2cefad33ff70c311380b9b6
+nvidia-nvjitlink-cu12==12.9.86 \
+    --hash=sha256:994a05ef08ef4b0b299829cde613a424382aff7efb08a7172c1fa616cc3af2ca
+nvtx==0.2.16 \
+    --hash=sha256:18bcb56547640c58ebc38c6674526df43d7f34afd288bdff92bf399fd54e2b04
+packaging==26.3 \
+    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+pylibcudf-cu12==26.10.2 \
+    --hash=sha256:ad9bf0ef4ddb3bbb71d72437fd82c7ed55fb9227971a211966306cdee43cd0e1
+rapids-logger==0.3.0 \
+    --hash=sha256:6ca9359d6187934f93e0bbadaa1bd5af72e567e536d41227192d39967125ef32
+rapidsmpf-cu12==26.10.0 \
+    --hash=sha256:c24284fb76fd08b992ba509e6d213e1cc57aab3a1aa7b7336e68dff6b0cf55ac
+rmm-cu12==26.10.0 \
+    --hash=sha256:9855eddef4443527af45d55dfd564684e4fa2f38001854bdf044677c5d7c8abc
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+ucxx-cu12==0.52.0 \
+    --hash=sha256:0e9bb95b651961b015e6a5b0ca4e83c85b21ce0f2e9299df502b417f24c2dc0a
