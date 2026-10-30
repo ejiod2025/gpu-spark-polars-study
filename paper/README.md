@@ -27,6 +27,10 @@ with its own complete campaign, never pooled. Host ids are `a100`, `h100`, `gh20
 
 Requires `tectonic` (used for checking this draft) or `latexmk` with pdflatex and bibtex.
 
+The `Makefile` defaults point at the committed final inputs
+(`results/campaign-20261030/analysis/`), so `make stats figures pdf` rebuilds the final paper
+reproducibly (see `FINAL_BUILD.md`). The general form, for other inputs:
+
 ```bash
 cd paper
 make pdf                       # draft: missing stats/figures show as boxed placeholders

@@ -9,6 +9,21 @@
 #   make keys                                             # every stats key the paper uses
 # stats and figures fail on any missing key, figure or undecided host.
 
+# Defaults: the committed final analysis outputs of the 2026-10-30 campaign (see FINAL_BUILD.md).
+# "make stats figures pdf" with no arguments rebuilds the final paper. To declare a host not run,
+# clear its stats file and give a reason, e.g. GH200_STATS= GH200_NOT_RUN="reason" GH200=not-run.
+CAMPAIGN ?= ../results/campaign-20261030/analysis
+STATS ?= $(CAMPAIGN)/h100-final/stats.json
+A100_STATS ?= $(CAMPAIGN)/a100-main/stats.json
+GH200_STATS ?= $(CAMPAIGN)/gh200-final/stats.json
+B200_STATS ?= $(CAMPAIGN)/b200-main/stats.json
+XHOST ?= $(CAMPAIGN)/xhost-final
+PLOTS ?= $(CAMPAIGN)/h100-final/figs
+XHOST_PLOTS ?= $(CAMPAIGN)/xhost-final/figs
+A100 ?= ran
+GH200 ?= ran
+B200 ?= ran
+
 PYTHON ?= python3
 TEX := $(shell command -v tectonic >/dev/null 2>&1 && echo tectonic || echo latexmk)
 
@@ -24,6 +39,10 @@ STATS_ARGS = --stats $(STATS) \
 	$(if $(B200_NOT_RUN),--not-run "b200=$(B200_NOT_RUN)")
 
 .PHONY: pdf stats figures final keys clean
+
+# Fixed build time for a byte-reproducible PDF (also sets \today): 2026-10-30 12:00 UTC.
+SOURCE_DATE_EPOCH ?= 1793361600
+export SOURCE_DATE_EPOCH
 
 pdf:
 ifeq ($(TEX),tectonic)
