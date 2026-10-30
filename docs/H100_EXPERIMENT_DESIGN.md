@@ -182,3 +182,19 @@ Change:
 - Expected coverage outcomes (A1) are more likely on the A100 (40 GB) at SF300; they are results, not
   failures.
 - The cross-host secondary analysis (A2) extends to all hosts; the H100 remains primary.
+
+### A4 — 2026-10-30, before any B200 data (known Blackwell compiler defect)
+
+Reason: the B200 precondition check (docs/POLARS_GPU_COMPAT.md §13) found the pinned stack carries native
+sm_100 code (precondition met), but identified an open CUDA 12.9 `ptxas` defect on Blackwell
+(NVIDIA/cccl#11167: `thrust::exclusive_scan_by_key` corrupts results beyond the first tile; reproduced on
+sm_120, not established either way on sm_100). libcudf 26.10.2 carries cudf's workaround (NVIDIA/cudf#23973);
+the RAPIDS Accelerator 26.08.1 jar predates it.
+
+Change (no change to gates or analysis):
+- On the B200, any GPU-engine output disagreement remains an integrity failure (A1, §7) and is not
+  re-classified. Its diagnosis records whether it is consistent with this defect (engine, operator,
+  scale); the defect is named as a candidate cause only if the evidence fits, never as an excuse.
+- If a B200 round fails integrity twice (campaign stops), the B200 replication is reported as not completed,
+  with the evidence; no version change is made within this design.
+- The real B200 driver version is recorded in `campaign.json` (Lambda does not document it).
