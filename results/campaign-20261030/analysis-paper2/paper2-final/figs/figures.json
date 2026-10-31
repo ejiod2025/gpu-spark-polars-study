@@ -1,0 +1,105 @@
+{
+  "synthetic": false,
+  "watermark": null,
+  "generated_from": [
+    "paper2.json"
+  ],
+  "schema_version": "1.0",
+  "figures": [
+    {
+      "id": "f20_baseline_sensitivity",
+      "title": "Polars GPU speedup against two CPU baselines (exploratory (post-hoc))",
+      "files": {
+        "pdf": "f20_baseline_sensitivity.pdf",
+        "png": "f20_baseline_sensitivity.png",
+        "svg": "f20_baseline_sensitivity.svg"
+      },
+      "width_class": "double",
+      "size_inches": [
+        7.0,
+        5.77
+      ],
+      "caption_draft": "Speedup of Polars GPU over the Polars CPU baseline, by host, suite and scale factor. The solid line is C1, the locked-design contrast: Polars CPU 1.44.2 over Polars GPU, with the 95% t-interval over rounds. The dashed line is E1, an exploratory (post-hoc; not in the locked design \u00a79) analysis: the CPU side is Polars 2.0.0 from the side-study sessions, the GPU side the main rounds; the sessions are unpaired, so its band is a Welch-type 95% interval on the log scale. Above 1 the GPU is faster; the horizontal line marks parity and the y axis is shared within a suite. Where a host's side study is not available, only C1 is drawn. Each host's panel title gives the --cpus threads and the physical cores they can occupy (lscpu).",
+      "alt_text": "Polars GPU speedup against scale factor for two CPU baselines, one panel per host and suite.",
+      "data_source": [
+        "sensitivity.*.*.*.c1",
+        "sensitivity.*.*.*.e1",
+        "hosts.*.cores_text",
+        "hosts.*.bridge_available"
+      ],
+      "synthetic": false,
+      "table_twins": []
+    },
+    {
+      "id": "f20_baseline_sensitivity_1col",
+      "title": "Polars GPU speedup against two CPU baselines (exploratory (post-hoc))",
+      "files": {
+        "pdf": "f20_baseline_sensitivity_1col.pdf",
+        "png": "f20_baseline_sensitivity_1col.png",
+        "svg": "f20_baseline_sensitivity_1col.svg"
+      },
+      "width_class": "single",
+      "size_inches": [
+        3.4,
+        9.57
+      ],
+      "caption_draft": "Speedup of Polars GPU over the Polars CPU baseline, by host, suite and scale factor. The solid line is C1, the locked-design contrast: Polars CPU 1.44.2 over Polars GPU, with the 95% t-interval over rounds. The dashed line is E1, an exploratory (post-hoc; not in the locked design \u00a79) analysis: the CPU side is Polars 2.0.0 from the side-study sessions, the GPU side the main rounds; the sessions are unpaired, so its band is a Welch-type 95% interval on the log scale. Above 1 the GPU is faster; the horizontal line marks parity and the y axis is shared within a suite. Where a host's side study is not available, only C1 is drawn. Each host's panel title gives the --cpus threads and the physical cores they can occupy (lscpu).",
+      "alt_text": "Polars GPU speedup against scale factor for two CPU baselines, one panel per host and suite.",
+      "data_source": [
+        "sensitivity.*.*.*.c1",
+        "sensitivity.*.*.*.e1",
+        "hosts.*.cores_text",
+        "hosts.*.bridge_available"
+      ],
+      "synthetic": false,
+      "table_twins": []
+    },
+    {
+      "id": "f21_speedup_decomposition",
+      "title": "Cross-host speedup decomposition against H100 (exploratory (post-hoc))",
+      "files": {
+        "pdf": "f21_speedup_decomposition.pdf",
+        "png": "f21_speedup_decomposition.png",
+        "svg": "f21_speedup_decomposition.svg"
+      },
+      "width_class": "double",
+      "size_inches": [
+        7.0,
+        6.68
+      ],
+      "caption_draft": "How much of each host's difference in GPU speedup from H100 comes from the CPU engine and how much from the GPU engine, for the Polars contrast C1 and the Spark contrast C2, by suite and scale factor, hosts in GPU-generation order. The filled cross is the host's speedup divided by the reference speedup; the open markers are the CPU engine's and the GPU engine's time on the host divided by its time on H100, over the same queries, so that log(speedup ratio) = log(CPU-engine ratio) - log(GPU-engine ratio). A CPU-engine ratio below 1 means the host's CPU engine was faster than on the reference, which lowers that host's speedup. Intervals are Welch-type 95% on the log scale (separate campaigns). Under each host: the --cpus threads and the physical cores they can occupy (lscpu). Exploratory (post-hoc; not in the locked design \u00a79).",
+      "alt_text": "Host over reference ratios of speedup, CPU-engine time and GPU-engine time for the Polars and Spark contrasts, by scale factor.",
+      "data_source": [
+        "decomp.*.c1.*.*",
+        "decomp.*.c2.*.*",
+        "hosts.*.cores_text"
+      ],
+      "synthetic": false,
+      "table_twins": []
+    },
+    {
+      "id": "f21_speedup_decomposition_1col",
+      "title": "Cross-host speedup decomposition against H100 (exploratory (post-hoc))",
+      "files": {
+        "pdf": "f21_speedup_decomposition_1col.pdf",
+        "png": "f21_speedup_decomposition_1col.png",
+        "svg": "f21_speedup_decomposition_1col.svg"
+      },
+      "width_class": "single",
+      "size_inches": [
+        3.4,
+        11.33
+      ],
+      "caption_draft": "How much of each host's difference in GPU speedup from H100 comes from the CPU engine and how much from the GPU engine, for the Polars contrast C1 and the Spark contrast C2, by suite and scale factor, hosts in GPU-generation order. The filled cross is the host's speedup divided by the reference speedup; the open markers are the CPU engine's and the GPU engine's time on the host divided by its time on H100, over the same queries, so that log(speedup ratio) = log(CPU-engine ratio) - log(GPU-engine ratio). A CPU-engine ratio below 1 means the host's CPU engine was faster than on the reference, which lowers that host's speedup. Intervals are Welch-type 95% on the log scale (separate campaigns). Under each host: the --cpus threads and the physical cores they can occupy (lscpu). Exploratory (post-hoc; not in the locked design \u00a79).",
+      "alt_text": "Host over reference ratios of speedup, CPU-engine time and GPU-engine time for the Polars and Spark contrasts, by scale factor.",
+      "data_source": [
+        "decomp.*.c1.*.*",
+        "decomp.*.c2.*.*",
+        "hosts.*.cores_text"
+      ],
+      "synthetic": false,
+      "table_twins": []
+    }
+  ],
+  "skipped": []
+}

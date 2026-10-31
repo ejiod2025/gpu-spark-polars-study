@@ -1857,7 +1857,7 @@ def load_side_study(root, allow_ungated=False, energy=False):
 
 def estimate_side_study(campaign, info):
     if campaign is None or not info["available"]:
-        return {"meta": {**info, "available": False}, "ratio": {}, "medians": {}}
+        return {"meta": {**info, "available": False}, "ratio": {}}          # no "medians" key: analyses written before the key existed stay reproducible value for value
     old, new = (version_tag(v) for v in info["versions"])
     tags = (old, new)
     data = Data(campaign, engines=tags)
@@ -2078,6 +2078,119 @@ def paper2_decomposition(stats, reference_stats):
     return out
 
 
+def paper2_verdict(ci_low, ci_high):
+    """gpu_faster (interval entirely above 1), cpu_faster (entirely below), inconclusive (contains 1); None without an interval."""
+    if ci_low is None or ci_high is None:
+        return None
+    return "gpu_faster" if ci_low > 1 else "cpu_faster" if ci_high < 1 else "inconclusive"
+
+
+def paper2_suite_series(per_query, queries):
+    """{round: geometric mean over `queries` of that round's value}; the rounds every query has."""
+    rounds = sorted(set.intersection(*[set(per_query[q]) for q in queries]))
+    return {r: math.exp(math.fsum(math.log(per_query[q][r]) for q in queries) / len(queries)) for r in rounds}
+
+
+def paper2_adjusted_record(old, new, pol, gpu, queries):
+    """E1 / K1 for one query set as B_matched x C: B = Polars new / old in the side-study rounds (paired within a round), C = main-round Polars CPU / GPU (paired within a round).
+
+    old, new: side-study {query: {round: seconds}} of the two Polars versions; pol, gpu: main-round {query: {round: seconds}} of Polars CPU 1.44.2 and the GPU side.
+    estimate = exp(mean log B + mean log C); se^2 = s_B^2/n_B + s_C^2/n_C with Welch-Satterthwaite df (the two factors come from different sessions). The point estimate is
+    asserted equal to E1 / K1 computed over the same queries, to 1e-9."""
+    s_old, s_new, m_pol, m_gpu = (paper2_suite_series(d, queries) for d in (old, new, pol, gpu))
+    b = [s_new[r] / s_old[r] for r in sorted(s_new) if r in s_old]
+    c = [m_pol[r] / m_gpu[r] for r in sorted(m_pol) if r in m_gpu]
+    lb, lc = [math.log(x) for x in b], [math.log(x) for x in c]
+    estimate = math.exp(statistics.fmean(lb) + statistics.fmean(lc))
+    record = {"estimate": estimate, "ci_low": None, "ci_high": None, "df": None, "n_queries": len(queries), "n_side_rounds": len(b), "n_main_rounds": len(c)}
+    if len(b) >= 2 and len(c) >= 2:
+        vb, vc = statistics.variance(lb) / len(lb), statistics.variance(lc) / len(lc)
+        variance = vb + vc
+        if variance == 0.0:
+            record.update(df=float(len(b) + len(c) - 2), ci_low=estimate, ci_high=estimate)
+        else:
+            df = variance ** 2 / ((vb ** 2 / (len(b) - 1) if vb else 0.0) + (vc ** 2 / (len(c) - 1) if vc else 0.0))
+            half = t_quantile(0.5 + LEVEL / 2.0, df) * math.sqrt(variance)
+            record.update(df=df, ci_low=math.exp(math.log(estimate) - half), ci_high=math.exp(math.log(estimate) + half))
+    e = welch_summary(list(s_new.values()), list(m_gpu.values()))
+    k = welch_summary(list(s_old.values()), list(m_pol.values()))
+    gap = abs(math.log(estimate) - (math.log(e["estimate"]) - math.log(k["estimate"])))
+    if gap > 1e-9:
+        raise AssertionError(f"E1 / K1 identity broken over {queries}: {gap}")
+    record.update(identity_gap=gap, unadjusted_over_session_check=e["estimate"] / k["estimate"], unadjusted=paper2_pick(e), session_check=paper2_pick(k),
+                  b_matched={"estimate": math.exp(statistics.fmean(lb)), **dict(zip(("ci_low", "ci_high", "df"), paper2_one_sample(lb)))},
+                  c_baseline={"estimate": math.exp(statistics.fmean(lc)), **dict(zip(("ci_low", "ci_high", "df"), paper2_one_sample(lc)))},
+                  verdict_unadjusted=paper2_verdict(e["ci_low"], e["ci_high"]), verdict_adjusted=paper2_verdict(record["ci_low"], record["ci_high"]))
+    record["verdict_changes"] = bool(record["verdict_unadjusted"] and record["verdict_adjusted"] and record["verdict_unadjusted"] != record["verdict_adjusted"])
+    return record
+
+
+def paper2_one_sample(logs):
+    """(ci_low, ci_high, df) of exp(mean of `logs`): the t-interval across rounds; (None, None, None) with fewer than two."""
+    if len(logs) < 2:
+        return None, None, None
+    mean, sd = statistics.fmean(logs), statistics.stdev(logs)
+    half = t_quantile(0.5 + LEVEL / 2.0, len(logs) - 1) * sd / math.sqrt(len(logs))
+    return math.exp(mean - half), math.exp(mean + half), float(len(logs) - 1)
+
+
+def paper2_adjusted(stats, which):
+    """exploratory_adj.<which>.<suite>.<scale>: E1 / K1 (which='e1', GPU side Polars GPU) or E4 / K4 (which='e4', GPU side the better GPU engine per query and round)."""
+    side = stats.get("side_study") or {}
+    meta = side.get("meta") or {}
+    if not meta.get("available") or not side.get("medians"):
+        return {}
+    old_tag, new_tag = meta["denominator"], meta["numerator"]
+    side_rounds, main_rounds = sorted(meta.get("rounds_included") or []), sorted(stats["campaign"]["rounds_included"])
+    out = {}
+    for suite, by_scale in side["medians"].items():
+        for scale, by_query in by_scale.items():
+            cells = stats["medians"].get(suite, {}).get(scale) or {}
+
+            def main_series(query, engine):
+                cell = (cells.get(query) or {}).get(engine)
+                if not cell or cell.get("status") != "ok" or sorted(cell.get("rounds") or []) != main_rounds or any(v is None for v in cell["per_round"]):
+                    return None
+                return dict(zip(cell["rounds"], cell["per_round"]))
+
+            def gpu_series(query):
+                if which == "e1":
+                    return main_series(query, "polars_gpu")
+                found = [s for s in (main_series(query, e) for e in GPU_ENGINES) if s]
+                return {r: min(s[r] for s in found) for r in main_rounds} if found else None
+
+            def side_series(query, tag):
+                d = by_query.get(query, {}).get(tag)
+                return dict(zip(d["rounds"], d["per_round"])) if d and sorted(d["rounds"]) == side_rounds else None
+
+            usable = {q: (side_series(q, old_tag), side_series(q, new_tag), main_series(q, "polars"), gpu_series(q)) for q in by_query}
+            queries = [q for q, parts in usable.items() if all(parts)]
+            if not queries:
+                continue
+            pick = lambda i: {q: usable[q][i] for q in queries}
+            cell_out = paper2_adjusted_record(pick(0), pick(1), pick(2), pick(3), queries)
+            cell_out["queries_used"] = queries
+            cell_out["q"] = {q: paper2_adjusted_record({q: usable[q][0]}, {q: usable[q][1]}, {q: usable[q][2]}, {q: usable[q][3]}, [q]) for q in queries}
+            for rec in cell_out["q"].values():
+                for k in ("unadjusted", "session_check", "b_matched", "c_baseline", "unadjusted_over_session_check", "n_side_rounds", "n_main_rounds"):
+                    rec.pop(k, None)
+            out.setdefault(suite, {})[scale] = cell_out
+    return out
+
+
+def paper2_gap_keys(protocol, sensitivity):
+    """Add e1_c1_gap, k1_limit and gap_exceeds_k1_limits to every protocol_check cell that has both C1 and E1."""
+    for suite, by_scale in protocol.items():
+        for scale, record in by_scale.items():
+            both = (sensitivity.get(suite, {}).get(scale) or {})
+            c1, e1 = both.get("c1"), both.get("e1")
+            if c1 and e1 and c1["estimate"] and e1["estimate"] is not None and record["ci_low"] is not None:
+                gap = 1.0 - e1["estimate"] / c1["estimate"]
+                limit = max(abs(record["ci_low"] - 1.0), abs(record["ci_high"] - 1.0))
+                record.update(e1_c1_gap=gap, k1_limit=limit, gap_exceeds_k1_limits=bool(gap > limit))
+    return protocol
+
+
 def paper2_sensitivity(stats):
     """C1 (locked design) and E1 (exploratory) per suite and scale, as drawn in f20."""
     out = {}
@@ -2120,9 +2233,17 @@ def build_paper2(host_stats, reference=None):
                                 "engine's host / reference time ratios over one matched query set. sensitivity: C1 (locked design, t-interval over rounds) next to E1 (Polars 2.0.0 CPU / Polars "
                                 "GPU, Welch-type). Every interval except C1's is Welch-type on the log scale (unpaired rounds).")},
         "hosts": hosts,
-        "protocol_check": {key(x): paper2_protocol_check(host_stats[x]) for x in labels},
+        "protocol_check": {key(x): paper2_gap_keys(paper2_protocol_check(host_stats[x]), paper2_sensitivity(host_stats[x])) for x in labels},
         "decomp": {key(x): paper2_decomposition(host_stats[x], ref) for x in labels if x != reference},
-        "sensitivity": {key(x): paper2_sensitivity(host_stats[x]) for x in labels}}
+        "sensitivity": {key(x): paper2_sensitivity(host_stats[x]) for x in labels},
+        "exploratory_adj": {"meta": {"label": PAPER2_LABEL + ", sensitivity", "definition": (
+                                "E1 / K1 and E4 / K4 per host, suite and scale: the exploratory Polars 2.0.0 CPU / GPU ratio divided by the protocol check (side-study Polars 1.44.2 / main-round "
+                                "polars), computed over the same queries. Equals B_matched x C: B = Polars 2.0.0 / 1.44.2 in the side-study rounds, C = main-round Polars CPU 1.44.2 / GPU (C1, or "
+                                "C4 for E4), each paired within its rounds. Interval: se^2 = s_B^2/n_B + s_C^2/n_C with Welch-Satterthwaite df. The point estimate is asserted equal to E1 / K1 "
+                                "(identity_gap, 1e-9). verdict_*: gpu_faster / cpu_faster / inconclusive from the interval against 1."),
+                                "interval": EXPLORATORY_INTERVAL},
+                            "e1": {key(x): paper2_adjusted(host_stats[x], "e1") for x in labels},
+                            "e4": {key(x): paper2_adjusted(host_stats[x], "e4") for x in labels}}}
 
 
 def paper2_cores_text(host):
@@ -2144,6 +2265,11 @@ PAPER2_SCHEMA = [
     ("decomp.{host}.{c}.{suite}.{scale}.cpu_side.{estimate,ci_low,ci_high,df}", "Host / reference time ratio of the contrast's CPU engine (polars for c1, spark_cpu for c2) over the SAME matched query set as speedup_ratio (for c1 complex: the queries Polars GPU supports)."),
     ("decomp.{host}.{c}.{suite}.{scale}.gpu_side.{estimate,ci_low,ci_high,df}", "The same for the GPU engine (polars_gpu for c1, spark_gpu for c2). log(speedup_ratio.estimate) = log(cpu_side.estimate) - log(gpu_side.estimate) exactly (identity_gap, asserted <= 1e-9)."),
     ("decomp.{host}.{c}.{suite}.{scale}.{n_queries,queries_used,queries_dropped_for_the_pair,cpu_engine,gpu_engine,identity_gap,speedup_host,speedup_reference,n_rounds_host,n_rounds_reference}", "Query set and bookkeeping of the decomposition."),
+    ("protocol_check.{host}.{suite}.{scale}.{e1_c1_gap,k1_limit,gap_exceeds_k1_limits}", "Where the host has C1 and E1: e1_c1_gap = 1 - E1 / C1 (point estimates), k1_limit = max(|ci_low - 1|, |ci_high - 1|) of this cell's K1, gap_exceeds_k1_limits = e1_c1_gap > k1_limit."),
+    ("exploratory_adj.meta.{label,definition,interval}", "Label (exploratory sensitivity), definition and interval of the session-adjusted ratios."),
+    ("exploratory_adj.{e1,e4}.{host}.{suite}.{scale}.{estimate,ci_low,ci_high,df,n_queries}", "K4: E1 / K1 (e1; GPU side Polars GPU) or E4 / K4 (e4; GPU side the better GPU engine per query and round), over the same queries, for hosts with a bridge. Equals B_matched x C: B = Polars 2.0.0 / 1.44.2 in the side-study rounds, C = main-round Polars CPU 1.44.2 / GPU side (C1 or C4), each paired within its rounds; se^2 = s_B^2/n_B + s_C^2/n_C, Welch-Satterthwaite df."),
+    ("exploratory_adj.{e1,e4}.{host}.{suite}.{scale}.{identity_gap,unadjusted_over_session_check,b_matched,c_baseline,unadjusted,session_check,verdict_unadjusted,verdict_adjusted,verdict_changes,queries_used,n_side_rounds,n_main_rounds}", "identity_gap: |log(estimate) - log(unadjusted / session_check)| (asserted <= 1e-9); unadjusted and session_check: E1 (or E4) and K1 (or K4) over the same queries; b_matched and c_baseline: the two factors with one-sample t-intervals across rounds; verdict_*: gpu_faster / cpu_faster / inconclusive from the interval against 1; verdict_changes: the verdict differs after the adjustment."),
+    ("exploratory_adj.{e1,e4}.{host}.{suite}.{scale}.q.{query}.{estimate,ci_low,ci_high,df,n_queries,identity_gap,verdict_unadjusted,verdict_adjusted,verdict_changes}", "The same adjustment for one query (every query with a session check). Hosts without a bridge have an empty object."),
     ("sensitivity.{host}.{suite}.{scale}.c1.{estimate,ci_low,ci_high,df,n_queries}", "C1 of the host's own campaign (Polars CPU 1.44.2 / Polars GPU; t-interval over rounds)."),
     ("sensitivity.{host}.{suite}.{scale}.e1.{estimate,ci_low,ci_high,df,n_queries,n_cpu_rounds,n_gpu_rounds}", "E1 of the host: Polars 2.0.0 CPU (side-study sessions) / Polars GPU (main rounds), Welch-type; null when the host has no side study."),
 ]

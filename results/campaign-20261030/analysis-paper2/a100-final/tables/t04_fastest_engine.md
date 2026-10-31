@@ -1,0 +1,54 @@
+### Fastest engine per query and scale (descriptive, RQ2)
+
+| Suite | Scale | Query | Fastest | Time (s) | Runner-up / fastest [95% CI] |
+|---|---|---|---|---|---|
+| baseline | SF1 | q01 | Polars CPU | 0.0611 | 1.35 [1.26, 1.45] |
+| baseline | SF1 | q03 | Polars CPU | 0.0402 | 2.04 [1.90, 2.19] |
+| baseline | SF1 | q06 | Polars CPU | 0.0123 | 4.50 [3.41, 5.93] |
+| baseline | SF1 | q10 | Polars CPU | 0.0752 | 2.94 [2.55, 3.38] |
+| baseline | SF1 | q12 | Polars CPU | 0.0244 | 3.32 [3.05, 3.61] |
+| baseline | SF1 | q14 | Polars CPU | 0.0131 | 6.44 [5.80, 7.14] |
+| baseline | SF10 | q01 | Polars GPU | 0.219 | 2.53 [2.50, 2.56] |
+| baseline | SF10 | q03 | Polars GPU | 0.205 | 1.25 [1.18, 1.33] |
+| baseline | SF10 | q06 | Polars CPU | 0.0526 | 2.49 [2.29, 2.71] |
+| baseline | SF10 | q10 | Polars CPU | 0.285 | 1.06 [0.961, 1.17] |
+| baseline | SF10 | q12 | Polars CPU | 0.156 | 1.00 [0.850, 1.18] |
+| baseline | SF10 | q14 | Polars CPU | 0.0884 | 2.00 [1.85, 2.17] |
+| baseline | SF30 | q01 | Polars GPU | 0.492 | 1.90 [1.89, 1.92] |
+| baseline | SF30 | q03 | Polars GPU | 0.346 | 3.73 [3.43, 4.06] |
+| baseline | SF30 | q06 | Polars CPU | 0.159 | 1.85 [1.64, 2.07] |
+| baseline | SF30 | q10 | Polars GPU | 0.462 | 1.62 [1.54, 1.70] |
+| baseline | SF30 | q12 | Polars GPU | 0.276 | 1.55 [1.28, 1.88] |
+| baseline | SF30 | q14 | Polars CPU | 0.249 | 1.31 [1.18, 1.46] |
+| baseline | SF100 | q01 | Polars GPU | 1.43 | 1.64 [1.57, 1.71] |
+| baseline | SF100 | q03 | Polars GPU | 1.10 | 3.97 [3.91, 4.04] |
+| baseline | SF100 | q06 | Polars CPU | 0.631 | 1.22 [0.830, 1.79] |
+| baseline | SF100 | q10 | Polars GPU | 1.12 | 2.20 [2.13, 2.26] |
+| baseline | SF100 | q12 | Polars GPU | 0.687 | 2.42 [1.96, 2.98] |
+| baseline | SF100 | q14 | Polars GPU | 0.728 | 1.13 [1.09, 1.17] |
+| baseline | SF300 | q01 | Polars GPU | 4.04 | 1.57 [1.53, 1.62] |
+| baseline | SF300 | q03 | Polars GPU | 5.37 | 2.62 [2.47, 2.78] |
+| baseline | SF300 | q06 | Polars GPU | 2.11 | 1.10 [0.587, 2.07] |
+| baseline | SF300 | q10 | Polars GPU | 4.55 | 2.34 [2.10, 2.61] |
+| baseline | SF300 | q12 | Polars GPU | 1.84 | 2.57 [2.52, 2.62] |
+| baseline | SF300 | q14 | Polars GPU | 2.04 | 1.36 [1.33, 1.39] |
+| complex | SF30 | cx_q09 | Polars GPU | 0.513 | 4.04 [3.73, 4.38] |
+| complex | SF30 | cx_q13 | Polars CPU | 1.04 | 1.80 [1.65, 1.96] |
+| complex | SF30 | cx_semi_anti | Polars GPU | 0.318 | 1.84 [1.65, 2.04] |
+| complex | SF30 | cx_window | Spark GPU | 0.940 | 4.00 [3.63, 4.40] |
+| complex | SF30 | cx_distinct | Polars GPU | 0.792 | 3.62 [3.52, 3.72] |
+| complex | SF30 | cx_self_join | Polars GPU | 0.321 | 2.51 [2.18, 2.90] |
+| complex | SF100 | cx_q09 | Polars GPU | 1.72 | 5.07 [4.87, 5.27] |
+| complex | SF100 | cx_q13 | Spark GPU | 2.89 | 1.40 [1.33, 1.46] |
+| complex | SF100 | cx_semi_anti | Polars GPU | 0.771 | 2.65 [2.50, 2.80] |
+| complex | SF100 | cx_window | Spark GPU | 1.77 | 5.54 [5.25, 5.83] |
+| complex | SF100 | cx_distinct | Polars GPU | 2.23 | 5.73 [5.61, 5.86] |
+| complex | SF100 | cx_self_join | Polars GPU | 1.27 | 2.12 [1.93, 2.32] |
+| complex | SF300 | cx_q09 | Polars GPU | 13.5 | 2.06 [1.93, 2.19] |
+| complex | SF300 | cx_q13 | Spark GPU | 7.12 | 1.89 [1.86, 1.92] |
+| complex | SF300 | cx_semi_anti | Polars GPU | 2.60 | 2.61 [2.35, 2.90] |
+| complex | SF300 | cx_window | Spark GPU | 4.69 | 3.98 [3.40, 4.66] |
+| complex | SF300 | cx_distinct | Polars GPU | 8.28 | 4.73 [4.63, 4.83] |
+| complex | SF300 | cx_self_join | Polars GPU | 2.04 | 3.63 [3.54, 3.73] |
+
+The winner is chosen from the same data, so the interval is descriptive.

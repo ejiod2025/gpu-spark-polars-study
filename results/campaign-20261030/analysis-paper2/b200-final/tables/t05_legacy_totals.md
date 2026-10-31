@@ -1,0 +1,38 @@
+### Legacy sum of per-query medians (A100-study comparability; arithmetic, not a geometric mean)
+
+| Suite | Scale | Engine | Sum of medians (s) [min–max] |
+|---|---|---|---|
+| baseline | SF1 | Polars CPU | 0.198 [0.192–0.205] |
+| baseline | SF1 | Polars GPU | 0.431 [0.426–0.434] |
+| baseline | SF1 | Spark CPU | 2.13 [1.79–2.45] |
+| baseline | SF1 | Spark GPU | 2.31 [2.29–2.34] |
+| baseline | SF10 | Polars CPU | 1.20 [1.19–1.23] |
+| baseline | SF10 | Polars GPU | 0.785 [0.765–0.795] |
+| baseline | SF10 | Spark CPU | 6.80 [6.42–7.21] |
+| baseline | SF10 | Spark GPU | 4.01 [3.97–4.06] |
+| baseline | SF30 | Polars CPU | 3.78 [3.74–3.81] |
+| baseline | SF30 | Polars GPU | 1.50 [1.45–1.61] |
+| baseline | SF30 | Spark CPU | 17.9 [16.3–19.6] |
+| baseline | SF30 | Spark GPU | 6.81 [6.78–6.84] |
+| baseline | SF100 | Polars CPU | 12.6 [12.6–12.6] |
+| baseline | SF100 | Polars GPU | 4.08 [4.03–4.17] |
+| baseline | SF100 | Spark CPU | 50.8 [49.5–53.2] |
+| baseline | SF100 | Spark GPU | 14.7 [14.6–14.9] |
+| baseline | SF300 | Polars CPU | 42.3 [41.4–44.1] |
+| baseline | SF300 | Polars GPU | 12.3 [12.2–12.4] |
+| baseline | SF300 | Spark CPU | 137 [131–144] |
+| baseline | SF300 | Spark GPU | 40.0 [38.7–40.7] |
+| complex | SF30 | Polars CPU | 12.9 [12.7–13.0] |
+| complex | SF30 | Polars GPU | n/a: cx_q13, cx_window |
+| complex | SF30 | Spark CPU | 44.4 [42.5–46.9] |
+| complex | SF30 | Spark GPU | 12.1 [12.1–12.2] |
+| complex | SF100 | Polars CPU | 51.5 [50.6–53.8] |
+| complex | SF100 | Polars GPU | n/a: cx_q13, cx_window |
+| complex | SF100 | Spark CPU | 131 [129–137] |
+| complex | SF100 | Spark GPU | 40.1 [39.4–41.0] |
+| complex | SF300 | Polars CPU | 162 [161–164] |
+| complex | SF300 | Polars GPU | n/a: cx_q13, cx_window |
+| complex | SF300 | Spark CPU | 340 [339–343] |
+| complex | SF300 | Spark GPU | 142 [141–143] |
+
+Totals exist only when every query has a valid median in every round; never combined with the geometric means of t01.

@@ -1547,8 +1547,8 @@ def fig_baseline_sensitivity(ctx, single=False):
     label = p2["meta"]["label"]
     title = f"Polars GPU speedup against two CPU baselines, by host: {PAPER2_TAG}; E1 is not in the locked design §9"
     note = ("C1 (solid, filled): Polars CPU 1.44.2 / Polars GPU, the locked-design contrast of the host's own campaign, 95% t-interval over rounds. E1 (dashed, hollow): Polars CPU 2.0.0 "
-            "(side-study sessions) / Polars GPU (main rounds), unpaired sessions so a Welch-type 95% interval on the log scale. Above 1 the GPU is faster. A column is empty when the "
-            "host's side study (the Polars 2.0.0 bridge) is not available. E1 is " + label + ". Under each host: the --cpus threads and the physical cores they can occupy (lscpu).")
+            "(side-study sessions) / Polars GPU (main rounds), unpaired sessions so a Welch-type 95% interval on the log scale. Above 1 the GPU is faster. Where a host's side study (the Polars 2.0.0 bridge) is not available, only C1 is drawn "
+            "and the panel says so. E1 is " + label + ". Under each host: the --cpus threads and the physical cores they can occupy (lscpu).")
     width = SINGLE if single else DOUBLE
     lines = textwrap.wrap(note, int((width - 0.2) / 0.052))
     foot_h = 0.115 * len(lines) + 0.10
@@ -1557,11 +1557,11 @@ def fig_baseline_sensitivity(ctx, single=False):
     top = 0.25 + 0.135 * len(wrap_title(title, width)) + 0.42
     bottom = 0.52 + 0.19 * legend_rows + foot_h
     panel_h = 1.12 if single else 1.45
-    fig, axes, height = grid_axes(width, ncols, nrows, panel_h, left=0.56, right=0.10, top=top, bottom=bottom, wgap=0.12, hgap=0.62 if single else 0.55)
+    fig, axes, height = grid_axes(width, ncols, nrows, panel_h, left=0.56, right=0.10, top=top, bottom=bottom, wgap=0.40 if single else 0.12, hgap=0.62 if single else 0.55)
     cells = {(s, h): [(sc, r) for sc, r in sorted(p2["sensitivity"].get(h, {}).get(s, {}).items(), key=lambda kv: AC.scale_sort_key(kv[0]))] for s in suites for h in hosts}
     ranges = {}
     for s in suites:
-        vals = [v for h in hosts if p2["hosts"][h]["bridge_available"] for _, r in cells[(s, h)] for k in ("c1", "e1") if r.get(k) for v in (r[k]["estimate"], r[k]["ci_low"], r[k]["ci_high"])]
+        vals = [v for h in hosts for _, r in cells[(s, h)] for k in ("c1", "e1") if r.get(k) for v in (r[k]["estimate"], r[k]["ci_low"], r[k]["ci_high"])]
         ranges[s] = with_parity(*padded_limits(vals, 1.12))
     xs_all = [scale_number(sc) for sc in p2_scale_sort({sc for s in suites for h in hosts for sc, _ in cells[(s, h)]})]
     style = ENGINE_STYLE["polars_gpu"]
@@ -1582,8 +1582,7 @@ def fig_baseline_sensitivity(ctx, single=False):
         ratio_ticks(ax, "y", lo, hi)
         panel_title(ax, HOST_NAME.get(host, host.upper()) + (f"  {SUITE_TITLE[suite]}" if single else ""), (info.get("cores_text") or "") if not single else f"{info.get('cores_text') or ''}")
         if not info["bridge_available"]:
-            ax.annotate("bridge not available", xy=(0.5, 0.5), xycoords="axes fraction", ha="center", va="center", fontsize=6.4, color=INK2)
-            continue
+            ax.annotate("E1: bridge not available", xy=(0.97, 0.05), xycoords="axes fraction", ha="right", va="bottom", fontsize=6.0, color=INK2)
         for key, ls, filled, band_alpha, hatch in (("c1", "-", True, 0.18, None), ("e1", "--", False, 0.10, "////")):
             pts = [(scale_number(sc), rec[key]) for sc, rec in cells[(suite, host)] if rec.get(key) and rec[key]["estimate"] is not None]
             if not pts:
@@ -1595,7 +1594,7 @@ def fig_baseline_sensitivity(ctx, single=False):
             ax.plot(x, est, ls="none", marker=style["marker"], ms=4.4, mfc=color if filled else SURFACE, mec=color if not filled else SURFACE, mew=1.0 if not filled else 0.7, zorder=4)
     for index, ax in enumerate(axes):
         r, c = divmod(index, ncols)
-        if c:
+        if c and not single:             # in the two-column layout the hosts of a row share the suite's y range; in the one-column layout each column is its own suite
             ax.tick_params(axis="y", labelleft=False)
     for r in range(nrows):
         axes[r * ncols].set_ylabel("Polars GPU speedup (log)")
@@ -1608,8 +1607,8 @@ def fig_baseline_sensitivity(ctx, single=False):
     finish(fig, ctx, "f20_baseline_sensitivity" + ("_1col" if single else ""), f"Polars GPU speedup against two CPU baselines ({PAPER2_TAG})",
            "Speedup of Polars GPU over the Polars CPU baseline, by host, suite and scale factor. The solid line is C1, the locked-design contrast: Polars CPU 1.44.2 over Polars GPU, with the 95% "
            "t-interval over rounds. The dashed line is E1, an " + label + " analysis: the CPU side is Polars 2.0.0 from the side-study sessions, the GPU side the main rounds; the sessions are "
-           "unpaired, so its band is a Welch-type 95% interval on the log scale. Above 1 the GPU is faster; the horizontal line marks parity and the y axis is shared within a suite. A host "
-           "column is empty when its side study is not available. Each host's panel title gives the --cpus threads and the physical cores they can occupy (lscpu).",
+           "unpaired, so its band is a Welch-type 95% interval on the log scale. Above 1 the GPU is faster; the horizontal line marks parity and the y axis is shared within a suite. Where "
+           "a host's side study is not available, only C1 is drawn. Each host's panel title gives the --cpus threads and the physical cores they can occupy (lscpu).",
            ["sensitivity.*.*.*.c1", "sensitivity.*.*.*.e1", "hosts.*.cores_text", "hosts.*.bridge_available"], width_class="single" if single else "double",
            alt="Polars GPU speedup against scale factor for two CPU baselines, one panel per host and suite.")
 

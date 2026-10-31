@@ -52,7 +52,7 @@ def geo(values):
 def test_the_file_is_labelled_and_keyed_by_lower_case_host_in_ladder_order(synth):
     _, stats, p2 = synth
     assert p2["meta"]["label"] == LABEL and p2["meta"]["reference"] == "h100" and p2["meta"]["hosts"] == ["a100", "h100", "gh200", "b200"]
-    assert set(p2) == {"meta", "hosts", "protocol_check", "decomp", "sensitivity"} and set(p2["hosts"]) == set(p2["protocol_check"]) == set(p2["sensitivity"]) == {"a100", "h100", "gh200", "b200"}
+    assert set(p2) == {"meta", "hosts", "protocol_check", "decomp", "sensitivity", "exploratory_adj"} and set(p2["hosts"]) == set(p2["protocol_check"]) == set(p2["sensitivity"]) == {"a100", "h100", "gh200", "b200"}
     assert set(p2["decomp"]) == {"a100", "gh200", "b200"}                                  # the reference has no decomposition against itself
     for key, label in zip(p2["meta"]["hosts"], ("A100", "H100", "GH200", "B200")):
         info = p2["hosts"][key]
@@ -183,7 +183,7 @@ def test_cli_writes_the_file_and_schema_and_the_figures(synth, tmp_path):
     loaded = json.loads((out / "paper2.json").read_text(), parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)))
     assert loaded["meta"]["label"] == LABEL
     schema = (out / "PAPER2_SCHEMA.md").read_text()
-    assert LABEL in schema and all(f"`{k}" in schema for k in ("protocol_check.", "decomp.", "sensitivity.", "hosts.", "meta.label"))
+    assert LABEL in schema and all(f"`{k}" in schema for k in ("protocol_check.", "decomp.", "sensitivity.", "hosts.", "meta.label", "exploratory_adj.")) and "gap_exceeds_k1_limits" in schema
     assert PC.main(["--paper2", str(out), "--formats", "png", "--output", str(out / "figs")]) == 0
     manifest = json.loads((out / "figs" / "figures.json").read_text())
     assert sorted(m["id"] for m in manifest["figures"]) == ["f20_baseline_sensitivity", "f20_baseline_sensitivity_1col", "f21_speedup_decomposition", "f21_speedup_decomposition_1col"]
@@ -201,8 +201,12 @@ def test_figures_draw_c1_beside_e1_and_mark_a_missing_bridge(tmp_path, monkeypat
                                   [[(ln.get_linestyle(), ln.get_marker()) for ln in ax.get_lines()] for ax in fig.axes])), original(fig, ctx, fig_id, title, caption, sources, *a, **k))[1])
     PC.build_paper2_figures(p2, tmp_path / "figs", formats=("png",))
     fig, title, caption, ax_texts, fig_texts, lines = seen["f20_baseline_sensitivity"]
-    assert "exploratory (post-hoc)" in title and ax_texts.count("bridge not available") == 2                      # the A100 column, one per suite
-    assert any(("--", "D") in panel and ("-", "D") in panel for panel in lines)                                  # C1 solid and E1 dashed in the host panels that have a bridge
+    assert "exploratory (post-hoc)" in title and ax_texts.count("E1: bridge not available") == 2               # the A100 column, one per suite: E1 only; C1 is still drawn
+    drawn = [panel for panel in lines if any(ls == "--" for ls, _ in panel)]
+    assert len(drawn) == 4 and all(any(ls == "-" for ls, _ in panel) for panel in drawn)                      # C1 solid beside E1 dashed in the H100 and GH200 panels (two suites)
+    assert all(any(m == "D" for _, m in panel) for panel in drawn)                                              # the engine's diamond marks the lines
+    no_bridge = [panel for panel in lines if any(ls == "-" for ls, _ in panel) and not any(ls == "--" for ls, _ in panel)]
+    assert len(no_bridge) == 2                                                                                  # the A100 panels show the pre-registered C1 alone
     assert "26 thr on 13 cores (SMT2)" in " ".join(fig_texts + ax_texts) or any("26 thr on" in t for t in ax_texts)
     assert "Welch" in caption and "locked-design contrast" in caption
     fig, title, caption, ax_texts, fig_texts, lines = seen["f21_speedup_decomposition"]
@@ -243,3 +247,131 @@ def test_final_decomposition_agrees_with_the_cross_host_file_where_the_query_set
     for host in ("H100", "GH200"):
         for suite, by_scale in p2["protocol_check"][host.lower()].items():
             assert all(0.9 < r["estimate"] < 1.1 and r["n_queries"] == 6 for r in by_scale.values())
+
+
+# ------------------------------------------------------------------ K4 session-adjusted E1 / E4 and the K1 gap keys
+
+def adjusted(p2, which, host, suite, scale):
+    return p2["exploratory_adj"][which][host][suite][scale]
+
+
+def test_adjusted_e1_is_b_matched_times_c1_and_equals_e1_over_k1(synth):
+    _, stats, p2 = synth
+    cells = 0
+    for which, c in (("e1", "c1"), ("e4", "c4")):
+        for host in ("h100", "gh200", "b200", "a100"):
+            for suite, by_scale in p2["exploratory_adj"][which][host].items():
+                for scale, r in by_scale.items():
+                    cells += 1
+                    assert r["identity_gap"] <= 1e-9 and r["estimate"] == pytest.approx(r["unadjusted"]["estimate"] / r["session_check"]["estimate"], rel=1e-9)
+                    assert r["estimate"] == pytest.approx(r["b_matched"]["estimate"] * r["c_baseline"]["estimate"], rel=1e-12)
+                    assert set(r) >= {"estimate", "ci_low", "ci_high", "df", "n_queries"} and r["n_queries"] == len(r["queries_used"])
+                    contrast = stats[host.upper()][c][suite][scale]
+                    if sorted(contrast["queries_used"]) == sorted(r["queries_used"]):          # C1 / C4 of the host's own campaign is the same quantity
+                        assert r["c_baseline"]["estimate"] == pytest.approx(contrast["estimate"], rel=1e-9)
+    assert cells == 2 * 4 * 8
+
+
+def test_adjusted_equals_unadjusted_when_the_two_polars_1_44_2_sessions_agree(synth):
+    _, _, p2 = synth
+    for host in p2["meta"]["hosts"]:
+        for suite, by_scale in p2["exploratory_adj"]["e1"][host].items():
+            for scale, r in by_scale.items():
+                assert r["session_check"]["estimate"] == pytest.approx(1.0) and r["estimate"] == pytest.approx(r["unadjusted"]["estimate"])
+                assert r["verdict_changes"] is False and r["verdict_unadjusted"] == r["verdict_adjusted"]
+
+
+def test_the_adjusted_interval_is_the_welch_combination_of_the_two_paired_factors(tmp_path):
+    _, stats = build_host(tmp_path, "H100", seed=11, round_sigma=0.04, query_sigma=0.03, trial_sigma=0.02, position_effect=0.01, gpu_interval=60.0)
+    r = AC.build_paper2({"H100": stats})["exploratory_adj"]["e1"]["h100"]["baseline"]["sf30"]
+    queries = r["queries_used"]
+    side = stats["side_study"]["medians"]["baseline"]["sf30"]
+    main = stats["medians"]["baseline"]["sf30"]
+    b = [geo([side[q]["polars_2_0_0"]["per_round"][i] for q in queries]) / geo([side[q]["polars_1_44_2"]["per_round"][i] for q in queries]) for i in range(4)]
+    c = [geo([main[q]["polars"]["per_round"][i] for q in queries]) / geo([main[q]["polars_gpu"]["per_round"][i] for q in queries]) for i in range(4)]
+    lb, lc = [math.log(x) for x in b], [math.log(x) for x in c]
+    vb, vc = statistics.variance(lb) / 4, statistics.variance(lc) / 4
+    df = (vb + vc) ** 2 / (vb ** 2 / 3 + vc ** 2 / 3)
+    half = AC.t_quantile(0.975, df) * math.sqrt(vb + vc)
+    mid = statistics.fmean(lb) + statistics.fmean(lc)
+    assert r["estimate"] == pytest.approx(math.exp(mid)) and r["df"] == pytest.approx(df)
+    assert r["ci_low"] == pytest.approx(math.exp(mid - half)) and r["ci_high"] == pytest.approx(math.exp(mid + half))
+    assert r["b_matched"]["df"] == 3.0 and r["c_baseline"]["df"] == 3.0
+
+
+def test_per_query_adjusted_records_cover_every_query_with_a_session_check(synth):
+    _, _, p2 = synth
+    r = adjusted(p2, "e1", "gh200", "complex", "sf30")
+    assert sorted(r["q"]) == sorted(r["queries_used"]) and "cx_q13" not in r["q"]
+    for q, rec in r["q"].items():
+        assert rec["identity_gap"] <= 1e-9 and rec["n_queries"] == 1 and set(rec) >= {"estimate", "ci_low", "ci_high", "df", "verdict_unadjusted", "verdict_adjusted", "verdict_changes"}
+    e4 = adjusted(p2, "e4", "gh200", "complex", "sf30")
+    assert len(e4["queries_used"]) == 6 and len(r["queries_used"]) == 4                  # the best-engine side also has the two queries Polars GPU cannot run
+
+
+def test_a_host_without_a_bridge_has_no_adjusted_block_and_a_verdict_change_is_flagged(tmp_path):
+    stats = {"H100": build_host(tmp_path, "H100")[1], "A100": build_host(tmp_path, "A100", side_study=False)[1]}
+    p2 = AC.build_paper2(stats)
+    assert p2["exploratory_adj"]["e1"]["a100"] == {} and p2["exploratory_adj"]["e4"]["a100"] == {} and p2["exploratory_adj"]["e1"]["h100"]
+    assert AC.paper2_verdict(1.1, 1.3) == "gpu_faster" and AC.paper2_verdict(0.7, 0.9) == "cpu_faster" and AC.paper2_verdict(0.9, 1.2) == "inconclusive" and AC.paper2_verdict(None, None) is None
+    base = {"1": 2.0, "2": 2.0, "3": 2.0, "4": 2.0}
+    shifted = dict(zip(base, [1.9, 2.0, 2.1, 2.0]))
+    record = AC.paper2_adjusted_record({"q": base}, {"q": {k: v * 1.5 for k, v in base.items()}}, {"q": shifted}, {"q": {k: 1.0 for k in base}}, ["q"])
+    assert record["verdict_unadjusted"] == "gpu_faster" and record["identity_gap"] <= 1e-9 and record["estimate"] == pytest.approx(1.5 * geo(shifted.values()))
+
+
+def test_the_gap_keys_follow_the_definition_of_the_k1_limit(synth):
+    _, _, p2 = synth
+    for host in ("h100", "gh200", "a100", "b200"):
+        for suite, by_scale in p2["protocol_check"][host].items():
+            for scale, record in by_scale.items():
+                sens = p2["sensitivity"][host][suite][scale]
+                gap = 1.0 - sens["e1"]["estimate"] / sens["c1"]["estimate"]
+                limit = max(abs(record["ci_low"] - 1.0), abs(record["ci_high"] - 1.0))
+                assert record["e1_c1_gap"] == pytest.approx(gap, abs=1e-12) and record["k1_limit"] == pytest.approx(limit, abs=1e-12)
+                assert record["gap_exceeds_k1_limits"] is bool(gap > limit)
+    assert "e1_c1_gap" not in AC.paper2_gap_keys({"baseline": {"sf1": {"ci_low": 0.9, "ci_high": 1.1}}}, {"baseline": {"sf1": {"c1": {"estimate": 1.0}, "e1": None}}})["baseline"]["sf1"]
+
+
+COMMITTED_STATS = {h: REPO / "results" / "campaign-20261030" / "analysis" / d / "stats.json" for h, d in (("H100", "h100-final"), ("GH200", "gh200-final"), ("A100", "a100-main"), ("B200", "b200-main"))}
+
+
+@pytest.mark.skipif(not all(p.is_file() for p in COMMITTED_STATS.values()), reason="the committed analyses are not in this checkout")
+def test_committed_h100_and_gh200_adjustment_changes_no_suite_level_verdict():
+    p2 = AC.build_paper2({h: json.loads(p.read_text()) for h, p in COMMITTED_STATS.items()})
+    gaps = {(h, su, sc): r for h in ("h100", "gh200") for su, bs in p2["protocol_check"][h].items() for sc, r in bs.items()}
+    assert round(gaps[("h100", "baseline", "sf1")]["e1_c1_gap"], 3) == 0.043 and round(gaps[("h100", "baseline", "sf1")]["k1_limit"], 3) == 0.094
+    assert round(gaps[("h100", "baseline", "sf10")]["e1_c1_gap"], 3) == 0.099 and round(gaps[("h100", "baseline", "sf10")]["k1_limit"], 3) == 0.108
+    inside = sorted(k for k, r in gaps.items() if not r["gap_exceeds_k1_limits"])
+    assert inside == [("h100", "baseline", "sf1"), ("h100", "baseline", "sf10")]
+    suite_changes = [(w, h, su, sc) for w in ("e1", "e4") for h in ("h100", "gh200") for su, bs in p2["exploratory_adj"][w][h].items() for sc, r in bs.items() if r["verdict_changes"]]
+    assert suite_changes == [] and sum(len(bs) for w in ("e1", "e4") for h in ("h100", "gh200") for bs in p2["exploratory_adj"][w][h].values()) == 32
+    query_changes = sorted({(h, su, sc, q) for h in ("h100", "gh200") for su, bs in p2["exploratory_adj"]["e1"][h].items() for sc, r in bs.items() for q, rec in r["q"].items() if rec["verdict_changes"]})
+    assert query_changes == [("h100", "baseline", "sf30", "q06"), ("h100", "baseline", "sf30", "q14"), ("h100", "baseline", "sf300", "q06")]
+    assert max(r["identity_gap"] for w in ("e1", "e4") for h in ("h100", "gh200") for bs in p2["exploratory_adj"][w][h].values() for r in bs.values()) <= 1e-9
+
+
+FINAL_FOUR = {"H100": COMMITTED_STATS["H100"], "GH200": COMMITTED_STATS["GH200"],
+              "A100": REPO / "rerun" / "analysis" / "a100-final" / "stats.json", "B200": REPO / "rerun" / "analysis" / "b200-final" / "stats.json"}
+XHOST_V2 = REPO / "rerun" / "analysis" / "xhost-final-v2" / "cross_host.json"
+
+
+@pytest.mark.skipif(not all(p.is_file() for p in FINAL_FOUR.values()) or not XHOST_V2.is_file(), reason="a100-final, b200-final and xhost-final-v2 are not in this checkout")
+def test_all_four_final_hosts_have_a_bridge_and_every_identity_holds():
+    stats = {h: json.loads(p.read_text()) for h, p in FINAL_FOUR.items()}
+    p2 = AC.build_paper2(stats)
+    cross = json.loads(XHOST_V2.read_text())
+    assert all(info["bridge_available"] and info["side_study_rounds"] == [1, 2, 3, 4] for info in p2["hosts"].values())
+    for family in ("e1", "e4"):
+        assert sum(len(bs) for h in p2["meta"]["hosts"] for bs in p2["exploratory_adj"][family][h].values()) == 32
+        assert all(r["identity_gap"] <= 1e-9 and all(q["identity_gap"] <= 1e-9 for q in r["q"].values())
+                   for h in p2["meta"]["hosts"] for bs in p2["exploratory_adj"][family][h].values() for r in bs.values())
+        assert not [1 for h in p2["meta"]["hosts"] for bs in p2["exploratory_adj"][family][h].values() for r in bs.values() if r["verdict_changes"]]       # no suite-level verdict changes
+    cells = [r for h in p2["decomp"] for by_c in p2["decomp"][h].values() for bs in by_c.values() for r in bs.values()]
+    assert len(cells) == 3 * 2 * 8 and max(r["identity_gap"] for r in cells) <= 1e-9
+    for host in ("A100", "GH200", "B200"):
+        for suite, by_scale in p2["decomp"][host.lower()]["c2"].items():
+            for scale, r in by_scale.items():
+                assert r["cpu_side"]["estimate"] == pytest.approx(cross["ratio"][host]["spark_cpu"][suite][scale]["estimate"], rel=1e-12)
+    assert sorted(h for h, by_suite in p2["protocol_check"].items() for bs in by_suite.values() for r in bs.values() if r["ci_low"] > 1 or r["ci_high"] < 1) == ["a100", "a100", "h100"]
+    assert {h: sum(not r["gap_exceeds_k1_limits"] for bs in p2["protocol_check"][h].values() for r in bs.values()) for h in p2["meta"]["hosts"]} == {"a100": 1, "h100": 2, "gh200": 0, "b200": 1}

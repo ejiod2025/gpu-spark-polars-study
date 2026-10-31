@@ -1,0 +1,22 @@
+### GPU telemetry inside measured actions of at least 1 s (descriptive telemetry; not a pre-registered contrast; no causal claim)
+
+| Suite | Scale | Engine | Actions used / left out (< 1 s) | Samples | GPU util median / p90 (%) | GPU-idle fraction (util < 10%) | Power median W (fraction of limit) | SM clock median MHz (fraction of max) | Memory util median (%) |
+|---|---|---|---|---|---|---|---|---|---|
+| baseline | SF1 | Polars GPU | 0 / 72 | 0 | – | – | – | – | – |
+| baseline | SF1 | Spark GPU | 12 / 60 | 74 | 38 / 89 | 12.2% | 69 W (17%) | 1410 (100%) | 0 |
+| baseline | SF10 | Polars GPU | 0 / 72 | 0 | – | – | – | – | – |
+| baseline | SF10 | Spark GPU | 26 / 46 | 241 | 45 / 99 | 7.1% | 75 W (19%) | 1410 (100%) | 1 |
+| baseline | SF30 | Polars GPU | 0 / 72 | 0 | – | – | – | – | – |
+| baseline | SF30 | Spark GPU | 51 / 21 | 557 | 71 / 98 | 12.0% | 78 W (20%) | 1410 (100%) | 1 |
+| baseline | SF100 | Polars GPU | 36 / 36 | 229 | 94 / 99 | 0.0% | 160 W (40%) | 1410 (100%) | 22 |
+| baseline | SF100 | Spark GPU | 72 / 0 | 1348 | 81 / 97 | 8.9% | 92 W (23%) | 1410 (100%) | 4 |
+| baseline | SF300 | Polars GPU | 72 / 0 | 1216 | 89 / 99 | 0.2% | 155 W (39%) | 1410 (100%) | 20 |
+| baseline | SF300 | Spark GPU | 72 / 0 | 3530 | 84 / 97 | 6.1% | 96 W (24%) | 1410 (100%) | 4 |
+| complex | SF30 | Polars GPU | 0 / 48 | 0 | – | – | – | – | – |
+| complex | SF30 | Spark GPU | 66 / 6 | 1026 | 45 / 95 | 23.4% | 76 W (19%) | 1410 (100%) | 2 |
+| complex | SF100 | Polars GPU | 36 / 12 | 325 | 90 / 96 | 0.6% | 158 W (39%) | 1410 (100%) | 19 |
+| complex | SF100 | Spark GPU | 72 / 0 | 2968 | 47 / 91 | 16.5% | 78 W (20%) | 1410 (100%) | 4 |
+| complex | SF300 | Polars GPU | 48 / 0 | 1599 | 91 / 97 | 0.4% | 155 W (39%) | 1410 (100%) | 18 |
+| complex | SF300 | Spark GPU | 72 / 0 | 10353 | 36 / 88 | 22.9% | 70 W (18%) | 1410 (100%) | 3 |
+
+descriptive telemetry; not a pre-registered contrast; no causal claim. nvidia-smi is sampled about every 200 ms, so an action of 1 s holds about 5 samples and the first and last sample of an action are partly outside it; actions shorter than 1 s (most SF1 actions) are left out of every statistic and counted in n_actions_excluded_short.
