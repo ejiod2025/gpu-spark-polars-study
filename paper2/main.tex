@@ -1,0 +1,1200 @@
+% main.tex -- Paper 2: what is the GPU speedup measured against?
+%
+% Secondary analysis of the pre-registered four-host study reported in Paper 1
+% (../paper/). Every number is a \stat{} / \ratioci{} / \ratiotext{} macro filled
+% from the analysis outputs by tools/stats_to_tex.py; nothing is typed in.
+% Statements made in words about the data ("at every scale", "every interval
+% below 1") are checked by the converter's claim list and marked here with the
+% invisible \claim{<id>}; a claim that stops holding fails the build.
+%
+% Conditional text (tools/stats_to_tex.py, macros.tex): regions between
+% "% BEGIN-IF:<cond>" and "% END-IF:<cond>" (IFNOT for the else branch) inside
+% the matching \if<flag> conditional. Conditions: bridge_a100, bridge_h100,
+% bridge_gh200, bridge_b200 (the host's side study and E1/E4 are present),
+% bridge_extra (A100 or B200 bridge present), pcheck (protocol_check.* keys),
+% decomp (decomp.* keys).
+%
+% Labelling rule: every post-hoc number carries the word "exploratory" in the
+% sentence, caption or table header that reports it, and \expl in tables.
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{xspace}
+\usepackage{array}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+\usepackage{authblk}
+\usepackage{seqsplit}
+
+\input{macros.tex}
+\setlength{\emergencystretch}{3em}
+
+% TODO(author): title options.
+%  (a) [current] What Is the GPU Speedup Measured Against? Library-Version
+%      Lock-In and Core-Count Confounds in CPU-versus-GPU Dataframe Benchmarks
+%  (b) Same Threads, Different Baselines: How the CPU Side Shapes GPU Speedups
+%      for Polars and Spark
+%  (c) The Denominator Problem in GPU Dataframe Benchmarks
+% The subtitle states the secondary and partly exploratory nature; keep it in
+% any variant.
+\title{What Is the GPU Speedup Measured Against?\\
+  Library-Version Lock-In and Core-Count Confounds\\
+  in CPU-versus-GPU Dataframe Benchmarks\\[4pt]
+  \large A secondary analysis of a pre-registered four-host study;\\
+  the re-baselined and cross-host analyses are exploratory}
+\author{Daniel Ejiofor}
+\affil{Independent Researcher}
+\affil{\href{mailto:daniel@siriusmed.io}{\texttt{daniel@siriusmed.io}}}
+\date{Draft of \today\watermarknotice}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A GPU speedup is a ratio, so what it means depends on its CPU denominator. We re-examine the CPU baseline of a pre-registered benchmark of Polars and Apache
+Spark, each on CPU and GPU, run as four separate campaigns on single-GPU A100,
+H100, GH200 and B200 hosts with a TPC-H-derived workload (not a TPC-H
+result)~\citep{ejiofor2026companion}.
+
+\emph{Version lock-in.} The Polars GPU engine requires Polars below 1.45, so
+its pre-registered speedup is measured against Polars \polarsold{} on the CPU.
+In the pre-registered bridge, Polars \polarsnew{} took
+\stat{p2.bridge.baseline.min}--\stat{p2.bridge.baseline.max} of
+\polarsold's time on the baseline suite and
+\stat{p2.bridge.complex.min}--\stat{p2.bridge.complex.max} on the complex
+suite. Every 95\% interval lay below~1
+\stat{p2.bridge.scope}\stat{p2.bridge.exception_short}\claim{bridge-never-slower}.
+Measured against \polarsnew{} instead (exploratory), the H100 speedup at SF300
+falls from \ratiotext{c1.baseline.sf300} to
+\ratiotext{exploratory.e1.baseline.sf300}, or to
+\ratiotext{exploratory_adj.e1.h100.baseline.sf300} after correcting for a
+measured session bias. \stat{p2.reversal.phrase_cap}, the GPU engine is faster
+than Polars \polarsold{} but slower than Polars
+\polarsnew{}\claim{reversal-exists}.
+
+\emph{Equal threads, unequal cores.} The same \stat{host.cpus_arg} threads occupy
+\stat{p2.h100.cores_used} physical cores on the H100 and B200 (two hardware
+threads per core) but \stat{p2.a100.cores_used} on the A100 and
+GH200\claim{cores-pairs}. The GH200's Polars GPU speedup at SF300 was
+\stat{gh200.c1.baseline.sf300.estimate}$\times$, against
+\stat{c1.baseline.sf300.estimate}$\times$ on the H100, mainly because its CPU
+side is faster (exploratory
+factorization)\claim{gh200-cpu-side}. The CPU model and architecture also
+differ, so core count is not isolated.
+
+We end with a reporting checklist for CPU-versus-GPU benchmarks.
+\end{abstract}
+
+\noindent\textbf{Scope notice.} \tpcdisclaimer{} The queries are a selected
+and adapted subset with additional custom queries, Float64 normalization of
+decimal columns, and our own timing and summary method; see
+Section~\ref{sec:scope}.
+
+% ======================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Claims that a GPU accelerates analytical queries are usually reported as one
+number: the time on a CPU engine divided by the time on the GPU engine. Such a
+ratio has two sides. Most of the attention, in benchmarks and in the
+literature, goes to the GPU side: the device, its memory, the operators it
+supports. The CPU side is often treated as a fixed reference. Earlier work has
+shown that this reference matters. Lee et~al.\ found that reported
+GPU advantages of 10 to 1000 times on throughput kernels narrowed to 2.5 times
+on average once both the CPU and the GPU code were
+optimized~\citep{lee2010debunking}. Shanbhag et~al.\ argued that, for
+memory-bound analytical operators, the gain to expect is about the ratio of GPU
+to CPU memory bandwidth rather than the orders of magnitude previously claimed,
+and measured where full queries depart from it~\citep{shanbhag2020gpucpu}. Database benchmarking
+guides list unequal tuning and unreported configuration among the commonest
+pitfalls~\citep{raasveldt2018fair,hoefler2015scientific}.
+
+This paper examines two such issues in a setting where they arise from the
+software and hardware themselves, not from the experimenter's effort. The data
+come from a completed, pre-registered study~\citep{ejiofor2026companion}
+(Paper~1). It compares Polars on the CPU, Polars with its cuDF-based GPU
+engine, Spark on the CPU and Spark with NVIDIA's cuDF plugin, run as four
+separate campaigns with an identical design on single-GPU A100, H100, GH200
+and B200 hosts. Paper~1 reports the pre-registered contrasts. Here we ask what
+those contrasts are measured \emph{against}.
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item \textbf{Version lock-in.} The Polars GPU engine ships as a separate
+    package that supports only a range of Polars versions. When the study was
+    locked, the newest release required Polars below
+    1.45~\citep{pypi_cudfpolars_26102}, while Polars~2.0.0 and~2.1.0 had already
+    been released~\citep{pypi_polars}. The pre-registered within-framework
+    speedup therefore compares the GPU engine with an older CPU release. A
+    side study (pre-registered as RQ5) measured how much the CPU release
+    matters. We use it to ask how the GPU speedup changes when it is expressed
+    against the newer CPU release. That second step is post hoc.
+  \item \textbf{Equal threads are not equal cores.} To keep the hosts
+    comparable, every engine on every host ran with the same number of
+    worker threads. The hosts' virtual machines expose different CPU
+    topologies, however. On two hosts each core carries two hardware threads;
+    on the other two it carries one. The same thread count therefore sits on
+    half as many physical cores on the first pair. We ask how much of the
+    cross-host difference in GPU speedup comes from the CPU side of the ratio.
+\end{enumerate}
+
+\paragraph{Contributions.}
+(i)~A re-baselining of the Polars GPU speedup against the newer Polars CPU
+release on every host with a version bridge, including where its verdict
+changes (Section~\ref{sec:res-version}). This analysis is exploratory.
+(ii)~A factorization of cross-host differences in GPU speedup into CPU-side and
+GPU-side time ratios, which holds exactly for the point estimates when query
+sets match. Applied to the four hosts, it shows that the topology recorded on
+each host lines up with the CPU-side factor
+(Section~\ref{sec:res-cores}). This analysis is exploratory and descriptive.
+(iii)~A case study of how an earlier, non-pre-registered A100 study's baseline
+choices carry into a comparison with this one (Section~\ref{sec:res-prior}).
+(iv)~A reporting checklist for CPU-versus-GPU dataframe benchmarks
+(Section~\ref{sec:checklist}).
+
+\paragraph{What this paper is not.} It is a secondary analysis. It reuses the
+primary study's data, adds no new measurements, and does not restate the
+primary results; for those, see Paper~1. Every analysis below is labelled
+either as part of the locked design or as exploratory
+(Table~\ref{tab:status}). Exploratory results generate hypotheses; they are
+not confirmatory evidence~\citep{nosek2018prereg,gelman2014crisis}.
+
+% ======================================================================
+\section{Background}
+\label{sec:background}
+
+\paragraph{Engines.} Polars is a columnar dataframe library with a streaming
+CPU engine~\citep{polars1442,polars200}. Since 2024 it can hand a query plan
+to a GPU engine built on NVIDIA cuDF, distributed as the separate package
+\texttt{cudf-polars}~\citep{semaan2024polarsgpu,polars_gpu_guide,cudf_polars_docs}.
+Spark SQL~\citep{armbrust2015sparksql} runs on the GPU through NVIDIA's cuDF
+plugin (formerly the RAPIDS Accelerator)~\citep{nvidia_cudf_spark_docs}. GPU
+query processing has a long history, surveyed
+in~\citep{bress2014gpudb,rosenfeld2022heterogeneous}. On machines like these,
+the interconnect and memory system often decide the
+outcome~\citep{lutz2020pump,shanbhag2020gpucpu}.
+
+\paragraph{The release coupling.} \texttt{cudf-polars} works on Polars' internal
+plan, so each release declares the range of Polars versions it supports. The
+release used here, 26.10.2, requires Polars ${\ge}1.35,{<}1.45$ and Python
+${\ge}3.11$~\citep{pypi_cudfpolars_26102}. Polars~1.44.2 is the last 1.x
+release; 2.0.0 and 2.1.0 followed on 2026-10-06 and
+2026-10-25~\citep{pypi_polars}. A GPU-engine user therefore runs a Polars
+release older than the newest one. A benchmark that uses one Polars install
+for both engines inherits that older release for its CPU baseline.
+
+\paragraph{Simultaneous multithreading.} With simultaneous multithreading (SMT),
+one physical core runs instructions from more than one hardware thread, which
+share the core's execution units and caches~\citep{tullsen1995smt}. A thread
+count therefore does not say how much core hardware it uses: 26 threads on 13
+two-way SMT cores share half the execution resources of 26 threads on 26
+cores. In cloud virtual machines, the guest operating system reports the
+topology the hypervisor exposes. That topology need not match the physical
+machine.
+
+\paragraph{Fair comparison and pre-registration.} Benchmarking guides ask
+authors to report and justify every configuration choice that could change a
+result~\citep{raasveldt2018fair,hoefler2015scientific,kalibera2013rigorous}.
+Even setup details that look harmless can bias
+measurements~\citep{mytkowicz2009wrong}. Pre-registration separates analyses
+that were fixed before the data existed from those chosen after seeing
+them~\citep{nosek2018prereg}. Results reached through many possible analysis
+choices are more likely to be chance findings~\citep{gelman2014crisis}.
+
+% ======================================================================
+\section{Data and Methods}
+\label{sec:methods}
+
+\subsection{Source study}
+\label{sec:source}
+
+Paper~1~\citep{ejiofor2026companion} describes the design in full; we
+summarize what this analysis depends on. The design was locked before any
+timed data existed. It was committed as \texttt{ee2e6a7}, and amendment A4 as
+\texttt{afd07c0}, in the study repository. The H100 campaign ran under design
+version \texttt{\stat{meta.design_commit_short}}, the GH200 campaign under
+\texttt{\stat{gh200.meta.design_commit_short}}, the A100 campaign under
+\texttt{\stat{a100.meta.design_commit_short}} and the B200 campaign under
+\texttt{\stat{b200.meta.design_commit_short}}. Amendments A2 and A3 give each
+host its own complete campaign with the same seed, order design, gates and side
+study, and data are never pooled across hosts. The H100 is the primary host.
+
+\begin{description}[leftmargin=*,itemsep=2pt]
+  \item[Arms.] \polarscpu{} (Polars \polarsold, streaming engine),
+    \polarsgpu{} (\texttt{cudf-polars} \stat{host.packages.cudf-polars-cu12} on
+    the same Polars install), \sparkcpu{} (Spark~3.5.9, \texttt{local[26]}) and
+    \sparkgpu{} (Spark with the cuDF plugin). Settings are fixed and untuned.
+    On every host, every engine ran with \texttt{-{}-cpus}~\stat{host.cpus_arg}.
+    This sets the engines' worker pools (\texttt{POLARS\_MAX\_THREADS},
+    \texttt{local[N]}). It does not pin threads to cores or cap the total number
+    of operating-system threads, and the code sets no CPU affinity.
+  \item[Workload.] A baseline suite of six adapted TPC-H queries at SF1--SF300,
+    and a complex suite of six queries (two TPC-H-derived, four custom) at
+    SF30--SF300, on Parquet inputs regenerated and verified on each host.
+    Polars GPU cannot run two complex queries, \q{cx\_q13} and
+    \q{cx\_window}; this gap was pre-declared. Ratios involving Polars GPU
+    exclude these queries.
+  \item[Protocol.] Four rounds per host, ordered by a Williams Latin
+    square~\citep{williams1949latin}. One session per engine and (suite, scale)
+    per round: preheat, one warm-up, then three measured trials per query. The
+    unit is the median of the three trials. Output-agreement, GPU-residency and
+    cleanup gates never depend on timings.
+  \item[Contrasts.] Speedups $t_{\mathrm{ref}}/t_{\mathrm{engine}}$ per query
+    and round. Suite values are geometric means~\citep{fleming1986geomean} over
+    the queries supported on both sides, computed per round, with a 95\%
+    $t$-interval across rounds (df~$=3$). This paper uses C1
+    (\polarscpu{}/\polarsgpu{}), C2 (\sparkcpu{}/\sparkgpu{}) and C4
+    (\polarscpu{}/the faster GPU engine per query and round).
+\end{description}
+
+\subsection{What was pre-registered and what was not}
+\label{sec:status}
+
+Table~\ref{tab:status} classifies every analysis in this paper. The
+classification follows the locked design document, not our view of how
+convincing a result is.
+
+\begin{table}[t]
+\centering
+\caption{Pre-registration status of each analysis in this paper.}
+\label{tab:status}
+\small
+\begin{tabular}{@{}p{5.2cm}p{3.1cm}p{6.6cm}@{}}
+\toprule
+Analysis & Status & Source and notes \\
+\midrule
+C1, C2, C4 per host & pre-registered & design \S9; reported in Paper~1 \\
+Version bridge $t_{\text{\polarsnew}}/t_{\text{\polarsold}}$ (RQ5) & pre-registered & design \S10, on every host by A2/A3; paired $t$-interval, df~$=3$ \\
+Cross-host time ratios $t_{\text{host}}/t_{\text{H100}}$ & pre-registered as descriptive & A2 secondary analysis; Welch-type intervals; CPU-engine ratios ``only with the caveat'' that CPU and RAM differ \\
+Host identity (GPU, CPU model, RAM, driver) & pre-registered recording & A2: recorded in each campaign \\
+CPU topology fields (SMT, cores, NUMA) & recorded as part of the pre-registered inventory; analysed post hoc & the runner's standard inventory saves the guest's \texttt{lscpu} output in every session; the design (\S6, \S9) does not name topology as a factor \\
+E1, E4 (re-baselined speedups) & \textbf{exploratory} & added after the bridge result was seen; Welch-type intervals \\
+First-above-1 scale for E1/E4 & \textbf{exploratory} & same rule as the pre-registered RQ3 crossover, applied to E1/E4 \\
+Speedup factorization across hosts & \textbf{exploratory} & Section~\ref{sec:factor}; descriptive \\
+Bridge over GPU-supported queries & \textbf{exploratory} & point estimates only \\
+% BEGIN-IF:pcheck
+\ifpcheck
+Protocol check K1 (side-study vs main-round Polars~\polarsold) & \textbf{exploratory} & Section~\ref{sec:pcheck}; Welch-type intervals \\
+Session-adjusted E1 (E1/K1) & \textbf{exploratory} & Section~\ref{sec:pcheck}; point estimates, and intervals where the analysis provides them \\
+\fi
+% END-IF:pcheck
+Comparison with the earlier A100 study & descriptive, illustrative & the earlier study was not pre-registered (no locked design; one session per cell) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Version bridge (pre-registered) and re-baselined speedups (exploratory)}
+\label{sec:rebase}
+
+After its main rounds, each host's side study compares Polars \polarsold{}
+(main environment) with Polars \polarsnew{} (a separate environment) on the
+CPU. It covers both suites and all scales, in four rounds ordered AB, BA, BA,
+AB, with the same session protocol. The bridge estimate is the suite
+geometric-mean ratio $B = t_{\text{\polarsnew}}/t_{\text{\polarsold}}$ with a
+paired $t$-interval (df~$=3$). Below~1 means \polarsnew{} is faster.
+
+The exploratory ratios E1 and E4 replace the numerator of C1 and C4 with the
+side study's Polars \polarsnew{} times:
+\[
+  \mathrm{E1} = \frac{t_{\text{Polars \polarsnew{} CPU}}}{t_{\text{Polars GPU}}},
+  \qquad
+  \mathrm{E4} = \frac{t_{\text{Polars \polarsnew{} CPU}}}{t_{\text{best GPU engine}}}.
+\]
+They use the same queries as their pre-registered counterparts. The CPU times
+come from side-study sessions and the GPU times from main-round sessions, so
+the two sides are unpaired; the intervals are Welch-type on the log
+scale~\citep{welch1947,satterthwaite1946}. In this build each is a
+\stat{exploratory_summary.interval_note}. Two consequences follow. E1 and C1
+differ in the CPU release, but also in which sessions supplied the CPU times.
+And an E1 interval is not comparable in width to a C1 interval.
+% BEGIN-IF:pcheck
+\ifpcheck
+Section~\ref{sec:pcheck} measures the session effect directly. A shift from C1
+to E1 counts as distinguishable from it only where the shift exceeds the K1
+interval's largest distance from~1. It defines
+$\mathrm{K1} = t^{\text{side}}_{\text{\polarsold}}/t^{\text{main}}_{\text{\polarsold}}$,
+the same release timed in the two kinds of session, and the session-adjusted
+ratio $\mathrm{E1}/\mathrm{K1}$. For this ratio K1 is taken over E1's queries. On the complex suite these are
+the four GPU-supported queries, whereas the K1 values reported in
+Section~\ref{sec:pcheck} use all six Polars queries. With that choice,
+$\mathrm{E1}/\mathrm{K1}$ equals the bridge over E1's queries times C1, and both
+factors are paired within their own rounds.
+\fi
+% END-IF:pcheck
+Where we say that the GPU side ``wins'' or ``loses'', the whole 95\% interval
+lies above or below~1. We apply the pre-registered RQ3 rule (the first scale at
+which the interval lies entirely above~1) to E1 and E4 only as a description.
+In every case reported here, all larger scales also lie above~1\claim{first-above-sustained}.
+
+\subsection{CPU topology}
+\label{sec:topology-method}
+
+The runner's standard inventory, which predates this study, saved the guest's
+\texttt{lscpu} output in every session's environment record. Recording it was
+part of the pre-registered inventory; analysing CPU topology was not
+pre-registered, and the design does not name topology as a factor (\S6,
+\S9). From it the analysis
+takes the hardware threads per core, cores per socket, sockets, NUMA nodes
+(with and without CPUs) and the hypervisor line. It derives the range of
+physical cores that \texttt{-{}-cpus} threads can occupy: at least
+$\lceil \min(\text{threads},\text{vCPUs})/\text{SMT}\rceil$ when threads pack
+onto sibling hardware threads, and at most
+$\min(\text{threads},\text{vCPUs},\text{cores})$ when they spread out. These
+values are \emph{guest-reported}. A hypervisor can expose a topology that
+differs from the physical machine, and lacking a hypervisor line does not
+prove bare metal.
+
+\subsection{Factorizing a cross-host speedup difference}
+\label{sec:factor}
+
+Let $C^{h}$ be a host's suite speedup $t_{\text{cpu}}/t_{\text{gpu}}$ and
+$X^{h}_{e}$ the cross-host time ratio $t^{h}_{e}/t^{\text{H100}}_{e}$ of engine
+$e$. Both are geometric means over the same queries and rounds. Taking logs and
+reordering the means gives, for the point estimates,
+\begin{equation}
+  \frac{C^{h}}{C^{\text{H100}}} \;=\; \frac{X^{h}_{\text{cpu}}}{X^{h}_{\text{gpu}}}.
+  \label{eq:factor}
+\end{equation}
+A host's speedup can thus be lower than the H100's for two reasons: its CPU
+engine is faster ($X_{\text{cpu}}<1$) or its GPU engine is slower
+($X_{\text{gpu}}>1$). The identity is exact when the speedup and both
+cross-host ratios use the same queries. In our data that holds for every cell
+except C1 on the complex suite\claim{speedup-identity}\claim{identity-only-c1-complex}. There, the cross-host Polars CPU ratio
+includes the two queries the GPU engine cannot run.
+% BEGIN-IF:decomp
+\ifdecomp
+For C1 on the complex suite we therefore use a CPU-side ratio restricted to
+the GPU-supported queries, and an interval for $C^{h}/C^{\text{H100}}$ from the
+per-round log speedups of the two hosts (Welch-type)\claim{decomp-identity}.
+\fi
+% END-IF:decomp
+% BEGIN-IFNOT:decomp
+\ifdecomp\else
+We report the factorization only where the identity is exact.
+\fi
+% END-IFNOT:decomp
+Equation~\eqref{eq:factor} is arithmetic, not a causal decomposition. A CPU-side
+factor below~1 says the host's CPU engine was faster. It does not say why: core
+count, microarchitecture, memory system and architecture all change together
+across these hosts.
+
+\subsection{Scope and notice}
+\label{sec:scope}
+\tpcdisclaimer{} Deviations from the TPC-H specification include: a selected
+subset of six adapted queries with fixed substitution parameters, plus two
+TPC-H-derived and four custom complex queries; data from DuckDB's generator,
+which differs slightly from the specification~\citep{duckdb_tpch_ext};
+Float64 instead of decimal arithmetic; extra sort keys; Parquet files rather
+than a loaded database; no refresh functions, power or throughput tests, or
+TPC metrics; and our own timing boundary and summary statistics. No result in
+this paper may be compared with official TPC-H
+results~\citep{tpch301,boncz2014tpch}. Use of the benchmark name and the TPC
+software is subject to the TPC
+policies~\citep{tpcpolicies620,tpcfairuse2019} and the TPC
+EULA~\citep{tpceula22}.
+% TODO(author): same open TPC permission question as Paper 1 (paper/README.md).
+
+% ======================================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{Version lock-in}
+\label{sec:res-version}
+
+\paragraph{The bridge (pre-registered).}
+Table~\ref{tab:bridge} and Figure~\ref{fig:bridge} give the version bridge \stat{p2.bridge.scope}. The bridge interval lies below~1 \stat{p2.bridge.below_phrase}. No
+interval lies above~1, so Polars \polarsnew{} was never slower than
+\polarsold{}\claim{bridge-never-slower}. On the
+baseline suite the ratio ranged from \stat{p2.bridge.baseline.min} to
+\stat{p2.bridge.baseline.max}. On the H100 the estimate \stat{bridge.baseline.summary.trend}. On the complex suite it ranged from
+\stat{p2.bridge.complex.min} to \stat{p2.bridge.complex.max}. One complex query
+drives much of that: \q{cx\_window} ran in \stat{p2.bridge.cx_window.min} to
+\stat{p2.bridge.cx_window.max} of its \polarsold{} time under \polarsnew{}.
+Polars GPU cannot run that query, so it does not enter the GPU contrasts.
+Restricted to the queries that do enter them (exploratory; point estimates),
+the complex-suite bridge is between \stat{p2.bridge_gpuq.complex.min} and
+\stat{p2.bridge_gpuq.complex.max}. A bridge quoted over the whole suite would
+therefore overstate the version effect that matters for the GPU comparison.
+
+\begin{table}[t]
+\centering
+\caption{Version bridge (pre-registered, RQ5): suite geometric-mean ratio
+$t_{\text{\polarsnew}}/t_{\text{\polarsold}}$ on the CPU, with 95\%
+$t$-intervals across four rounds. Below~1: \polarsnew{} is faster. The last
+column (\expl{}, exploratory; point estimate) restricts the SF300 value to the
+queries Polars GPU runs. \chartnote}
+\label{tab:bridge}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}llcccccc@{}}
+\toprule
+Host & Suite & SF1 & SF10 & SF30 & SF100 & SF300 & \shortstack{SF300,\\GPU queries\expl} \\
+\midrule
+% BEGIN-IF:bridge_a100
+\ifbridgeaonehundred
+A100 & baseline & \ratioci{a100.bridge.baseline.sf1} & \ratioci{a100.bridge.baseline.sf10} & \ratioci{a100.bridge.baseline.sf30} & \ratioci{a100.bridge.baseline.sf100} & \ratioci{a100.bridge.baseline.sf300} & \stat{p2.a100.bridge_gpuq.baseline.sf300} \\
+     & complex  & --- & --- & \ratioci{a100.bridge.complex.sf30} & \ratioci{a100.bridge.complex.sf100} & \ratioci{a100.bridge.complex.sf300} & \stat{p2.a100.bridge_gpuq.complex.sf300} \\
+\midrule
+\fi
+% END-IF:bridge_a100
+H100 & baseline & \ratioci{bridge.baseline.sf1} & \ratioci{bridge.baseline.sf10} & \ratioci{bridge.baseline.sf30} & \ratioci{bridge.baseline.sf100} & \ratioci{bridge.baseline.sf300} & \stat{p2.h100.bridge_gpuq.baseline.sf300} \\
+     & complex  & --- & --- & \ratioci{bridge.complex.sf30} & \ratioci{bridge.complex.sf100} & \ratioci{bridge.complex.sf300} & \stat{p2.h100.bridge_gpuq.complex.sf300} \\
+\midrule
+GH200 & baseline & \ratioci{gh200.bridge.baseline.sf1} & \ratioci{gh200.bridge.baseline.sf10} & \ratioci{gh200.bridge.baseline.sf30} & \ratioci{gh200.bridge.baseline.sf100} & \ratioci{gh200.bridge.baseline.sf300} & \stat{p2.gh200.bridge_gpuq.baseline.sf300} \\
+      & complex  & --- & --- & \ratioci{gh200.bridge.complex.sf30} & \ratioci{gh200.bridge.complex.sf100} & \ratioci{gh200.bridge.complex.sf300} & \stat{p2.gh200.bridge_gpuq.complex.sf300} \\
+% BEGIN-IF:bridge_b200
+\ifbridgebtwohundred
+\midrule
+B200 & baseline & \ratioci{b200.bridge.baseline.sf1} & \ratioci{b200.bridge.baseline.sf10} & \ratioci{b200.bridge.baseline.sf30} & \ratioci{b200.bridge.baseline.sf100} & \ratioci{b200.bridge.baseline.sf300} & \stat{p2.b200.bridge_gpuq.baseline.sf300} \\
+     & complex  & --- & --- & \ratioci{b200.bridge.complex.sf30} & \ratioci{b200.bridge.complex.sf100} & \ratioci{b200.bridge.complex.sf300} & \stat{p2.b200.bridge_gpuq.complex.sf300} \\
+\fi
+% END-IF:bridge_b200
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[t]{0.49\linewidth}\centering
+\studyfig{f08_bridge_h100}{\linewidth}\caption{H100}\end{subfigure}\hfill
+\begin{subfigure}[t]{0.49\linewidth}\centering
+\studyfig{f08_bridge_gh200}{\linewidth}\caption{GH200}\end{subfigure}
+% BEGIN-IF:bridge_extra
+\ifbridgeextra
+\par\medskip
+% BEGIN-IF:bridge_a100
+\ifbridgeaonehundred
+\begin{subfigure}[t]{0.49\linewidth}\centering
+\studyfig{f08_bridge_a100}{\linewidth}\caption{A100}\end{subfigure}\hfill
+\fi
+% END-IF:bridge_a100
+% BEGIN-IF:bridge_b200
+\ifbridgebtwohundred
+\begin{subfigure}[t]{0.49\linewidth}\centering
+\studyfig{f08_bridge_b200}{\linewidth}\caption{B200}\end{subfigure}
+\fi
+% END-IF:bridge_b200
+\fi
+% END-IF:bridge_extra
+\caption{Version bridge (pre-registered, RQ5) per host:
+$t_{\text{\polarsnew}}/t_{\text{\polarsold}}$ per suite and scale with 95\%
+intervals. Below~1: \polarsnew{} is faster. Figures from the study's analysis
+(F8). \chartnote}
+\label{fig:bridge}
+\end{figure}
+
+% BEGIN-IFNOT:bridge_a100
+\ifbridgeaonehundred\else
+The A100 side study was not part of the analysis inputs for this build, so the
+A100 appears in the cross-host analyses (Section~\ref{sec:res-cores}) but not
+here.
+\fi
+% END-IFNOT:bridge_a100
+% BEGIN-IFNOT:bridge_b200
+\ifbridgebtwohundred\else
+The same holds for the B200 side study.
+\fi
+% END-IFNOT:bridge_b200
+
+\paragraph{Re-baselined speedups (exploratory).}
+Table~\ref{tab:rebase} sets E1 and E4 beside C1 and C4, and
+Figure~\ref{fig:sensitivity} plots them against scale. \stat{p2.bridge.scope_cap}, E1 is below C1 and E4 below C4 (point estimates)
+\stat{p2.e1.below_phrase_ref}\claim{e1-exceptions-explained}\claim{e4-exceptions-explained}\claim{e1-e4-same-exceptions}. This is what the
+bridge implies, because the GPU side is identical. On the H100, measuring
+against \polarsnew{} instead of \polarsold{} lowers the Polars GPU speedup by
+\stat{p2.h100.gap.baseline.range} on the
+baseline suite, depending on scale, and by
+\stat{p2.h100.gap.complex.range} on the complex
+suite. The reductions are: \stat{p2.gap.by_host}
+(all $100(1-\mathrm{E1}/\mathrm{C1})$, point estimates). In
+\stat{p2.k1cmp.inconclusive_cells} the shift lies within what the session
+effect could produce (Section~\ref{sec:pcheck}), so those cells are not
+evidence of a version effect on the GPU comparison. On the baseline suite
+the reduction grows at every step in scale on each of these hosts, as the bridge
+does\claim{gap-grows-baseline}.
+% BEGIN-IF:pcheck
+\ifpcheck
+These reductions use E1 as measured. On the H100, E1 is inflated by a slower
+side-study session (Section~\ref{sec:pcheck}). Corrected for that
+(E1/K1, exploratory, point estimates), the H100 reductions are \stat{p2.h100.e1adj_gap.baseline.range} (baseline)
+and \stat{p2.h100.e1adj_gap.complex.range} (complex). The adjusted ratio stays below C1 at every scale\claim{h100-adj-shrinks}.
+The corrected reductions are:
+\stat{p2.e1adj_gap.by_host}.
+\fi
+% END-IF:pcheck
+
+
+\begin{table}[t]
+\centering
+\caption{Pre-registered speedups (C1, C4; paired $t$-intervals, df~$=3$) next
+to their \textsc{exploratory} re-baselined counterparts (E1, E4\expl; CPU side
+Polars \polarsnew{} from the side study; Welch-type intervals). E1/K1\expl: E1
+corrected for the measured session effect (point estimate; Section~\ref{sec:pcheck}).
+Cells where the shift from C1 to E1 lies within the session-check range:
+\stat{p2.k1cmp.inconclusive_cells}. Above~1: the GPU side is faster. The H100 rows repeat Paper~1's exploratory table for
+comparison. \chartnote}
+\label{tab:rebase}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{@{}lllccccc@{}}
+\toprule
+Host & Suite & Scale & C1 & E1\expl & E1/K1\expl & C4 & E4\expl \\
+\midrule
+% BEGIN-IF:bridge_a100
+\ifbridgeaonehundred
+A100 & baseline & SF1   & \ratioci{a100.c1.baseline.sf1} & \ratioci{a100.exploratory.e1.baseline.sf1} & \stat{p2.a100.e1adj.baseline.sf1} & \ratioci{a100.c4.baseline.sf1} & \ratioci{a100.exploratory.e4.baseline.sf1} \\
+     &          & SF10  & \ratioci{a100.c1.baseline.sf10} & \ratioci{a100.exploratory.e1.baseline.sf10} & \stat{p2.a100.e1adj.baseline.sf10} & \ratioci{a100.c4.baseline.sf10} & \ratioci{a100.exploratory.e4.baseline.sf10} \\
+     &          & SF30  & \ratioci{a100.c1.baseline.sf30} & \ratioci{a100.exploratory.e1.baseline.sf30} & \stat{p2.a100.e1adj.baseline.sf30} & \ratioci{a100.c4.baseline.sf30} & \ratioci{a100.exploratory.e4.baseline.sf30} \\
+     &          & SF100 & \ratioci{a100.c1.baseline.sf100} & \ratioci{a100.exploratory.e1.baseline.sf100} & \stat{p2.a100.e1adj.baseline.sf100} & \ratioci{a100.c4.baseline.sf100} & \ratioci{a100.exploratory.e4.baseline.sf100} \\
+     &          & SF300 & \ratioci{a100.c1.baseline.sf300} & \ratioci{a100.exploratory.e1.baseline.sf300} & \stat{p2.a100.e1adj.baseline.sf300} & \ratioci{a100.c4.baseline.sf300} & \ratioci{a100.exploratory.e4.baseline.sf300} \\
+     & complex  & SF30  & \ratioci{a100.c1.complex.sf30} & \ratioci{a100.exploratory.e1.complex.sf30} & \stat{p2.a100.e1adj.complex.sf30} & \ratioci{a100.c4.complex.sf30} & \ratioci{a100.exploratory.e4.complex.sf30} \\
+     &          & SF100 & \ratioci{a100.c1.complex.sf100} & \ratioci{a100.exploratory.e1.complex.sf100} & \stat{p2.a100.e1adj.complex.sf100} & \ratioci{a100.c4.complex.sf100} & \ratioci{a100.exploratory.e4.complex.sf100} \\
+     &          & SF300 & \ratioci{a100.c1.complex.sf300} & \ratioci{a100.exploratory.e1.complex.sf300} & \stat{p2.a100.e1adj.complex.sf300} & \ratioci{a100.c4.complex.sf300} & \ratioci{a100.exploratory.e4.complex.sf300} \\
+\midrule
+\fi
+% END-IF:bridge_a100
+H100 & baseline & SF1   & \ratioci{c1.baseline.sf1} & \ratioci{exploratory.e1.baseline.sf1} & \stat{p2.h100.e1adj.baseline.sf1} & \ratioci{c4.baseline.sf1} & \ratioci{exploratory.e4.baseline.sf1} \\
+     &          & SF10  & \ratioci{c1.baseline.sf10} & \ratioci{exploratory.e1.baseline.sf10} & \stat{p2.h100.e1adj.baseline.sf10} & \ratioci{c4.baseline.sf10} & \ratioci{exploratory.e4.baseline.sf10} \\
+     &          & SF30  & \ratioci{c1.baseline.sf30} & \ratioci{exploratory.e1.baseline.sf30} & \stat{p2.h100.e1adj.baseline.sf30} & \ratioci{c4.baseline.sf30} & \ratioci{exploratory.e4.baseline.sf30} \\
+     &          & SF100 & \ratioci{c1.baseline.sf100} & \ratioci{exploratory.e1.baseline.sf100} & \stat{p2.h100.e1adj.baseline.sf100} & \ratioci{c4.baseline.sf100} & \ratioci{exploratory.e4.baseline.sf100} \\
+     &          & SF300 & \ratioci{c1.baseline.sf300} & \ratioci{exploratory.e1.baseline.sf300} & \stat{p2.h100.e1adj.baseline.sf300} & \ratioci{c4.baseline.sf300} & \ratioci{exploratory.e4.baseline.sf300} \\
+     & complex  & SF30  & \ratioci{c1.complex.sf30} & \ratioci{exploratory.e1.complex.sf30} & \stat{p2.h100.e1adj.complex.sf30} & \ratioci{c4.complex.sf30} & \ratioci{exploratory.e4.complex.sf30} \\
+     &          & SF100 & \ratioci{c1.complex.sf100} & \ratioci{exploratory.e1.complex.sf100} & \stat{p2.h100.e1adj.complex.sf100} & \ratioci{c4.complex.sf100} & \ratioci{exploratory.e4.complex.sf100} \\
+     &          & SF300 & \ratioci{c1.complex.sf300} & \ratioci{exploratory.e1.complex.sf300} & \stat{p2.h100.e1adj.complex.sf300} & \ratioci{c4.complex.sf300} & \ratioci{exploratory.e4.complex.sf300} \\
+\midrule
+GH200 & baseline & SF1   & \ratioci{gh200.c1.baseline.sf1} & \ratioci{gh200.exploratory.e1.baseline.sf1} & \stat{p2.gh200.e1adj.baseline.sf1} & \ratioci{gh200.c4.baseline.sf1} & \ratioci{gh200.exploratory.e4.baseline.sf1} \\
+      &          & SF10  & \ratioci{gh200.c1.baseline.sf10} & \ratioci{gh200.exploratory.e1.baseline.sf10} & \stat{p2.gh200.e1adj.baseline.sf10} & \ratioci{gh200.c4.baseline.sf10} & \ratioci{gh200.exploratory.e4.baseline.sf10} \\
+      &          & SF30  & \ratioci{gh200.c1.baseline.sf30} & \ratioci{gh200.exploratory.e1.baseline.sf30} & \stat{p2.gh200.e1adj.baseline.sf30} & \ratioci{gh200.c4.baseline.sf30} & \ratioci{gh200.exploratory.e4.baseline.sf30} \\
+      &          & SF100 & \ratioci{gh200.c1.baseline.sf100} & \ratioci{gh200.exploratory.e1.baseline.sf100} & \stat{p2.gh200.e1adj.baseline.sf100} & \ratioci{gh200.c4.baseline.sf100} & \ratioci{gh200.exploratory.e4.baseline.sf100} \\
+      &          & SF300 & \ratioci{gh200.c1.baseline.sf300} & \ratioci{gh200.exploratory.e1.baseline.sf300} & \stat{p2.gh200.e1adj.baseline.sf300} & \ratioci{gh200.c4.baseline.sf300} & \ratioci{gh200.exploratory.e4.baseline.sf300} \\
+      & complex  & SF30  & \ratioci{gh200.c1.complex.sf30} & \ratioci{gh200.exploratory.e1.complex.sf30} & \stat{p2.gh200.e1adj.complex.sf30} & \ratioci{gh200.c4.complex.sf30} & \ratioci{gh200.exploratory.e4.complex.sf30} \\
+      &          & SF100 & \ratioci{gh200.c1.complex.sf100} & \ratioci{gh200.exploratory.e1.complex.sf100} & \stat{p2.gh200.e1adj.complex.sf100} & \ratioci{gh200.c4.complex.sf100} & \ratioci{gh200.exploratory.e4.complex.sf100} \\
+      &          & SF300 & \ratioci{gh200.c1.complex.sf300} & \ratioci{gh200.exploratory.e1.complex.sf300} & \stat{p2.gh200.e1adj.complex.sf300} & \ratioci{gh200.c4.complex.sf300} & \ratioci{gh200.exploratory.e4.complex.sf300} \\
+% BEGIN-IF:bridge_b200
+\ifbridgebtwohundred
+\midrule
+B200 & baseline & SF1   & \ratioci{b200.c1.baseline.sf1} & \ratioci{b200.exploratory.e1.baseline.sf1} & \stat{p2.b200.e1adj.baseline.sf1} & \ratioci{b200.c4.baseline.sf1} & \ratioci{b200.exploratory.e4.baseline.sf1} \\
+     &          & SF10  & \ratioci{b200.c1.baseline.sf10} & \ratioci{b200.exploratory.e1.baseline.sf10} & \stat{p2.b200.e1adj.baseline.sf10} & \ratioci{b200.c4.baseline.sf10} & \ratioci{b200.exploratory.e4.baseline.sf10} \\
+     &          & SF30  & \ratioci{b200.c1.baseline.sf30} & \ratioci{b200.exploratory.e1.baseline.sf30} & \stat{p2.b200.e1adj.baseline.sf30} & \ratioci{b200.c4.baseline.sf30} & \ratioci{b200.exploratory.e4.baseline.sf30} \\
+     &          & SF100 & \ratioci{b200.c1.baseline.sf100} & \ratioci{b200.exploratory.e1.baseline.sf100} & \stat{p2.b200.e1adj.baseline.sf100} & \ratioci{b200.c4.baseline.sf100} & \ratioci{b200.exploratory.e4.baseline.sf100} \\
+     &          & SF300 & \ratioci{b200.c1.baseline.sf300} & \ratioci{b200.exploratory.e1.baseline.sf300} & \stat{p2.b200.e1adj.baseline.sf300} & \ratioci{b200.c4.baseline.sf300} & \ratioci{b200.exploratory.e4.baseline.sf300} \\
+     & complex  & SF30  & \ratioci{b200.c1.complex.sf30} & \ratioci{b200.exploratory.e1.complex.sf30} & \stat{p2.b200.e1adj.complex.sf30} & \ratioci{b200.c4.complex.sf30} & \ratioci{b200.exploratory.e4.complex.sf30} \\
+     &          & SF100 & \ratioci{b200.c1.complex.sf100} & \ratioci{b200.exploratory.e1.complex.sf100} & \stat{p2.b200.e1adj.complex.sf100} & \ratioci{b200.c4.complex.sf100} & \ratioci{b200.exploratory.e4.complex.sf100} \\
+     &          & SF300 & \ratioci{b200.c1.complex.sf300} & \ratioci{b200.exploratory.e1.complex.sf300} & \stat{p2.b200.e1adj.complex.sf300} & \ratioci{b200.c4.complex.sf300} & \ratioci{b200.exploratory.e4.complex.sf300} \\
+\fi
+% END-IF:bridge_b200
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\iffigure{f20_baseline_sensitivity}{%
+\studyfig{f20_baseline_sensitivity}{\linewidth}}{%
+\begin{subfigure}[t]{0.49\linewidth}\centering
+\studyfig{f02x_h100}{\linewidth}\caption{H100}\end{subfigure}\hfill
+\begin{subfigure}[t]{0.49\linewidth}\centering
+\studyfig{f02x_gh200}{\linewidth}\caption{GH200}\end{subfigure}}
+\caption{Baseline sensitivity (\textsc{exploratory}, post hoc): the Polars GPU
+speedup against Polars \polarsold{} (C1, pre-registered, paired intervals) and
+against Polars \polarsnew{} (E1, exploratory, Welch-type intervals), by scale
+and suite\iffigure{f20_baseline_sensitivity}{, one column per host with each
+host's CPU layout under its name; a host whose side study is not in this
+build's inputs shows ``bridge not available''}{; the study's F2x panels also
+show C4 and E4}. Above~1: the GPU side is faster.
+\chartnote}
+\label{fig:sensitivity}
+\end{figure}
+
+\paragraph{Where the verdict changes (exploratory).}
+A lower speedup matters most when it moves the scale at which the GPU wins.
+Table~\ref{tab:crossover} gives, for each host and suite, the first scale at
+which each ratio's interval lies entirely above~1\stat{p2.bridge.scope_note}. Changing the CPU baseline from \polarsold{} to
+\polarsnew{} moves that scale in these cases: \stat{p2.verdict.moves_list}. It
+moves no scale on: \stat{p2.verdict.unchanged_hosts}. In the following cells the
+two baselines give opposite verdicts, each with an interval excluding~1: the GPU
+engine is faster than Polars \polarsold{} but slower than Polars \polarsnew{}
+(\stat{p2.reversal.detail})\claim{reversal-exists}. At those scales on those
+hosts, the choice of CPU release, which the GPU package constrains, decides
+whether the GPU engine helps.
+% BEGIN-IF:pcheck
+\ifpcheck
+The session correction (E1/K1; point estimates) moves E1's first scale in
+these cases: \stat{p2.verdict_adj.moves_list}. The adjusted point estimate at
+E1's first scale is: \stat{p2.verdict_adj.at_first_list}.
+% BEGIN-IF:e1adj
+\ifeadj
+With intervals (Table~\ref{tab:e1adj}), the adjusted ratio's first scale
+entirely above~1 differs from E1's in these cases:
+\stat{p2.verdict_adjci.moves_list}\claim{adj-ci-sustained}. Classifying each
+interval as GPU faster, CPU faster or inconclusive, the adjustment changes the
+suite-level verdict in \stat{p2.adj.suite_changed_n} of \stat{p2.adj.suite_cells}
+cells (E1 and E4: \stat{p2.adj.suite_changed_list}). Per query (E1) it changes
+\stat{p2.adj.q_changed_n} of \stat{p2.adj.q_cells}:
+\stat{p2.adj.q_changed_list}. Per-query intervals rest on single queries and
+four rounds per side, so these changes are fragile, and we draw no conclusion
+from them.
+\fi
+% END-IF:e1adj
+% BEGIN-IFNOT:e1adj
+\ifeadj\else
+Whether the adjusted intervals exclude~1 at those scales is not established in
+this build.
+\fi
+% END-IFNOT:e1adj
+\fi
+% END-IF:pcheck
+
+
+\begin{table}[t]
+\centering
+\caption{First scale at which the 95\% interval lies entirely above~1 (the GPU
+side faster), per host and suite. C1/C4: pre-registered contrasts (the C4
+column is the pre-registered RQ3 crossover). E1/E4\expl: \textsc{exploratory}. E1/K1\expl: session-adjusted E1, first
+scale whose point estimate exceeds~1 and stays above (\textsc{exploratory}).
+``---'': no bridge for this host in this build. ``None observed'': no scale
+qualifies.}
+\label{tab:crossover}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccccccccc@{}}
+\toprule
+ & \multicolumn{5}{c}{baseline suite} & \multicolumn{5}{c}{complex suite} \\
+\cmidrule(lr){2-6}\cmidrule(l){7-11}
+Host & C1 & E1\expl & E1/K1\expl & C4 & E4\expl & C1 & E1\expl & E1/K1\expl & C4 & E4\expl \\
+\midrule
+% BEGIN-IF:bridge_a100
+\ifbridgeaonehundred
+A100 & \stat{p2.a100.c1.baseline.first_above} & \stat{p2.a100.e1.baseline.first_above} & \stat{p2.a100.e1adj.baseline.first_above_point} & \stat{p2.a100.c4.baseline.first_above} & \stat{p2.a100.e4.baseline.first_above} & \stat{p2.a100.c1.complex.first_above} & \stat{p2.a100.e1.complex.first_above} & \stat{p2.a100.e1adj.complex.first_above_point} & \stat{p2.a100.c4.complex.first_above} & \stat{p2.a100.e4.complex.first_above} \\
+\fi
+% END-IF:bridge_a100
+% BEGIN-IFNOT:bridge_a100
+\ifbridgeaonehundred\else
+A100 & \stat{p2.a100.c1.baseline.first_above} & --- & --- & \stat{p2.a100.c4.baseline.first_above} & --- & \stat{p2.a100.c1.complex.first_above} & --- & --- & \stat{p2.a100.c4.complex.first_above} & --- \\
+\fi
+% END-IFNOT:bridge_a100
+H100 & \stat{p2.h100.c1.baseline.first_above} & \stat{p2.h100.e1.baseline.first_above} & \stat{p2.h100.e1adj.baseline.first_above_point} & \stat{p2.h100.c4.baseline.first_above} & \stat{p2.h100.e4.baseline.first_above} & \stat{p2.h100.c1.complex.first_above} & \stat{p2.h100.e1.complex.first_above} & \stat{p2.h100.e1adj.complex.first_above_point} & \stat{p2.h100.c4.complex.first_above} & \stat{p2.h100.e4.complex.first_above} \\
+GH200 & \stat{p2.gh200.c1.baseline.first_above} & \stat{p2.gh200.e1.baseline.first_above} & \stat{p2.gh200.e1adj.baseline.first_above_point} & \stat{p2.gh200.c4.baseline.first_above} & \stat{p2.gh200.e4.baseline.first_above} & \stat{p2.gh200.c1.complex.first_above} & \stat{p2.gh200.e1.complex.first_above} & \stat{p2.gh200.e1adj.complex.first_above_point} & \stat{p2.gh200.c4.complex.first_above} & \stat{p2.gh200.e4.complex.first_above} \\
+% BEGIN-IF:bridge_b200
+\ifbridgebtwohundred
+B200 & \stat{p2.b200.c1.baseline.first_above} & \stat{p2.b200.e1.baseline.first_above} & \stat{p2.b200.e1adj.baseline.first_above_point} & \stat{p2.b200.c4.baseline.first_above} & \stat{p2.b200.e4.baseline.first_above} & \stat{p2.b200.c1.complex.first_above} & \stat{p2.b200.e1.complex.first_above} & \stat{p2.b200.e1adj.complex.first_above_point} & \stat{p2.b200.c4.complex.first_above} & \stat{p2.b200.e4.complex.first_above} \\
+\fi
+% END-IF:bridge_b200
+% BEGIN-IFNOT:bridge_b200
+\ifbridgebtwohundred\else
+B200 & \stat{p2.b200.c1.baseline.first_above} & --- & --- & \stat{p2.b200.c4.baseline.first_above} & --- & \stat{p2.b200.c1.complex.first_above} & --- & --- & \stat{p2.b200.c4.complex.first_above} & --- \\
+\fi
+% END-IFNOT:bridge_b200
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% BEGIN-IF:pcheck
+\ifpcheck
+\subsection{Session bias in E1 (exploratory)}
+\label{sec:pcheck}
+E1 takes its CPU times from side-study sessions and its GPU times from main
+rounds. The change from C1 to E1 therefore mixes two effects: the Polars release,
+and any difference between the two kinds of session (time of day, preceding
+sessions, file-cache state). Both kinds of session ran Polars \polarsold{}, so
+$\mathrm{K1} = t^{\text{side}}_{\text{\polarsold}}/t^{\text{main}}_{\text{\polarsold}}$
+measures the session effect on its own.
+
+On the H100, K1 ranged from \stat{p2.h100.pcheck.min} to
+\stat{p2.h100.pcheck.max}, and every point estimate was above~1\claim{h100-pcheck-above-1}.
+One interval excluded~1
+(\stat{p2.h100.pcheck.excluding_1_list}:
+\ratiotext{protocol_check.h100.complex.sf100})\claim{h100-pcheck-one-excluded}. On the GH200 no interval excluded~1\claim{gh200-pcheck-none}. For every host:
+\stat{p2.pcheck.by_host} (all exploratory, Welch-type).
+A side-study session slower by a factor K1 inflates E1 by the same factor.
+\textbf{On the H100, E1 may therefore overstate the GPU's advantage over Polars
+\polarsnew{} by up to about \stat{p2.h100.pcheck.max_pct}\%.} On the GH200 the bias is negligible. On the A100 the intervals that exclude~1
+lie below it\claim{a100-pcheck-below}. There the side-study sessions were
+faster, so E1 may \emph{understate} the GPU's advantage over Polars
+\polarsnew{}, by up to about \stat{p2.a100.pcheck.min_pct}\%, and the reductions
+may overstate the version effect. In every cell the session effect is smaller than the
+version effect: K1 lies closer to~1 than the bridge over the GPU-supported
+queries\claim{pcheck-small}.
+
+The session-adjusted ratio E1/K1 removes this bias if the session effect is the
+same for both Polars releases. The check cannot establish that assumption.
+Table~\ref{tab:rebase} gives E1/K1 beside E1, and Section~\ref{sec:res-version} uses it in each statement about E1.
+
+\paragraph{Is the shift from C1 to E1 larger than the session effect?}
+For each cell we compare the shift $1-\mathrm{E1}/\mathrm{C1}$ (point estimates)
+with the largest distance of the K1 interval from~1. The shift exceeds it in
+\stat{p2.k1cmp.summary}. It does not in \stat{p2.k1cmp.inconclusive_all}. In
+those cells the re-baselining shift is not distinguishable from the
+session-protocol uncertainty, and we do not count them as evidence that the
+release changes the GPU comparison. What is inconclusive there is the
+comparison of E1 with C1 across the two protocols. The bridge itself is paired
+within the side-study rounds, is unaffected, and shows Polars \polarsnew{}
+faster in those cells \stat{p2.k1cmp.bridge_phrase_ref}. Every cell where the two
+baselines give opposite verdicts has a shift beyond the session-check
+range\claim{k1cmp-reversal-exceeds}. This comparison is descriptive and
+exploratory.
+% BEGIN-IF:e1adj
+\ifeadj
+Table~\ref{tab:e1adj} gives E1/K1 with intervals, estimated as the bridge over
+E1's queries times C1 (both paired within their rounds; Welch--Satterthwaite
+df for the combination)\claim{e1adj-matches}.
+
+\begin{table}[t]
+\centering
+\caption{\textsc{Exploratory}: session-adjusted E1, $\mathrm{E1}/\mathrm{K1}$,
+with 95\% intervals, beside the pre-registered C1 and the unadjusted E1. Above~1:
+the GPU side is faster. \chartnote}
+\label{tab:e1adj}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lllccc@{}}
+\toprule
+Host & Suite & Scale & C1 & E1\expl & E1/K1\expl \\
+\midrule
+% BEGIN-IF:bridge_a100
+\ifbridgeaonehundred
+A100 & baseline & SF1 & \ratioci{a100.c1.baseline.sf1} & \ratioci{a100.exploratory.e1.baseline.sf1} & \ratioci{exploratory_adj.e1.a100.baseline.sf1} \\
+ &  & SF10 & \ratioci{a100.c1.baseline.sf10} & \ratioci{a100.exploratory.e1.baseline.sf10} & \ratioci{exploratory_adj.e1.a100.baseline.sf10} \\
+ &  & SF30 & \ratioci{a100.c1.baseline.sf30} & \ratioci{a100.exploratory.e1.baseline.sf30} & \ratioci{exploratory_adj.e1.a100.baseline.sf30} \\
+ &  & SF100 & \ratioci{a100.c1.baseline.sf100} & \ratioci{a100.exploratory.e1.baseline.sf100} & \ratioci{exploratory_adj.e1.a100.baseline.sf100} \\
+ &  & SF300 & \ratioci{a100.c1.baseline.sf300} & \ratioci{a100.exploratory.e1.baseline.sf300} & \ratioci{exploratory_adj.e1.a100.baseline.sf300} \\
+ & complex & SF30 & \ratioci{a100.c1.complex.sf30} & \ratioci{a100.exploratory.e1.complex.sf30} & \ratioci{exploratory_adj.e1.a100.complex.sf30} \\
+ &  & SF100 & \ratioci{a100.c1.complex.sf100} & \ratioci{a100.exploratory.e1.complex.sf100} & \ratioci{exploratory_adj.e1.a100.complex.sf100} \\
+ &  & SF300 & \ratioci{a100.c1.complex.sf300} & \ratioci{a100.exploratory.e1.complex.sf300} & \ratioci{exploratory_adj.e1.a100.complex.sf300} \\
+\midrule
+\fi
+% END-IF:bridge_a100
+H100 & baseline & SF1   & \ratioci{c1.baseline.sf1} & \ratioci{exploratory.e1.baseline.sf1} & \ratioci{exploratory_adj.e1.h100.baseline.sf1} \\
+     &          & SF10  & \ratioci{c1.baseline.sf10} & \ratioci{exploratory.e1.baseline.sf10} & \ratioci{exploratory_adj.e1.h100.baseline.sf10} \\
+     &          & SF30  & \ratioci{c1.baseline.sf30} & \ratioci{exploratory.e1.baseline.sf30} & \ratioci{exploratory_adj.e1.h100.baseline.sf30} \\
+     &          & SF100 & \ratioci{c1.baseline.sf100} & \ratioci{exploratory.e1.baseline.sf100} & \ratioci{exploratory_adj.e1.h100.baseline.sf100} \\
+     &          & SF300 & \ratioci{c1.baseline.sf300} & \ratioci{exploratory.e1.baseline.sf300} & \ratioci{exploratory_adj.e1.h100.baseline.sf300} \\
+     & complex  & SF30  & \ratioci{c1.complex.sf30} & \ratioci{exploratory.e1.complex.sf30} & \ratioci{exploratory_adj.e1.h100.complex.sf30} \\
+     &          & SF100 & \ratioci{c1.complex.sf100} & \ratioci{exploratory.e1.complex.sf100} & \ratioci{exploratory_adj.e1.h100.complex.sf100} \\
+     &          & SF300 & \ratioci{c1.complex.sf300} & \ratioci{exploratory.e1.complex.sf300} & \ratioci{exploratory_adj.e1.h100.complex.sf300} \\
+\midrule
+GH200 & baseline & SF1   & \ratioci{gh200.c1.baseline.sf1} & \ratioci{gh200.exploratory.e1.baseline.sf1} & \ratioci{exploratory_adj.e1.gh200.baseline.sf1} \\
+      &          & SF10  & \ratioci{gh200.c1.baseline.sf10} & \ratioci{gh200.exploratory.e1.baseline.sf10} & \ratioci{exploratory_adj.e1.gh200.baseline.sf10} \\
+      &          & SF30  & \ratioci{gh200.c1.baseline.sf30} & \ratioci{gh200.exploratory.e1.baseline.sf30} & \ratioci{exploratory_adj.e1.gh200.baseline.sf30} \\
+      &          & SF100 & \ratioci{gh200.c1.baseline.sf100} & \ratioci{gh200.exploratory.e1.baseline.sf100} & \ratioci{exploratory_adj.e1.gh200.baseline.sf100} \\
+      &          & SF300 & \ratioci{gh200.c1.baseline.sf300} & \ratioci{gh200.exploratory.e1.baseline.sf300} & \ratioci{exploratory_adj.e1.gh200.baseline.sf300} \\
+      & complex  & SF30  & \ratioci{gh200.c1.complex.sf30} & \ratioci{gh200.exploratory.e1.complex.sf30} & \ratioci{exploratory_adj.e1.gh200.complex.sf30} \\
+      &          & SF100 & \ratioci{gh200.c1.complex.sf100} & \ratioci{gh200.exploratory.e1.complex.sf100} & \ratioci{exploratory_adj.e1.gh200.complex.sf100} \\
+      &          & SF300 & \ratioci{gh200.c1.complex.sf300} & \ratioci{gh200.exploratory.e1.complex.sf300} & \ratioci{exploratory_adj.e1.gh200.complex.sf300} \\
+% BEGIN-IF:bridge_b200
+\ifbridgebtwohundred
+\midrule
+B200 & baseline & SF1 & \ratioci{b200.c1.baseline.sf1} & \ratioci{b200.exploratory.e1.baseline.sf1} & \ratioci{exploratory_adj.e1.b200.baseline.sf1} \\
+ &  & SF10 & \ratioci{b200.c1.baseline.sf10} & \ratioci{b200.exploratory.e1.baseline.sf10} & \ratioci{exploratory_adj.e1.b200.baseline.sf10} \\
+ &  & SF30 & \ratioci{b200.c1.baseline.sf30} & \ratioci{b200.exploratory.e1.baseline.sf30} & \ratioci{exploratory_adj.e1.b200.baseline.sf30} \\
+ &  & SF100 & \ratioci{b200.c1.baseline.sf100} & \ratioci{b200.exploratory.e1.baseline.sf100} & \ratioci{exploratory_adj.e1.b200.baseline.sf100} \\
+ &  & SF300 & \ratioci{b200.c1.baseline.sf300} & \ratioci{b200.exploratory.e1.baseline.sf300} & \ratioci{exploratory_adj.e1.b200.baseline.sf300} \\
+ & complex & SF30 & \ratioci{b200.c1.complex.sf30} & \ratioci{b200.exploratory.e1.complex.sf30} & \ratioci{exploratory_adj.e1.b200.complex.sf30} \\
+ &  & SF100 & \ratioci{b200.c1.complex.sf100} & \ratioci{b200.exploratory.e1.complex.sf100} & \ratioci{exploratory_adj.e1.b200.complex.sf100} \\
+ &  & SF300 & \ratioci{b200.c1.complex.sf300} & \ratioci{b200.exploratory.e1.complex.sf300} & \ratioci{exploratory_adj.e1.b200.complex.sf300} \\
+\fi
+% END-IF:bridge_b200
+\bottomrule
+\end{tabular}
+\end{table}
+\fi
+% END-IF:e1adj
+\fi
+% END-IF:pcheck
+
+\subsection{Equal threads, unequal cores}
+\label{sec:res-cores}
+
+\paragraph{Topology (recorded).} Table~\ref{tab:topology} lists what each guest
+reported. On every host the engines ran with \stat{host.cpus_arg} threads\claim{same-threads}. On the H100 and B200 those threads match the vCPU count and
+occupy \stat{p2.h100.cores_used} physical cores, two hardware threads per core\claim{h100-smt}. On the A100 and GH200 they occupy
+\stat{p2.a100.cores_used} cores, one thread per core, and the remaining vCPUs
+are not used by the worker pools\claim{cores-differ}\claim{cores-pairs}. The design meant ``same threads on every host''
+as a control (amendment A3). For CPU engines it does not hold the CPU resources
+constant: the H100 and B200 baselines run on half as many cores. Because
+threads are not pinned, nothing stops helper threads (I/O, garbage collection,
+the operating system) from using the idle cores on the A100 and GH200. On the
+H100 and B200 the worker threads already equal the vCPU count.
+
+\begin{table}[t]
+\centering
+\caption{CPU as reported by each guest (\texttt{lscpu}, recorded by the runner's standard inventory; analysed post hoc). Physical cores are as the guest reports them; a hypervisor can expose
+a topology that differs from the physical machine.}
+\label{tab:topology}
+\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.2cm}*{4}{>{\raggedright\arraybackslash}p{2.75cm}}@{}}
+\toprule
+ & A100 & H100 & GH200 & B200 \\
+\midrule
+CPU model & \stat{a100.host.cpu_model} & \stat{host.cpu_model} & \stat{gh200.host.cpu_model} & \stat{b200.host.cpu_model} \\
+Architecture & \stat{a100.host.arch} & \stat{host.arch} & \stat{gh200.host.arch} & \stat{b200.host.arch} \\
+Hypervisor line & \stat{p2.a100.hypervisor_text} & \stat{p2.h100.hypervisor_text} & \stat{p2.gh200.hypervisor_text} & \stat{p2.b200.hypervisor_text} \\
+vCPUs & \stat{a100.host.vcpus} & \stat{host.vcpus} & \stat{gh200.host.vcpus} & \stat{b200.host.vcpus} \\
+Hardware threads per core & \stat{a100.host.smt_threads_per_core} & \stat{host.smt_threads_per_core} & \stat{gh200.host.smt_threads_per_core} & \stat{b200.host.smt_threads_per_core} \\
+Physical cores & \stat{a100.host.physical_cores} & \stat{host.physical_cores} & \stat{gh200.host.physical_cores} & \stat{b200.host.physical_cores} \\
+NUMA nodes (with CPUs) & \stat{a100.host.numa_nodes} (\stat{a100.host.numa_nodes_with_cpus}) & \stat{host.numa_nodes} (\stat{host.numa_nodes_with_cpus}) & \stat{gh200.host.numa_nodes} (\stat{gh200.host.numa_nodes_with_cpus}) & \stat{b200.host.numa_nodes} (\stat{b200.host.numa_nodes_with_cpus}) \\
+Engine threads (\texttt{-{}-cpus}) & \stat{a100.host.cpus_arg} & \stat{host.cpus_arg} & \stat{gh200.host.cpus_arg} & \stat{b200.host.cpus_arg} \\
+Physical cores they occupy & \stat{p2.a100.cores_used} & \stat{p2.h100.cores_used} & \stat{p2.gh200.cores_used} & \stat{p2.b200.cores_used} \\
+Share of vCPUs used & \stat{a100.host.cpus_arg_share_of_vcpus} & \stat{host.cpus_arg_share_of_vcpus} & \stat{gh200.host.cpus_arg_share_of_vcpus} & \stat{b200.host.cpus_arg_share_of_vcpus} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{CPU-engine times across hosts (descriptive).}
+Figure~\ref{fig:ladder} shows each engine's time on each host relative to the
+H100, and Table~\ref{tab:xhost} gives the values at SF300. Polars CPU on the
+GH200, whose threads sit on \stat{p2.gh200.cores_used} cores, took between
+\stat{xhost.gh200.polars.overall.min} and \stat{xhost.gh200.polars.overall.max}
+of the H100's time, with every interval below~1\claim{gh200-cpu-faster}.
+Spark CPU on the GH200 took between \stat{xhost.gh200.spark_cpu.overall.min}
+and \stat{xhost.gh200.spark_cpu.overall.max}. Core count alone does not explain
+these numbers. Polars CPU on the A100 also runs on
+\stat{p2.a100.cores_used} cores, of a different CPU model, and took between
+\stat{xhost.a100.polars.overall.min} and \stat{xhost.a100.polars.overall.max}
+of the H100's time, with every interval above~1\claim{a100-cpu-slower}. The
+B200 matches the H100's topology. There Polars CPU took between
+\stat{xhost.b200.polars.overall.min} and \stat{xhost.b200.polars.overall.max}
+of the H100's time. The baseline therefore depends on the whole host CPU,
+including core count, microarchitecture and memory system, and the shared
+thread count equalizes none of them.
+
+\begin{figure}[t]
+\centering
+\studyfig{f11_gpu_ladder}{\linewidth}
+\caption{Suite-level time of each engine on each host relative to the H100
+(host/H100; geometric mean of round medians; 95\% Welch-type intervals;
+pre-registered as a descriptive secondary analysis, amendments A2/A3). The
+CPU-engine rows show the CPU side of each speedup. Figure from the study's
+cross-host analysis (F11). \chartnote}
+\label{fig:ladder}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{SF300 cross-host time ratios $X = t_{\text{host}}/t_{\text{H100}}$ per
+engine (descriptive; Welch-type 95\% intervals) and the host's speedups C1 and
+C2 (pre-registered; paired $t$-intervals). By Eq.~\eqref{eq:factor},
+$C^{h}/C^{\text{H100}} = X_{\text{cpu}}/X_{\text{gpu}}$ for the point estimates
+except C1 on the complex suite (marked $^\dagger$, where $X_{\text{cpu}}$
+includes two queries outside C1). The last two columns
+(\textsc{exploratory}\expl) give $C^{h}/C^{\text{H100}}$. \chartnote}
+\label{tab:xhost}
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{@{}llcccccccc@{}}
+\toprule
+Suite & Host & cores & $X$ Polars CPU & $X$ Polars GPU & C1 & $X$ Spark CPU & $X$ Spark GPU & C2 & C1, C2 ratio\expl \\
+\midrule
+baseline & A100  & \stat{p2.a100.cores_used} & \ratioci{xhost.a100.polars.baseline.sf300} & \ratioci{xhost.a100.polars_gpu.baseline.sf300} & \ratioci{a100.c1.baseline.sf300} & \ratioci{xhost.a100.spark_cpu.baseline.sf300} & \ratioci{xhost.a100.spark_gpu.baseline.sf300} & \ratioci{a100.c2.baseline.sf300} & \stat{p2.a100.c1.baseline.sf300.speedup_ratio}, \stat{p2.a100.c2.baseline.sf300.speedup_ratio} \\
+         & H100  & \stat{p2.h100.cores_used} & ref. & ref. & \ratioci{c1.baseline.sf300} & ref. & ref. & \ratioci{c2.baseline.sf300} & ref. \\
+         & GH200 & \stat{p2.gh200.cores_used} & \ratioci{xhost.gh200.polars.baseline.sf300} & \ratioci{xhost.gh200.polars_gpu.baseline.sf300} & \ratioci{gh200.c1.baseline.sf300} & \ratioci{xhost.gh200.spark_cpu.baseline.sf300} & \ratioci{xhost.gh200.spark_gpu.baseline.sf300} & \ratioci{gh200.c2.baseline.sf300} & \stat{p2.gh200.c1.baseline.sf300.speedup_ratio}, \stat{p2.gh200.c2.baseline.sf300.speedup_ratio} \\
+         & B200  & \stat{p2.b200.cores_used} & \ratioci{xhost.b200.polars.baseline.sf300} & \ratioci{xhost.b200.polars_gpu.baseline.sf300} & \ratioci{b200.c1.baseline.sf300} & \ratioci{xhost.b200.spark_cpu.baseline.sf300} & \ratioci{xhost.b200.spark_gpu.baseline.sf300} & \ratioci{b200.c2.baseline.sf300} & \stat{p2.b200.c1.baseline.sf300.speedup_ratio}, \stat{p2.b200.c2.baseline.sf300.speedup_ratio} \\
+\midrule
+complex  & A100  & \stat{p2.a100.cores_used} & \ratioci{xhost.a100.polars.complex.sf300}$^\dagger$ & \ratioci{xhost.a100.polars_gpu.complex.sf300} & \ratioci{a100.c1.complex.sf300} & \ratioci{xhost.a100.spark_cpu.complex.sf300} & \ratioci{xhost.a100.spark_gpu.complex.sf300} & \ratioci{a100.c2.complex.sf300} & \stat{p2.a100.c1.complex.sf300.speedup_ratio}, \stat{p2.a100.c2.complex.sf300.speedup_ratio} \\
+         & H100  & \stat{p2.h100.cores_used} & ref. & ref. & \ratioci{c1.complex.sf300} & ref. & ref. & \ratioci{c2.complex.sf300} & ref. \\
+         & GH200 & \stat{p2.gh200.cores_used} & \ratioci{xhost.gh200.polars.complex.sf300}$^\dagger$ & \ratioci{xhost.gh200.polars_gpu.complex.sf300} & \ratioci{gh200.c1.complex.sf300} & \ratioci{xhost.gh200.spark_cpu.complex.sf300} & \ratioci{xhost.gh200.spark_gpu.complex.sf300} & \ratioci{gh200.c2.complex.sf300} & \stat{p2.gh200.c1.complex.sf300.speedup_ratio}, \stat{p2.gh200.c2.complex.sf300.speedup_ratio} \\
+         & B200  & \stat{p2.b200.cores_used} & \ratioci{xhost.b200.polars.complex.sf300}$^\dagger$ & \ratioci{xhost.b200.polars_gpu.complex.sf300} & \ratioci{b200.c1.complex.sf300} & \ratioci{xhost.b200.spark_cpu.complex.sf300} & \ratioci{xhost.b200.spark_gpu.complex.sf300} & \ratioci{b200.c2.complex.sf300} & \stat{p2.b200.c1.complex.sf300.speedup_ratio}, \stat{p2.b200.c2.complex.sf300.speedup_ratio} \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{Factorizing the speedup differences (exploratory).}
+Equation~\eqref{eq:factor} splits each host's speedup difference into the two
+rows of Table~\ref{tab:xhost}. On the GH200 the Polars GPU speedup was lower
+than on the H100 at every scale\claim{gh200-c1-lower}. At SF300 on the
+baseline suite it was \ratiotext{gh200.c1.baseline.sf300} against
+\ratiotext{c1.baseline.sf300}, a ratio of
+\stat{p2.gh200.c1.baseline.sf300.speedup_ratio}. Most of that comes from the CPU
+side. In every cell, the GH200's Polars CPU ratio lies further from~1
+than its Polars GPU ratio\claim{gh200-cpu-side}. At SF300 they are
+\ratiotext{xhost.gh200.polars.baseline.sf300} for the CPU and
+\ratiotext{xhost.gh200.polars_gpu.baseline.sf300} for the GPU. Over all cells, the GH200's Polars GPU engine took between
+\stat{xhost.gh200.polars_gpu.overall.min} and
+\stat{xhost.gh200.polars_gpu.overall.max} of the H100's time. Its speedup is
+smaller mainly because its CPU baseline is faster, not because its GPU engine
+is slower. The A100 shows the
+opposite pattern. Its Polars GPU speedup is also lower than the H100's
+(\stat{p2.a100.c1.baseline.sf300.speedup_ratio} of it at SF300 on the baseline
+suite), but there the GPU side dominates in every cell\claim{a100-gpu-side}. The A100's GPU engine was slower
+(\ratiotext{xhost.a100.polars_gpu.baseline.sf300} of the H100's time), and so
+was its CPU engine (\ratiotext{xhost.a100.polars.baseline.sf300}). The
+B200 shares the H100's reported topology. Its speedup at SF300 on the baseline
+suite was \stat{p2.b200.c1.baseline.sf300.speedup_ratio} of the H100's, with a
+CPU-side ratio of \ratiotext{xhost.b200.polars.baseline.sf300} and a GPU-side
+ratio of \ratiotext{xhost.b200.polars_gpu.baseline.sf300}.
+% BEGIN-IF:decomp
+\ifdecomp
+Figure~\ref{fig:decomp} shows the factorization for every host, contrast,
+suite and scale. It includes C1 on the complex suite, with the CPU side
+restricted to the GPU-supported queries, and intervals for the speedup ratio
+itself. At SF300 on the baseline suite the GH200's ratio was
+\ratiotext{decomp.gh200.c1.baseline.sf300.speedup_ratio}.
+
+\begin{figure}[t]
+\centering
+\studyfig{f21_speedup_decomposition}{\linewidth}
+\caption{\textsc{Exploratory} factorization of cross-host speedup differences
+(Eq.~\eqref{eq:factor}): for each host relative to the H100, the speedup ratio
+$C^{h}/C^{\text{H100}}$ (filled black cross; Welch-type interval across hosts)
+and the CPU and GPU engines' time ratios (open markers in each engine's own
+marker and colour, as in the other figures), over the same queries, for C1
+(Polars) and C2 (Spark). Each host's CPU layout is printed under its name. A CPU-side value below~1 (the
+host's CPU engine faster) lowers the host's speedup. Descriptive; CPU model,
+architecture and topology change together across hosts. \chartnote}
+\label{fig:decomp}
+\end{figure}
+\fi
+% END-IF:decomp
+
+These comparisons are descriptive. Moving from the H100 to the GH200 changes
+the core count, the SMT setting, the CPU vendor and microarchitecture, the
+instruction set (x86\_64 to aarch64), the memory system and the platform
+builds of every package all at once. The data cannot say which of these makes
+the GH200's CPU engines faster. They do establish that a
+\emph{same-thread-count} control leaves the CPU baseline free to vary across
+hosts by a factor that is comparable to the GPU-side differences, and
+sometimes larger.
+
+\subsection{Case: the earlier A100 study}
+\label{sec:res-prior}
+
+Before the design was locked, the same project ran an A100 study
+(\stat{a100_h100.study.label}). It was not pre-registered: it had no locked
+design and a single session per cell. We use it only as an illustrative case. Its saved evidence lets us see how baseline
+choices carry into a later comparison. The analysis lists its differences from
+the present campaigns as follows: \stat{a100_h100.study.difference_headline}
+In particular, it ran Polars \stat{a100_h100.study.polars_version} with
+\stat{a100_h100.study.cpu_threads} threads, against Polars
+\stat{a100_h100.study.polars_version_h100} with
+\stat{a100_h100.study.cpu_threads_h100} threads here\claim{prior-threads}, and
+had \stat{a100_h100.study.sessions_per_cell} session per cell against
+\stat{a100_h100.study.rounds_h100} rounds. It had no Polars GPU arm.
+
+So no Polars CPU or speedup number carries over from that study to this one.
+Its CPU engine ran a different release with more threads. Its A100 instance
+had \stat{a100_h100.study.vcpus} vCPUs, and its CPU model and topology were
+not recorded.
+The only engine the analysis compares across the two studies is Spark GPU
+(Table~\ref{tab:prior}). Two estimates of the same quantity, Spark GPU time on
+an A100 relative to the H100, come from the earlier study and from this
+study's A100 campaign. The two A100 instances may differ too, so their difference
+has no single cause. It shows how far apart two careful measurements of the
+same cross-host number can lie when protocol, threads and instance all change. Note that the earlier
+study's interval reflects only the H100's round-to-round variation, because
+that study has a single session per cell.
+
+\begin{table}[t]
+\centering
+\caption{Spark GPU time on an A100 relative to the H100, from two sources:
+the earlier A100 study (run before the design was locked; not pre-registered: no locked design and a single session per cell; an illustrative case only) (\stat{a100_h100.study.cpu_threads}
+threads, one session per cell; the interval reflects only the H100's
+variation), and this study's A100 campaign (\stat{a100.host.cpus_arg} threads,
+four rounds; Welch-type interval). Above~1: the H100 host was faster.
+Descriptive. \chartnote}
+\label{tab:prior}
+\small
+\begin{tabular}{@{}llcc@{}}
+\toprule
+Suite & Scale & earlier A100 study / H100 & A100 campaign / H100 \\
+\midrule
+baseline & SF1   & \ratioci{a100_h100.spark_gpu.baseline.sf1} & \ratioci{xhost.a100.spark_gpu.baseline.sf1} \\
+         & SF10  & \ratioci{a100_h100.spark_gpu.baseline.sf10} & \ratioci{xhost.a100.spark_gpu.baseline.sf10} \\
+         & SF30  & \ratioci{a100_h100.spark_gpu.baseline.sf30} & \ratioci{xhost.a100.spark_gpu.baseline.sf30} \\
+         & SF100 & \ratioci{a100_h100.spark_gpu.baseline.sf100} & \ratioci{xhost.a100.spark_gpu.baseline.sf100} \\
+         & SF300 & \ratioci{a100_h100.spark_gpu.baseline.sf300} & \ratioci{xhost.a100.spark_gpu.baseline.sf300} \\
+complex  & SF30  & \ratioci{a100_h100.spark_gpu.complex.sf30} & \ratioci{xhost.a100.spark_gpu.complex.sf30} \\
+         & SF100 & \ratioci{a100_h100.spark_gpu.complex.sf100} & \ratioci{xhost.a100.spark_gpu.complex.sf100} \\
+         & SF300 & \ratioci{a100_h100.spark_gpu.complex.sf300} & \ratioci{xhost.a100.spark_gpu.complex.sf300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% TODO(results): one sentence on Table tab:prior once read with the author
+% (e.g. whether the two sources agree within their intervals at most scales);
+% keep it descriptive -- the A100 instances may also differ.
+
+% ======================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{Two questions, two baselines.} The pre-registered C1 answers one
+question: how much faster does this Polars release run a query on the GPU
+engine than on its own CPU engine? For that question, sharing one Polars install
+is correct, since the two sides differ only in the engine. A user deciding
+whether to buy or rent a GPU asks a different question: how much faster is the
+GPU than the best CPU setup available? For that question the baseline is the
+newest CPU release on the CPU the user would otherwise have. E1 approximates
+the newer-release part of the second question on our hosts. On the H100 at
+SF300 the two answers differ by \stat{p2.h100.gap.baseline.sf300}\% (baseline
+suite) and \stat{p2.h100.gap.complex.sf300}\% (complex suite). After the
+session correction they differ by \stat{p2.h100.e1adj_gap.baseline.sf300}\% and
+\stat{p2.h100.e1adj_gap.complex.sf300}\%. At intermediate
+scales they can even point in opposite directions
+(Table~\ref{tab:crossover}). Neither number is wrong.
+They are wrong only when reported without saying which question they answer.
+
+\paragraph{Lock-in is structural.} The constraint comes from how the software
+is released. The GPU engine is tied to a range of the CPU library's versions
+and follows them with a delay~\citep{pypi_cudfpolars_26102,pypi_polars}. During
+such a delay, any benchmark of the GPU engine has to use an older CPU release.
+A benchmark that does not report a bridge to the current release leaves its
+readers unable to tell how much of the speedup is a version gap. The size of
+the gap here is specific to Polars \polarsold{} and \polarsnew{} on this
+workload; at another moment in the release cycle it may be zero or larger.
+
+\paragraph{Thread counts are not resources.} Fixing the thread count across
+hosts is a natural control and was pre-registered as one (A3). It equalizes the
+size of the engines' worker pools. It does not equalize cores, SMT, caches,
+memory bandwidth, or idle capacity for helper threads, and in cloud guests the
+topology is whatever the hypervisor exposes. Cross-host comparisons of GPU
+speedups therefore need the CPU-side ratio next to them, as in
+Table~\ref{tab:xhost}. Equation~\eqref{eq:factor} makes the split mechanical.
+Without it, the GH200's lower Polars GPU speedup could be misread as a weaker
+GPU. The cross-host ratios show that most of the difference lies on the CPU
+side.
+
+\paragraph{The query set is part of the baseline.} The complex-suite bridge
+over all six queries (\stat{p2.bridge.complex.min}--\stat{p2.bridge.complex.max})
+is pulled down by one query the GPU engine cannot run. Over the queries that
+enter the GPU contrasts it is \stat{p2.bridge_gpuq.complex.min}--\stat{p2.bridge_gpuq.complex.max}.
+A version or hardware effect quoted for a CPU baseline should use the same
+queries as the speedup it is meant to adjust.
+
+\subsection{A reporting checklist}
+\label{sec:checklist}
+
+Table~\ref{tab:checklist} turns these observations into items for reporting
+CPU-versus-GPU dataframe benchmarks. Each row also records how the present
+study meets it. Items 1--3 concern the version, 4--6 the CPU, and 7--10 the
+analysis.
+
+\begin{table}[t]
+\centering
+\caption{Reporting checklist for CPU-versus-GPU dataframe benchmarks, and how
+the source study meets each item.}
+\label{tab:checklist}
+\footnotesize
+\begin{tabular}{@{}r>{\raggedright\arraybackslash}p{6.3cm}>{\raggedright\arraybackslash}p{7.2cm}@{}}
+\toprule
+\# & Report & This study \\
+\midrule
+1 & The CPU library version in the baseline, and the newest release at the time of measurement & \polarsold{} in the baseline; \polarsnew{} measured in the bridge; a newer release (2.1.0) existed and was not measured~\citep{pypi_polars} \\
+2 & Why the baseline uses that version (e.g.\ the GPU package's supported range) & cudf-polars 26.10.2 requires Polars ${<}1.45$~\citep{pypi_cudfpolars_26102} \\
+3 & A bridge from the baseline release to the newest, over the same queries as the speedup & bridge pre-registered (RQ5); restriction to GPU queries post hoc (point estimates) \\
+4 & CPU model, architecture, vCPUs, hardware threads per core, physical cores, NUMA nodes with CPUs, hypervisor; say whether guest-reported & recorded by the standard inventory (\texttt{lscpu}); guest-reported; analysed post hoc (Table~\ref{tab:topology}) \\
+5 & Engine thread counts \emph{and} the physical cores they occupy; whether threads are pinned; what other threads may run & \stat{host.cpus_arg} threads on \stat{p2.h100.cores_used} to \stat{p2.a100.cores_used} cores depending on host; not pinned; helper threads not capped \\
+6 & For cross-host comparisons: the CPU-engine time ratio beside every speedup comparison (Eq.~\ref{eq:factor}) & cross-host ratios pre-registered as descriptive; factorization post hoc \\
+7 & Which contrasts, baselines and crossover rules were fixed before data collection & locked design with dated amendments, commit-timestamped \\
+8 & Sensitivity analyses with alternative baselines, labelled exploratory, with how their intervals were formed & E1/E4 with Welch-type intervals, labelled exploratory \\
+9 & Uncertainty from independent replications (rounds), not only repeated trials within a session & \stat{meta.rounds_completed} rounds per host, Latin-square order \\
+10 & Queries excluded from a speedup and why (coverage), so the baseline can be restricted to the same set & pre-declared and observed coverage gaps; excluded from contrasts \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ======================================================================
+\section{Threats to Validity}
+\label{sec:threats}
+
+\paragraph{Post-hoc analysis.} E1, E4, the factorization, the first-above-1
+scales for E1/E4, the GPU-query bridge and the session check were chosen after
+the bridge and cross-host results were known. Table~\ref{tab:status} lists every post-hoc analysis this paper
+uses; the choice of which to run was data-dependent. No
+multiplicity correction is applied, and none of these results is confirmatory.
+
+\paragraph{Unpaired sessions.} E1 and E4 combine side-study CPU sessions with
+main-round GPU sessions.
+% BEGIN-IF:pcheck
+\ifpcheck
+Section~\ref{sec:pcheck} checks the session effect for Polars \polarsold{}. It
+cannot rule out a session effect that differs between Polars releases.
+\fi
+% END-IF:pcheck
+% BEGIN-IFNOT:pcheck
+\ifpcheck\else
+We did not separately estimate the difference between side-study and
+main-round sessions. It enters E1 and E4 alongside the release effect.
+\fi
+% END-IFNOT:pcheck
+The Welch-type intervals treat the rounds on the two sides as independent
+samples. With four rounds per side and small within-host variability, they can
+be narrow. They do not cover any systematic difference between the session
+types.
+
+\paragraph{Guest-reported topology.} Every topology value comes from the
+guest. On a shared cloud host, the physical cores behind the vCPUs, whether
+sibling hardware threads are really siblings, and contention from other
+tenants are all invisible to us.
+
+\paragraph{No within-host topology variation.} No host varied the thread count,
+SMT use or pinning. The topology therefore co-varies with everything else that
+differs between hosts, and we can only show that the CPU side differs as the
+topology would suggest. We cannot show that the topology causes it. A
+within-host sweep (threads, SMT on/off, pinning) would separate the factors.
+
+\paragraph{Release-specific results.} The bridge measures one pair of releases
+on one workload. Polars~2.1.0 was not measured. The bridge does not generalize
+to other releases, to other dataframe engines, or to a workload with different
+operators. The \q{cx\_window} result shows how much a single operator can
+contribute.
+
+\paragraph{Scope.} The workload is TPC-H-derived and not comparable to TPC-H
+results (Section~\ref{sec:scope}). The hosts are single cloud instances, one
+per GPU type.
+
+% ======================================================================
+\section{Reproducibility}
+\label{sec:repro}
+
+This paper uses only the study's analysis outputs: each host's
+\texttt{stats.json} and the cross-host files.
+% BEGIN-IF:pcheck
+\ifpcheck
+It also uses a Paper 2 analysis file holding the session check and the
+factorization intervals.
+\fi
+% END-IF:pcheck
+The build records the SHA-256 of every input in \texttt{generated/stats.tex}
+and refuses to build if any number the text uses is missing. It also fails if
+any statement the text makes in words (``at every scale'', ``every interval
+below~1'') no longer holds for the inputs. Raw data, the analysis code and the
+design document with its amendments are in the study repository
+\url{https://github.com/ejiod2025/gpu-spark-polars-study}.
+% TODO(author): archive DOI (e.g. Zenodo) for the repository snapshot.
+
+% ======================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+The same GPU engine, on the same host and data, showed GPU speedups that
+differed by up to \stat{p2.gap.max}\% depending on which Polars release formed
+the baseline (exploratory; \stat{p2.e1adj_gap.max}\% after correcting for the
+measured session bias). \stat{p2.reversal.phrase_cap} the two baselines disagreed on whether the GPU
+helped at all\claim{reversal-exists}. Across hosts, holding the thread count fixed left the CPU
+baseline free to vary. On the GH200 that variation, rather than the GPU,
+accounts for most of the lower speedup (exploratory, descriptive). Neither effect is visible in a headline speedup.
+Both are visible once the baseline's release, the newest release and the CPU
+topology are reported, and the CPU-side ratio is given next to any cross-host
+comparison. Our recommendation is to report those items and to label every
+alternative baseline as what it is: in this study, an exploratory sensitivity
+analysis.
+
+\section*{Acknowledgements}
+\todoplaceholder{acknowledgements; funding; compute provider credit if any}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -16,7 +16,7 @@ Figure paths point at paper/figures/ (copied there by paper/tools/sync_figures.p
 
 *A pre-registered, four-engine comparison on one NVIDIA H100 host, from 6 million to 1.8 billion rows<!-- IF:any -->, repeated on {{hosts.other_ran_list}}<!-- ENDIF:any -->. One catch shapes every Polars GPU number: the GPU engine only runs on an older Polars release.*
 
-**By Daniel Ejiofor** · [TODO(author): affiliation] · [TODO(author): publication date]
+**By Daniel Ejiofor** · Independent Researcher · daniel@siriusmed.io · [TODO(author): publication date]
 
 > **Notice.** The study workload is derived from the TPC-H Benchmark and as such is not comparable to published TPC-H Benchmark results, as the study workload results do not comply with the TPC-H Benchmark Specification. We ran a selected, adapted subset of queries plus custom ones, on generated data, with our own timing method. Nothing here is an official or audited benchmark result.
 
@@ -213,6 +213,6 @@ The full paper describes the design, statistics and threats to validity in detai
 - Paper: [TODO(author): arXiv link]
 - Code, saved results and the locked experiment design: [TODO(author): repository URL]
 
-<!-- TODO(author): affiliation, date, target outlet, disclosure of any vendor relationship. No endorsement by NVIDIA, the Polars project, DuckDB, the Apache Software Foundation or TPC is implied. -->
+<!-- TODO(author): date, target outlet, disclosure of any vendor relationship. No endorsement by NVIDIA, the Polars project, DuckDB, the Apache Software Foundation or TPC is implied. -->
 
 *No endorsement by NVIDIA, the Polars project, DuckDB, the Apache Software Foundation or the TPC is implied.*

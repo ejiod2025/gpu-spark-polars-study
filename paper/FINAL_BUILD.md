@@ -71,20 +71,23 @@ python3 article/tools/fill_article.py --stats $C/h100-final/stats.json --stats a
 - Tectonic: exit 0, 38 pages, no undefined references or citations, no overfull boxes.
 - Typeset check: every one of the 999 required keys was typeset, and no other key.
 - `main.pdf` sha256 (with the fixed `SOURCE_DATE_EPOCH`):
-  `1e7af9512cabad65841a1119eec740a07bf727d53309cbfb8626e4b63010c191`. Two `make pdf` runs gave this
-  hash, and so did compiling the reviewed build (built from the earlier input files) with the same
-  `SOURCE_DATE_EPOCH`. The PDF is therefore identical to the reviewed one apart from the build
-  timestamp. The reviewed copy itself, compiled without a fixed date, had sha256 `29dc4f9c…bd2ac5a`.
+  `9c961730a9f436670d67a4025fc963c1e17b59e5e2d645739549e1d094ba14ca`. Two consecutive `make pdf`
+  runs gave this hash. This build adds the author details: affiliation "Independent Researcher" and
+  email daniel@siriusmed.io; no ORCID.
+- Before the author details were added, the committed-input build had sha256 `1e7af951…3010c191`.
+  So did the reviewed build (made from the earlier input files) compiled with the same
+  `SOURCE_DATE_EPOCH`, which means the two were byte-identical. The reviewed copy itself, compiled
+  without a fixed date, had sha256 `29dc4f9c…bd2ac5a`.
 - The filled article is byte-identical to the reviewed fill, with no missing placeholders.
 
 ## Remaining TODOs before submission
 
 Author details:
-- Affiliation and email (title block, `\todoplaceholder`), ORCID, target venue (arXiv category,
-  e.g. cs.DB) and acknowledgements (funding, compute provider).
+- Target venue (arXiv category, e.g. cs.DB) and acknowledgements (funding, compute provider).
+  Affiliation and email are set; there is no ORCID.
 - Final title: options are in a comment above `\title`. The current title is option (a).
-- Repository URL and archive DOI (§7 artifact paragraph; article "Read more" links) and the
-  article's publication date.
+- Repository URL and archive DOI (§7 artifact paragraph; article "Read more" links), and the
+  article's publication date and outlet.
 - TPC written-permission status for benchmark-name use, the final name of the derived workload
   (`\workloadname`), and the licence and notice material (see `README.md`, open decisions).
 - Optional related work the author knows of (§2 comment).
