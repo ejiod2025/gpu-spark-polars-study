@@ -1,6 +1,7 @@
 % main.tex -- H100 four-engine study (CPU/GPU Polars, CPU/GPU Spark).
 %
-% DRAFT. Methods written before any timed data existed; results prose drafted
+% DRAFT. Methods written before any data from these campaigns existed (an
+% exploratory pilot preceded the lock; see sec:prereg); results prose drafted
 % from the final analysis outputs (2026-10-30). Every result is a \stat{} macro
 % filled from the analysis output (tools/stats_to_tex.py), and every claim's
 % strength follows its interval. The methods must match
@@ -255,10 +256,10 @@ first-order carryover in crossover experiments~\citep{williams1949latin}.
 The research questions, arms, workload, order design, integrity gates,
 pre-declared GPU gaps and statistical plan below were written down and locked
 in the study repository (\texttt{docs/H100\_EXPERIMENT\_DESIGN.md}) on
-2026-10-29, before any timed data existed on any host. The lock rule is that
+2026-10-29, before any data from these campaigns existed. The lock rule is that
 the locked sections are never edited; any change is appended as a dated
 amendment with its reason. Four amendments were made, A1--A3 before any
-timed data existed on any host and A4 before any B200 data existed:
+data from these campaigns existed and A4 before any B200 data existed:
 \begin{description}[leftmargin=*,itemsep=2pt]
   \item[A1 (failure classification, 2026-10-29).] As first written, a
     deterministic GPU resource exhaustion (for example, running out of device
@@ -286,8 +287,21 @@ timed data existed on any host and A4 before any B200 data existed:
     B200, an output disagreement remains an integrity failure, and its diagnosis
     records whether the evidence fits the defect (Section~\ref{sec:threats}).
 \end{description}
-No decision about the design, stopping or analysis was based on observed
-speeds.
+No decision about the design, stopping or analysis was based on speeds
+observed in these campaigns; the design was, however, informed by the
+exploratory pilot described next.
+
+\paragraph{Exploratory pilot.} Before the design was locked, the author ran exploratory H100 campaigns
+(2026-10-26 to 2026-10-28) under an earlier design that was not
+pre-registered. Their results were seen before the lock and informed the
+design; for example, the two pre-declared Polars GPU coverage gaps were found
+in a 2026-10-26 preflight. None of their data is used here; all reported data
+come from the four campaigns started after the lock. The pre-registration
+therefore guards against choosing the analysis after seeing these campaigns'
+data, but not against knowledge of the pilot. The pilot's history is public on
+branch \texttt{H100\_main\_dev} of the study repository. Amendment A5 (2026-11-11) records this
+clarification in the design document; it changes no design element, gate or
+analysis.
 
 \paragraph{Timestamp.} The locked design together with amendments A1--A3 was
 committed as \texttt{ee2e6a7} (full hash
@@ -2057,6 +2071,14 @@ consistently faster on the GH200 or B200 than on the H100.
 These results describe specific hosts at 26 engine threads, one derived
 workload and specific software releases; they do not establish a universal
 winner.
+
+\section*{Use of AI tools}
+AI coding and writing assistants (Anthropic's Claude via Claude Code; OpenAI
+Codex in the earlier exploratory work) were used to write and test code, run
+and monitor the cloud experiments, draft the design and analysis plan, and
+draft and edit the text. The author directed the study, reviewed and approved
+the design, the analyses and the text, and takes full responsibility for the
+content.
 
 \section*{Acknowledgements}
 The experiments ran on GPU cloud instances rented from Lambda. No endorsement by NVIDIA, Lambda,

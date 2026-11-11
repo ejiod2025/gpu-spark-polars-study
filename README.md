@@ -14,8 +14,19 @@ Development and reproducibility repository for a TPC-H-derived study of CPU and 
 | Final results, figures and raw-data checksum manifests (2026-10-30 campaign) | [`results/campaign-20261030/`](results/campaign-20261030/) |
 | Licensing and third-party notices | [`LICENSES.md`](LICENSES.md), [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) |
 
-Author: Daniel Ejiofor, Boston University (ejiod@bu.edu). The sections below describe the **earlier
-A100 study** (2026-10-25), which this campaign extends.
+Author: Daniel Ejiofor, Boston University (ejiod@bu.edu).
+
+**Disclosures.** (1) *Exploratory pilot:* before the design was locked on 2026-10-29, exploratory H100
+campaigns ran on 2026-10-26 to 10-28 under an earlier design that was not pre-registered. Their results
+were seen and informed the design, but none of their data is used in the papers. Their history is on
+branch `H100_main_dev` (see amendment A5 in the design document). (2) *AI tools:* AI coding and writing
+assistants (Anthropic's Claude via Claude Code, whose commits carry a `Co-Authored-By` trailer; OpenAI
+Codex in the earlier exploratory work) were used to write and test code, run and monitor the cloud
+experiments, draft the design and analysis plan, and draft and edit the text. The author directed the
+study, reviewed and approved the design, the analyses and the text, and takes full responsibility for
+the content.
+
+The sections below describe the **earlier A100 study** (2026-10-25), which this campaign extends.
 
 The study compares CPU Polars, CPU Apache Spark, and Spark with NVIDIA's [cuDF plugin](https://docs.nvidia.com/cudf-spark/latest/overview.html) on the same generated Parquet files. The host had one NVIDIA A100-SXM4-40GB, 30 AMD EPYC 7J13 vCPUs, and approximately 216 GiB RAM. Polars used CPU streaming with a pool of 30; Spark used `local[30]`, a 96 GiB driver heap, 120 shuffle partitions, and adaptive query execution.
 

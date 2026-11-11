@@ -48,14 +48,27 @@ def walk(value, prefix=""):
         yield prefix, value
 
 
+# Amendments appended to docs/H100_EXPERIMENT_DESIGN.md after these results were frozen. A re-analysis
+# correctly lists them in meta.later_amendments (they postdate every campaign); that key may differ from
+# the frozen value only by this exact suffix. A5 (2026-11-11) is a wording clarification (pilot
+# disclosure) and changes no design element, gate or analysis.
+POST_FREEZE_AMENDMENTS = ["A5"]
+
+
+def _post_freeze_only(key, frozen, fresh):
+    return (key == "meta.later_amendments" or key.endswith(".meta.later_amendments")) and isinstance(frozen, list) \
+        and fresh == frozen + POST_FREEZE_AMENDMENTS
+
+
 def compare(committed, fresh, ignored=None):
-    """(keys missing from the re-analysis, keys whose value differs, keys new in the re-analysis); generated_at_utc ignored."""
+    """(keys missing from the re-analysis, keys whose value differs, keys new in the re-analysis); generated_at_utc ignored.
+    meta.later_amendments may additionally list POST_FREEZE_AMENDMENTS (and nothing else)."""
     a, b = dict(walk(committed)), dict(walk(fresh))
     for k in (IGNORED if ignored is None else ignored):
         a.pop(k, None)
         b.pop(k, None)
     missing = sorted(k for k in a if k not in b)
-    changed = sorted(k for k in a if k in b and a[k] != b[k])
+    changed = sorted(k for k in a if k in b and a[k] != b[k] and not _post_freeze_only(k, a[k], b[k]))
     new = sorted(k for k in b if k not in a)
     return missing, changed, new
 
@@ -66,6 +79,10 @@ needs_committed = pytest.mark.skipif(not (COMMITTED / "xhost-final" / "cross_hos
 def test_the_comparison_flags_missing_changed_and_new_keys():
     assert compare({"a": 1, "b": {"c": [1, 2], "d": 3}, "generated_at_utc": "x"}, {"a": 1, "b": {"c": [1, 3], "e": 4}, "generated_at_utc": "y"}) == (["b.d"], ["b.c"], ["b.e"])
     assert compare({"a": {}}, {"a": {}}) == ([], [], []) and compare({"a": 1}, {"a": 1.0}) == ([], [], [])
+    # only the exact post-freeze suffix is tolerated, and only on meta.later_amendments
+    assert compare({"meta": {"later_amendments": ["A4"]}}, {"meta": {"later_amendments": ["A4", "A5"]}}) == ([], [], [])
+    assert compare({"meta": {"later_amendments": ["A4"]}}, {"meta": {"later_amendments": ["A4", "A6"]}})[1] == ["meta.later_amendments"]
+    assert compare({"meta": {"other": ["A4"]}}, {"meta": {"other": ["A4", "A5"]}})[1] == ["meta.other"]
 
 
 @needs_committed

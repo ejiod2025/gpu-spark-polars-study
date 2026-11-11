@@ -479,7 +479,7 @@ def test_the_real_b200_round_one_tree_records_the_real_driver_and_agrees_with_po
     assert (host["gpu_short"], host["arch"], host["vcpus"], host["cpus_arg"]) == ("B200", "x86_64", 26, 26) and host["gpu_memory_gib"] > 170
     assert host["cuda_runtime_version"] and host["cuda_runtime_version"].startswith("12.9")
     meta = stats["meta"]
-    assert (meta["design_commit_short"], meta["amendments"], meta["later_amendments"]) == ("afd07c0", 4, [])
+    assert (meta["design_commit_short"], meta["amendments"], meta["later_amendments"]) == ("afd07c0", 4, ["A5"])   # A5: post-campaign wording clarification
     assert meta["outputs_failed"] == 0 and meta["integrity_failures_in_accepted_rounds"] == 0 and meta["input_gate"] == "RESULT: OK"
     section = stats["output_agreement"]
     for suite, scales in (("baseline", ("sf1", "sf10", "sf30", "sf100", "sf300")), ("complex", ("sf30", "sf100", "sf300"))):
@@ -535,7 +535,7 @@ A100_ROUND1 = REPO / "rerun" / "hosts" / "a100" / "campaign-a100"
 def test_the_real_a100_tree_satisfies_the_integrity_invariants_and_shows_its_operational_threshold(tmp_path):
     stats, _ = real_tree_invariants(A100_ROUND1, tmp_path)
     meta, host = stats["meta"], stats["host"]
-    assert meta["input_gate"] == "RESULT: OK" and (meta["design_commit_short"], meta["amendments"], meta["later_amendments"]) == ("afd07c0", 4, [])
+    assert meta["input_gate"] == "RESULT: OK" and (meta["design_commit_short"], meta["amendments"], meta["later_amendments"]) == ("afd07c0", 4, ["A5"])   # A5: post-campaign wording clarification
     assert (host["gpu_short"], host["arch"], host["vcpus"], host["cpus_arg"], host["gpu_memory_gib"]) == ("A100", "x86_64", 30, 26, 40.0)
     assert "EPYC" in host["cpu_model"] and host["driver_version"] == "570.148.08"
     rehearsal = [e for e in host["preflight"] if e["scope"] == "host rehearsal"]
@@ -550,7 +550,7 @@ GH200_ROUND1 = REPO / "rerun" / "hosts" / "gh200" / "campaign-gh200"
 def test_the_real_gh200_tree_parses_as_aarch64_and_satisfies_the_same_integrity_invariants(tmp_path):
     stats, _ = real_tree_invariants(GH200_ROUND1, tmp_path)
     meta, host = stats["meta"], stats["host"]
-    assert (meta["design_commit_short"], meta["amendments"], meta["later_amendments"]) == ("afd07c0", 4, [])
+    assert (meta["design_commit_short"], meta["amendments"], meta["later_amendments"]) == ("afd07c0", 4, ["A5"])   # A5: post-campaign wording clarification
     # aarch64 specifics: lscpu 'Architecture: aarch64' / 'Model name: Neoverse-V2', GH200 from nvidia-smi, the arm64 jar classifier
     assert (host["gpu_short"], host["arch"], host["vcpus"], host["cpus_arg"]) == ("GH200", "aarch64", 64, 26)
     assert host["cpu_model"] and "Neoverse" in host["cpu_model"] and host["gpu_memory_gib"] > 90 and host["rapids_jar"].endswith("-cuda12-arm64.jar")

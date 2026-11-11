@@ -26,7 +26,7 @@ Put a GPU in the machine and your analytics get faster. That is the pitch, and v
 
 **If I can choose any engine for this job on this one machine, is a GPU engine faster than the best CPU option, and at what data size does that start to be true?**
 
-We built an experiment to answer that as carefully as we could. The design was written down and locked before we collected a single timing, and the four changes we made later (all before the data they concern existed) are dated in the same document, which is public: it was committed and pushed as commit `ee2e6a7` of the study repository on 30 October 2026, with the last change added in commit `afd07c0`.
+We built an experiment to answer that as carefully as we could. The design was written down and locked before we collected a single timing in these campaigns, and the four changes we made later (all before the data they concern existed) are dated in the same document, which is public: it was committed and pushed as commit `ee2e6a7` of the study repository on 30 October 2026, with the last change added in commit `afd07c0`. One caveat: before the lock, we ran exploratory H100 campaigns (26–28 October) under an earlier design that was not pre-registered. We saw their results, and they shaped the design (that is where we found the two GPU gaps described below), but none of their data appears here. Their history is public on the repository's `H100_main_dev` branch.
 
 The short answer: yes, on these machines a GPU engine beat the fastest CPU engine we tested, from {{crossover.baseline.c4.scale}} upward on the simpler queries and at every size of the harder ones, by {{ci:c4.baseline.sf300}} and {{ci:c4.complex.sf300}} at the largest size. On the smallest data the CPU won. And the comparison is against an older Polars release; against the current one, the GPU's margin shrinks.
 
@@ -214,5 +214,7 @@ The full paper describes the design, statistics and threats to validity in detai
 - Code, saved results and the locked experiment design: [TODO(author): repository URL]
 
 <!-- TODO(author): date, target outlet, disclosure of any vendor relationship. No endorsement by NVIDIA, the Polars project, DuckDB, the Apache Software Foundation or TPC is implied. -->
+
+*Use of AI tools: AI coding and writing assistants (Anthropic's Claude via Claude Code; OpenAI Codex in the earlier exploratory work) were used to write and test code, run and monitor the cloud experiments, draft the design and analysis plan, and draft and edit the text. The author directed the study, reviewed and approved the design, the analyses and the text, and takes full responsibility for the content.*
 
 *No endorsement by NVIDIA, the Polars project, DuckDB, the Apache Software Foundation or the TPC is implied.*

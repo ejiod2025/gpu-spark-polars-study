@@ -198,3 +198,23 @@ Change (no change to gates or analysis):
 - If a B200 round fails integrity twice (campaign stops), the B200 replication is reported as not completed,
   with the evidence; no version change is made within this design.
 - The real B200 driver version is recorded in `campaign.json` (Lambda does not document it).
+
+### A5 — 2026-11-11, clarification (no change to the design, gates or analysis)
+
+Correction of wording, appended under the lock rule instead of editing the locked text above.
+
+- The status line ("LOCKED 2026-10-29, before any timed H100 data exists"), the headings of A1–A3
+  ("before any timed H100 data", "before any timed data") and the paper text derived from them were
+  too absolute. They are true only of the campaigns run under this design (campaign 2026-10-30 on the
+  H100, GH200, A100 and B200 hosts).
+- Before the lock, exploratory H100 campaigns ran from 2026-10-26 to 2026-10-28 under an earlier design
+  that was not pre-registered (history on branch `H100_main_dev`, including a completed run, an aborted
+  cohort, a recovery run and an unpublished manuscript). Their results were seen before the lock and
+  informed this design; for example, the two pre-declared Polars GPU coverage gaps (§8) were found in
+  the 2026-10-26 preflight. The note "none of their data is used" above remains true: every reported
+  number comes from the campaigns run under this design.
+- Consequence for interpretation: the pre-registration guards against choosing the analysis after
+  seeing these campaigns' data, not against knowledge of the pilot.
+- AI tools: this document and its amendments were drafted with an AI assistant (Anthropic's Claude via
+  Claude Code; commits carry a `Co-Authored-By` trailer). Earlier exploratory designs were drafted with
+  OpenAI Codex. The author reviewed and approved the design and is responsible for it.
