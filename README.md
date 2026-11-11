@@ -1,6 +1,6 @@
 # GPU Spark, CPU Spark and Polars study
 
-Private development and reproducibility repository for the [public study](https://a100-spark-polars-study-oct2026.ejiod.chatgpt.site). It preserves the author-created benchmark and publication sources, historical source snapshots, final reports, and curated evidence. Repository visibility and the public website are separate: this repository is intended to remain private.
+Development and reproducibility repository for a TPC-H-derived study of CPU and GPU dataframe engines (Polars, Apache Spark). It holds the benchmark and analysis code, the pre-registered design (`docs/H100_EXPERIMENT_DESIGN.md`), the final results of the 2026-10-30 four-host campaign (`results/campaign-20261030/`), two research papers (`paper/`, `paper2/`) and earlier-study evidence. The workload is derived from TPC-H and is not a TPC-H benchmark result. An earlier A100 study is summarised below; its old hosted site referenced here was owner-private.
 
 The study compares CPU Polars, CPU Apache Spark, and Spark with NVIDIA's [cuDF plugin](https://docs.nvidia.com/cudf-spark/latest/overview.html) on the same generated Parquet files. The host had one NVIDIA A100-SXM4-40GB, 30 AMD EPYC 7J13 vCPUs, and approximately 216 GiB RAM. Polars used CPU streaming with a pool of 30; Spark used `local[30]`, a 96 GiB driver heap, 120 shuffle partitions, and adaptive query execution.
 

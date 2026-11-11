@@ -1,6 +1,6 @@
 # Repository scope and provenance
 
-This is the private development archive for the [public study](https://a100-spark-polars-study-oct2026.ejiod.chatgpt.site). It preserves author-created source and curated reproducibility evidence. The repository's private visibility does not change the separate website's public audience, and the website's public visibility does not grant a blanket license to repository contents.
+This is the development archive for the [public study](https://a100-spark-polars-study-oct2026.ejiod.chatgpt.site). It preserves author-created source and curated reproducibility evidence. Repository visibility and the separate website are independent, and neither grants a blanket license to repository contents.
 
 ## Included material
 
@@ -42,4 +42,4 @@ No blanket MIT license or repository-wide license grant is asserted. Author-crea
 
 `SOURCE_MANIFEST.json` covers all available current and archived source files. The remote-status utility now accepts host/workspace/run/PID arguments rather than retaining the original VM target. Historical metadata paths are tokenized; experimental Python source snapshot bytes are unchanged. The cleanup-smoke revisions formerly available only inside the release bundle are also retained under `artifacts/source-snapshots/complex-cleanup-smoke/`. Two unselected early pilot smoke source revisions could not be recovered; those runs are not among the seven curated evidence roots.
 
-The hosted website directory is a source/static snapshot, not its managed Git history. Native Site identity is omitted; `hosting.example.json` shows the configuration shape. Open or create a Site through the supported Sites workflow before deploying, and retain its returned project identity. Benchmark code, the public website and this private development repository have separate publication/access controls.
+The hosted website directory is a source/static snapshot, not its managed Git history. Native Site identity is omitted; `hosting.example.json` shows the configuration shape. Open or create a Site through the supported Sites workflow before deploying, and retain its returned project identity. Benchmark code, the website and this repository have separate publication/access controls.
