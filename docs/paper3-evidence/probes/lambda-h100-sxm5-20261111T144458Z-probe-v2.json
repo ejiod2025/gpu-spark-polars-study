@@ -1,0 +1,504 @@
+{
+  "schema": "probe_power/1",
+  "probe": {
+    "version": 1,
+    "started_utc": "2026-11-11T14:44:48Z",
+    "finished_utc": "2026-11-11T14:44:58Z",
+    "duration_s": 9.7,
+    "argv": [
+      "--output",
+      "/tmp/probe2.json"
+    ],
+    "root": "/",
+    "commands_enabled": true,
+    "sudo": "passwordless",
+    "euid": 1000
+  },
+  "host": {
+    "os": "Ubuntu 22.04.5 LTS",
+    "kernel": "6.8.0-1064-nvidia",
+    "machine": "x86_64",
+    "python": "3.10.12",
+    "hostname": null
+  },
+  "cpu": {
+    "architecture": "x86_64",
+    "vendor": "GenuineIntel",
+    "model_name": "Intel(R) Xeon(R) Platinum 8480+",
+    "family": "6",
+    "model": "143",
+    "stepping": "8",
+    "microcode": "0x2b000571",
+    "logical_cpus": 26,
+    "sockets": 1,
+    "physical_cores": 13,
+    "threads_per_core": 2,
+    "smt_active": true,
+    "numa_nodes": {
+      "node0": "0-25"
+    },
+    "mem_total_gib": 221.18,
+    "flags_of_interest": [
+      "avx512f",
+      "constant_tsc",
+      "hypervisor"
+    ],
+    "hypervisor_flag": true,
+    "frequency": {
+      "scaling_driver": null,
+      "scaling_governor": null,
+      "scaling_min_khz": null,
+      "scaling_max_khz": null,
+      "cpuinfo_max_khz": null,
+      "intel_pstate_status": null,
+      "intel_pstate_no_turbo": null,
+      "boost": null
+    }
+  },
+  "virtualization": {
+    "verdict": "virtualized",
+    "evidence": [
+      "cpuinfo hypervisor flag set",
+      "systemd-detect-virt: kvm",
+      "lscpu hypervisor vendor: KVM"
+    ],
+    "systemd_detect_virt": "kvm",
+    "sys_hypervisor_type": null,
+    "lscpu_hypervisor_vendor": "KVM",
+    "dmi": {
+      "sys_vendor": "QEMU",
+      "product_name": "Standard PC (Q35 + ICH9, 2009)",
+      "bios_vendor": "SeaBIOS",
+      "bios_version": "1.15.0-1",
+      "board_vendor": null,
+      "board_name": null,
+      "chassis_type": "1"
+    },
+    "dmidecode": {
+      "rc": 0,
+      "processors": [
+        {
+          "socket": "CPU 0",
+          "version": "pc-q35-8.0",
+          "max_speed": "2000 MHz",
+          "current_speed": "2000 MHz",
+          "core_count": "13",
+          "core_enabled": "13",
+          "thread_count": "2"
+        }
+      ],
+      "ipmi_device_record": false
+    }
+  },
+  "powercap": {
+    "sysfs_present": true,
+    "kernel_modules_loaded": {
+      "intel_rapl_common": true,
+      "intel_rapl_msr": true,
+      "intel_rapl_mmio": false,
+      "rapl": true,
+      "amd_energy": false
+    },
+    "zones": [],
+    "domains": [],
+    "package_zones": 0,
+    "all_packages_readable_as_user": false,
+    "all_packages_readable_as_root": false,
+    "sudo": "passwordless"
+  },
+  "hwmon": {
+    "all_names": [],
+    "devices_with_energy_or_power": []
+  },
+  "perf": {
+    "perf_event_paranoid": 4,
+    "pmu_devices": [
+      "breakpoint",
+      "cpu",
+      "kprobe",
+      "msr",
+      "power",
+      "software",
+      "tracepoint",
+      "uprobe"
+    ],
+    "cpu_pmu_present": true,
+    "power_pmu_present": true,
+    "power_events": {
+      "energy-psys": {
+        "config": "event=0x05",
+        "scale": "2.3283064365386962890625e-10",
+        "unit": "Joules"
+      }
+    },
+    "perf_binary": "/usr/bin/perf",
+    "perf_stat_as_user": {
+      "rc": 255,
+      "events": {},
+      "counts": false,
+      "error": "Error:\nAccess to performance monitoring and observability operations is limited.\nConsider adjusting /proc/sys/kernel/perf_event_paranoid setting to open\naccess to performance monitoring and observability operations for processes\nwithout CAP_PERFMON, CAP_SYS_PTRACE or CAP_SYS_ADMIN Linux capability.\n"
+    },
+    "perf_stat_as_root": {
+      "rc": 0,
+      "events": {
+        "power/energy-psys/": {
+          "value": "0.00",
+          "unit": "Joules"
+        }
+      },
+      "counts": false,
+      "error": null
+    }
+  },
+  "msr": {
+    "device_present": false,
+    "module_loaded": false,
+    "readable_as_user": false
+  },
+  "turbostat": {
+    "binary": "/usr/bin/turbostat",
+    "msr_device_present": false,
+    "skipped": "/dev/cpu/0/msr absent; the probe does not load kernel modules (turbostat may try to modprobe msr)"
+  },
+  "ipmi": {
+    "binary": null,
+    "devices": [],
+    "modules_loaded": {
+      "ipmi_devintf": false,
+      "ipmi_si": false,
+      "ipmi_msghandler": false
+    },
+    "skipped": "no /dev/ipmi* device (no in-band BMC path); the probe does not load kernel modules"
+  },
+  "gpu": {
+    "present": true,
+    "binary": "/usr/bin/nvidia-smi",
+    "fields_listed_by_driver": 51,
+    "fields_listed": [
+      "timestamp",
+      "driver_version",
+      "vgpu_driver_capability.heterogenous_multivGPU",
+      "count",
+      "name",
+      "gpu_name",
+      "serial",
+      "gpu_serial",
+      "uuid",
+      "gpu_uuid",
+      "pci.bus_id",
+      "gpu_bus_id",
+      "pci.domain",
+      "pci.bus",
+      "pci.device",
+      "pci.baseClass",
+      "pci.subClass",
+      "pci.device_id",
+      "pci.sub_device_id",
+      "vgpu_device_capability.fractional_multiVgpu",
+      "vgpu_device_capability.heterogeneous_timeSlice_profile",
+      "vgpu_device_capability.heterogeneous_timeSlice_sizes",
+      "vgpu_device_capability.homogeneous_placements",
+      "vgpu_device_capability.mig_timeSlicing",
+      "vgpu_device_capability.mig_timeSlicing_mode",
+      "pcie.link.gen.current",
+      "pcie.link.gen.gpucurrent",
+      "pcie.link.gen.max",
+      "pcie.link.gen.gpumax",
+      "pcie.link.gen.hostmax",
+      "pcie.link.width.current",
+      "pcie.link.width.max",
+      "index",
+      "display_mode",
+      "display_attached",
+      "display_active",
+      "persistence_mode",
+      "addressing_mode",
+      "accounting.mode",
+      "accounting.buffer_size",
+      "driver_model.current",
+      "driver_model.pending",
+      "vbios_version",
+      "inforom.img",
+      "inforom.image",
+      "inforom.oem",
+      "inforom.ecc",
+      "inforom.pwr",
+      "inforom.power",
+      "inforom.checksum_validation",
+      "gpu_recovery_action"
+    ],
+    "per_field": {
+      "name": [
+        "NVIDIA H100 80GB HBM3"
+      ],
+      "driver_version": [
+        "580.105.08"
+      ],
+      "memory.total": [
+        "81559"
+      ],
+      "pstate": [
+        "P0"
+      ],
+      "persistence_mode": [
+        "Enabled"
+      ],
+      "temperature.gpu": [
+        "26"
+      ],
+      "clocks.sm": [
+        "345"
+      ],
+      "clocks.max.sm": [
+        "1980"
+      ],
+      "clocks_throttle_reasons.active": [
+        "0x0000000000000001"
+      ],
+      "power.draw": [
+        "71.60"
+      ],
+      "power.draw.average": [
+        "71.60"
+      ],
+      "power.draw.instant": [
+        "71.53"
+      ],
+      "power.limit": [
+        "700.00"
+      ],
+      "power.default_limit": [
+        "700.00"
+      ],
+      "power.min_limit": [
+        "200.00"
+      ],
+      "power.max_limit": [
+        "700.00"
+      ],
+      "enforced.power.limit": [
+        "700.00"
+      ]
+    },
+    "unsupported_or_na": [
+      "total_energy_consumption",
+      "module.power.draw",
+      "module.power.draw.average",
+      "module.power.draw.instant",
+      "module.power.limit",
+      "module.power.default_limit",
+      "module.power.min_limit",
+      "module.power.max_limit",
+      "inforom.power"
+    ],
+    "gpu_count": 1,
+    "power_limits_w": {
+      "power.limit": [
+        "700.00"
+      ],
+      "power.default_limit": [
+        "700.00"
+      ],
+      "power.min_limit": [
+        "200.00"
+      ],
+      "power.max_limit": [
+        "700.00"
+      ],
+      "enforced.power.limit": [
+        "700.00"
+      ]
+    },
+    "energy_counter_available": false,
+    "nvidia_smi_q_power": {
+      "gpu0": {
+        "GPU Power Readings": {
+          "Average Power Draw": "71.60 W",
+          "Instantaneous Power Draw": "71.78 W",
+          "Current Power Limit": "700.00 W",
+          "Requested Power Limit": "700.00 W",
+          "Default Power Limit": "700.00 W",
+          "Min Power Limit": "200.00 W",
+          "Max Power Limit": "700.00 W"
+        },
+        "Power Samples": {
+          "Duration": "2.36 sec",
+          "Number of Samples": "119",
+          "Max": "72.49 W",
+          "Min": "71.12 W",
+          "Avg": "71.61 W"
+        },
+        "GPU Memory Power Readings": {
+          "Average Power Draw": "42.25 W",
+          "Instantaneous Power Draw": "N/A"
+        },
+        "Module Power Readings": {
+          "Average Power Draw": "N/A",
+          "Instantaneous Power Draw": "N/A",
+          "Current Power Limit": "N/A",
+          "Requested Power Limit": "N/A",
+          "Default Power Limit": "N/A",
+          "Min Power Limit": "N/A",
+          "Max Power Limit": "N/A"
+        }
+      }
+    },
+    "nvidia_smi_q_power_raw": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Wed Nov 11 14:44:50 2026\nDriver Version                            : 580.105.08\nCUDA Version                              : 13.0\n\nAttached GPUs                             : 1\nGPU <pci bus id redacted>\n    GPU Power Readings\n        Average Power Draw                : 71.60 W\n        Instantaneous Power Draw          : 71.78 W\n        Current Power Limit               : 700.00 W\n        Requested Power Limit             : 700.00 W\n        Default Power Limit               : 700.00 W\n        Min Power Limit                   : 200.00 W\n        Max Power Limit                   : 700.00 W\n    Power Samples\n        Duration                          : 2.36 sec\n        Number of Samples                 : 119\n        Max                               : 72.49 W\n        Min                               : 71.12 W\n        Avg                               : 71.61 W\n    GPU Memory Power Readings \n        Average Power Draw                : 42.25 W\n        Instantaneous Power Draw          : N/A\n    Module Power Readings\n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n\n"
+  },
+  "nvml": {
+    "present": true,
+    "library": "libnvidia-ml.so.1",
+    "init_rc": 0,
+    "devices": [
+      {
+        "index": 0,
+        "name": "NVIDIA H100 80GB HBM3",
+        "total_energy_mj": 303386817,
+        "power_usage_w": 71.605,
+        "power_limit_w": {
+          "current": 700.0,
+          "enforced": 700.0,
+          "default": 700.0,
+          "min": 200.0,
+          "max": 700.0
+        }
+      }
+    ],
+    "energy_counter_available": true,
+    "driver_version": "580.105.08"
+  },
+  "clock": {
+    "clocksource": "kvm-clock",
+    "clocksource_available": "kvm-clock tsc hpet acpi_pm",
+    "ptp_devices": [
+      "ptp0"
+    ],
+    "chrony": {
+      "Reference ID": "A29FC87B (time.cloudflare.com)",
+      "Stratum": "4",
+      "System time": "0.000045652 seconds fast of NTP time",
+      "Last offset": "+0.000005573 seconds",
+      "RMS offset": "0.000574126 seconds",
+      "Root delay": "0.024341060 seconds",
+      "Root dispersion": "0.001224149 seconds",
+      "Update interval": "515.7 seconds",
+      "Leap status": "Normal"
+    },
+    "chrony_sources": [
+      "MS Name/IP address         Stratum Poll Reach LastRx Last sample               ",
+      "===============================================================================",
+      "^- 185.125.190.57                2   9     0   57m    -56us[  -41us] +/-   59ms",
+      "^- 185.125.190.58                2   9     0   57m    -51us[  -36us] +/-   59ms",
+      "^- 185.125.190.56                2   9     0   57m   -208us[ -194us] +/-   59ms",
+      "^- 91.189.91.157                 2   8   367   459   +386us[ +391us] +/-   46ms",
+      "^+ 192.231.84.117                2   9   377   387  +1361us[+1361us] +/-   51ms",
+      "^* 162.159.200.123               3   9   377   392   -292us[ -287us] +/-   13ms",
+      "^+ 23.167.20.225                 4   9   377   209   -356us[ -356us] +/-   29ms",
+      "^- 172.232.15.202                2   6   377    64  -2494us[-2494us] +/-   85ms"
+    ],
+    "timedatectl": {},
+    "synchronized": true,
+    "chrony_system_time_offset_s": 4.5652e-05
+  },
+  "counter_sanity": {
+    "idle_seconds": 3.0,
+    "busy_seconds": 5.0,
+    "sources": [
+      {
+        "id": "nvml:gpu0:total_energy_consumption",
+        "kind": "nvml",
+        "read_via": "direct",
+        "idle": {
+          "seconds": 3.006,
+          "delta_native": 221737,
+          "delta_j": 221.737,
+          "avg_w": 73.757
+        },
+        "busy": {
+          "seconds": 5.051,
+          "delta_native": 357617,
+          "delta_j": 357.617,
+          "avg_w": 70.798
+        },
+        "advanced": true,
+        "busy_over_idle": 0.96
+      }
+    ],
+    "load_workers": 26
+  },
+  "summary": {
+    "virtualization": "virtualized",
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8480+",
+    "sockets": 1,
+    "physical_cores": 13,
+    "smt_active": true,
+    "cpu_energy": {
+      "best_source": "none",
+      "readable_as_user": false,
+      "needs_root": false,
+      "counters_advance": null,
+      "rapl_domains": [],
+      "candidates": [
+        {
+          "source": "powercap",
+          "present": false,
+          "domains": [],
+          "readable_as_user": false,
+          "readable_as_root": false,
+          "counters_advance": null
+        },
+        {
+          "source": "hwmon",
+          "present": false,
+          "readable_as_user": false,
+          "readable_as_root": null,
+          "counters_advance": null
+        },
+        {
+          "source": "perf_power_pmu",
+          "present": true,
+          "readable_as_user": false,
+          "readable_as_root": null,
+          "counters_advance": null
+        },
+        {
+          "source": "msr",
+          "present": false,
+          "readable_as_user": false,
+          "readable_as_root": null,
+          "counters_advance": null
+        }
+      ]
+    },
+    "bmc_power_watts": null,
+    "bmc_power_available": false,
+    "gpu_present": true,
+    "gpu_count": 1,
+    "gpu_energy_counter": true,
+    "gpu_energy_counter_via": "nvml",
+    "gpu_power_limits_w": {
+      "power.limit": [
+        "700.00"
+      ],
+      "power.default_limit": [
+        "700.00"
+      ],
+      "power.min_limit": [
+        "200.00"
+      ],
+      "power.max_limit": [
+        "700.00"
+      ],
+      "enforced.power.limit": [
+        "700.00"
+      ]
+    },
+    "clock_synchronized": true,
+    "notes": [
+      "the power PMU exposes energy-psys but counted nothing: emulated or non-functional (typical for a VM), not a source",
+      "kernel.perf_event_paranoid=4: perf needs root here",
+      "no CPU energy source is readable (user or root) on this virtualized host: CPU energy can only be modelled, not measured"
+    ]
+  },
+  "errors": []
+}

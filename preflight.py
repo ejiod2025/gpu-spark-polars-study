@@ -2,8 +2,11 @@
 """H100 bring-up gate: environment checks, an SF1 smoke run of every engine, strict validation.
 
 1. Environment: GPU (H100 unless --allow-any-gpu), driver, Java 17, Python and package pins
-   (evidence/requirements.lock.txt, overlaid by requirements-gpu.txt when the GPU stack is in use),
-   RAPIDS jar and sha256, cudf-polars import and Polars compatibility, free disk, SF1 inputs.
+   (evidence/requirements.lock.txt; overlaid by requirements-gpu.txt when the GPU stack is in use, or by
+   requirements-cpu.txt in the CPU-only Polars 1.44.2 environment), RAPIDS jar and sha256, cudf-polars import and
+   Polars compatibility, free disk, SF1 inputs, CPU energy (RAPL present but unreadable is a failure: see --cpu-energy)
+   and the CPU pinning (--socket/--cpu-list) together with the memory binding to its NUMA nodes (set_mempolicy or numactl;
+   --no-membind is the recorded opt-out). A CPU-only host (e.g. GCP bare metal) passes this stage with --cpu-only.
 2. Run: run_experiment.py at SF1, --runs 1, baseline and complex (verified_gc) suites, every
    selected engine, into a NEW directory. Skipped with --skip-run (validate an existing directory).
 3. Validation of every results.json against the interface contract in docs/H100_PLAN.md:
@@ -24,6 +27,7 @@ Exit status: 0 pass, 1 fail (report written), 2 usage error. Never based on timi
 
 Writes a JSON report and exits nonzero on any failure. Examples:
   python preflight.py --data-root data
+  python preflight.py --cpu-only --socket 0 --data-root data          # CPU-only bare metal, engines on socket 0
   python preflight.py --skip-run --baseline-dir rerun/x/baseline --complex-dir rerun/x/complex \\
       --engines polars spark_cpu --skip-env
   python preflight.py --formal --skip-run --skip-env --skip-inputs --round 1 \\
@@ -52,9 +56,13 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+import power_telemetry  # noqa: E402
+
 REL_TOL, ABS_TOL = 1e-8, 1e-6
 ALL_ENGINES = ("polars", "polars_gpu", "spark_cpu", "spark_gpu")
 GPU_ENGINES = ("polars_gpu", "spark_gpu")
+CPU_ENGINES = ("polars", "spark_cpu")
+PIN_SETS = ("lock", "lock+cpu", "lock+gpu")
 SUITE_MODULES = {"baseline": "workloads", "complex": "complex_workloads"}
 MIN_DRIVER = "525.60.13"  # CUDA 12 minimum documented for RAPIDS wheels and the cuda12 Spark jar
 JAR_RELATIVE = "jars/rapids-4-spark_2.12-26.08.1.jar"
@@ -340,13 +348,7 @@ def check_environment(checks: Checks, args, engines) -> None:
         checks.add("env.python", "PASS", platform.python_version())
 
     # package pins
-    lock = parse_pins(HERE / "evidence" / "requirements.lock.txt")
-    gpu_file = HERE / "requirements-gpu.txt"
-    overlay = args.pins == "lock+gpu" or (args.pins == "auto" and ("polars_gpu" in engines or _installed("cudf-polars-cu12")
-                                                                    or _installed("cudf-polars-cu13")))
-    pins = dict(lock)
-    if overlay:
-        pins.update(parse_pins(gpu_file))
+    pin_set, pins = resolve_pin_set(args.pins, engines)
     problems = []
     for name, wanted in sorted(pins.items()):
         have = _installed(name)
@@ -355,7 +357,9 @@ def check_environment(checks: Checks, args, engines) -> None:
         elif have != wanted:
             problems.append(f"{name}: installed {have}, want {wanted}")
     checks.summarize("env.package_pins", problems,
-                     f"{len(pins)} pins from requirements.lock.txt{' + requirements-gpu.txt' if overlay else ''} match the installed packages")
+                     f"{len(pins)} pins of the {pin_set} set ({PIN_SET_FILES[pin_set]}) match the installed packages")
+    check_cpu_energy_and_pinning(checks, args)
+    check_membind(checks, args)
 
     # cudf-polars import and Polars compatibility, in a child so this process never holds a CUDA context
     if "polars_gpu" in engines:
@@ -430,6 +434,100 @@ def _installed(name: str):
         return None
 
 
+PIN_SET_FILES = {"lock": "requirements.lock.txt, the Polars 2.0.0 environment without cudf-polars",
+                 "lock+cpu": "requirements.lock.txt minus its Polars pins + requirements-cpu.txt, Polars 1.44.2 without cudf-polars",
+                 "lock+gpu": "requirements.lock.txt minus its Polars pins + requirements-gpu.txt, Polars 1.44.2 with cudf-polars"}
+
+
+def resolve_pin_set(choice: str, engines, installed=None) -> tuple[str, dict]:
+    """(name, pins): the package pins this host must have, one of PIN_SETS.
+
+    lock      evidence/requirements.lock.txt exactly (Polars 2.0.0; the a100compat environment, CPU engines only)
+    lock+cpu  the lock with its Polars pins replaced by requirements-cpu.txt (Polars 1.44.2, no cudf-polars: CPU-only hosts)
+    lock+gpu  the lock with its Polars pins replaced by requirements-gpu.txt (Polars 1.44.2 + cudf-polars)
+    auto      lock+gpu when polars_gpu is selected or cudf-polars is installed; otherwise lock+cpu when the installed Polars
+              is the one requirements-cpu.txt pins (and not the lock's); otherwise lock. An environment that fits none of the
+              sets then fails the pin check against the lock, naming each package."""
+    installed = installed or _installed
+    lock = parse_pins(HERE / "evidence" / "requirements.lock.txt")
+    cpu_file = HERE / "requirements-cpu.txt"
+    cpu = parse_pins(cpu_file) if cpu_file.is_file() else {}
+    if choice == "auto":
+        if "polars_gpu" in engines or installed("cudf-polars-cu12") or installed("cudf-polars-cu13"):
+            choice = "lock+gpu"
+        elif cpu.get("polars") and installed("polars") == cpu["polars"] != lock.get("polars"):
+            choice = "lock+cpu"
+        else:
+            choice = "lock"
+    pins = dict(lock)
+    if choice == "lock+gpu":
+        pins.update(parse_pins(HERE / "requirements-gpu.txt"))
+    elif choice == "lock+cpu":
+        pins.update(cpu)
+    return choice, pins
+
+
+def check_cpu_energy_and_pinning(checks: Checks, args) -> None:
+    """CPU energy counters that exist but cannot be read are a failure (never a silent 'unavailable'); then the pinning."""
+    gate = power_telemetry.check_cpu_energy(args.cpu_energy)
+    detail = "; ".join(gate["problems"] + gate["warnings"]) or f"{gate['zones']['total']} counters readable and advancing"
+    if args.cpu_energy == "off":
+        checks.add("env.cpu_energy", "SKIP", "--cpu-energy off: CPU energy is not checked")
+    elif not gate["ok"]:
+        checks.add("env.cpu_energy", "FAIL", detail, state=gate["state"])
+    elif gate["state"] == "absent":
+        checks.add("env.cpu_energy", "INFO", detail, state=gate["state"])
+    else:
+        checks.add("env.cpu_energy", "WARN" if gate["warnings"] else "PASS", detail, state=gate["state"])
+    if args.socket is None and args.cpu_list is None:
+        checks.add("env.cpu_pinning", "SKIP", "no --socket/--cpu-list: the engines may use every CPU")
+        return
+    try:
+        pinning = power_telemetry.resolve_pinning(args.socket, args.cpu_list)
+    except power_telemetry.PinningError as exc:
+        checks.add("env.cpu_pinning", "FAIL", str(exc))
+        return
+    text = (f"CPUs {pinning['cpus']} ({pinning['cpu_count']}); sockets {pinning['sockets']}, NUMA nodes {pinning['numa_nodes']}")
+    if args.cpus > pinning["cpu_count"]:
+        checks.add("env.cpu_pinning", "FAIL", f"--cpus {args.cpus} engine threads on {text}: oversubscribed")
+    else:
+        checks.add("env.cpu_pinning", "PASS", text)
+
+
+def check_membind(checks: Checks, args) -> None:
+    """Can engine memory be bound to the pinned socket's NUMA nodes (set_mempolicy through ctypes, else numactl)?
+
+    The design attributes S2-pinned DRAM energy to the pinned socket only, so a pinned run must bind memory: FAIL when it
+    cannot be done (--no-membind is the recorded opt-out). On a CPU-only host without a pinning the same probe runs for the
+    first socket's nodes and is only information, so a missing numactl/libnuma is known before --socket is chosen."""
+    pinned = args.socket is not None or args.cpu_list is not None
+    if not pinned and not args.cpu_only:
+        return
+    try:
+        pinning = power_telemetry.resolve_pinning(args.socket, args.cpu_list) if pinned else None
+        if pinning is None:
+            sockets = power_telemetry.cpu_topology()["sockets"]
+            pinning = {"numa_nodes": sockets[0]["numa_nodes"] if sockets else []}
+    except power_telemetry.PinningError:
+        checks.add("env.membind", "SKIP", "the pinning is invalid (see env.cpu_pinning)")
+        return
+    plan = power_telemetry.plan_membind(pinning, args.no_membind)
+    if args.no_membind:
+        checks.add("env.membind", "SKIP", f"--no-membind: {plan['reason']}")
+        return
+    if not plan["enabled"]:
+        checks.add("env.membind", "INFO", plan["reason"])
+        return
+    probe = power_telemetry.probe_membind(plan["nodes"])
+    tools = f"numactl: {probe.get('numactl') or 'not installed'}; libnuma: {probe.get('libnuma') or 'not loadable'}"
+    if probe["ok"]:
+        checks.add("env.membind", "PASS", f"memory can be bound to NUMA node(s) {plan['nodes']} via {probe['mechanism']} ({tools})")
+    else:
+        detail = (f"memory cannot be bound to NUMA node(s) {plan['nodes']}: {'; '.join(probe.get('reasons') or ['unknown'])} "
+                  f"({tools}). Install numactl (apt install numactl) or libnuma; --no-membind runs without binding (recorded)")
+        checks.add("env.membind", "FAIL" if pinned else "INFO", detail)
+
+
 def check_inputs(checks: Checks, args, scale: str) -> None:
     import verify_generated_inputs
     dataset = args.data_root / ("sf" + scale.replace(".", "p"))
@@ -482,6 +580,15 @@ def run_suite(checks: Checks, args, suite: str, run_dir: Path, engines) -> bool:
         command += ["--polars-gpu-executor", args.polars_gpu_executor]
         if args.polars_gpu_executor_options:
             command += ["--polars-gpu-executor-options", args.polars_gpu_executor_options]
+    # The smoke run is a correctness check, not a measurement: no idle window per session (30 s each by default), but the
+    # same CPU pinning and CPU-energy rule as the campaign, so a host that cannot run the campaign fails here.
+    command += ["--idle-baseline-seconds", "0", "--cpu-energy", args.cpu_energy]
+    if args.socket is not None:
+        command += ["--socket", str(args.socket)]
+    if args.cpu_list is not None:
+        command += ["--cpu-list", args.cpu_list]
+    if args.no_membind:
+        command.append("--no-membind")
     log = args.output / f"run-{suite}.log"
     started = time.perf_counter()
     with log.open("w") as handle:
@@ -733,6 +840,15 @@ def validate_engine(checks: Checks, tag: str, suite: str, queries, engine: str, 
         problems.add(f"queries {session['queries']} != suite queries {list(queries)}", G1)
     if args.expect_cpus is not None and session.get("cpu_threads") != args.expect_cpus:
         problems.add(f"cpu_threads {session.get('cpu_threads')!r} != --cpus {args.expect_cpus} (section 6 control)")
+    if args.expect_affinity is not None:
+        reported = (session.get("cpu_affinity") or {}).get("cpus") if isinstance(session.get("cpu_affinity"), dict) else None
+        try:
+            same = reported is not None and power_telemetry.parse_cpu_list(reported) == power_telemetry.parse_cpu_list(args.expect_affinity)
+        except ValueError:
+            same = False
+        if not same:
+            problems.add(f"cpu_affinity {reported!r} != the campaign's pinning {args.expect_affinity!r}: the session did not "
+                         "run on the CPUs it was pinned to")
     if problems:
         checks.summarize(f"{tag}:{engine}:session", problems, "", gates=(G1,), session=sess)
     elif session_coverage:
@@ -1328,7 +1444,8 @@ def build_parser():
     parser.add_argument("--complex-scales", nargs="+", default=None, help="override --scales for the complex suite")
     parser.add_argument("--engines", nargs="+", choices=ALL_ENGINES)
     parser.add_argument("--runs", type=int, default=None, help="measured trials per query (default 1; 3 with --formal)")
-    parser.add_argument("--cpus", type=int, default=os.cpu_count() or 4)
+    parser.add_argument("--cpus", type=int, default=None,
+                        help="engine threads of the smoke run (default: every CPU, or every pinned CPU with --socket/--cpu-list)")
     parser.add_argument("--driver-memory", default=default_driver_memory())
     parser.add_argument("--jar", type=Path, default=HERE / jar_relative())
     parser.add_argument("--suites", nargs="+", choices=list(SUITE_MODULES), default=list(SUITE_MODULES))
@@ -1339,7 +1456,20 @@ def build_parser():
     parser.add_argument("--allow-any-gpu", action="store_true", help="A100 rehearsal: accept a non-H100 GPU")
     parser.add_argument("--expect-gpu-unsupported", nargs="*", default=[], metavar="QUERY",
                         help="queries whose polars_gpu failure is an accepted, documented gap (reported XFAIL); default none")
-    parser.add_argument("--pins", choices=["auto", "lock", "lock+gpu"], default="auto")
+    parser.add_argument("--pins", choices=["auto", *PIN_SETS], default="auto",
+                        help="package pin set to verify: lock (Polars 2.0.0), lock+cpu (Polars 1.44.2, requirements-cpu.txt), "
+                             "lock+gpu (Polars 1.44.2 + cudf-polars); auto picks by the selected engines and installed packages")
+    parser.add_argument("--cpu-only", action="store_true",
+                        help="a host without a GPU: engines default to polars and spark_cpu, GPU engines are refused")
+    parser.add_argument("--cpu-energy", choices=power_telemetry.CPU_ENERGY_MODES, default="auto",
+                        help="auto: FAIL when RAPL/amd_energy counters exist but this user cannot read them (fix: "
+                             "./setup_h100.sh --power-only --enable-rapl-read); absent counters are INFO. require: FAIL unless "
+                             "a CPU energy source works. off: not checked")
+    pinning = parser.add_mutually_exclusive_group()
+    pinning.add_argument("--socket", type=int, metavar="N", help="check (and smoke-run with) pinning to the CPUs of socket N")
+    pinning.add_argument("--cpu-list", metavar="LIST", help="check (and smoke-run with) pinning to exactly these CPUs")
+    parser.add_argument("--no-membind", action="store_true",
+                        help="with --socket/--cpu-list: do not require (or smoke-run with) memory binding to the pinned NUMA nodes")
     parser.add_argument("--min-free-gib", type=int, default=None, help="default 500 with a GPU engine, else 2")
     parser.add_argument("--skip-env", action="store_true")
     parser.add_argument("--skip-inputs", action="store_true", help="do not run verify_generated_inputs.py")
@@ -1363,6 +1493,8 @@ def build_parser():
     campaign.add_argument("--reference-engine", choices=ALL_ENGINES, default="polars",
                           help="engine every other engine's outputs are compared with (default polars)")
     campaign.add_argument("--expect-cpus", type=int, default=None, help="require cpu_threads == N in every session (--formal: 26)")
+    campaign.add_argument("--expect-affinity", metavar="LIST", default=None,
+                          help="require every session's results.json cpu_affinity to equal this CPU list (a pinned campaign)")
     campaign.add_argument("--inputs-report", type=Path, nargs="+",
                           help="verify_generated_inputs.py report(s): sessions must have read exactly the verified manifests")
     campaign.add_argument("--prior-reports", type=Path, nargs="+",
@@ -1373,6 +1505,27 @@ def build_parser():
 def resolve_args(parser, args) -> None:
     """Fill defaults; in --formal mode pin every parameter to the locked design (or fail with exit 2)."""
     args.expect_gpu_unsupported = list(args.expect_gpu_unsupported or [])
+    if args.cpus is None:
+        args.cpus = os.cpu_count() or 4
+        if args.socket is not None or args.cpu_list is not None:
+            try:  # a pinned smoke run uses the pinned CPUs, not every CPU of the host; an impossible pinning fails env.cpu_pinning
+                args.cpus = min(args.cpus, power_telemetry.resolve_pinning(args.socket, args.cpu_list)["cpu_count"])
+            except power_telemetry.PinningError:
+                pass
+    if args.cpu_only:
+        if args.formal:
+            parser.error("--cpu-only cannot be combined with --formal (the locked design runs four engines, two on a GPU)")
+        args.engines = list(args.engines or CPU_ENGINES)
+        gpu = [e for e in args.engines if e in GPU_ENGINES]
+        if gpu:
+            parser.error(f"--cpu-only: GPU engine(s) {gpu} cannot run on a host without a GPU")
+    if args.no_membind and args.socket is None and args.cpu_list is None:
+        parser.error("--no-membind needs --socket or --cpu-list: memory is only bound in a pinned run")
+    if args.expect_affinity is not None:
+        try:
+            power_telemetry.parse_cpu_list(args.expect_affinity)
+        except ValueError as exc:
+            parser.error(f"--expect-affinity: {exc}")
     if args.formal:
         if not args.skip_run:
             parser.error("--formal validates a finished round: add --skip-run")

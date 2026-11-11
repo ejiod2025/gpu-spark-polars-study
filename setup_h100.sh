@@ -12,6 +12,9 @@
 # virtualenv(s) with pinned packages -> RAPIDS Spark jar (download if absent, sha256 against
 # evidence/DEPENDENCY_SHA256.txt) -> data-volume selection and a source-able environment file.
 #
+# CPU-only hosts (AWS/GCP Ubuntu, x86_64 or aarch64, no GPU): --cpu-only skips the GPU check, the CUDA/RAPIDS
+# packages and the RAPIDS jar. Optional power steps, off by default: --enable-rapl-read, --install-power-tools.
+#
 # Two environments, both built from pin files (nothing is hard-coded to one Polars version):
 #   gpu         .venv              Python 3.11, evidence/requirements.lock.txt minus its Polars pins
 #                                  + requirements-gpu.txt (Polars 1.44.2 + cudf-polars-cu12 26.10.2)
@@ -68,9 +71,17 @@ ALLOW_ANY_GPU=0
 SKIP_APT=0
 SKIP_PYTHON=0
 SKIP_JAR=0
+CPU_ONLY=0
+CPU_REQUIREMENTS="$REPO_DIR/requirements-cpu.txt"
+ENABLE_RAPL_READ=0
+REVERT_RAPL_READ=0
+INSTALL_POWER_TOOLS=0
+POWER_ONLY=0
+POWERCAP_DIR="${POWERCAP_DIR:-/sys/class/powercap}"      # test hooks: the defaults are the real locations
+UDEV_RULES_DIR="${UDEV_RULES_DIR:-/etc/udev/rules.d}"
 
 usage() {
-  sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
 
 Options:
@@ -87,7 +98,19 @@ Options:
   --expect-gpu NAME      required substring of the GPU name (default H100; GH200 on aarch64)
   --allow-any-gpu        accept a GPU whose name does not contain the expected name (rehearsal)
   --skip-apt | --skip-python | --skip-jar
+  --cpu-only             host without a GPU (AWS/GCP CPU instances): no GPU check, no CUDA/RAPIDS packages and no
+                         RAPIDS jar; the main env is built from requirements-cpu.txt (Polars CPU and Spark CPU
+                         only) and the environment file is rerun/cpu-env.sh
+  --cpu-requirements F   pin file layered over the lock in the --cpu-only env (default requirements-cpu.txt)
   -h, --help
+
+Power measurement, optional; nothing below happens unless requested (docs/PAPER3_INFRA.md):
+  --enable-rapl-read     make the RAPL energy counters (powercap energy_uj) readable by every local user: chmod now
+                         plus a udev rule so it survives reboots. WARNING: energy_uj is root-only since CVE-2020-8694
+                         (PLATYPUS); this removes that mitigation. Single-tenant benchmark hosts only.
+  --revert-rapl-read     undo --enable-rapl-read (remove the udev rule, restore mode 0400); implies --power-only
+  --install-power-tools  apt-install ipmitool and linux-tools (perf, turbostat) for the running kernel
+  --power-only           run only the power steps above, then exit (for a host that is already set up)
 EOF
 }
 
@@ -107,6 +130,12 @@ while [ $# -gt 0 ]; do
     --skip-apt) SKIP_APT=1 ;;
     --skip-python) SKIP_PYTHON=1 ;;
     --skip-jar) SKIP_JAR=1 ;;
+    --cpu-only) CPU_ONLY=1 ;;
+    --cpu-requirements) CPU_REQUIREMENTS="$2"; shift ;;
+    --enable-rapl-read) ENABLE_RAPL_READ=1 ;;
+    --revert-rapl-read) REVERT_RAPL_READ=1; POWER_ONLY=1 ;;
+    --install-power-tools) INSTALL_POWER_TOOLS=1 ;;
+    --power-only) POWER_ONLY=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -114,6 +143,13 @@ while [ $# -gt 0 ]; do
 done
 
 case "$ENVS" in gpu|a100compat|both) ;; *) echo "--envs must be gpu, a100compat or both" >&2; exit 2 ;; esac
+if [ "$ENABLE_RAPL_READ" -eq 1 ] && [ "$REVERT_RAPL_READ" -eq 1 ]; then
+  echo "--enable-rapl-read and --revert-rapl-read are mutually exclusive" >&2; exit 2
+fi
+if [ "$POWER_ONLY" -eq 1 ] && [ "$ENABLE_RAPL_READ$REVERT_RAPL_READ$INSTALL_POWER_TOOLS" = "000" ]; then
+  echo "--power-only needs --enable-rapl-read, --revert-rapl-read or --install-power-tools" >&2; exit 2
+fi
+if [ "$CPU_ONLY" -eq 1 ]; then ENV_FILE="$REPO_DIR/rerun/cpu-env.sh"; fi
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 WOULD_FAIL=0
 SUMMARY=()
@@ -155,13 +191,138 @@ sha256_of() {
 version_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]; }
 
 # ---------------------------------------------------------------------------------------------
+# Optional power-measurement support. Nothing here runs unless --enable-rapl-read, --revert-rapl-read or
+# --install-power-tools is given. The kernel interfaces themselves (msr, ipmi modules) are never touched.
+RAPL_RULE_FILE="$UDEV_RULES_DIR/99-benchmark-rapl-read.rules"
+RAPL_RULE_MARK="managed by setup_h100.sh --enable-rapl-read"
+
+rapl_rule_text() {
+  cat <<'EOF'
+# managed by setup_h100.sh --enable-rapl-read (lowers the CVE-2020-8694 mitigation on purpose; single-tenant host)
+SUBSYSTEM=="powercap", ACTION=="add|change", RUN+="/bin/sh -c 'chmod a+r /sys%p/energy_uj'"
+EOF
+}
+
+reload_udev_rules() {
+  if [ "$DRY_RUN" -eq 1 ] || have udevadm; then act sudo_cmd udevadm control --reload-rules; fi
+}
+
+enable_rapl_read() {
+  local f n=0 unreadable=0 tmp
+  say "WARNING (--enable-rapl-read): energy_uj is root-only since CVE-2020-8694 (PLATYPUS) because RAPL readings can leak"
+  say "  data through a power side channel. Making it readable by every local user removes that mitigation."
+  say "  Use this on a single-tenant benchmark host only. Undo with: ./setup_h100.sh --revert-rapl-read"
+  for f in "$POWERCAP_DIR"/*/energy_uj; do
+    [ -e "$f" ] || continue
+    n=$((n + 1))
+    act sudo_cmd chmod a+r "$f"
+  done
+  if [ "$n" -eq 0 ]; then
+    say "no energy_uj under $POWERCAP_DIR (virtualized host, or the intel_rapl modules are not loaded): nothing to chmod now"
+  fi
+  if [ -e "$RAPL_RULE_FILE" ] && ! grep -q -F "$RAPL_RULE_MARK" "$RAPL_RULE_FILE"; then
+    die "$RAPL_RULE_FILE exists and is not ours; not overwriting it"
+  elif [ -f "$RAPL_RULE_FILE" ] && [ "$(cat "$RAPL_RULE_FILE")" = "$(rapl_rule_text)" ]; then
+    say "udev rule already in place: $RAPL_RULE_FILE"
+  elif [ "$DRY_RUN" -eq 1 ]; then
+    say "would write $RAPL_RULE_FILE:"; rapl_rule_text | sed 's/^/    /'
+    act sudo_cmd install -m 0644 /tmp/rapl-rule.tmp "$RAPL_RULE_FILE"
+    reload_udev_rules
+  else
+    tmp="$(mktemp "${TMPDIR:-/tmp}/rapl-rule.XXXXXX")"
+    TEMP_FILES+=("$tmp")
+    rapl_rule_text > "$tmp"
+    act sudo_cmd mkdir -p "$UDEV_RULES_DIR"
+    act sudo_cmd install -m 0644 "$tmp" "$RAPL_RULE_FILE"
+    reload_udev_rules
+  fi
+  if [ "$DRY_RUN" -eq 0 ] && [ "$n" -gt 0 ]; then
+    if [ "$(id -u)" -eq 0 ]; then
+      say "running as root: cannot verify user readability here; run probe_power.py as the benchmark user"
+    else
+      for f in "$POWERCAP_DIR"/*/energy_uj; do
+        if [ -e "$f" ] && [ ! -r "$f" ]; then unreadable=$((unreadable + 1)); fi
+      done
+      [ "$unreadable" -eq 0 ] || die "$unreadable energy_uj file(s) still unreadable for $(id -un)"
+      say "verified: all $n energy_uj files are readable by $(id -un)"
+    fi
+  fi
+  note "RAPL: energy_uj readable by every local user ($n files now; udev rule $RAPL_RULE_FILE); CVE-2020-8694 mitigation lowered"
+}
+
+revert_rapl_read() {
+  local f n=0
+  for f in "$POWERCAP_DIR"/*/energy_uj; do
+    [ -e "$f" ] || continue
+    n=$((n + 1))
+    act sudo_cmd chmod 0400 "$f"
+  done
+  if [ ! -e "$RAPL_RULE_FILE" ]; then
+    say "no udev rule at $RAPL_RULE_FILE"
+  elif grep -q -F "$RAPL_RULE_MARK" "$RAPL_RULE_FILE"; then
+    act sudo_cmd rm -f "$RAPL_RULE_FILE"
+    reload_udev_rules
+  else
+    say "WARNING: $RAPL_RULE_FILE is not ours; left in place"
+  fi
+  note "RAPL: energy_uj restored to root-only ($n files)"
+}
+
+install_power_tools() {
+  local kernel_pkg
+  kernel_pkg="linux-tools-$(uname -r)"
+  if [ "$SKIP_APT" -eq 1 ]; then say "power tools skipped (--skip-apt)"; return 0; fi
+  say "installing ipmitool, linux-tools-common and $kernel_pkg (perf, turbostat)"
+  act sudo_cmd apt-get update -y || say "WARNING: apt-get update failed; trying the installs anyway"
+  # two installs: apt is all-or-nothing, and the kernel-specific package is the one that is often missing
+  act sudo_cmd env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ipmitool linux-tools-common \
+    || say "WARNING: could not install ipmitool/linux-tools-common; continuing"
+  act sudo_cmd env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$kernel_pkg" \
+    || say "WARNING: $kernel_pkg is not installable (a kernel update may be pending: reboot, or install linux-tools-generic); perf/turbostat may not run"
+  say "kernel interfaces are not changed; to open them yourself: sudo modprobe msr ipmi_devintf ipmi_si"
+  note "power tools: ipmitool, linux-tools-common, $kernel_pkg requested"
+}
+
+power_setup() {
+  if [ "$INSTALL_POWER_TOOLS" -eq 1 ]; then install_power_tools; fi
+  if [ "$ENABLE_RAPL_READ" -eq 1 ]; then enable_rapl_read; fi
+  if [ "$REVERT_RAPL_READ" -eq 1 ]; then revert_rapl_read; fi
+  return 0
+}
+
+# ---------------------------------------------------------------------------------------------
 say "repo: $REPO_DIR   dry-run: $DRY_RUN   utc: $STAMP"
-[ -f "$LOCK_FILE" ] || die "missing $LOCK_FILE"
-case "$ENVS" in gpu|both) [ -f "$GPU_REQUIREMENTS" ] || die "missing $GPU_REQUIREMENTS" ;; esac
-[ -f "$SHA_FILE" ] || die "missing $SHA_FILE"
+if [ "$POWER_ONLY" -eq 0 ]; then
+  [ -f "$LOCK_FILE" ] || die "missing $LOCK_FILE"
+  if [ "$CPU_ONLY" -eq 1 ]; then
+    case "$ENVS" in gpu|both) [ -f "$CPU_REQUIREMENTS" ] || die "missing $CPU_REQUIREMENTS" ;; esac
+  else
+    case "$ENVS" in gpu|both) [ -f "$GPU_REQUIREMENTS" ] || die "missing $GPU_REQUIREMENTS" ;; esac
+    [ -f "$SHA_FILE" ] || die "missing $SHA_FILE"
+  fi
+fi
 if [ "$(uname -s)" != "Linux" ]; then die "this script targets the Linux GPU host (found $(uname -s))"; fi
 case "$ARCH" in x86_64|aarch64|arm64) ;; *) die "unsupported architecture '$ARCH' (x86_64 and aarch64 only)" ;; esac
-[ -z "$JAR_CLASSIFIER" ] || say "architecture $ARCH: GH200 / aarch64 path (jar $JAR_NAME, JDK java-17-openjdk-$JDK_ARCH, GPU pins $(basename "$GPU_REQUIREMENTS"))"
+if [ "$POWER_ONLY" -eq 1 ]; then
+  say "power steps only (--power-only)"
+  power_setup
+  echo
+  if [ "$DRY_RUN" -eq 1 ]; then
+    say "DRY RUN COMPLETE: $WOULD_FAIL prerequisite check(s) would fail on this host."
+    for line in "${SUMMARY[@]}"; do say "  plan: $line"; done
+    exit 0
+  fi
+  say "OK -- power setup complete"
+  for line in "${SUMMARY[@]}"; do say "  $line"; done
+  exit 0
+fi
+if [ -n "$JAR_CLASSIFIER" ]; then
+  if [ "$CPU_ONLY" -eq 1 ]; then
+    say "architecture $ARCH: CPU-only path (no GPU pins, no RAPIDS jar, JDK java-17-openjdk-$JDK_ARCH, pins $(basename "$CPU_REQUIREMENTS"))"
+  else
+    say "architecture $ARCH: GH200 / aarch64 path (jar $JAR_NAME, JDK java-17-openjdk-$JDK_ARCH, GPU pins $(basename "$GPU_REQUIREMENTS"))"
+  fi
+fi
 
 # 1. inventory -------------------------------------------------------------------------------
 inventory() {
@@ -182,7 +343,10 @@ fi
 note "inventory log: ${LOG_DIR}/inventory-${STAMP}.log"
 
 # 2. GPU and driver ----------------------------------------------------------------------------
-if have nvidia-smi && GPU_LINE="$(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -n1)" && [ -n "$GPU_LINE" ]; then
+if [ "$CPU_ONLY" -eq 1 ]; then
+  say "GPU check skipped (--cpu-only): no CUDA/RAPIDS packages, no RAPIDS jar, Polars CPU and Spark CPU engines only"
+  note "GPU: none (--cpu-only)"
+elif have nvidia-smi && GPU_LINE="$(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -n1)" && [ -n "$GPU_LINE" ]; then
   GPU_NAME="$(echo "$GPU_LINE" | cut -d, -f1 | sed 's/^ *//;s/ *$//')"
   DRIVER="$(echo "$GPU_LINE" | cut -d, -f2 | tr -d ' ')"
   say "GPU: $GPU_LINE"
@@ -209,6 +373,7 @@ else
   act sudo_cmd apt-get update -y
   act sudo_cmd env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openjdk-17-jre-headless ca-certificates curl
 fi
+power_setup
 JAVA_HOME_GUESS="/usr/lib/jvm/java-17-openjdk-$JDK_ARCH"
 [ "$DRY_RUN" -eq 1 ] || [ -x "$JAVA_HOME_GUESS/bin/java" ] || die "expected $JAVA_HOME_GUESS/bin/java after install"
 note "Java 17: $JAVA_HOME_GUESS"
@@ -293,49 +458,59 @@ else
     say "uv missing; installing uv==$UV_VERSION with pip --user (no curl|sh)"
     have python3 || die "python3 missing"
     python3 -m pip --version >/dev/null 2>&1 || act sudo_cmd apt-get install -y python3-pip
-    act python3 -m pip install --user "uv==$UV_VERSION" || die "could not install uv; install uv $UV_VERSION manually and re-run"
+    act python3 -m pip install --user "uv==$UV_VERSION" \
+      || act python3 -m pip install --user --break-system-packages "uv==$UV_VERSION" \
+      || die "could not install uv; install uv $UV_VERSION manually and re-run"
   else
     say "uv present: $(uv --version)"
   fi
-  case "$ENVS" in gpu|both) build_env gpu "$VENV" "$PYTHON_VERSION" "$GPU_REQUIREMENTS" ;; esac
+  if [ "$CPU_ONLY" -eq 1 ]; then
+    case "$ENVS" in gpu|both) build_env cpu "$VENV" "$PYTHON_VERSION" "$CPU_REQUIREMENTS" ;; esac
+  else
+    case "$ENVS" in gpu|both) build_env gpu "$VENV" "$PYTHON_VERSION" "$GPU_REQUIREMENTS" ;; esac
+  fi
   case "$ENVS" in a100compat|both) build_env a100compat "$A100COMPAT_VENV" "$A100COMPAT_PYTHON" ;; esac
 fi
 
 # 5. RAPIDS Spark jar ---------------------------------------------------------------------------
 JAR_PATH="$JAR_DIR/$JAR_NAME"
-EXPECTED_SHA="$(awk -v n="jars/$JAR_NAME" '$2==n {print $1}' "$SHA_FILE")"
-if [ -n "$JAR_SHA_BUILTIN" ]; then
-  if [ -z "$EXPECTED_SHA" ]; then
-    EXPECTED_SHA="$JAR_SHA_BUILTIN"
-  elif [ "$EXPECTED_SHA" != "$JAR_SHA_BUILTIN" ]; then
-    die "$SHA_FILE lists $EXPECTED_SHA for jars/$JAR_NAME but this script records $JAR_SHA_BUILTIN; resolve before running"
-  fi
-fi
-[ -n "$EXPECTED_SHA" ] || die "no checksum for jars/$JAR_NAME in $SHA_FILE"
-if [ "$SKIP_JAR" -eq 1 ]; then
-  say "jar skipped (--skip-jar)"
+if [ "$CPU_ONLY" -eq 1 ]; then
+  say "RAPIDS jar skipped (--cpu-only)"
 else
-  if [ -f "$JAR_PATH" ]; then
-    ACTUAL_SHA="$(sha256_of "$JAR_PATH")"
-    [ "$ACTUAL_SHA" = "$EXPECTED_SHA" ] || die "existing $JAR_PATH has sha256 $ACTUAL_SHA, expected $EXPECTED_SHA (not deleting it; move it aside and re-run)"
-    say "jar present and verified: $JAR_PATH"
-  else
-    act mkdir -p "$JAR_DIR"
-    PARTIAL="$JAR_DIR/.$JAR_NAME.partial"
-    act curl -fL --retry 3 --retry-delay 5 -o "$PARTIAL" "$JAR_URL"
-    if [ "$DRY_RUN" -eq 0 ]; then
-      ACTUAL_SHA="$(sha256_of "$PARTIAL")"
-      if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
-        rm -f "$PARTIAL"
-        die "downloaded jar sha256 $ACTUAL_SHA != expected $EXPECTED_SHA (partial file removed)"
-      fi
-      mv "$PARTIAL" "$JAR_PATH"
-      say "jar downloaded and verified: $JAR_PATH"
-    else
-      say "dry-run: would verify sha256 == $EXPECTED_SHA, then move into place"
+  EXPECTED_SHA="$(awk -v n="jars/$JAR_NAME" '$2==n {print $1}' "$SHA_FILE")"
+  if [ -n "$JAR_SHA_BUILTIN" ]; then
+    if [ -z "$EXPECTED_SHA" ]; then
+      EXPECTED_SHA="$JAR_SHA_BUILTIN"
+    elif [ "$EXPECTED_SHA" != "$JAR_SHA_BUILTIN" ]; then
+      die "$SHA_FILE lists $EXPECTED_SHA for jars/$JAR_NAME but this script records $JAR_SHA_BUILTIN; resolve before running"
     fi
   fi
-  note "jar: $JAR_PATH (sha256 $EXPECTED_SHA)"
+  [ -n "$EXPECTED_SHA" ] || die "no checksum for jars/$JAR_NAME in $SHA_FILE"
+  if [ "$SKIP_JAR" -eq 1 ]; then
+    say "jar skipped (--skip-jar)"
+  else
+    if [ -f "$JAR_PATH" ]; then
+      ACTUAL_SHA="$(sha256_of "$JAR_PATH")"
+      [ "$ACTUAL_SHA" = "$EXPECTED_SHA" ] || die "existing $JAR_PATH has sha256 $ACTUAL_SHA, expected $EXPECTED_SHA (not deleting it; move it aside and re-run)"
+      say "jar present and verified: $JAR_PATH"
+    else
+      act mkdir -p "$JAR_DIR"
+      PARTIAL="$JAR_DIR/.$JAR_NAME.partial"
+      act curl -fL --retry 3 --retry-delay 5 -o "$PARTIAL" "$JAR_URL"
+      if [ "$DRY_RUN" -eq 0 ]; then
+        ACTUAL_SHA="$(sha256_of "$PARTIAL")"
+        if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+          rm -f "$PARTIAL"
+          die "downloaded jar sha256 $ACTUAL_SHA != expected $EXPECTED_SHA (partial file removed)"
+        fi
+        mv "$PARTIAL" "$JAR_PATH"
+        say "jar downloaded and verified: $JAR_PATH"
+      else
+        say "dry-run: would verify sha256 == $EXPECTED_SHA, then move into place"
+      fi
+    fi
+    note "jar: $JAR_PATH (sha256 $EXPECTED_SHA)"
+  fi
 fi
 
 # 6. data volume --------------------------------------------------------------------------------
@@ -391,6 +566,16 @@ export DATA_ROOT=\"$DATA_ROOT\"
 export RAPIDS_JAR=\"$JAR_PATH\"
 $SPARK_DIRS_LINE
 "
+if [ "$CPU_ONLY" -eq 1 ]; then
+  ENV_TEXT="# generated by setup_h100.sh $STAMP --cpu-only -- source this before any benchmark command
+export JAVA_HOME=\"$JAVA_HOME_GUESS\"
+export PATH=\"\$JAVA_HOME/bin:$VENV/bin:\$HOME/.local/bin:\$PATH\"
+export PYTHON_CPU_ENV=\"$VENV/bin/python\"          # polars 1.44.2, CPU engines only (no CUDA/RAPIDS packages)
+export PYTHON_A100COMPAT_ENV=\"$A100COMPAT_VENV/bin/python\"   # polars 2.0.0, Python 3.10 (CPU-Polars continuity)
+export DATA_ROOT=\"$DATA_ROOT\"
+$SPARK_DIRS_LINE
+"
+fi
 if [ "$DRY_RUN" -eq 1 ]; then
   say "would write $ENV_FILE:"; printf '%s' "$ENV_TEXT" | sed 's/^/    /'
 else
@@ -440,4 +625,8 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 say "OK -- setup complete"
 for line in "${SUMMARY[@]}"; do say "  $line"; done
-say "next: source $ENV_FILE && python preflight.py --data-root \"\$DATA_ROOT\""
+if [ "$CPU_ONLY" -eq 1 ]; then
+  say "next: source $ENV_FILE, generate the inputs (REPRODUCE.md step 2), then preflight.py --engines polars spark_cpu (see docs/PAPER3_INFRA.md)"
+else
+  say "next: source $ENV_FILE && python preflight.py --data-root \"\$DATA_ROOT\""
+fi

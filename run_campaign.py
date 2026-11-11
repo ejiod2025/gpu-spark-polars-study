@@ -3,7 +3,9 @@
 
 Idempotent and resumable: every decision is derived from what is on disk under --root.
 
-  <root>/campaign.json              resolved design, design-doc sha256, git/source/input hashes (written once)
+  <root>/campaign.json              resolved design, design-doc sha256, git/source/input hashes (written once); "lease"
+                                    (checked, or the --no-lease-check marker); optional "cost" (instance price),
+                                    "telemetry" (power sampler options) and "pinning" (resolved CPUs) blocks when supplied
   <root>/invocations.jsonl          one line per invocation (argv, hashes, drift against campaign.json)
   <root>/status.json                live: current round/suite/scale/engine, sessions done/total, ETA
   <root>/round-<k>/<suite>/         a run_experiment.py output root
@@ -12,9 +14,14 @@ Idempotent and resumable: every decision is derived from what is on disk under -
   <root>/round-<k>-repeat-<n>/      a repeat of a failed or interrupted round; no round directory is reused
   <root>/side-study/round-<k>/<arm>/<suite>/ and gates.json   section 10 (Polars 1.44.2 vs 2.0.0)
 
+A campaign refuses to start (exit 6) without a valid lease: an instance name p3-<purpose>-owner-<id>-expires-<YYYYMMDDTHHMMZ>
+with the expiry in the future, from --lease-name or the first line of /etc/paper3-lease (docs/PAPER3_INFRA.md section 5).
+--no-lease-check is for local tests only; it is recorded in campaign.json and marks the campaign informal.
+
 Examples:
   python run_campaign.py --dry-run
-  python run_campaign.py --root /data/campaign --jar $RAPIDS_JAR --data-root $DATA_ROOT
+  python run_campaign.py --root /data/campaign --jar $RAPIDS_JAR --data-root $DATA_ROOT --lease-name p3-main-owner-ab12-expires-20261201T1800Z
+  python run_campaign.py ... --socket 0 --cpu-energy require     # CPU-only bare metal: engines on socket 0, RAPL mandatory
 """
 from __future__ import annotations
 
@@ -25,16 +32,21 @@ import fcntl
 import hashlib
 import itertools
 import json
+import math
 import os
 from pathlib import Path
 import platform
 import random
+import secrets
 import signal
 import statistics
 import subprocess
 import sys
 import threading
 import time
+
+import power_telemetry
+from probe_power import LEASE_FILE, lease_status
 
 HERE = Path(__file__).resolve().parent
 RUN_EXPERIMENT = HERE / "run_experiment.py"
@@ -61,11 +73,17 @@ SIDE_SEQUENCES = ("AB", "BA", "BA", "AB")
 MAX_ATTEMPTS = 50
 # Files whose change between invocations can alter what a session measures or how a round is judged.
 # Analysis and plotting scripts are hashed too, but their drift is not worth a warning mid-campaign.
-CRITICAL_SOURCES = ("run_experiment.py", "worker.py", "query_cleanup.py", "workloads.py", "complex_workloads.py",
+CRITICAL_SOURCES = ("run_experiment.py", "worker.py", "power_telemetry.py", "query_cleanup.py", "workloads.py", "complex_workloads.py",
                     "complex_joins.py", "complex_analytics.py", "complex_oracle.py", "preflight.py", "run_campaign.py",
                     "docs/H100_EXPERIMENT_DESIGN.md")
 
-EXIT_STOPPED, EXIT_GATE_TOOL, EXIT_DESIGN, EXIT_INTERRUPTED = 3, 4, 5, 130
+# Measurement instrumentation passed through to run_experiment.py only when given (campaign key -> its flag).
+TELEMETRY_FLAGS = {"redact_gpu_identifiers": "--redact-gpu-identifiers", "gpu_energy": "--gpu-energy", "power_telemetry": "--power-telemetry", "power_interval_ms": "--power-interval-ms",
+                   "ipmi_interval_seconds": "--ipmi-interval-seconds", "idle_baseline_seconds": "--idle-baseline-seconds",
+                   "cpu_energy": "--cpu-energy"}
+COST_FIELDS = ("instance_type", "provider", "region", "hourly_price_usd", "price_source_url", "price_snapshot_utc")
+
+EXIT_STOPPED, EXIT_GATE_TOOL, EXIT_DESIGN, EXIT_LEASE, EXIT_INTERRUPTED = 3, 4, 5, 6, 130
 
 
 class CampaignError(Exception):
@@ -217,6 +235,19 @@ class Config:
     inputs_reports: list = field(default_factory=list)
     host_label: str | None = None
     main_python: str = sys.executable
+    cost: dict | None = None
+    telemetry: dict = field(default_factory=dict)
+    include_hostname: bool = False         # opt-in: the raw hostname in campaign.json (cloud hostnames can encode the IP)
+    host_salt: bytes | None = None         # per-campaign secret kept on the host, never written under --root
+    host_salt_created: bool = False
+    no_lease_check: bool = False           # local tests only; a test flag, so the campaign is informal
+    lease_name: str | None = None
+    lease_min_minutes: float = 0
+    lease: dict | None = None              # what the lease check found (or that it was skipped), written to campaign.json
+    pin_socket: int | None = None          # --socket / --cpu-list as given, passed to run_experiment.py
+    pin_cpu_list: str | None = None
+    no_membind: bool = False               # pinned runs bind memory to the pinned NUMA nodes unless this says otherwise
+    pinning: dict | None = None            # power_telemetry.resolve_pinning() on this host, written to campaign.json
 
 
 def build_units(cfg: Config) -> list:
@@ -275,6 +306,8 @@ def design_dict(cfg: Config, units: list) -> dict:
                    "sessions": sum(u.sessions for u in units)},
         "formal": cfg.formal,
         "test_flags": cfg.test_flags,
+        **({"pinning": {"socket": cfg.pin_socket, "cpu_list": cfg.pin_cpu_list, "membind": not cfg.no_membind}}
+           if cfg.pin_socket is not None or cfg.pin_cpu_list is not None else {}),
     }
 
 
@@ -293,6 +326,15 @@ def job_command(job: Job, out_dir: Path, cfg: Config) -> list:
         command += ["--cleanup-timeout-seconds", str(spec["cleanup_timeout_seconds"])]
     if cfg.engine_timeout_seconds is not None:
         command += ["--engine-timeout-seconds", str(cfg.engine_timeout_seconds)]
+    for key, flag in TELEMETRY_FLAGS.items():  # only what was asked for: run_experiment.py's defaults otherwise
+        if key in cfg.telemetry:
+            command += [flag, str(cfg.telemetry[key])]
+    if cfg.pin_socket is not None:
+        command += ["--socket", str(cfg.pin_socket)]
+    if cfg.pin_cpu_list is not None:
+        command += ["--cpu-list", cfg.pin_cpu_list]
+    if cfg.no_membind:
+        command.append("--no-membind")
     return command
 
 
@@ -312,6 +354,8 @@ def gate_command(unit: Unit, attempt: Path, cfg: Config, output: Path, prior_rep
                     "--polars-gpu-executor", FORMAL_FLAGS["polars_gpu_executor"], "--error-policy", "classified"]
     if cfg.allow_any_gpu:
         command.append("--allow-any-gpu")
+    if cfg.pinning is not None:
+        command += ["--expect-affinity", cfg.pinning["cpus"]]
     if cfg.inputs_reports:
         command += ["--inputs-report", *map(str, cfg.inputs_reports)]
     if prior_reports:
@@ -379,8 +423,43 @@ def input_hashes(cfg: Config) -> dict:
             "rapids_jar_sha256": sha256_file(jar) if jar else None, "inputs_reports_sha256": reports}
 
 
+def host_salt_path(root: Path) -> Path:
+    base = os.environ.get("CAMPAIGN_HOST_SALT_DIR") or Path.home() / ".local" / "state" / "gpu-spark-polars-study" / "host-salts"
+    return Path(base) / (hashlib.sha256(str(Path(root).resolve()).encode()).hexdigest()[:16] + ".salt")
+
+
+def load_or_create_salt(root: Path):
+    """(salt, created): the campaign's secret host-id salt, kept beside the user's state and never under the campaign root.
+
+    The campaign root is what gets published; a salt inside it would let anyone test guessed hostnames against the
+    published hash. Created once with mode 0600 and never overwritten."""
+    path = host_salt_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.parent.chmod(0o700)
+    except OSError:
+        pass
+    try:
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return bytes.fromhex(path.read_text().strip()), False
+    salt = secrets.token_bytes(32)
+    with os.fdopen(descriptor, "w") as handle:
+        handle.write(salt.hex() + "\n")
+    return salt, True
+
+
+def host_id(salt: bytes) -> str:
+    """sha256(salt, hostname, machine-id): equal within one campaign means the same host; unlinkable across campaigns."""
+    try:
+        machine_id = Path("/etc/machine-id").read_text().strip()
+    except OSError:
+        machine_id = ""
+    return hashlib.sha256(salt + b"\0" + platform.node().encode() + b"\0" + machine_id.encode()).hexdigest()
+
+
 def host_identity(cfg: Config) -> dict:
-    """Amendment A2: each host's campaign records which host it ran on."""
+    """Amendment A2: each host's campaign records which host it ran on (by salted hash; raw hostname only on request)."""
     def probe(command, field=None):
         code, out = run_text(command, timeout=30)
         lines = [line for line in out.splitlines() if line.strip() and (field is None or line.startswith(field))] if code == 0 else []
@@ -390,9 +469,16 @@ def host_identity(cfg: Config) -> dict:
         memory = psutil.virtual_memory().total
     except ImportError:
         memory = None
-    return {"instance_type": cfg.host_label, "hostname": platform.node(), "platform": platform.platform(),
-            "cpus": os.cpu_count(), "cpu_model": probe(["lscpu"], "Model name"), "memory_total_bytes": memory,
-            "gpu": probe(["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"])}
+    identity = {"instance_type": cfg.host_label, "platform": platform.platform(),
+                "cpus": os.cpu_count(), "cpu_model": probe(["lscpu"], "Model name"), "memory_total_bytes": memory,
+                "gpu": probe(["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"])}
+    if cfg.host_salt is not None:
+        identity["host_id_sha256"] = host_id(cfg.host_salt)
+        identity["host_id_basis"] = ("sha256(per-campaign secret salt, hostname, /etc/machine-id); the salt stays on the host "
+                                     "and is not published; equal hashes within a campaign mean the same host")
+    if cfg.include_hostname:
+        identity["hostname"] = platform.node()
+    return identity
 
 
 def provenance(cfg: Config, units: list) -> dict:
@@ -427,6 +513,71 @@ def running_workloads() -> list:
                or w in ("run_experiment.py", "worker.py") for w in words):
             found.append(f"{process.info['pid']}: {' '.join(words)[:160]}")
     return found
+
+
+def check_lease(cfg: Config) -> dict:
+    """The lease this campaign runs under (the record for campaign.json), or CampaignError with exit code 6.
+
+    Paper 3 hosts are rented under a name that carries the owner and the expiry,
+    p3-<purpose>-owner-<id>-expires-<YYYYMMDDTHHMMZ> (docs/PAPER3_INFRA.md section 5): a campaign refuses to start without a
+    valid one, so no host outlives the intent of whoever rented it. The name is --lease-name or the first line of
+    /etc/paper3-lease. The record keeps the purpose, the expiry and a hash of the name, not the owner id: campaign.json is
+    published. --no-lease-check (local tests only) is recorded as such."""
+    if cfg.no_lease_check:
+        return {"checked": False, "reason": "--no-lease-check (local tests only)"}
+    name, source = cfg.lease_name, "--lease-name"
+    if not name:
+        try:
+            lines = Path(LEASE_FILE).read_text().splitlines()
+        except OSError:
+            lines = []
+        name, source = (lines[0].strip() if lines else None), LEASE_FILE
+    if not name:
+        raise CampaignError("no lease: pass --lease-name p3-<purpose>-owner-<id>-expires-<YYYYMMDDTHHMMZ>, or write that "
+                            f"name to {LEASE_FILE} at launch (--no-lease-check is for local tests only)", EXIT_LEASE)
+    status = lease_status(name, min_minutes=cfg.lease_min_minutes)
+    if not status["valid"]:
+        left = status["minutes_left"]
+        timing = ("" if left is None else f" ({-left:.0f} minutes ago)" if left <= 0 else f" (actually {left:g})")
+        margin = f"at least {cfg.lease_min_minutes:g} minutes " if cfg.lease_min_minutes else ""
+        raise CampaignError(f"lease {name!r} (from {source}) is not valid: {status['problem']}{timing}; the expected form is "
+                            f"p3-<purpose>-owner-<id>-expires-<YYYYMMDDTHHMMZ> with the expiry {margin}in the future", EXIT_LEASE)
+    return {"checked": True, "source": source, "purpose": status["purpose"], "expires_utc": status["expires_utc"],
+            "minutes_left_at_start": status["minutes_left"], "min_minutes_required": cfg.lease_min_minutes,
+            "name_sha256": hashlib.sha256(name.encode()).hexdigest(),
+            "note": "the lease name embeds the owner id; only its sha256 is recorded"}
+
+
+def logged_argv(argv) -> list:
+    """The command line for invocations.jsonl, without the lease name: it embeds the owner id and the file is published.
+    The value of --lease-name (or its unambiguous abbreviations) is replaced by "sha256:<hex>", the hash campaign.json keeps."""
+    def hashed(value):
+        return "sha256:" + hashlib.sha256(value.encode()).hexdigest()
+
+    def is_lease_flag(flag):
+        return flag.startswith("--lease-n") and "--lease-name".startswith(flag)
+    out, hide_next = [], False
+    for word in argv:
+        flag, equals, value = word.partition("=")
+        if hide_next:
+            out.append(hashed(word))
+            hide_next = False
+        elif equals and is_lease_flag(flag):
+            out.append(f"{flag}={hashed(value)}")
+        elif is_lease_flag(word):
+            out.append(word)
+            hide_next = True
+        else:
+            out.append(word)
+    return out
+
+
+def resolve_pin(cfg: Config):
+    """power_telemetry.resolve_pinning() for the --socket/--cpu-list of this campaign; CampaignError when it cannot apply."""
+    try:
+        return power_telemetry.resolve_pinning(cfg.pin_socket, cfg.pin_cpu_list)
+    except power_telemetry.PinningError as exc:
+        raise CampaignError(f"CPU pinning: {exc}", EXIT_DESIGN)
 
 
 def startup_checks(cfg: Config, units: list, prov: dict) -> None:
@@ -467,6 +618,30 @@ def startup_checks(cfg: Config, units: list, prov: dict) -> None:
         if side_needed and envs["side_a100compat"]["polars"] != SIDE_ARMS[1][2]:
             raise CampaignError(f"formal campaign: side-study environment has polars "
                                 f"{envs['side_a100compat']['polars']}, design section 10 says {SIDE_ARMS[1][2]}", EXIT_DESIGN)
+    cfg.pinning = resolve_pin(cfg)
+    if cfg.pinning is not None and cfg.cpus > cfg.pinning["cpu_count"]:
+        raise CampaignError(f"CPU pinning: {cfg.cpus} engine threads (--cpus) on {cfg.pinning['cpu_count']} pinned CPUs "
+                            f"({cfg.pinning['cpus']}) is oversubscribed", EXIT_DESIGN)
+    if cfg.pinning is not None:
+        cfg.pinning["membind"] = membind = power_telemetry.plan_membind(cfg.pinning, cfg.no_membind)
+        if membind["enabled"]:  # fail now, not when the first session starts: the design attributes DRAM energy to this socket
+            probe = power_telemetry.probe_membind(membind["nodes"])
+            membind["probe"] = {k: probe.get(k) for k in ("ok", "mechanism", "numactl", "libnuma")}
+            if not probe["ok"]:
+                raise CampaignError(f"CPU pinning: memory cannot be bound to NUMA node(s) {membind['nodes']} on this host "
+                                    f"({'; '.join(probe.get('reasons') or ['unknown'])}). Install numactl (apt install numactl) "
+                                    "or libnuma, or pass --no-membind to run without memory binding (recorded; DRAM energy "
+                                    "attribution to the pinned socket is then not guaranteed)", EXIT_DESIGN)
+        else:
+            log(f"WARNING: memory is not bound: {membind['reason']}")
+    energy_mode = cfg.telemetry.get("cpu_energy", "auto")
+    if cfg.telemetry.get("power_telemetry", "auto") == "auto" and energy_mode != "off":
+        gate = power_telemetry.check_cpu_energy(energy_mode)
+        for warning in gate["warnings"]:
+            log(f"WARNING: {warning}")
+        if not gate["ok"]:
+            raise CampaignError("CPU energy: " + "; ".join(gate["problems"]) +
+                                " (--cpu-energy off or --power-telemetry off runs the campaign without it)", EXIT_DESIGN)
 
 
 # ---- status, progress and ETA -----------------------------------------------------------------------
@@ -476,7 +651,8 @@ def session_seconds(item: dict):
     if not isinstance(wall, (int, float)) or wall <= 0:
         return None
     preheat = item.get("preheat") or {}
-    return float(wall) + float(preheat.get("seconds") or 0)
+    baseline = (item.get("idle_baseline") or {}).get("actual_seconds")  # idle window before the launch (power telemetry)
+    return float(wall) + float(preheat.get("seconds") or 0) + (float(baseline) if isinstance(baseline, (int, float)) else 0.0)
 
 
 def history_key(kind: str, suite: str, scale: str, who: str) -> tuple:
@@ -950,6 +1126,63 @@ def print_schedule(cfg: Config, units: list, design: dict, verbose: bool) -> Non
 
 # ---- main -------------------------------------------------------------------------------------------
 
+def env(name):
+    """An environment variable, with unset and empty both meaning 'not supplied'."""
+    return os.environ.get(name) or None
+
+
+def positive_number(text):
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not a number: {text!r}")
+    if not math.isfinite(value) or value <= 0:
+        raise argparse.ArgumentTypeError(f"must be a finite number above 0, got {text!r}")
+    return value
+
+
+def non_negative_number(text):
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not a number: {text!r}")
+    if not math.isfinite(value) or value < 0:
+        raise argparse.ArgumentTypeError(f"must be a finite number of at least 0, got {text!r}")
+    return value
+
+
+def http_url(text):
+    if not text.startswith(("http://", "https://")):
+        raise argparse.ArgumentTypeError(f"must start with http:// or https://, got {text!r}")
+    return text
+
+
+def utc_timestamp(text):
+    """ISO-8601 with an explicit offset (or Z), normalised to UTC; a naive time would silently mean 'local'."""
+    candidate = text.strip()
+    if candidate[-1:] in ("Z", "z"):
+        candidate = candidate[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an ISO-8601 timestamp: {text!r}")
+    if parsed.tzinfo is None:
+        raise argparse.ArgumentTypeError(f"needs an explicit UTC offset or Z: {text!r}")
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
+def cost_block(args, host_label):
+    """The optional campaign.json "cost" block, or None when no cost field was supplied. Missing fields are null."""
+    values = {"instance_type": args.cost_instance_type or None, "provider": args.cost_provider,
+              "region": args.cost_region, "hourly_price_usd": args.cost_hourly_price_usd,
+              "price_source_url": args.cost_price_source_url, "price_snapshot_utc": args.cost_price_snapshot_utc}
+    if all(value is None for value in values.values()):
+        return None
+    if values["instance_type"] is None:
+        values["instance_type"] = host_label
+    return {name: values[name] for name in COST_FIELDS}
+
+
 def parse_args(argv):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--root", type=Path, help="campaign directory (created on first run, resumed afterwards)")
@@ -970,9 +1203,58 @@ def parse_args(argv):
                              "campaign informal. Resume by running again.")
     parser.add_argument("--engine-timeout-seconds", type=float, default=None,
                         help="pass through to run_experiment.py (default: none, as in the design)")
+    parser.add_argument("--include-hostname", action="store_true",
+                        help="record the raw hostname in campaign.json (default: only a salted hash, see host_id_sha256)")
     parser.add_argument("--accept-design-doc-change", action="store_true",
                         help="resume although docs/H100_EXPERIMENT_DESIGN.md changed (e.g. a section 11 amendment); "
                              "recorded in invocations.jsonl")
+    cost = parser.add_argument_group(
+        "cost (optional; recorded in campaign.json as the \"cost\" block, absent when none is given)",
+        "Each flag has an environment fallback, e.g. CAMPAIGN_COST_PROVIDER. The price is a fact you looked up: "
+        "nothing is filled in automatically.")
+    cost.add_argument("--cost-instance-type", default=env("CAMPAIGN_COST_INSTANCE_TYPE"),
+                      help="billed instance type (default: --host-label)")
+    cost.add_argument("--cost-provider", default=env("CAMPAIGN_COST_PROVIDER"), help="e.g. lambda-labs, aws")
+    cost.add_argument("--cost-region", default=env("CAMPAIGN_COST_REGION"))
+    cost.add_argument("--cost-hourly-price-usd", type=positive_number, default=env("CAMPAIGN_COST_HOURLY_PRICE_USD"),
+                      help="on-demand USD per instance-hour at the time of the campaign")
+    cost.add_argument("--cost-price-source-url", type=http_url, default=env("CAMPAIGN_COST_PRICE_SOURCE_URL"),
+                      help="page the price was read from")
+    cost.add_argument("--cost-price-snapshot-utc", type=utc_timestamp, default=env("CAMPAIGN_COST_PRICE_SNAPSHOT_UTC"),
+                      help="when the price was read, ISO-8601 with an explicit offset or Z")
+    instrument = parser.add_argument_group(
+        "power telemetry (optional; passed to run_experiment.py only when given, see its --help for the defaults)")
+    instrument.add_argument("--power-telemetry", choices=["auto", "off"], dest="power_telemetry")
+    instrument.add_argument("--redact-gpu-identifiers", choices=["on", "off"], dest="redact_gpu_identifiers",
+                            help="run_experiment.py default is on: environment.json stores nvidia-smi -q without the GPU "
+                                 "UUID, serial number and PCI bus id")
+    instrument.add_argument("--gpu-energy", choices=["auto", "off"], dest="gpu_energy",
+                            help="per-record NVML GPU energy delta read in the workers")
+    instrument.add_argument("--power-interval-ms", type=positive_number, dest="power_interval_ms")
+    instrument.add_argument("--ipmi-interval-seconds", type=positive_number, dest="ipmi_interval_seconds")
+    instrument.add_argument("--idle-baseline-seconds", type=non_negative_number, dest="idle_baseline_seconds",
+                            help="idle window before every session; 0 disables it")
+    instrument.add_argument("--cpu-energy", choices=power_telemetry.CPU_ENERGY_MODES, dest="cpu_energy",
+                            help="auto (run_experiment.py default): refuse to start when RAPL/amd_energy counters exist but "
+                                 "are unreadable (fix: ./setup_h100.sh --power-only --enable-rapl-read); absent counters are "
+                                 "recorded as unavailable. require: refuse unless a CPU energy source works (CPU-only metal). "
+                                 "off: no check")
+    pin = instrument.add_mutually_exclusive_group()
+    pin.add_argument("--socket", type=int, metavar="N", dest="pin_socket",
+                     help="pin every engine process to the CPUs of socket N (CPU-only bare metal); the resolved CPU list is "
+                          "recorded in campaign.json (\"pinning\") and every session must report that affinity")
+    pin.add_argument("--cpu-list", metavar="LIST", dest="pin_cpu_list",
+                     help="pin every engine process to exactly these CPUs, e.g. 0-25 or 0-47,96-143")
+    instrument.add_argument("--no-membind", action="store_true",
+                            help="with --socket/--cpu-list: do not bind memory to the NUMA nodes of the pinned CPUs. Default: "
+                                 "bind (set_mempolicy, else numactl) and refuse to start when neither works. Recorded in the "
+                                 "design and in campaign.json's pinning block")
+    lease = parser.add_argument_group(
+        "lease (a campaign refuses to start without a valid one)",
+        "Instance name p3-<purpose>-owner-<id>-expires-<YYYYMMDDTHHMMZ>, expiry in the future (docs/PAPER3_INFRA.md section 5).")
+    lease.add_argument("--lease-name", help=f"the lease name (default: first line of {LEASE_FILE})")
+    lease.add_argument("--lease-min-minutes", type=non_negative_number, default=0,
+                       help="require at least this many minutes before the expiry at start (default 0: only 'not expired')")
     test = parser.add_argument_group("test-only flags (any of these marks campaign.json formal=false)")
     test.add_argument("--rounds", type=int, choices=range(1, 5), metavar="N", help="run only the first N rounds (and N side-study rounds)")
     test.add_argument("--only-side-study", action="store_true")
@@ -980,7 +1262,12 @@ def parse_args(argv):
     test.add_argument("--engines-override", nargs="+", choices=ENGINES, metavar="ENGINE")
     test.add_argument("--cpus-override", type=int)
     test.add_argument("--driver-memory-override")
-    return parser.parse_args(argv)
+    test.add_argument("--no-lease-check", action="store_true",
+                      help="start without a lease (local tests only; recorded in campaign.json)")
+    args = parser.parse_args(argv)
+    if args.no_membind and args.pin_socket is None and args.pin_cpu_list is None:
+        parser.error("--no-membind needs --socket or --cpu-list: memory is only bound in a pinned run")
+    return args
 
 
 def resolve_config(args) -> Config:
@@ -988,7 +1275,8 @@ def resolve_config(args) -> Config:
             "--scales-override": args.scales_override is not None,
             "--engines-override": args.engines_override is not None,
             "--cpus-override": args.cpus_override is not None,
-            "--driver-memory-override": args.driver_memory_override is not None}
+            "--driver-memory-override": args.driver_memory_override is not None,
+            "--no-lease-check": args.no_lease_check}
     test_flags = [flag for flag, on in used.items() if on]
     scales = {suite: list(args.scales_override or spec["scales"]) for suite, spec in SUITES.items()}
     return Config(
@@ -1001,7 +1289,11 @@ def resolve_config(args) -> Config:
         rounds=args.rounds or 4, only_side_study=args.only_side_study, scales=scales,
         engines=list(args.engines_override or ENGINES), formal=not test_flags, test_flags=test_flags,
         allow_any_gpu=args.allow_any_gpu, engine_timeout_seconds=args.engine_timeout_seconds,
-        inputs_reports=[p.resolve() for p in args.inputs_report or []], host_label=args.host_label)
+        inputs_reports=[p.resolve() for p in args.inputs_report or []], host_label=args.host_label,
+        include_hostname=args.include_hostname, cost=cost_block(args, args.host_label),
+        telemetry={key: getattr(args, key) for key in TELEMETRY_FLAGS if getattr(args, key) is not None},
+        no_lease_check=args.no_lease_check, lease_name=args.lease_name, lease_min_minutes=args.lease_min_minutes,
+        pin_socket=args.pin_socket, pin_cpu_list=args.pin_cpu_list, no_membind=args.no_membind)
 
 
 def lock_root(root: Path):
@@ -1046,13 +1338,39 @@ def start_campaign_file(cfg: Config, design: dict, prov: dict, args) -> str:
             drift.append({"source_files_changed_since_start": changed, "critical": critical})
         if critical:
             log(f"WARNING: run-critical source files changed since the campaign started: {critical}")
+        stored_host, this_host = (before.get("host") or {}).get("host_id_sha256"), (prov.get("host") or {}).get("host_id_sha256")
+        if stored_host and this_host and stored_host != this_host:
+            drift.append({"host_id_differs_from_campaign_json": {"salt_created_this_invocation": cfg.host_salt_created}})
+            log("WARNING: this invocation's host id differs from campaign.json: a different host, or the salt kept on the "
+                f"original host is missing (created now: {cfg.host_salt_created}); the campaign must run on one host")
+        if (stored.get("pinning") or {}).get("cpus") != (cfg.pinning or {}).get("cpus"):
+            raise CampaignError(f"CPU pinning resolves to {(cfg.pinning or {}).get('cpus')!r} on this host but campaign.json "
+                                f"recorded {(stored.get('pinning') or {}).get('cpus')!r}: the CPUs of a campaign must not "
+                                "change (CPUs offlined, or a different host)", EXIT_DESIGN)
+        for key, supplied in (("cost", cfg.cost), ("telemetry", cfg.telemetry or None)):
+            if supplied != stored.get(key):  # campaign.json is written once: report, never rewrite
+                drift.append({f"{key}_differs_from_campaign_json": {"stored": stored.get(key), "this_invocation": supplied}})
     else:
+        record = {"design": design, "design_sha256": design_hash, "provenance": prov}
+        if cfg.cost:
+            record["cost"] = cfg.cost
+        if cfg.telemetry:
+            record["telemetry"] = cfg.telemetry
+        if cfg.pinning:
+            record["pinning"] = cfg.pinning
+        if cfg.lease is not None:
+            record["lease"] = cfg.lease
         with path.open("x") as handle:  # never overwrite
-            handle.write(json.dumps({"design": design, "design_sha256": design_hash, "provenance": prov}, indent=2, default=str) + "\n")
+            handle.write(json.dumps(record, indent=2, default=str) + "\n")
     with (cfg.root / "invocations.jsonl").open("a") as handle:
-        handle.write(json.dumps({"utc": now(), "argv": sys.argv, "pid": os.getpid(), "design_sha256": design_hash,
+        handle.write(json.dumps({"utc": now(), "argv": logged_argv(sys.argv), "pid": os.getpid(), "design_sha256": design_hash,
                                  "design_doc_sha256": prov["design_doc_sha256"], "git_commit": prov["git"]["commit"],
-                                 "source_sha256": prov["source_sha256"], "drift": drift}, default=str) + "\n")
+                                 "source_sha256": prov["source_sha256"], "drift": drift,
+                                 **({"host_id_sha256": prov["host"]["host_id_sha256"]} if (prov.get("host") or {}).get("host_id_sha256") else {}),
+                                 **({"lease": cfg.lease} if cfg.lease is not None else {}),
+                                 **({"pinning": cfg.pinning} if cfg.pinning else {}),
+                                 **({"cost": cfg.cost} if cfg.cost else {}),
+                                 **({"telemetry": cfg.telemetry} if cfg.telemetry else {})}, default=str) + "\n")
     return design_hash
 
 
@@ -1074,8 +1392,17 @@ def main(argv=None) -> int:
         for name, value in (("--root", cfg.root), ("--data-root", cfg.data_root), ("--jar", cfg.jar)):
             if value is None:
                 raise CampaignError(f"{name} is required (--data-root/--jar default to $DATA_ROOT/$RAPIDS_JAR)", 2)
+        cfg.lease = check_lease(cfg)
+        if cfg.lease["checked"]:
+            log(f"lease valid until {cfg.lease['expires_utc']} ({cfg.lease['minutes_left_at_start']} minutes left)")
+        else:
+            log(f"WARNING: {cfg.lease['reason']}")
         cfg.root.mkdir(parents=True, exist_ok=True)
         lock = lock_root(cfg.root)
+        try:
+            cfg.host_salt, cfg.host_salt_created = load_or_create_salt(cfg.root)
+        except (OSError, ValueError) as exc:  # the host id is optional provenance: say so and go on without it
+            log(f"WARNING: no host-id salt ({type(exc).__name__}: {exc}); campaign.json will carry no host_id_sha256")
         prov = provenance(cfg, units)
         startup_checks(cfg, units, prov)
         design_hash = start_campaign_file(cfg, design, prov, args)

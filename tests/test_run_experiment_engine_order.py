@@ -80,7 +80,7 @@ def layout(tmp_path):
 def run_main(monkeypatch, layout, scales, engines, *extra, out=None):
     argv = ["run_experiment.py", "--data-root", str(layout.data_root), "--output", str(out or layout.out),
             "--scales", *scales, "--engines", *engines, "--runs", "1", "--jar", str(layout.jar),
-            "--keep-going", "--queries", "q06", *extra]
+            "--keep-going", "--queries", "q06", "--idle-baseline-seconds", "0", *extra]
     monkeypatch.setattr(sys, "argv", argv)
     rx.main()
     out = out or layout.out
@@ -159,7 +159,7 @@ def test_busy_gpu_fails_the_session_without_launching_it(monkeypatch, layout, ho
 def test_busy_gpu_stops_the_run_without_keep_going(monkeypatch, layout, host):
     host.apps = ["4242, python, 1024"]
     argv = ["run_experiment.py", "--data-root", str(layout.data_root), "--output", str(layout.out), "--scales", "1",
-            "--runs", "1", "--jar", str(layout.jar), "--gpu-idle-timeout-seconds", "0"]
+            "--runs", "1", "--jar", str(layout.jar), "--gpu-idle-timeout-seconds", "0", "--idle-baseline-seconds", "0"]
     monkeypatch.setattr(sys, "argv", argv)
     with pytest.raises(RuntimeError, match="GPU not idle"):
         rx.main()

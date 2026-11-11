@@ -447,3 +447,33 @@ def test_real_cpu_smoke_directories_validate(tmp_path):
                            "--baseline-dir", str(REPO / "rerun/dq/smoke-baseline"),
                            "--complex-dir", str(REPO / "rerun/dq/smoke-complex"), "--output", str(tmp_path)])
     assert code == 0
+
+
+# ---- a pinned campaign: every session must report the affinity it was pinned to ------------------------
+
+def test_every_session_must_report_the_pinned_cpus(tmp_path):
+    engines = ("polars", "spark_cpu")
+    run_dir = build_run(tmp_path, "baseline", engines)
+    for engine in engines:
+        edit_session(run_dir, engine, lambda s: s.update(cpu_affinity={"cpus": "0-47,96-143", "count": 96}))
+    assert failing(validate(run_dir, "baseline", engines, 1, "--expect-affinity", "0-47,96-143")) == []
+    assert failing(validate(run_dir, "baseline", engines, 1, "--expect-affinity", "96-143,0-47")) == []          # same set, other spelling
+    assert failing(validate(run_dir, "baseline", engines, 1)) == []                                              # not asked: not checked
+    edit_session(run_dir, "spark_cpu", lambda s: s["cpu_affinity"].update(cpus="0-191", count=192))
+    wrong = validate(run_dir, "baseline", engines, 1, "--expect-affinity", "0-47,96-143")
+    assert failing(wrong) == ["baseline/sf1:spark_cpu:session"]
+    detail = next(c["detail"] for c in wrong.items if c["status"] == "FAIL")
+    assert "cpu_affinity '0-191'" in detail and "did not run on the CPUs it was pinned to" in detail
+
+
+def test_a_session_that_does_not_report_its_affinity_fails_a_pinned_campaign(tmp_path):
+    run_dir = build_run(tmp_path, "baseline", ("polars",))
+    assert failing(validate(run_dir, "baseline", ("polars",), 1, "--expect-affinity", "0-3")) == ["baseline/sf1:polars:session"]
+    edit_session(run_dir, "polars", lambda s: s.update(cpu_affinity={"cpus": None, "count": None, "source": "unavailable"}))
+    assert failing(validate(run_dir, "baseline", ("polars",), 1, "--expect-affinity", "0-3")) == ["baseline/sf1:polars:session"]
+
+
+def test_a_malformed_expected_affinity_is_a_usage_error():
+    parser = preflight.build_parser()
+    with pytest.raises(SystemExit):
+        preflight.resolve_args(parser, parser.parse_args(["--expect-affinity", "0-three"]))

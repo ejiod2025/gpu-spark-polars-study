@@ -22,6 +22,7 @@ import time
 import warnings
 
 import psutil
+from power_telemetry import GpuEnergyReader, clock_anchor, gpu_energy_window, process_affinity, stamp_close, stamp_open
 from query_cleanup import CleanupBarrier, CleanupTimeout, discover_blockmgr_dirs
 
 def normalized(value):
@@ -372,6 +373,9 @@ def main():
                         help="JSON object of cudf-polars executor_options for --engine polars_gpu")
     parser.add_argument("--gpu-device", type=int, default=0,
                         help="CUDA device index for the GPU engines' memory sampling and polars_gpu")
+    parser.add_argument("--gpu-energy", choices=["auto", "off"], default="auto",
+                        help="auto: store the NVML cumulative energy delta of device --gpu-device in every timed record "
+                             "(source tagged; \"unavailable\" when neither pynvml nor nvidia-smi can read it); off: do not read it")
     args = parser.parse_args()
     if args.engine != "polars_gpu" and (args.polars_gpu_executor or args.polars_gpu_executor_options):
         parser.error("--polars-gpu-executor and --polars-gpu-executor-options require --engine polars_gpu")
@@ -483,7 +487,17 @@ def main():
             "scope": "sum of device memory of the worker process tree (plus the SparkSubmit JVM parent), "
                      "sampled during the timed action; a sampled peak can miss short transients",
         }
+    gpu_energy = GpuEnergyReader(args.gpu_device) if args.gpu_energy == "auto" else None
+    metadata["gpu_energy_counter"] = gpu_energy.describe() if gpu_energy else {"source": "disabled"}
+    metadata["cpu_affinity"] = process_affinity()  # what the kernel really allows this session (socket pinning is verified here)
     metadata["session_and_table_setup_seconds"] = time.perf_counter() - setup_start
+    metadata["timing_clock"] = {
+        "wall": "UTC, ISO-8601 with microseconds (datetime.now(timezone.utc))",
+        "monotonic": "time.monotonic_ns(): CLOCK_MONOTONIC, shared with the runner's host.csv and power.csv monotonic_ns",
+        "boundary": "timed_start_* are read just before the perf_counter timer starts and timed_end_* just after it stops, "
+                    "so [timed_start, timed_end] contains the timed region by a few microseconds; seconds is unchanged",
+        "anchor": clock_anchor(),
+    }
     if "BENCHMARK_LAUNCH_UNIX" in os.environ:
         metadata["launch_to_engine_ready_seconds"] = time.time() - float(os.environ["BENCHMARK_LAUNCH_UNIX"])
     save(args.output / "results.json", metadata)
@@ -502,11 +516,15 @@ def main():
               warning_scope as caught):
             if caught is not None:
                 warnings.simplefilter("default")  # one entry per distinct warning, not per emission
+            energy_start = gpu_energy.read() if gpu_energy else None  # NVML energy counter, just outside the timer
+            timed_start_utc, timed_start_mono = stamp_open()
             start = time.perf_counter()
             if args.engine in POLARS_ENGINES:
                 frame = polars_query(query, tables)
                 result = frame.collect(engine=polars_engine)
                 elapsed = time.perf_counter() - start
+                timed_end_utc, timed_end_mono = stamp_close()
+                energy_end = gpu_energy.read() if gpu_energy else None
                 gpu_memory.stop()
                 rows = result.to_dicts()
                 plan = frame.explain(engine="streaming") if args.engine == "polars" else frame.explain()
@@ -514,6 +532,8 @@ def main():
                 frame = spark.sql(spark_sql(query))
                 result = frame.collect()
                 elapsed = time.perf_counter() - start
+                timed_end_utc, timed_end_mono = stamp_close()
+                energy_end = gpu_energy.read() if gpu_energy else None
                 gpu_memory.stop()
                 rows = [r.asDict(recursive=True) for r in result]
                 plan = frame._jdf.queryExecution().executedPlan().toString()
@@ -538,6 +558,8 @@ def main():
         record = {
             "query": query, "phase": phase, "trial": trial,
             "seconds": elapsed, "rows": rows,
+            "timed_start_utc": timed_start_utc, "timed_end_utc": timed_end_utc,
+            "timed_start_monotonic_ns": timed_start_mono, "timed_end_monotonic_ns": timed_end_mono,
             "started_at_utc": start_utc,
             "ended_at_utc": datetime.now(timezone.utc).isoformat(),
             "peak_process_tree_rss_bytes": memory.peak,
@@ -550,6 +572,9 @@ def main():
                                    if args.engine == "spark_gpu" else
                                    "gpu_engine_strict" if args.engine == "polars_gpu" else "cpu_engine",
         }
+        if gpu_energy:
+            record["gpu_energy"] = gpu_energy_window(gpu_energy.source, args.gpu_device, energy_start, energy_end,
+                                                     timed_start_mono, timed_end_mono)
         if args.engine in GPU_ENGINES:
             record["peak_gpu_memory_bytes"] = gpu_memory.peak
         if args.engine == "polars_gpu":

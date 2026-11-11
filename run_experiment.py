@@ -7,10 +7,12 @@ from datetime import datetime, timezone
 import hashlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import platform
 import random
+import re
 import signal
 import shutil
 import subprocess
@@ -19,6 +21,7 @@ import threading
 import time
 
 import psutil
+import power_telemetry
 
 HERE = Path(__file__).resolve().parent
 # polars_gpu is opt-in: the default stays the three engines of the saved A100 evidence.
@@ -29,6 +32,14 @@ SPARK_GPU_PROFILES = ["a100-parity", "h100-tuned"]
 # 200 ms GPU telemetry. New columns are only ever appended: existing gpu.csv columns keep their position.
 GPU_TELEMETRY_QUERY = ("timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,"
                        "temperature.gpu,clocks.sm,clocks.mem")
+GPU_TELEMETRY_INTERVAL_MS = 200
+# Lines of `nvidia-smi -q` that identify one physical GPU. Product name, driver, CUDA and memory lines stay.
+GPU_IDENTIFIER_FIELD = re.compile(
+    r"^(?P<lead>[ \t]*(?:GPU UUID|MIG UUID|Serial Number|Chassis Serial Number|GPU PDI|Board ID|GPU Fabric GUID|ClusterUUID|Bus Id)[ \t]*:[ \t]*)"
+    r"(?P<value>\S.*?)[ \t]*$|"
+    r"^(?P<pci_lead>[ \t]*(?:Bus|Device|Domain)[ \t]*:[ \t]*)(?P<pci_value>0x[0-9A-Fa-f]+)[ \t]*$", re.M)
+GPU_HEADER_BUS_ID = re.compile(r"^GPU[ \t]+[0-9A-Fa-f]{4,8}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}\.[0-9A-Fa-f][ \t]*$", re.M)
+REDACTED = "<redacted>"
 GPU_IDLE_POLL_SECONDS = 1.0
 
 # Versions of the Python-level CUDA/RAPIDS stack, probed in a child process so the
@@ -140,6 +151,66 @@ def wait_for_idle_gpu(timeout, poll=GPU_IDLE_POLL_SECONDS, list_apps=list_comput
                 "checked_at_utc": datetime.now(timezone.utc).isoformat()}
 
 
+def redact_gpu_identifiers(text):
+    """(text, counts): `nvidia-smi -q` output with the GPU UUID, serial number and PCI bus id replaced by <redacted>.
+
+    The facts the analysis reads (Product Name, Driver Version, CUDA Version, Attached GPUs, FB Memory Usage Total) are
+    untouched, and N/A values stay as they are. Idempotent."""
+    counts = {}
+
+    def field(match):
+        if match["lead"] is not None:
+            name = match["lead"].split(":")[0].strip()
+            if match["value"] in (REDACTED, "N/A", "[N/A]", "[Not Supported]"):
+                return match[0]
+            counts[name] = counts.get(name, 0) + 1
+            return match["lead"] + REDACTED
+        name = "PCI " + match["pci_lead"].split(":")[0].strip().lower()
+        counts[name] = counts.get(name, 0) + 1
+        return match["pci_lead"] + REDACTED
+    text = GPU_IDENTIFIER_FIELD.sub(field, text)
+
+    def header(match):
+        counts["GPU bus id header"] = counts.get("GPU bus id header", 0) + 1
+        return "GPU " + REDACTED
+    return GPU_HEADER_BUS_ID.sub(header, text), counts
+
+
+def probe_gpu_energy_counter(duration=1.0):
+    """Source and resolution of the NVML energy counter, from `power_telemetry.py --probe-gpu-energy` in a child."""
+    result = capture([sys.executable, str(HERE / "power_telemetry.py"), "--probe-gpu-energy", "--duration", str(duration)],
+                     timeout=120)
+    output = result.get("output", "")
+    try:
+        return json.loads(output[output.index("{"):])
+    except ValueError:
+        return {"source": "unknown", "error": f"no JSON from the probe (exit {result.get('returncode')}): {output.strip()[-300:]}"}
+
+
+def run_idle_baseline(seconds, active, gpu_selected, gpu_timeout, measurable=True,
+                      sleep=time.sleep, wait_idle=wait_for_idle_gpu):
+    """Hold the host idle for `seconds` before a session; the window is labelled phase=idle-baseline in host.csv and power.csv.
+
+    With a GPU engine the GPU is first required to have no compute process (same gate as the launch gate), so the idle
+    GPU power is not that of the previous session's tail. Returns the record stored as schedule item["idle_baseline"].
+    """
+    record = {"requested_seconds": seconds, "phase_label": "idle-baseline"}
+    if not measurable:
+        return {**record, "skipped": "no_power_source"}
+    if gpu_selected:
+        active["phase"] = "gpu_idle_gate"
+        record["gpu_idle_precheck"] = wait_idle(gpu_timeout)
+        if not record["gpu_idle_precheck"]["idle"]:
+            return {**record, "skipped": "gpu_not_idle"}
+    active["phase"] = "idle-baseline"
+    start_utc, start_mono = power_telemetry.stamp_open()
+    sleep(seconds)
+    end_utc, end_mono = power_telemetry.stamp_close()
+    active["phase"] = "idle"
+    return {**record, "start_utc": start_utc, "end_utc": end_utc, "start_monotonic_ns": start_mono,
+            "end_monotonic_ns": end_mono, "actual_seconds": (end_mono - start_mono) / 1e9}
+
+
 def terminate_session(process):
     """Stop a worker's whole process group: SIGTERM, then SIGKILL after 15 s."""
     try:
@@ -183,6 +254,36 @@ def main():
     parser.add_argument("--gpu-idle-timeout-seconds", type=float, default=60,
                         help="with a GPU engine selected: wait up to this long before each session for the "
                              "GPU to have no compute processes, else fail it with failure_reason gpu_not_idle")
+    parser.add_argument("--power-telemetry", choices=["auto", "off"], default="auto",
+                        help="auto: sample CPU/node power into power.csv from the best readable source (RAPL, amd_energy, "
+                             "perf, turbostat, IPMI) and record why a source is unavailable; off: no power sampler")
+    parser.add_argument("--power-interval-ms", type=float, default=float(GPU_TELEMETRY_INTERVAL_MS),
+                        help="CPU power sampling interval (default: the 200 ms of the GPU sampler)")
+    parser.add_argument("--ipmi-interval-seconds", type=float, default=power_telemetry.DEFAULT_IPMI_INTERVAL_SECONDS,
+                        help="IPMI whole-node power sampling interval; the BMC averages over about a second")
+    parser.add_argument("--idle-baseline-seconds", type=float, default=30.0,
+                        help="before each session, record this long an idle window (phase=idle-baseline) of GPU and CPU "
+                             "power with no workload; 0 disables it")
+    parser.add_argument("--cpu-energy", choices=power_telemetry.CPU_ENERGY_MODES, default="auto",
+                        help="what to do about CPU energy before anything starts (needs --power-telemetry auto). auto: stop "
+                             "if RAPL/amd_energy counters exist but this user cannot read them (fix: ./setup_h100.sh "
+                             "--power-only --enable-rapl-read); absent counters are recorded as unavailable. require: stop "
+                             "unless a CPU energy source works. off: no check")
+    pinning = parser.add_mutually_exclusive_group()
+    pinning.add_argument("--socket", type=int, metavar="N",
+                         help="pin the runner and so every engine process to the CPUs of socket N (physical_package_id N), "
+                              "e.g. on a CPU-only bare-metal host; recorded in environment.json and power_sources.json")
+    pinning.add_argument("--cpu-list", metavar="LIST",
+                         help="pin the runner and every engine process to exactly these CPUs (e.g. 0-25 or 0-47,96-143)")
+    parser.add_argument("--no-membind", action="store_true",
+                        help="with --socket/--cpu-list: do not bind memory to the NUMA nodes of the pinned CPUs (default: bind, "
+                             "set_mempolicy or numactl, and stop if neither works); recorded in environment.json")
+    parser.add_argument("--gpu-energy", choices=["auto", "off"], default="auto",
+                        help="auto: workers store the NVML cumulative GPU energy delta in every timed record and the "
+                             "counter's resolution is probed once and recorded in environment.json; off: neither")
+    parser.add_argument("--redact-gpu-identifiers", choices=["on", "off"], default="on",
+                        help="on: environment.json stores nvidia-smi -q without the GPU UUID, serial number and PCI bus id "
+                             "(everything the analysis reads is kept); off: store it verbatim")
     parser.add_argument("--polars-gpu-executor", choices=["in-memory", "streaming"], default="streaming",
                         help="cudf-polars executor for polars_gpu")
     parser.add_argument("--polars-gpu-executor-options", default="{}",
@@ -199,6 +300,11 @@ def main():
 
     # Everything that can be known to fail is checked before the output directory exists
     # and before any engine runs, so a misconfigured GPU run costs nothing and leaves nothing.
+    if not (math.isfinite(args.power_interval_ms) and args.power_interval_ms > 0
+            and math.isfinite(args.ipmi_interval_seconds) and args.ipmi_interval_seconds > 0):
+        parser.error("--power-interval-ms and --ipmi-interval-seconds must be positive numbers")
+    if not (math.isfinite(args.idle_baseline_seconds) and args.idle_baseline_seconds >= 0):
+        parser.error("--idle-baseline-seconds must be a non-negative number")
     if args.engine_order is not None and sorted(args.engine_order) != sorted(args.engines):
         parser.error(f"--engine-order {args.engine_order} must be a permutation of --engines {args.engines}")
     try:
@@ -216,6 +322,15 @@ def main():
         args.spark_gpu_conf_file = args.spark_gpu_conf_file.resolve()
         spark_gpu_conf = load_spark_gpu_conf(args.spark_gpu_conf_file)
         spark_gpu_conf_sha256 = hashlib.sha256(args.spark_gpu_conf_file.read_bytes()).hexdigest()
+    try:
+        pinning = power_telemetry.resolve_pinning(args.socket, args.cpu_list)
+    except power_telemetry.PinningError as exc:
+        parser.error(str(exc))
+    if args.no_membind and pinning is None:
+        parser.error("--no-membind needs --socket or --cpu-list: memory is only bound in a pinned run")
+    if pinning is not None and args.cpus > pinning["cpu_count"]:
+        parser.error(f"--cpus {args.cpus} engine threads on {pinning['cpu_count']} pinned CPUs ({pinning['cpus']}): "
+                     "oversubscribed; pin more CPUs or lower --cpus")
     gpu_selected = [e for e in args.engines if e in GPU_ENGINES]
     if gpu_selected:
         smi = capture(["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv"], timeout=60)
@@ -227,6 +342,27 @@ def main():
              f"{sys.executable}; install the cudf-polars build matching the host CUDA version")
     if "spark_gpu" in args.engines and not args.jar.is_file():
         fail(f"engine spark_gpu selected but --jar {args.jar} does not exist")
+    cpu_energy_gate = None
+    if args.power_telemetry == "auto" and args.cpu_energy != "off":
+        cpu_energy_gate = power_telemetry.check_cpu_energy(args.cpu_energy)
+        if not cpu_energy_gate["ok"]:
+            fail("; ".join(cpu_energy_gate["problems"]) + " (--cpu-energy off or --power-telemetry off runs without it)")
+    runner_affinity_before = power_telemetry.process_affinity()
+    if pinning is not None:
+        # Memory first: a re-execution under numactl (when set_mempolicy is refused) then starts from the original affinity.
+        membind = power_telemetry.plan_membind(pinning, args.no_membind)
+        if membind["enabled"]:
+            try:
+                membind.update(power_telemetry.apply_membind(membind["nodes"]))
+            except power_telemetry.PinningError as exc:
+                fail(str(exc))
+        pinning["membind"] = membind
+        try:
+            pinning["applied_affinity"] = power_telemetry.apply_pinning(pinning["cpus"])
+        except power_telemetry.PinningError as exc:
+            fail(str(exc))
+        pinning["mechanism"] = ("os.sched_setaffinity(0, cpus) in run_experiment.py before any child process starts; "
+                                "workers, the Spark JVM and the samplers inherit it, and each worker records its own affinity")
     args.output.mkdir(parents=True, exist_ok=False)
     environment = {
         "started_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -250,30 +386,71 @@ def main():
         },
         "source_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in HERE.glob("*.py")},
     }
+    environment["cpu_pinning"] = pinning if pinning is not None else {"pinned": False, "affinity": runner_affinity_before}
+    environment["cpu_energy_gate"] = cpu_energy_gate
+    environment["redactions"] = {"gpu_identifiers": args.redact_gpu_identifiers, "fields": [], "counts": {}}
+    if args.redact_gpu_identifiers == "on":
+        for item in environment["inventory"]:
+            if isinstance(item, dict) and item.get("command", [])[:2] == ["nvidia-smi", "-q"]:
+                item["output"], counts = redact_gpu_identifiers(item.get("output") or "")
+                environment["redactions"]["counts"] = counts
+        environment["redactions"]["fields"] = ["GPU UUID", "MIG UUID", "Serial Number", "Chassis Serial Number", "GPU PDI",
+                                               "Board ID", "GPU Fabric GUID", "ClusterUUID", "Bus Id",
+                                               "PCI Bus/Device/Domain", "GPU <bus id> header"]
+        environment["redactions"]["scope"] = "the nvidia-smi -q inventory entry only; command-line paths are stored as given"
     telemetry = (args.output / "gpu.csv").open("w")
+    anchor_before = power_telemetry.clock_anchor()
     try:
         monitor = subprocess.Popen([
             "nvidia-smi", f"--query-gpu={GPU_TELEMETRY_QUERY}",
-            "--format=csv", "-lms", "200",
+            "--format=csv", "-lms", str(GPU_TELEMETRY_INTERVAL_MS),
         ], stdout=telemetry, stderr=subprocess.STDOUT)
         environment["gpu_telemetry"] = {"started": True}
     except OSError as exc:  # only reachable without a GPU engine: those fail fast above
         monitor = None
         environment["gpu_telemetry"] = {"started": False, "error": f"{type(exc).__name__}: {exc}"}
-    (args.output / "environment.json").write_text(json.dumps(environment, indent=2, default=str) + "\n")
+    # nvidia-smi stamps rows with the host's local time and no zone; the zone and a UTC/monotonic pair taken around
+    # the launch let a reader place every gpu.csv row on the UTC and monotonic clocks of the per-query windows.
+    environment["gpu_telemetry"].update(
+        interval_ms=GPU_TELEMETRY_INTERVAL_MS, timestamp_column="timestamp",
+        timestamp_format="%Y/%m/%d %H:%M:%S.%f, host local time of the nvidia-smi process, no zone suffix",
+        timezone=power_telemetry.host_timezone(), anchor_before_launch=anchor_before,
+        anchor_after_launch=power_telemetry.clock_anchor())
     schedule = []
     host_stop = threading.Event()
     active = {"scale": "", "engine": "", "phase": "idle"}
+    environment["gpu_energy_counter"] = {"source": "disabled"}
+    if args.gpu_energy == "auto" and monitor is not None:
+        # In a child process: the runner itself never loads NVML or holds a GPU context. Nothing else is running yet.
+        environment["gpu_energy_counter"] = probe_gpu_energy_counter()
+    power = None
+    if args.power_telemetry == "auto":
+        try:  # instrumentation must never stop a campaign: a failed start is recorded and the run goes on
+            power = power_telemetry.PowerSampler(
+                args.output, interval=args.power_interval_ms / 1000, ipmi_interval=args.ipmi_interval_seconds,
+                labels=lambda: (active["scale"], active["engine"], active["phase"]), pinning=pinning)
+            report = power.start()
+            environment["power_telemetry"] = {
+                "enabled": True, "started": True, "status": report["status"], "csv": report["csv"],
+                "sidecar": power.sidecar_path.name, "cpu_energy_source": report["cpu_energy_source"],
+                "node_power_source": report["node_power_source"], "interval_seconds": report["interval_seconds"],
+                "reasons": report["reasons"]}
+        except Exception as exc:
+            power = None
+            environment["power_telemetry"] = {"enabled": True, "started": False, "error": f"{type(exc).__name__}: {exc}"}
+    else:
+        environment["power_telemetry"] = {"enabled": False}
+    (args.output / "environment.json").write_text(json.dumps(environment, indent=2, default=str) + "\n")
     def sample_host():
         import csv
         with (args.output / "host.csv").open("w", newline="") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["timestamp_utc", "scale", "engine", "phase", "cpu_percent", "available_bytes", "cached_bytes", "swap_used_bytes", "disk_free_bytes"])
+            writer.writerow(["timestamp_utc", "scale", "engine", "phase", "cpu_percent", "available_bytes", "cached_bytes", "swap_used_bytes", "disk_free_bytes", "monotonic_ns"])
             while not host_stop.is_set():
                 memory = psutil.virtual_memory()
                 writer.writerow([datetime.now(timezone.utc).isoformat(), active["scale"], active["engine"], active["phase"],
                                  psutil.cpu_percent(), memory.available, getattr(memory, "cached", 0),
-                                 psutil.swap_memory().used, shutil.disk_usage(args.data_root).free])
+                                 psutil.swap_memory().used, shutil.disk_usage(args.data_root).free, time.monotonic_ns()])
                 handle.flush()
                 host_stop.wait(1)
     host_thread = threading.Thread(target=sample_host, daemon=True)
@@ -305,6 +482,11 @@ def main():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 # Warming identical files removes an engine-order disk-cache advantage.
                 warming = preheat(data)
+                baseline = None
+                if args.idle_baseline_seconds > 0:
+                    measurable = monitor is not None or (power is not None and power.report["status"] != "unavailable")
+                    baseline = run_idle_baseline(args.idle_baseline_seconds, active, bool(gpu_selected),
+                                                 args.gpu_idle_timeout_seconds, measurable)
                 gpu_gate = None
                 if gpu_selected:
                     # Last thing before launch, so the previous session's exit is covered too.
@@ -316,6 +498,8 @@ def main():
                                "--cleanup-timeout-seconds", str(args.cleanup_timeout_seconds)]
                 if args.queries:
                     worker_args += ["--queries", *args.queries]
+                if args.gpu_energy == "off":  # the default is not passed, so command lines match earlier campaigns
+                    worker_args += ["--gpu-energy", "off"]
                 spark_gpu_overrides = []
                 if engine == "polars":
                     command = [sys.executable, *worker_args]
@@ -363,6 +547,8 @@ def main():
                                                  "overridden_parity_confs": spark_gpu_overrides}
                 if args.engine_order is not None:
                     item["engine_order_position"] = position
+                if baseline is not None:
+                    item["idle_baseline"] = baseline
                 if gpu_gate is not None:
                     item["gpu_idle_gate"] = gpu_gate
                 schedule.append(item)
@@ -409,6 +595,8 @@ def main():
     finally:
         host_stop.set()
         host_thread.join(timeout=5)
+        if power is not None:
+            power.stop()
         if monitor is not None:
             monitor.terminate()
             monitor.wait(timeout=10)

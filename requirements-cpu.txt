@@ -1,0 +1,17 @@
+# CPU-only Python pins (AWS/GCP x86 or aarch64 hosts without a GPU; setup_h100.sh --cpu-only).
+#
+# This is requirements-gpu.txt minus everything that exists only for the GPU engines (CUDA wheels,
+# cudf-polars, cupy, RAPIDS, nvidia-*, NVML bindings). What stays is the CPU engines' stack, at the
+# versions the GPU hosts use, so Polars CPU and Spark CPU run the same software everywhere:
+#   * Polars 1.44.2 (the GPU hosts' Polars; the A100 record used 2.0.0, available as --envs a100compat),
+#   * numpy, packaging and typing-extensions, which the GPU file pins and the A100 lock does not.
+# tests/test_setup_modes.py fails if any pin here drifts from requirements-gpu.txt or a GPU-only package
+# appears.
+#
+# Layering is the same as for the GPU file: setup_h100.sh installs evidence/requirements.lock.txt with
+# its polars and polars-runtime-32 lines removed, then this file, in ONE resolver call.
+polars-runtime-32==1.44.2
+polars==1.44.2
+numpy==2.4.6
+packaging==26.3
+typing-extensions==4.16.0
