@@ -87,6 +87,9 @@ The raw campaign trees are not in git; there are about 4 GiB per host. They hold
 They are archived as one file per host:
 
 - Archive: Zenodo dataset, DOI [`10.5281/zenodo.24125306`](https://doi.org/10.5281/zenodo.24125306). `SHA256SUMS` in the record covers the four archives.
+- Host identifiers: the archives are not redacted, so they stay byte-identical to the host-produced
+  manifests. They contain the instances' hostnames (on Lambda, the public IP of a since-terminated rental)
+  and GPU UUIDs/serials from `nvidia-smi -q`. No personal data, credentials or keys are included.
 - Files: `campaign-20261030-a100-raw.tar.zst`, `campaign-20261030-h100-raw.tar.zst`,
   `campaign-20261030-gh200-raw.tar.zst` and `campaign-20261030-b200-raw.tar.zst`.
 - Each archive holds the host's `rerun/` directory as it was copied off the host. Its paths are
