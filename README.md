@@ -7,7 +7,7 @@ Development and reproducibility repository for a TPC-H-derived study of CPU and 
 | What | Where |
 |---|---|
 | **Reproduce** (rebuild the papers, re-run the analysis from raw data, or re-run the full GPU experiment) | [`REPRODUCE.md`](REPRODUCE.md) |
-| **Published preprints and data (Zenodo, CC BY 4.0)** | Paper 1 [doi:10.5281/zenodo.24126179](https://doi.org/10.5281/zenodo.24126179) · Paper 2 [doi:10.5281/zenodo.24126181](https://doi.org/10.5281/zenodo.24126181) · raw run records [doi:10.5281/zenodo.24125306](https://doi.org/10.5281/zenodo.24125306) |
+| **Published preprints and data (Zenodo, CC BY 4.0)** | Paper 1 [doi:10.5281/zenodo.24126179](https://doi.org/10.5281/zenodo.24126179) · Paper 2 [doi:10.5281/zenodo.24126181](https://doi.org/10.5281/zenodo.24126181) · raw run records [doi:10.5281/zenodo.24125306](https://doi.org/10.5281/zenodo.24125306) · code release v1.0.0 [doi:10.5281/zenodo.24139260](https://doi.org/10.5281/zenodo.24139260) |
 | Paper 1 — four-engine benchmark, full version (38 pp) | [`paper/`](paper/) |
 | Paper 1 — PVLDB submission version (12 pp) | [`paper-pvldb/`](paper-pvldb/) |
 | Paper 2 — "What Is the GPU Speedup Measured Against?" | [`paper2/`](paper2/) |

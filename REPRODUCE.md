@@ -226,7 +226,7 @@ On the GPU host:
 
 ```bash
 git clone https://github.com/ejiod2025/gpu-spark-polars-study.git study && cd study
-git checkout H100_Test                     # TODO(zenodo-doi): replace with the archived release tag
+git checkout v1.0.0                        # archived release: doi:10.5281/zenodo.24139260
 ./setup_h100.sh --dry-run --envs both      # read-only plan and checks
 ./setup_h100.sh --envs both                # on a non-H100 host add: --allow-any-gpu
 source rerun/h100-env.sh                   # JAVA_HOME, PATH (.venv first), DATA_ROOT, RAPIDS_JAR, PYTHON_A100COMPAT_ENV
