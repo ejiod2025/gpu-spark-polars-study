@@ -1,0 +1,23 @@
+% pvldb-macros.tex -- additions for the PVLDB version only. macros.tex is a
+% verbatim copy of paper/macros.tex (the Makefile's "check" target verifies
+% this), so the \stat machinery, the host flags and the TPC disclaimer wording
+% are exactly Paper 1's.
+
+% Repository of the artifact (public GitHub repository, accepted by the PVLDB
+% Vol. 20 submission guidelines as an archival location).
+\newcommand{\artifacturl}{https://github.com/ejiod2025/gpu-spark-polars-study}
+
+% TODO(zenodo-doi): set to the archive DOI once the Zenodo snapshot exists,
+% e.g. \renewcommand{\zenododoi}{10.5281/zenodo.NNNNNNN}. While empty, no DOI
+% sentence is printed (Section "Artifact and extended version").
+\newcommand{\zenododoi}{}
+\newcommand{\artifactdoisentence}{%
+  \ifdefempty{\zenododoi}{}{ An archival snapshot of the repository is
+  available at \href{https://doi.org/\zenododoi}{doi:\zenododoi}.}}
+
+% Title suffix (Paper 1 rule): only if at least one additional ladder host ran.
+\ifladderran
+  \newcommand{\laddertitlesuffix}{, Replicated across GPU Generations}
+\else
+  \newcommand{\laddertitlesuffix}{}
+\fi

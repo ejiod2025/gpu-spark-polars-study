@@ -2,6 +2,21 @@
 
 Development and reproducibility repository for a TPC-H-derived study of CPU and GPU dataframe engines (Polars, Apache Spark). It holds the benchmark and analysis code, the pre-registered design (`docs/H100_EXPERIMENT_DESIGN.md`), the final results of the 2026-10-30 four-host campaign (`results/campaign-20261030/`), two research papers (`paper/`, `paper2/`) and earlier-study evidence. The workload is derived from TPC-H and is not a TPC-H benchmark result. An earlier A100 study is summarised below; its old hosted site referenced here was owner-private.
 
+## Start here
+
+| What | Where |
+|---|---|
+| **Reproduce** (rebuild the papers, re-run the analysis from raw data, or re-run the full GPU experiment) | [`REPRODUCE.md`](REPRODUCE.md) |
+| Paper 1 — four-engine benchmark, full version (38 pp) | [`paper/`](paper/) |
+| Paper 1 — PVLDB submission version (12 pp) | [`paper-pvldb/`](paper-pvldb/) |
+| Paper 2 — "What Is the GPU Speedup Measured Against?" | [`paper2/`](paper2/) |
+| Pre-registered design and amendments A1–A4 | [`docs/H100_EXPERIMENT_DESIGN.md`](docs/H100_EXPERIMENT_DESIGN.md) |
+| Final results, figures and raw-data checksum manifests (2026-10-30 campaign) | [`results/campaign-20261030/`](results/campaign-20261030/) |
+| Licensing and third-party notices | [`LICENSES.md`](LICENSES.md), [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) |
+
+Author: Daniel Ejiofor, Boston University (ejiod@bu.edu). The sections below describe the **earlier
+A100 study** (2026-10-25), which this campaign extends.
+
 The study compares CPU Polars, CPU Apache Spark, and Spark with NVIDIA's [cuDF plugin](https://docs.nvidia.com/cudf-spark/latest/overview.html) on the same generated Parquet files. The host had one NVIDIA A100-SXM4-40GB, 30 AMD EPYC 7J13 vCPUs, and approximately 216 GiB RAM. Polars used CPU streaming with a pool of 30; Spark used `local[30]`, a 96 GiB driver heap, 120 shuffle partitions, and adaptive query execution.
 
 ## Results and scope
@@ -92,4 +107,4 @@ python analyze_complex.py \
 
 The runner requires a new output directory. For a new original-suite comparison, use `--suite baseline --query-cleanup none`; the historical five-scale evidence was collected across three separate run roots. Optional plotting dependencies are pinned separately in `evidence/requirements-reporting.txt`.
 
-Historical deployment and operational audits require original host metadata and native service records; the curated repository alone cannot reconstruct them. Read the included notices and source/dependency provenance. This private repository does not assert a blanket MIT license, a general license grant for third-party query/dependency material, or endorsement by NVIDIA, DuckDB or TPC.
+Historical deployment and operational audits require original host metadata and native service records; the curated repository alone cannot reconstruct them. Read the included notices and source/dependency provenance. Licensing is scoped (see `LICENSES.md`): MIT for the author's original code, CC BY 4.0 for the author's papers, documentation and results; TPC-derived query material keeps its TPC terms (`THIRD_PARTY_NOTICES.md`). Nothing here implies endorsement by NVIDIA, DuckDB or TPC.
