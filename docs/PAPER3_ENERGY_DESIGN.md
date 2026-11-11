@@ -1,9 +1,9 @@
 # Paper 3 — energy and cost per query, CPU versus GPU dataframe engines — pre-registered design
 
-Status: **DRAFT — not locked; requires author approval.** Drafted 2026-11-11 for Daniel Ejiofor (Boston University,
-ejiod@bu.edu), revised after probes P1-P4 (§7.2). Until the lock (§7) this text may be edited freely. After it, sections
-1-11 are never edited; changes are dated, append-only amendments in §12 (rule of `docs/H100_EXPERIMENT_DESIGN.md`, extended
-in §7.4). `[AUTHOR: ...]` marks open decisions (list in §11).
+Status: **DRAFT — not locked; the lock waits for probes P5-P7 (P6 fixes `t_min`, §2.1).** Drafted 2026-11-11 for Daniel
+Ejiofor (Boston University, ejiod@bu.edu), revised after probes P1-P4 (§7.2). Until the lock (§7) this text may be edited
+freely. After it, sections 1-11 are never edited; changes are dated, append-only amendments in §12 (rule of
+`docs/H100_EXPERIMENT_DESIGN.md`, extended in §7.4). All author decisions are answered (§11).
 
 Aim (author's words): rigorous, reproducible evaluation methods and tools that help U.S. organizations choose cost- and
 energy-efficient CPU or GPU engines for analytical data processing. Paper 3 contributes a measurement protocol and
@@ -130,13 +130,14 @@ Source order, decided per host class by the probe report (fixed at the lock, nev
   2.910776; Hyperdisk Balanced (800 GiB, 16k IOPS, 1,000 MBps) ~$0.224/h. This is the P-NEW GCP table, snapshot 2026-11-11;
   a zone outside those two regions needs its price added before the lock. AWS (fallback only): Price List API, us-east-2,
   Linux, fetched 2026-11-11 (m7i.metal-24xl 4.8384, r7i.8xlarge 2.1168). Every session is costed with P-NEW whatever was
-  billed, so cost ratios depend only on measured time and a table fixed before any outcome exists. The lock is planned after
-  2026-11-16, so P-NEW is the expected billed price; a changed console value is corrected before the lock.
+  billed, so cost ratios depend only on measured time and a table fixed before any outcome exists. P-NEW stays the frozen
+  primary table whenever the campaign runs, list prices whatever credits fund the bill; P-OLD is the sensitivity and
+  P-BILLED captures the price actually charged.
 - **P-OLD (sensitivity):** Lambda prices before 2026-11-16, per the API on 2026-11-11: H100 SXM5 4.29, GH200 2.29, B200
   6.99, A100 SXM4 1.99. **P-BILLED (third sensitivity):** `campaign.json` records per instance the provider's price at
-  launch, instance id, launch and terminate UTC times; the invoice is reconciled against hours x price and a gap above 2% is
-  reported. Cost results are reported under P-NEW (primary), P-OLD and P-BILLED; which is primary is not revisited after
-  data exist.
+  launch, instance id, launch and terminate UTC times and whether billing was credit-funded; the invoice is reconciled
+  against hours x price and a gap above 2% is reported. Cost results are reported under P-NEW (primary), P-OLD and P-BILLED;
+  which is primary is not revisited after data exist.
 - **Snapshots** at the lock and at the start and end of each host's campaign: raw provider responses (Lambda API
   `price_cents_per_hour` and a pricing-page capture, since they differed on 2026-11-11; AWS Price List API; GCP official
   pricing pages) with UTC time, region, OS and sha256. Third-party price sites are secondary only. **Factorised reporting:**
@@ -330,9 +331,10 @@ The external timestamp is a Zenodo deposit of the locked design file made at the
   session; the first and last two `host.csv` rows, with `cpu_percent` and memory of one `spark_cpu` sf1 and one `polars`
   sf300 execute sample; the head of `schedule.json`). No aggregate by engine, host or scale was computed from them; `t16`,
   `t24` and Paper 1's Power column were not opened. The auditor rated it minor.
-- **Seen by the author before the lock:** [AUTHOR: state what you have seen of the archived power data: raw sample rows
-  only, or also the per-engine aggregates of §6.1]. Paper 1 already published per-engine GPU power summaries, so
-  archived-data analyses are exploratory only.
+- **Seen by the author before the lock:** the author approved and published Paper 1, which reports per-engine GPU power
+  (median share of the board power limit at SF300) and describes the energy proxy; the author is therefore treated as having
+  seen those aggregates. The committed `t16`/`t24` tables were not opened by the assistants. Archived-data analyses are
+  exploratory only.
 - **No pilot of study queries on instrumented hosts.** If the author wants one, it is listed in the lock text (dates, hosts,
   what was inspected) and its data are excluded. This repeats the correction of Paper 1 amendment A5 (an undisclosed
   exploratory pilot preceded a lock worded as "before any data existed").
@@ -348,28 +350,31 @@ only", "aggregates of host X"). An amendment made after any aggregate was seen c
 - **AI tools.** This design was drafted by an AI assistant (Anthropic's Claude via Claude Code) at the author's direction;
   commits carry a `Co-Authored-By` trailer. The author reviews and approves it and is responsible for it. AI assistants may
   also help write harness and analysis code and manuscript text; the paper will list all uses. Earlier project designs were
-  drafted with OpenAI Codex (Paper 1, amendment A5). Funding, credits or relationships with Lambda, AWS or GCP: none known
-  to the drafter [AUTHOR: state].
+  drafted with OpenAI Codex (Paper 1, amendment A5).
+- **Funding and conflict of interest.** Lambda provided $10,000 and AWS $6,000 in compute credits for Paper 3 (they did not
+  cover the Paper 1/2 runs); neither sponsor had any role in design, analysis, interpretation, review or the decision to
+  publish. The study reports Lambda prices and compares Lambda GPU hosts with GCP CPU hosts, so the sponsor relationship is
+  disclosed in every Paper 3 output. Cost uses list prices (P-NEW) regardless of credits; P-BILLED records that billing was
+  credit-funded.
 - **Relation to Papers 1 and 2.** Paper 1 (`docs/H100_EXPERIMENT_DESIGN.md`, locked 2026-10-29, amendments A1-A5) reports
   timing on four Lambda hosts; A5 discloses the exploratory pilot that preceded its lock; it already published per-engine
   GPU power summaries (§6.1). Paper 2 re-examines the CPU baseline and gives the reporting checklist behind B1-B3. Paper 3
   reuses the workload, engines, gates and Williams design, collects **new** data with new instrumentation, and does not pool
   it with Paper 1/2 data; archived data enter only as labelled in §6.
-- **Workload and TPC notice.** Copied from `paper/macros.tex` (`\tpcdisclaimer`, `\workloadname` expanded). The workload
-  name is an open author decision: `\workloadname` is "H100 study workload", which fits poorly with four GPU generations and
-  CPU-only hosts [AUTHOR]:
+- **Workload and TPC notice.** Copied from `paper/macros.tex` (`\tpcdisclaimer`) with the author's workload name
+  (2026-11-11), "the TPC-H-derived workload", in place of `\workloadname` ("H100 study workload"):
 
-  > The H100 study workload is derived from the TPC-H Benchmark and as such is not comparable to published
-  > TPC-H Benchmark results, as the H100 study workload results do not comply with the TPC-H Benchmark
+  > The TPC-H-derived workload is derived from the TPC-H Benchmark and as such is not comparable to published
+  > TPC-H Benchmark results, as the TPC-H-derived workload results do not comply with the TPC-H Benchmark
   > Specification.
 
   Deviations as in Paper 1 (selected adapted queries, Float64, Parquet inputs, no refresh, power or throughput tests). The
   energy figures here are **not** TPC-Energy metrics and not comparable to them. TPC written-permission status for the
-  benchmark name is open [AUTHOR] (`docs/TPC_PERMISSION_REQUEST.md`).
+  benchmark name: the request (`docs/TPC_PERMISSION_REQUEST.md`) has not been sent yet (the author will send it later).
 
 ## 9. Budget (estimates; prices and hours are inputs, not results)
 **Prices.** Lambda rows: P-NEW (§2.6; no spot price is listed). GCP rows: the P-NEW GCP table. AWS fallback: Price List API,
-us-east-2. Every price is re-checked in the provider console before the lock.
+us-east-2. Prices are re-checked on the provider pages before the lock.
 
 **Hours.** Paper 1 wall times (A100 11h24m, H100 9h15m, GH200 6h47m, B200 9h07m: 4 main rounds plus a 64-session side study
 that Paper 3 omits). GPU host = (2 x that time + 3 h set-up for two launches) x 1.2 (one repeated round or failed launch).
@@ -429,7 +434,7 @@ Availability and calendar time bind, not cost.
   TPC-H-derived workload, five scales, one provider per host class: no claim for other engines, formats, clusters, CPU
   vendors or query mixes. Not TPC results.
 
-## 11. Author decisions (approved defaults and open items)
+## 11. Author decisions (all answered 2026-11-11)
 **Standing limitation.** In this study "a GPU engine uses less energy than its CPU counterpart" **cannot be claimed at any
 scale**, with or without N1. Node energy of a GPU-engine run needs the host CPU, DRAM and platform energy of the GPU host,
 and P1 (Lambda H100 SXM5) and P4 (Lambda 8x A100) found Lambda GPU hosts to be KVM guests with no RAPL, MSR, IPMI or working
@@ -437,19 +442,19 @@ psys counter; the one way to measure it, a bare-metal GPU host, was dropped by t
 on the node's, so "the CPU engine wins" can survive under N1 and "the GPU engine wins" cannot. GH200, B200 and the 1x A100
 type are unprobed (P7); if one exposed CPU energy, that is an author decision before the lock.
 
-Approved by the author on 2026-11-11 ("approve defaults"): items 1-6. Open: item 7 only.
+All answered by the author on 2026-11-11: items 1-6 are the approved defaults ("approve defaults"), item 7 the final
+answers.
 1. R = 8 rounds on two launches (R = 4 only if one square completes, §3.2).
 2. Primary idle rule *total*, above-idle always shown; primary CPU cost baseline B1 = `c3-highmem-44` with the 200 GiB RAM
    floor; primary price table P-NEW with P-OLD as sensitivity (§2.6).
-3. Equivalence margin +-10%; keep SF1 in the grid; 10 s window and `t_min` = 1 s (§2.1); G8 thresholds (§4): median onset
-   lag within +-0.4 s, drift <= 0.2 s, onset at `utilization.gpu` >= 10%.
+3. Equivalence margin +-10%; keep SF1 in the grid; 10 s window and `t_min` = 1 s (§2.1, confirmed by P6 before the lock); G8
+   thresholds (§4): median onset lag within +-0.4 s, drift <= 0.2 s, onset at `utilization.gpu` >= 10%.
 4. Idle brackets (§2.2) per session as written (12.8 h per GPU host, ~15 h with the 1.2 margin, ~$270 across the four).
 5. Probes P5-P8 authorised, run by the team lead's agents under the lease rules.
 6. N1 accepted as a labelled assumption; the wording of §2.5, the tipping points (`Delta*`) and the ~$10k cap (§9)
    confirmed.
-7. Open `[AUTHOR]` items: what the author has seen of the archived power aggregates (§7.2); funding and relationships (§8);
-   workload name and TPC permission status (§8.3). Note, not a decision: whether arXiv:2312.02741 applies to our drivers
-   (§2.3) does not matter for the primary counter.
+7. Funding and sponsor role (§8), workload name and TPC status (§8.3), and exposure to archived power aggregates (§7.2).
+   Note, not a decision: whether arXiv:2312.02741 applies to our drivers (§2.3) does not matter for the primary counter.
 
 ## 12. Amendments
 None (draft).
