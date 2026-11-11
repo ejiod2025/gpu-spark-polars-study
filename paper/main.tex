@@ -1213,7 +1213,8 @@ longer than the sum of its six SF1 baseline query medians
 
 \paragraph{Energy proxy.} Mean GPU board power multiplied by query time is
 reported in the artifact as a descriptive proxy only; it excludes CPU, memory
-and host power and is not an energy measurement.
+and host power and is not an energy measurement. Its power input is a 1\,s
+average on three hosts and instantaneous on the A100~\citep{nvml_api}.
 
 \paragraph{Earlier A100 study versus H100.}
 
@@ -1401,7 +1402,14 @@ kernel was executing, not SM occupancy), \%. Idle: share of samples below
 median board power as a share of the card's power limit, \%. Mem: median
 memory-controller utilization (\texttt{utilization.memory}), \%. The median SM
 clock was at the card's maximum in \stat{ladder.gpu_tel.clock_at_max} of
-\stat{ladder.gpu_tel.cells} populated suite--scale--engine cells.}
+\stat{ladder.gpu_tel.cells} populated suite--scale--engine cells.
+Power semantics differ by host: \texttt{power.draw} is a trailing 1\,s
+average of board power on the H100, GH200 and B200 but an instantaneous reading
+on the A100 (GA100)~\citep{nvml_api}, and medians of the two differ under
+bursty load (on the H100 a pulsed synthetic load peaked at about twice as high
+in the instantaneous reading as in the averaged one), so the Power column is
+not like for like across hosts. On the GH200 it is GPU board power only,
+excluding the Grace CPU.}
 \label{tab:ladder-telemetry}
 \scriptsize
 \setlength{\tabcolsep}{4pt}
@@ -1701,7 +1709,8 @@ utilization measure, \texttt{utilization.gpu}, is the share of time any kernel
 was running, not SM occupancy or throughput. At SF300, \polarsgpu{}'s GPU-idle
 share was at most \stat{gpu_tel.ladder.polars_gpu.sf300.idle.max}\% on every
 host, while its median power was only \stat{gpu_tel.ladder.polars_gpu.sf300.power.min}\%
-to \stat{gpu_tel.ladder.polars_gpu.sf300.power.max}\% of the board limit and its
+to \stat{gpu_tel.ladder.polars_gpu.sf300.power.max}\% of the board limit (a 1\,s average
+on three hosts, an instantaneous reading on the A100; Table~\ref{tab:ladder-telemetry}) and its
 median memory-controller utilization \stat{gpu_tel.ladder.polars_gpu.sf300.memutil.min}\%
 to \stat{gpu_tel.ladder.polars_gpu.sf300.memutil.max}\%, with SM clocks at their
 maximum. This is consistent with \polarsgpu{} work that keeps the device
