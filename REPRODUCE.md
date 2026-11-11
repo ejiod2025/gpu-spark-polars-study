@@ -86,13 +86,13 @@ The raw campaign trees are not in git; there are about 4 GiB per host. They hold
 
 They are archived as one file per host:
 
-- Archive: **TODO(zenodo-doi)**, `https://doi.org/10.5281/zenodo.TODO`
+- Archive: Zenodo dataset, DOI [`10.5281/zenodo.24125306`](https://doi.org/10.5281/zenodo.24125306). `SHA256SUMS` in the record covers the four archives.
 - Files: `campaign-20261030-a100-raw.tar.zst`, `campaign-20261030-h100-raw.tar.zst`,
   `campaign-20261030-gh200-raw.tar.zst` and `campaign-20261030-b200-raw.tar.zst`.
 - Each archive holds the host's `rerun/` directory as it was copied off the host. Its paths are
   exactly those listed in `results/campaign-20261030/raw-manifests/FINAL-<host>.SHA256SUMS`, for
   example `campaign-h100/campaign.json`.
-- Maintainer note, TODO(zenodo-doi): build each archive from the local tree so that it has this
+- Maintainer note: each archive was built from the local tree so that it has this
   layout, for example
   `COPYFILE_DISABLE=1 tar -C rerun/hosts/h100/final -cf - . | zstd -19 -T0 -o campaign-20261030-h100-raw.tar.zst`.
   `COPYFILE_DISABLE=1` keeps macOS `._*` files out. Building the H100 archive this way and
