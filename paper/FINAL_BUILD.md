@@ -72,8 +72,9 @@ python3 article/tools/fill_article.py --stats $C/h100-final/stats.json --stats a
 - Typeset check: every one of the 999 required keys was typeset, and no other key.
 - `main.pdf` sha256 (with the fixed `SOURCE_DATE_EPOCH`):
   `9c961730a9f436670d67a4025fc963c1e17b59e5e2d645739549e1d094ba14ca`. Two consecutive `make pdf`
-  runs gave this hash. This build adds the author details: affiliation "Independent Researcher" and
-  email daniel@siriusmed.io; no ORCID.
+  runs gave this hash. This build adds the author details: affiliation "Boston University, Boston, MA, USA" and
+  email ejiod@bu.edu (updated 2026-11-10; previously Independent Researcher); no ORCID.
+  Current reproducible PDF sha256: 9e65bd98d79296770a60f05d7c0e83ee2069a308162085a2f060578e50929971.
 - Before the author details were added, the committed-input build had sha256 `1e7af951…3010c191`.
   So did the reviewed build (made from the earlier input files) compiled with the same
   `SOURCE_DATE_EPOCH`, which means the two were byte-identical. The reviewed copy itself, compiled

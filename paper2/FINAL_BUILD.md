@@ -91,7 +91,7 @@ make inputs       # print the input directories
 ## Remaining TODOs before submission
 
 Author details:
-- Author details are set from the author: "Independent Researcher", `daniel@siriusmed.io`, no ORCID.
+- Author details are set from the author: "Boston University, Boston, MA, USA", `ejiod@bu.edu` (updated 2026-11-10), no ORCID. Current reproducible PDF sha256: afbbdce09964bc1af48ecb94c2596d9d65dcf8808060aac3c432a71c6841987d.
   The ORCID placeholder is removed.
 - Still open: acknowledgements (funding, compute provider; `\todoplaceholder` in the
   acknowledgements section) and the target venue.

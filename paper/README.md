@@ -149,7 +149,7 @@ Stems follow `plot_campaign.py` (copy with `tools/sync_figures.py`).
 
 ## Open decisions for the author
 
-1. Author: Daniel Ejiofor (sole author), Independent Researcher, daniel@siriusmed.io; no ORCID. Still pending: acknowledgements, target venue (arXiv category, e.g. cs.DB).
+1. Author: Daniel Ejiofor (sole author), Boston University (Master's student), ejiod@bu.edu; no ORCID. Still pending: acknowledgements, target venue (arXiv category, e.g. cs.DB).
 2. **TPC benchmark-name use.** Policies v6.20 §8.1.4 requires the TPC's written permission for
    derived work using the benchmark name, and "Derived from" wording; see
    `publication/NOTICE_RESEARCH.md`. The title and text say "TPC-H-derived". Confirm the

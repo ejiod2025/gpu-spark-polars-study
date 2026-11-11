@@ -134,7 +134,7 @@ every cell where E1 is not below C1 has a bridge interval that includes 1).
 ## Open decisions for the author
 
 1. Acknowledgements and target venue (e.g. arXiv cs.DB or cs.PF, or a benchmarking workshop such
-   as DBTest or TPCTC). Author details are set: Independent Researcher, daniel@siriusmed.io; no ORCID.
+   as DBTest or TPCTC). Author details are set: Boston University (Master's student), ejiod@bu.edu; no ORCID.
 2. Title: the options are in a comment above `\title`.
 3. Same TPC questions as Paper 1 (`../paper/README.md` item 2): benchmark-name permission and
    the `\workloadname`.
