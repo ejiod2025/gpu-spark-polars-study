@@ -39,6 +39,9 @@ GPU_TELEMETRY_INTERVAL_MS = 200
 # anywhere but a Grace-Hopper module (P7).
 GPU_TELEMETRY_POWER_FIELDS = ("power.draw.average", "power.draw.instant")
 GPU_TELEMETRY_MODULE_FIELDS = ("module.power.draw.average", "module.power.draw.instant")
+# G11: the active throttle (clock event) reasons, appended last. Newer drivers call the field clocks_event_reasons.active and keep the
+# older clocks_throttle_reasons.active as a deprecated name; the first one the driver lists is used, only one is ever queried.
+GPU_TELEMETRY_THROTTLE_FIELDS = ("clocks_event_reasons.active", "clocks_throttle_reasons.active")
 # Lines of `nvidia-smi -q` that identify one physical GPU. Product name, driver, CUDA and memory lines stay.
 GPU_IDENTIFIER_FIELD = re.compile(
     r"^(?P<lead>[ \t]*(?:GPU UUID|MIG UUID|Serial Number|Chassis Serial Number|GPU PDI|Board ID|GPU Fabric GUID|ClusterUUID|Bus Id)[ \t]*:[ \t]*)"
@@ -47,7 +50,8 @@ GPU_IDENTIFIER_FIELD = re.compile(
 GPU_HEADER_BUS_ID = re.compile(r"^GPU[ \t]+[0-9A-Fa-f]{4,8}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}\.[0-9A-Fa-f][ \t]*$", re.M)
 REDACTED = "<redacted>"
 GPU_IDLE_POLL_SECONDS = 1.0
-PAPER3_ARGUMENTS = ("gpu_energy_scope", "energy_window_s")
+PAPER3_ARGUMENTS = ("gpu_energy_scope", "energy_window_s", "session_idle_seconds", "session_idle_settle_seconds")
+GPU_STATE_SECTIONS = {"POWER": "gpu_power_state", "PERFORMANCE": "gpu_performance_state"}   # nvidia-smi -q -d <section> -> schedule.json key
 
 # Versions of the Python-level CUDA/RAPIDS stack, probed in a child process so the
 # runner itself never loads CUDA libraries or holds a GPU context.
@@ -100,31 +104,45 @@ def parse_query_gpu_help(text):
 def gpu_telemetry_plan(listed, scope):
     """The gpu.csv query for a declared scope: the Paper 1 query, then the listed power fields appended.
 
-    scope None (Paper 1) or "none" leaves the query as it always was. missing_fields are wanted fields the driver does not list."""
+    scope None (Paper 1) or "none" leaves the query as it always was. missing_fields are wanted fields the driver does not list;
+    throttle_field is the throttle-reasons field appended (None when the driver lists neither name)."""
     wanted = ()
     if scope in ("board", "module"):
         wanted = GPU_TELEMETRY_POWER_FIELDS + (GPU_TELEMETRY_MODULE_FIELDS if scope == "module" else ())
     extra = [field for field in wanted if field in listed]
+    missing = [field for field in wanted if field not in listed]
+    throttle = None
+    if scope in ("board", "module"):
+        throttle = next((field for field in GPU_TELEMETRY_THROTTLE_FIELDS if field in listed), None)
+        if throttle is not None:
+            extra.append(throttle)
+        else:
+            missing.append(GPU_TELEMETRY_THROTTLE_FIELDS[0])      # neither name is listed: reported under the current one
     return {"query": GPU_TELEMETRY_QUERY + "".join("," + field for field in extra),
-            "extra_fields": extra, "missing_fields": [field for field in wanted if field not in listed]}
+            "extra_fields": extra, "missing_fields": missing, "throttle_field": throttle}
 
 
-def capture_gpu_power_state(directory, engine, label, redact):
-    """`nvidia-smi -q -d POWER` text at a session's start or end, written beside the session's log; returns what is recorded.
+def capture_gpu_state(directory, engine, section, label, redact):
+    """`nvidia-smi -q -d <section>` text at a session's start or end, written beside the session's log; returns what is recorded.
 
-    The query has the limit the driver enforces now (`--query-gpu power.limit` reported 900 W on a GH200 while -q showed 700 W)."""
-    result = capture(["nvidia-smi", "-q", "-d", "POWER"], timeout=60)
+    POWER has the limit the driver enforces now (`--query-gpu power.limit` reported 900 W on a GH200 while -q showed 700 W);
+    PERFORMANCE has the clock event (throttle) reasons. Files: <engine>-gpu-<section lower case>-<label>.txt."""
+    command = ["nvidia-smi", "-q", "-d", section]
+    result = capture(command, timeout=60)
     text = result.get("output") or ""
     if redact:
         text, _ = redact_gpu_identifiers(text)
-    path = directory / f"{engine}-gpu-power-{label}.txt"
+    path = directory / f"{engine}-gpu-{section.lower()}-{label}.txt"
     path.write_text(text)
     record = {"file": path.name, "captured_utc": datetime.now(timezone.utc).isoformat(), "returncode": result["returncode"],
-              "bytes": len(text.encode()), "sha256": hashlib.sha256(text.encode()).hexdigest(),
-              "command": ["nvidia-smi", "-q", "-d", "POWER"]}
+              "bytes": len(text.encode()), "sha256": hashlib.sha256(text.encode()).hexdigest(), "command": command}
     if result.get("error"):
         record["error"] = result["error"]
     return record
+
+
+def capture_gpu_power_state(directory, engine, label, redact):
+    return capture_gpu_state(directory, engine, "POWER", label, redact)
 
 
 def load_spark_gpu_conf(path):
@@ -334,8 +352,16 @@ def main():
                              "ones for module) to gpu.csv, scope tags to every energy value, `nvidia-smi -q -d POWER` text at each "
                              "session's start and end, and TZ=UTC for the nvidia-smi poller")
     parser.add_argument("--energy-window-s", type=float, default=None, metavar="SECONDS",
-                        help="Paper 3 window rule (needs --gpu-energy-scope): every measured trial is a window of n back-to-back runs, "
-                             "n = clamp(ceil(SECONDS / t_hat), 1, 50), t_hat = the query's warmup time; default off: one run per trial")
+                        help="Paper 3 window rule (needs --gpu-energy-scope): every measured trial is a window of back-to-back runs "
+                             "that continue until their summed timed time reaches SECONDS or 50 runs have been made; default off: "
+                             "one run per trial")
+    parser.add_argument("--session-idle-seconds", type=float, default=None, metavar="SECONDS",
+                        help="Paper 3 (needs --gpu-energy-scope): length of each of the two in-session idle windows, engine ready and "
+                             f"no query running, one before the warm-ups and one after the last trial (default {power_telemetry.SESSION_IDLE_SECONDS:g}; "
+                             "0 disables both). Unrelated to the pre-launch --idle-baseline-seconds, which stays as it is")
+    parser.add_argument("--session-idle-settle-seconds", type=float, default=None, metavar="SECONDS",
+                        help="Paper 3 (needs --gpu-energy-scope): time without load before each in-session idle window "
+                             f"(default {power_telemetry.SESSION_IDLE_SETTLE_SECONDS:g})")
     parser.add_argument("--redact-gpu-identifiers", choices=["on", "off"], default="on",
                         help="on: environment.json stores nvidia-smi -q without the GPU UUID, serial number and PCI bus id "
                              "(everything the analysis reads is kept); off: store it verbatim")
@@ -393,6 +419,11 @@ def main():
         parser.error("--energy-window-s needs an explicit --gpu-energy-scope {board,module,none}: the scope is declared, never inferred")
     if args.gpu_energy_scope in ("board", "module") and args.gpu_energy == "off":
         parser.error(f"--gpu-energy-scope {args.gpu_energy_scope} needs the counter: drop --gpu-energy off")
+    for flag, value in (("--session-idle-seconds", args.session_idle_seconds), ("--session-idle-settle-seconds", args.session_idle_settle_seconds)):
+        if value is not None and args.gpu_energy_scope is None:
+            parser.error(f"{flag} needs an explicit --gpu-energy-scope: the in-session idle windows are part of Paper 3 mode")
+        if value is not None and not (math.isfinite(value) and value >= 0):
+            parser.error(f"{flag} must be a non-negative number of seconds")
     if args.gpu_energy_scope == "none" and gpu_selected:
         parser.error(f"--gpu-energy-scope none declares a host with no GPU counter in use, but GPU engine(s) {gpu_selected} are selected")
     if gpu_selected:
@@ -534,16 +565,26 @@ def main():
             environment["power_telemetry"] = {"enabled": True, "started": False, "error": f"{type(exc).__name__}: {exc}"}
     else:
         environment["power_telemetry"] = {"enabled": False}
+    # Paper 3: the in-session idle windows (design section 2.2) run with the design's lengths unless a flag says otherwise.
+    session_idle = session_settle = None
+    if args.gpu_energy_scope is not None:
+        session_idle = power_telemetry.SESSION_IDLE_SECONDS if args.session_idle_seconds is None else args.session_idle_seconds
+        session_settle = (power_telemetry.SESSION_IDLE_SETTLE_SECONDS if args.session_idle_settle_seconds is None
+                          else args.session_idle_settle_seconds)
     if args.gpu_energy_scope is not None:
         environment["paper3_energy"] = {
             "gpu_energy_scope": args.gpu_energy_scope, "declared_with": "--gpu-energy-scope (never inferred from the hardware)",
             "gpu_counter_scope_tag": power_telemetry.GPU_SCOPE_TAG[args.gpu_energy_scope],
             "energy_window_s": args.energy_window_s, "window_max_runs": power_telemetry.ENERGY_WINDOW_MAX_RUNS,
+            "session_idle_seconds": session_idle, "session_idle_settle_seconds": session_settle,
             "scope_tags": list(power_telemetry.SCOPE_TAGS),
             "cpu_energy_scope_tags": power_telemetry.cpu_energy_scope_tags(power_report),
             "gpu_power_state": ("nvidia-smi -q -d POWER at each session's start and end: <engine>-gpu-power-start.txt and "
                                 "-end.txt beside the session log, listed under gpu_power_state in schedule.json"
-                                if args.gpu_energy_scope in ("board", "module") else None)}
+                                if args.gpu_energy_scope in ("board", "module") else None),
+            "gpu_performance_state": ("nvidia-smi -q -d PERFORMANCE (clock event / throttle reasons) at each session's start and end: "
+                                      "<engine>-gpu-performance-start.txt and -end.txt, listed under gpu_performance_state in schedule.json"
+                                      if args.gpu_energy_scope in ("board", "module") else None)}
     (args.output / "environment.json").write_text(json.dumps(environment, indent=2, default=str) + "\n")
     def sample_host():
         import csv
@@ -608,6 +649,8 @@ def main():
                     worker_args += ["--gpu-energy-scope", args.gpu_energy_scope]
                 if args.energy_window_s is not None:
                     worker_args += ["--energy-window-s", str(args.energy_window_s)]
+                if session_idle is not None:   # Paper 3 mode: the resolved lengths, so the command line records them
+                    worker_args += ["--session-idle-seconds", str(session_idle), "--session-idle-settle-seconds", str(session_settle)]
                 spark_gpu_overrides = []
                 if engine == "polars":
                     command = [sys.executable, *worker_args]
@@ -674,8 +717,8 @@ def main():
                 print(json.dumps({"event": "engine_started", **item}), flush=True)
                 (args.output / "schedule.json").write_text(json.dumps(schedule, indent=2) + "\n")
                 if args.gpu_energy_scope in ("board", "module"):
-                    item["gpu_power_state"] = {"start": capture_gpu_power_state(
-                        target.parent, engine, "start", args.redact_gpu_identifiers == "on")}
+                    for section, key in GPU_STATE_SECTIONS.items():
+                        item[key] = {"start": capture_gpu_state(target.parent, engine, section, "start", args.redact_gpu_identifiers == "on")}
                 started = time.perf_counter()
                 env["BENCHMARK_LAUNCH_UNIX"] = str(time.time())
                 # Environment, not a command-line flag, so spark command lines match the A100 runs.
@@ -699,9 +742,9 @@ def main():
                 item["returncode"] = returncode
                 item["status"] = "complete" if returncode == 0 else "failed"
                 active["phase"] = "idle"
-                if "gpu_power_state" in item:
-                    item["gpu_power_state"]["end"] = capture_gpu_power_state(
-                        target.parent, engine, "end", args.redact_gpu_identifiers == "on")
+                for section, key in GPU_STATE_SECTIONS.items():
+                    if key in item:
+                        item[key]["end"] = capture_gpu_state(target.parent, engine, section, "end", args.redact_gpu_identifiers == "on")
                 (args.output / "schedule.json").write_text(json.dumps(schedule, indent=2) + "\n")
                 if returncode and not args.keep_going:
                     raise RuntimeError(f"{engine} {data.name} failed; see {target.parent / (engine + '.log')}")

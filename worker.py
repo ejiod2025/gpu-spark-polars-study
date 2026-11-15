@@ -23,8 +23,9 @@ import warnings
 
 import psutil
 from power_telemetry import (
-    ENERGY_WINDOW_MAX_RUNS, GPU_ENERGY_SCOPES, GPU_SCOPE_TAG, GpuEnergyReader, aggregate_energy_window, clock_anchor,
-    energy_window_runs, gpu_energy_window, process_affinity, stamp_close, stamp_open, tag_gpu_energy)
+    ENERGY_WINDOW_FORMAT, ENERGY_WINDOW_MAX_RUNS, GPU_ENERGY_SCOPES, GPU_SCOPE_TAG, SESSION_IDLE_SECONDS, SESSION_IDLE_SETTLE_SECONDS, GpuEnergyReader,
+    aggregate_energy_window, clock_anchor, energy_window_complete, gpu_energy_window, idle_window_power_w, process_affinity,
+    stamp_close, stamp_open, tag_gpu_energy)
 from query_cleanup import CleanupBarrier, CleanupTimeout, discover_blockmgr_dirs
 
 def normalized(value):
@@ -421,8 +422,13 @@ def main():
                              "host class measures: board (S1-counter), module (S1-module, GH200) or none (no GPU counter in use). "
                              "Never inferred from the hardware; adds a scope tag to every energy value")
     parser.add_argument("--energy-window-s", type=float, default=None,
-                        help="Paper 3 window rule (needs --gpu-energy-scope): a measured trial is a window of n back-to-back runs, "
-                             "n = clamp(ceil(SECONDS / t_hat), 1, 50), t_hat = the query's warmup time; default off: one run per trial")
+                        help="Paper 3 window rule (needs --gpu-energy-scope): a measured trial is a window of back-to-back runs that "
+                             "continue until their summed timed time reaches SECONDS or 50 runs have been made; default off: one run per trial")
+    parser.add_argument("--session-idle-seconds", type=float, default=None,
+                        help="Paper 3 (needs --gpu-energy-scope): length of each of the two in-session idle windows, engine ready and no "
+                             f"query running (before the warm-ups, after the last trial); default {SESSION_IDLE_SECONDS:g}, 0 disables both")
+    parser.add_argument("--session-idle-settle-seconds", type=float, default=None,
+                        help=f"Paper 3 (needs --gpu-energy-scope): time without load before each idle window; default {SESSION_IDLE_SETTLE_SECONDS:g}")
     args = parser.parse_args()
     if args.energy_window_s is not None and not (math.isfinite(args.energy_window_s) and args.energy_window_s > 0):
         parser.error("--energy-window-s must be a positive number of seconds")
@@ -430,6 +436,11 @@ def main():
         parser.error("--energy-window-s needs an explicit --gpu-energy-scope {board,module,none}: the scope is declared, never inferred")
     if args.gpu_energy_scope in ("board", "module") and args.gpu_energy == "off":
         parser.error(f"--gpu-energy-scope {args.gpu_energy_scope} needs the counter: drop --gpu-energy off")
+    for flag, value in (("--session-idle-seconds", args.session_idle_seconds), ("--session-idle-settle-seconds", args.session_idle_settle_seconds)):
+        if value is not None and args.gpu_energy_scope is None:
+            parser.error(f"{flag} needs an explicit --gpu-energy-scope: the in-session idle windows are part of Paper 3 mode")
+        if value is not None and not (math.isfinite(value) and value >= 0):
+            parser.error(f"{flag} must be a non-negative number of seconds")
     if args.gpu_energy_scope == "none" and args.engine in GPU_ENGINES:
         parser.error(f"--gpu-energy-scope none declares a host with no GPU counter in use, but --engine {args.engine} is a GPU engine")
     if args.engine != "polars_gpu" and (args.polars_gpu_executor or args.polars_gpu_executor_options):
@@ -557,12 +568,26 @@ def main():
             "gpu_energy_scope": args.gpu_energy_scope, "declared_with": "--gpu-energy-scope (never inferred from the hardware)",
             "gpu_counter_scope_tag": GPU_SCOPE_TAG[args.gpu_energy_scope],
             "tags": "every gpu_energy value carries scope_tag: the counter tag, or none when it has no value"}
+    idle_seconds = idle_settle = None
+    if args.gpu_energy_scope is not None:
+        idle_seconds = SESSION_IDLE_SECONDS if args.session_idle_seconds is None else args.session_idle_seconds
+        idle_settle = SESSION_IDLE_SETTLE_SECONDS if args.session_idle_settle_seconds is None else args.session_idle_settle_seconds
+        metadata["idle_windows"] = []
+        metadata["session_idle_rule"] = {
+            "format": 1, "enabled": idle_seconds > 0, "window_seconds": idle_seconds, "settle_seconds": idle_settle,
+            "windows": "two, labelled before_warmups (after engine init, before the first warm-up) and after_last_trial; engine "
+                       "ready, no query running; each preceded by settle_seconds without load (no query, no cleanup barrier)",
+            "record": "idle_windows[i]: settle and window UTC + CLOCK_MONOTONIC stamps, gpu_energy (the counter read just outside "
+                      "the window's stamps, tagged like every GPU energy value), energy_interval_seconds (between the midpoints of "
+                      "the two reads) and mean_power_w = delta_mj / 1000 / energy_interval_seconds; CPU energy is cut from power.csv "
+                      "at the window stamps"}
     if window_mode:
         metadata["energy_window_rule"] = {
-            "format": 1, "target_seconds": args.energy_window_s, "max_runs": ENERGY_WINDOW_MAX_RUNS,
-            "rule": "per measured trial of a query: n = clamp(ceil(target_seconds / t_hat_seconds), 1, max_runs), "
-                    "n = 1 when t_hat_seconds >= target_seconds",
-            "t_hat_source": "seconds of the query's warmup record (phase warmup, trial 0) in this session",
+            "format": ENERGY_WINDOW_FORMAT, "target_seconds": args.energy_window_s, "max_runs": ENERGY_WINDOW_MAX_RUNS,
+            "rule": "per measured trial of a query: runs continue until the summed timed time of the window's runs reaches "
+                    "target_seconds or max_runs runs have been made; n = runs made; n = 1 when the first run takes target_seconds "
+                    "or longer; n depends only on elapsed time, so the trials of one query may differ in n",
+            "t_hat_source": "QA only, does not set n: seconds of the query's warmup record (phase warmup, trial 0) in this session",
             "trials_per_query": args.runs,
             "record": "one record per (query, measured, trial): seconds is the window time divided by n, rows and the plan are run 1's, "
                       "timed_* span the window (gaps included), gpu_energy is replaced by energy_window (per-run stamps, counter "
@@ -797,33 +822,72 @@ def main():
                           "energy_window": {k: v for k, v in block.items() if k != "runs"}}), flush=True)
 
     def attempt_window(query, trial):
-        """One measured trial under the window rule: n back-to-back runs of the query, n from its warmup time.
+        """One measured trial under the window rule: back-to-back runs of the query until their summed timed time reaches the target.
 
-        Each run is a Paper 1 run (stamps and counter reads just outside the timer) followed by Paper 1's cleanup barrier;
-        the gaps and the cleanup are outside every window sum. A run that fails voids the window (no record) and the query
-        is not run again, as after any failed attempt in Paper 1."""
+        The window stops after the run that makes the summed time reach --energy-window-s, or after ENERGY_WINDOW_MAX_RUNS runs;
+        n is the runs made, so it depends on elapsed time only. Each run is a Paper 1 run (stamps and counter reads just outside
+        the timer) followed by Paper 1's cleanup barrier; the gaps and the cleanup are outside every window sum. A run that
+        fails voids the window (no record) and the query is not run again, as after any failed attempt in Paper 1. The query's
+        warmup time is recorded as t_hat for QA; it does not set n."""
         t_hat = warmup_seconds[query]
-        n = energy_window_runs(t_hat, args.energy_window_s)
-        first, entries, last_ended = None, [], None
-        for index in range(1, n + 1):
-            succeeded = False
+        first, entries, seconds, last_ended, index = None, [], [], None, 0
+        while True:
+            index += 1
+            succeeded = done = False
             try:
                 run = execute(query, "measured", trial, window_run=index)
                 first = first or run
                 last_ended = run["ended_at_utc"]
+                seconds.append(run["seconds"])
                 entries.append(window_run_entry(run, index, first["rows"]))
-                if index == n:
+                done = energy_window_complete(seconds, args.energy_window_s)
+                if done:
                     publish_window(first, last_ended, entries, t_hat)
                 succeeded = True
             except Exception as exc:
                 if failure_policy == "raise":
                     raise
                 note_failure(query, "measured", trial, exc, window_run=index)
-            cleanup_after(query, "measured", trial, succeeded, window_run=index, interim=succeeded and index != n)
-            if not succeeded:
+            cleanup_after(query, "measured", trial, succeeded, window_run=index, interim=succeeded and not done)
+            if done or not succeeded:
                 break
 
+    def run_idle_window(label):
+        """An idle window with the engine ready and no query running (design section 2.2).
+
+        settle_seconds without load first, then idle_seconds with the counter read just outside the window's stamps, exactly as
+        around a timed run; the stamps let the runner's power.csv be cut at the same instants for CPU energy."""
+        metadata["active_query"] = {"query": None, "phase": "idle_window", "label": label,
+                                    "started_at_utc": datetime.now(timezone.utc).isoformat()}
+        save(args.output / "results.json", metadata)
+        settle_start_utc, settle_start_mono = stamp_open()
+        time.sleep(idle_settle)
+        settle_end_utc, settle_end_mono = stamp_close()
+        energy_start = gpu_energy.read() if gpu_energy else None
+        start_utc, start_mono = stamp_open()
+        time.sleep(idle_seconds)
+        end_utc, end_mono = stamp_close()
+        energy_end = gpu_energy.read() if gpu_energy else None
+        if gpu_energy:
+            energy = tag_gpu_energy(gpu_energy_window(gpu_energy.source, args.gpu_device, energy_start, energy_end, start_mono, end_mono),
+                                    args.gpu_energy_scope)
+        else:
+            energy = {"source": "disabled", "scope_tag": "none"}
+        interval, watts = idle_window_power_w(energy)
+        record = {"label": label, "requested_seconds": idle_seconds,
+                  "settle": {"requested_seconds": idle_settle, "start_utc": settle_start_utc, "end_utc": settle_end_utc,
+                             "start_monotonic_ns": settle_start_mono, "end_monotonic_ns": settle_end_mono},
+                  "start_utc": start_utc, "end_utc": end_utc, "start_monotonic_ns": start_mono, "end_monotonic_ns": end_mono,
+                  "actual_seconds": (end_mono - start_mono) / 1e9, "gpu_energy": energy,
+                  "energy_interval_seconds": interval, "mean_power_w": watts}
+        metadata["idle_windows"].append(record)
+        metadata["active_query"] = None
+        save(args.output / "results.json", metadata)
+        print(json.dumps({"event": "idle_window", **record}), flush=True)
+
     try:
+        if idle_seconds:   # Paper 3 only (None otherwise); engine initialised, nothing has run yet
+            run_idle_window("before_warmups")
         for query in args.queries:
             attempt(query, "warmup", 0)
         rng = random.Random(args.seed)
@@ -836,6 +900,8 @@ def main():
                         attempt_window(query, trial)
                     else:
                         attempt(query, "measured", trial)
+        if idle_seconds:
+            run_idle_window("after_last_trial")
         metadata["query_execution_status"] = "partial" if failed_queries else "complete"
         metadata["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
         save(args.output / "results.json", metadata)

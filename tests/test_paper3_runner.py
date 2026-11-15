@@ -66,12 +66,19 @@ def help_text(*fields):
 
 
 ALL_POWER_FIELDS = ("power.draw.average", "power.draw.instant", "module.power.draw.average", "module.power.draw.instant")
+THROTTLE, OLD_THROTTLE = "clocks_event_reasons.active", "clocks_throttle_reasons.active"
+ALL_FIELDS = (*ALL_POWER_FIELDS, THROTTLE)
+PERFORMANCE_TEXT = """GPU 00000000:CB:00.0
+    Clocks Event Reasons
+        Idle                              : Active
+        SW Power Cap                      : Not Active
+"""
 
 
 @pytest.fixture
 def smi(host, monkeypatch):
     """The `host` fixture's nvidia-smi plus the Paper 3 queries: field list, driver version, `-q -d POWER` text."""
-    state = types.SimpleNamespace(fields=ALL_POWER_FIELDS, driver="570.148.08\n", help_returncode=0, power_calls=[],
+    state = types.SimpleNamespace(fields=ALL_FIELDS, driver="570.148.08\n", help_returncode=0, power_calls=[], performance_calls=[],
                                   popen=[])
     base = host.capture
 
@@ -84,6 +91,9 @@ def smi(host, monkeypatch):
         if command == ["nvidia-smi", "-q", "-d", "POWER"]:
             state.power_calls.append(len(FakePopen.launched))        # sessions launched so far: start 0, end 1
             return {"command": command, "returncode": 0, "output": POWER_TEXT}
+        if command == ["nvidia-smi", "-q", "-d", "PERFORMANCE"]:
+            state.performance_calls.append(len(FakePopen.launched))
+            return {"command": command, "returncode": 0, "output": PERFORMANCE_TEXT}
         return base(command, timeout)
     monkeypatch.setattr(rx, "capture", capture)
     original = rx.subprocess.Popen
@@ -112,30 +122,44 @@ def test_the_help_text_of_nvidia_smi_gives_the_listed_fields():
 
 
 def test_field_selection_by_scope_with_and_without_the_module_fields():
-    listed = ["timestamp", "power.draw", *ALL_POWER_FIELDS]
-    assert rx.gpu_telemetry_plan(listed, None) == {"query": BASE_QUERY, "extra_fields": [], "missing_fields": []}
+    listed = ["timestamp", "power.draw", *ALL_FIELDS]
+    assert rx.gpu_telemetry_plan(listed, None) == {"query": BASE_QUERY, "extra_fields": [], "missing_fields": [], "throttle_field": None}
     assert rx.gpu_telemetry_plan(listed, "none")["query"] == BASE_QUERY
     board = rx.gpu_telemetry_plan(listed, "board")                           # the driver lists module.* everywhere; board never asks
-    assert board["query"] == BASE_QUERY + ",power.draw.average,power.draw.instant" and board["missing_fields"] == []
+    assert board["query"] == BASE_QUERY + f",power.draw.average,power.draw.instant,{THROTTLE}" and board["missing_fields"] == []
     module = rx.gpu_telemetry_plan(listed, "module")
-    assert module["extra_fields"] == list(ALL_POWER_FIELDS) and module["query"] == BASE_QUERY + "," + ",".join(ALL_POWER_FIELDS)
+    assert module["extra_fields"] == [*ALL_POWER_FIELDS, THROTTLE]
+    assert module["query"] == BASE_QUERY + "," + ",".join([*ALL_POWER_FIELDS, THROTTLE]) and module["throttle_field"] == THROTTLE
     old_driver = rx.gpu_telemetry_plan(["timestamp", "power.draw"], "module")
-    assert old_driver["query"] == BASE_QUERY and old_driver["extra_fields"] == [] and old_driver["missing_fields"] == list(ALL_POWER_FIELDS)
+    assert old_driver["query"] == BASE_QUERY and old_driver["extra_fields"] == []
+    assert old_driver["missing_fields"] == [*ALL_POWER_FIELDS, THROTTLE] and old_driver["throttle_field"] is None
     partial = rx.gpu_telemetry_plan(["power.draw", "power.draw.instant", "module.power.draw.instant"], "module")
     assert partial["extra_fields"] == ["power.draw.instant", "module.power.draw.instant"]
-    assert partial["missing_fields"] == ["power.draw.average", "module.power.draw.average"]
+    assert partial["missing_fields"] == ["power.draw.average", "module.power.draw.average", THROTTLE]
     assert BASE_QUERY.split(",") == rx.gpu_telemetry_plan(listed, "module")["query"].split(",")[:9]    # existing columns never move
+
+
+def test_the_throttle_reasons_field_is_the_one_name_the_driver_lists():
+    base = ["power.draw", "power.draw.average", "power.draw.instant"]
+    assert rx.gpu_telemetry_plan([*base, THROTTLE, OLD_THROTTLE], "board")["extra_fields"][-1] == THROTTLE      # new name preferred, one field only
+    assert rx.gpu_telemetry_plan([*base, THROTTLE, OLD_THROTTLE], "board")["extra_fields"].count(OLD_THROTTLE) == 0
+    older = rx.gpu_telemetry_plan([*base, OLD_THROTTLE], "board")
+    assert older["extra_fields"][-1] == OLD_THROTTLE and older["throttle_field"] == OLD_THROTTLE and older["missing_fields"] == []
+    neither = rx.gpu_telemetry_plan(base, "board")
+    assert neither["throttle_field"] is None and neither["missing_fields"] == [THROTTLE] and THROTTLE not in neither["query"]
+    assert rx.gpu_telemetry_plan([*base, THROTTLE], "none")["query"] == BASE_QUERY      # Paper 1 and scope none never ask for it
+    assert rx.gpu_telemetry_plan([*base, THROTTLE], None)["query"] == BASE_QUERY
 
 
 def test_board_scope_appends_the_listed_power_fields_to_the_one_poller(monkeypatch, layout, smi):
     schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
     command, kwargs = monitor_call(smi)
-    assert command[1] == f"--query-gpu={BASE_QUERY},power.draw.average,power.draw.instant"
+    assert command[1] == f"--query-gpu={BASE_QUERY},power.draw.average,power.draw.instant,{THROTTLE}"
     assert command[2:] == ["--format=csv", "-lms", "200"] and kwargs["env"]["TZ"] == "UTC"
     assert len([c for c, _ in smi.popen if c[0] == "nvidia-smi"]) == 1               # one always-on poller, not two
     telemetry = environment["gpu_telemetry"]
     assert telemetry["query"] == command[1].removeprefix("--query-gpu=")
-    assert telemetry["extra_fields"] == ["power.draw.average", "power.draw.instant"] and telemetry["missing_fields"] == []
+    assert telemetry["extra_fields"] == ["power.draw.average", "power.draw.instant", THROTTLE] and telemetry["missing_fields"] == []
     assert telemetry["driver_versions"] == ["570.148.08"] and telemetry["monitor_tz_env"] == "UTC"
     assert "power.draw.instant" in telemetry["fields_listed_by_driver"] and "module.power.draw.instant" in telemetry["fields_listed_by_driver"]
     assert telemetry["field_detection_command"] == ["nvidia-smi", "--help-query-gpu"]
@@ -144,8 +168,8 @@ def test_board_scope_appends_the_listed_power_fields_to_the_one_poller(monkeypat
 def test_module_scope_adds_the_module_fields(monkeypatch, layout, smi):
     _, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "module")
     command, _ = monitor_call(smi)
-    assert command[1].removeprefix("--query-gpu=").split(",")[9:] == list(ALL_POWER_FIELDS)
-    assert environment["gpu_telemetry"]["extra_fields"] == list(ALL_POWER_FIELDS)
+    assert command[1].removeprefix("--query-gpu=").split(",")[9:] == [*ALL_POWER_FIELDS, THROTTLE]
+    assert environment["gpu_telemetry"]["extra_fields"] == [*ALL_POWER_FIELDS, THROTTLE]
 
 
 def test_a_driver_that_lists_fewer_fields_records_what_is_missing(monkeypatch, layout, smi):
@@ -153,7 +177,14 @@ def test_a_driver_that_lists_fewer_fields_records_what_is_missing(monkeypatch, l
     _, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
     assert monitor_call(smi)[0][1] == f"--query-gpu={BASE_QUERY},power.draw.instant"
     assert environment["gpu_telemetry"]["extra_fields"] == ["power.draw.instant"]
-    assert environment["gpu_telemetry"]["missing_fields"] == ["power.draw.average"]
+    assert environment["gpu_telemetry"]["missing_fields"] == ["power.draw.average", THROTTLE]
+
+
+def test_an_older_driver_with_only_the_throttle_name_it_knows(monkeypatch, layout, smi):
+    smi.fields = ("power.draw.average", "power.draw.instant", OLD_THROTTLE)
+    _, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    assert monitor_call(smi)[0][1].endswith(f",power.draw.average,power.draw.instant,{OLD_THROTTLE}")
+    assert environment["gpu_telemetry"]["missing_fields"] == []
 
 
 def test_module_scope_on_a_driver_without_module_fields_stops_before_anything_exists(monkeypatch, layout, smi, capsys):
@@ -196,11 +227,26 @@ def test_the_declared_scope_and_window_are_recorded_and_reach_the_worker(monkeyp
     assert command[command.index("--gpu-energy-scope") + 1] == "module" and command[command.index("--energy-window-s") + 1] == "10.0"
 
 
+def test_the_in_session_idle_windows_get_the_design_lengths_unless_flags_say_otherwise(monkeypatch, layout, smi):
+    _, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    command = FakePopen.launched[0]
+    assert command[command.index("--session-idle-seconds") + 1] == "30.0" and command[command.index("--session-idle-settle-seconds") + 1] == "60.0"
+    assert environment["paper3_energy"]["session_idle_seconds"] == 30.0 and environment["paper3_energy"]["session_idle_settle_seconds"] == 60.0
+    assert "session_idle_seconds" not in environment["arguments"]                    # the flags were not given: the defaults are in paper3_energy
+    layout.out.rename(layout.tmp / "first")
+    _, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "none", "--session-idle-seconds", "5",
+                                    "--session-idle-settle-seconds", "0")
+    command = FakePopen.launched[-1]
+    assert command[command.index("--session-idle-seconds") + 1] == "5.0" and command[command.index("--session-idle-settle-seconds") + 1] == "0.0"
+    assert environment["arguments"]["session_idle_seconds"] == 5.0 and environment["paper3_energy"]["session_idle_settle_seconds"] == 0.0
+
+
 def test_without_the_flags_the_paper3_arguments_are_not_recorded_or_passed(monkeypatch, layout, smi):
     _, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET)
     assert "gpu_energy_scope" not in environment["arguments"] and "energy_window_s" not in environment["arguments"]
     assert "paper3_energy" not in environment and "--gpu-energy-scope" not in FakePopen.launched[0]
     assert "--energy-window-s" not in FakePopen.launched[0] and not smi.power_calls
+    assert "--session-idle-seconds" not in FakePopen.launched[0] and "session_idle_seconds" not in environment["arguments"]
     assert monitor_call(smi)[1] == {"stdout": monitor_call(smi)[1]["stdout"], "stderr": rx.subprocess.STDOUT}
 
 
@@ -221,6 +267,7 @@ def test_the_probe_of_the_counter_is_told_the_scope(monkeypatch, layout, smi):
 def test_nvidia_smi_power_text_is_kept_at_each_sessions_start_and_end(monkeypatch, layout, smi):
     schedule, _ = run_experiment(monkeypatch, layout, ["polars", "spark_cpu"], *QUIET, "--gpu-energy-scope", "board")
     assert smi.power_calls == [0, 1, 1, 2]                                           # start, end of session 1; start, end of session 2
+    assert smi.performance_calls == [0, 1, 1, 2]
     for item in schedule:
         state = item["gpu_power_state"]
         assert set(state) == {"start", "end"} and item["status"] == "complete"
@@ -234,6 +281,28 @@ def test_nvidia_smi_power_text_is_kept_at_each_sessions_start_and_end(monkeypatc
         assert state["start"]["captured_utc"] <= state["end"]["captured_utc"]
     on_disk = json.loads((layout.out / "schedule.json").read_text())
     assert [i["gpu_power_state"]["start"]["file"] for i in on_disk] == [i["gpu_power_state"]["start"]["file"] for i in schedule]
+
+
+def test_nvidia_smi_performance_text_is_kept_beside_the_power_text(monkeypatch, layout, smi):
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    state = schedule[0]["gpu_performance_state"]
+    assert set(state) == {"start", "end"} and set(schedule[0]["gpu_power_state"]) == {"start", "end"}
+    for label in ("start", "end"):
+        entry = state[label]
+        assert entry["file"] == f"polars-gpu-performance-{label}.txt" and entry["command"] == ["nvidia-smi", "-q", "-d", "PERFORMANCE"]
+        text = (layout.out / "sf1" / entry["file"]).read_text()
+        assert "Clocks Event Reasons" in text and "00000000:CB:00.0" not in text and "GPU <redacted>" in text      # redacted too
+        assert entry["sha256"] == hashlib.sha256(text.encode()).hexdigest() and entry["returncode"] == 0
+    assert "PERFORMANCE" in environment["paper3_energy"]["gpu_performance_state"]
+    assert (layout.out / "sf1" / "polars-gpu-power-start.txt").is_file()             # the POWER files keep their names
+
+
+def test_scope_none_and_paper1_capture_no_performance_text(monkeypatch, layout, smi):
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "none")
+    assert "gpu_performance_state" not in schedule[0] and not smi.performance_calls
+    layout.out.rename(layout.tmp / "first")
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET)
+    assert "gpu_performance_state" not in schedule[0] and not smi.performance_calls
 
 
 def test_the_power_text_is_redacted_like_the_rest_of_the_inventory(monkeypatch, layout, smi):
@@ -274,6 +343,10 @@ def test_cpu_energy_scope_tags_are_recorded_from_the_sampler(monkeypatch, layout
     (["--gpu-energy-scope", "board", "--energy-window-s", "-3"], ["polars"], "positive"),
     (["--gpu-energy-scope", "none"], ["polars", "spark_gpu"], "GPU engine"),
     (["--gpu-energy-scope", "auto"], ["polars"], "invalid choice"),
+    (["--session-idle-seconds", "30"], ["polars"], "needs an explicit --gpu-energy-scope"),
+    (["--session-idle-settle-seconds", "60"], ["polars"], "needs an explicit --gpu-energy-scope"),
+    (["--gpu-energy-scope", "board", "--session-idle-seconds", "-1"], ["polars"], "non-negative"),
+    (["--gpu-energy-scope", "board", "--session-idle-settle-seconds", "inf"], ["polars"], "non-negative"),
 ])
 def test_invalid_energy_options_are_rejected_before_the_output_exists(monkeypatch, layout, smi, capsys, flags, engines, message):
     with pytest.raises(SystemExit) as raised:
@@ -342,7 +415,7 @@ def test_the_campaign_refuses_gpu_engines_on_a_host_declared_to_have_no_gpu_coun
 
 PAPER1_HEADER = ("timestamp, index, utilization.gpu [%], utilization.memory [%], memory.used [MiB], power.draw [W], temperature.gpu, "
                  "clocks.current.sm [MHz], clocks.current.memory [MHz]")
-PAPER3_HEADER = PAPER1_HEADER + ", power.draw.average [W], power.draw.instant [W], module.power.draw.average [W], module.power.draw.instant [W]"
+PAPER3_HEADER = PAPER1_HEADER + ", power.draw.average [W], power.draw.instant [W], module.power.draw.average [W], module.power.draw.instant [W], clocks_event_reasons.active"
 
 
 def write_gpu_csv(path, header, extra):
@@ -356,7 +429,7 @@ def write_gpu_csv(path, header, extra):
 
 def test_analysis_readers_take_power_draw_not_an_appended_power_field(tmp_path):
     old = write_gpu_csv(tmp_path / "old.csv", PAPER1_HEADER, "")
-    new = write_gpu_csv(tmp_path / "new.csv", PAPER3_HEADER, ", 7{i}.00 W, 8{i}.00 W, 9{i}.00 W, 6{i}.00 W")
+    new = write_gpu_csv(tmp_path / "new.csv", PAPER3_HEADER, ", 7{i}.00 W, 8{i}.00 W, 9{i}.00 W, 6{i}.00 W, 0x000000000000000{i}")
     assert AC.read_gpu_power(new) == AC.read_gpu_power(old)
     assert AC.read_gpu_power(new)[1] == [100.0, 101.0, 102.0, 103.0, 104.0, 105.0]
     assert AC.read_gpu_samples(new) == AC.read_gpu_samples(old)
@@ -365,7 +438,7 @@ def test_analysis_readers_take_power_draw_not_an_appended_power_field(tmp_path):
 
 def test_the_feasibility_reader_accepts_appended_columns_and_still_rejects_a_changed_header(tmp_path):
     old = write_gpu_csv(tmp_path / "old.csv", PAPER1_HEADER, "")
-    new = write_gpu_csv(tmp_path / "new.csv", PAPER3_HEADER, ", 70.00 W, 80.00 W, [N/A], [N/A]")
+    new = write_gpu_csv(tmp_path / "new.csv", PAPER3_HEADER, ", 70.00 W, 80.00 W, [N/A], [N/A], 0x0000000000000000")
     a, b = P3.read_gpu_csv(old), P3.read_gpu_csv(new)
     assert a.header_ok and b.header_ok and b.error is None
     for field in ("rows", "incomplete_rows", "draw_ok_rows", "draw_null_rows", "draw_na_rows", "draw_unparseable_rows",

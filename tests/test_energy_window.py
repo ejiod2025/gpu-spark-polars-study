@@ -40,9 +40,39 @@ def scoped(monkeypatch):
     monkeypatch.setattr(worker, "GpuEnergyReader", ScopedReader)
 
 
+NO_IDLE = ("--session-idle-seconds", "0")      # the in-session idle windows default to 2 x (60 s + 30 s) in Paper 3 mode: tests opt out
+
+
 def window_run(monkeypatch, tmp_path, data, engine="polars", runs=2, scope="board", target="5", extra=()):
+    idle = () if "--session-idle-seconds" in extra else NO_IDLE
     return run_worker(monkeypatch, tmp_path, data, engine, runs, "--gpu-device", "0", "--gpu-energy-scope", scope,
-                      "--energy-window-s", target, *extra)
+                      "--energy-window-s", target, *idle, *extra)
+
+
+class ScriptedClock:
+    """worker.time with a perf_counter whose timed regions last exactly the scripted seconds.
+
+    One query (--queries qa) makes two perf_counter calls for the session set-up, then two per run (start, end): the script is
+    the duration of the warm-up, then of every window run; the last value repeats when the script runs out."""
+
+    def __init__(self, monkeypatch, durations):
+        import itertools
+        import time as real
+        pairs = ((0.0, d) for d in durations)
+        self.steps = itertools.chain([0.0, 0.0], itertools.chain.from_iterable(pairs), itertools.cycle((0.0, durations[-1])))
+        self.now = 0.0
+        clone = types.SimpleNamespace(**{name: getattr(real, name) for name in dir(real) if not name.startswith("__")})
+        clone.perf_counter = self.perf_counter
+        monkeypatch.setattr(worker, "time", clone)
+
+    def perf_counter(self):
+        self.now += next(self.steps)
+        return self.now
+
+
+def scripted(monkeypatch, tmp_path, data, durations, target):
+    ScriptedClock(monkeypatch, durations)
+    return window_run(monkeypatch, tmp_path, data, runs=1, target=target, extra=("--queries", "qa"))
 
 
 def measured(result):
@@ -51,24 +81,52 @@ def measured(result):
 
 # ---- the rule -----------------------------------------------------------------------------------------------
 
-@pytest.mark.parametrize("t_hat, n", [(0.1, 50), (0.2, 50), (0.21, 48), (0.5, 20), (1.0, 10), (2.0, 5), (3.0, 4), (9.99, 2),
-                                      (5.0, 2), (10.0, 1), (10.01, 1), (30.0, 1), (1e-9, 50), (1e-320, 50)])
-def test_window_run_count_edges(t_hat, n):
-    assert pt.energy_window_runs(t_hat, 10.0) == n
+def runs_made(seconds, target, max_runs=50):
+    """n the stop rule makes for a sequence of per-run times: the first prefix after which the window may stop."""
+    for n in range(1, len(seconds) + 1):
+        if pt.energy_window_complete(seconds[:n], target, max_runs):
+            return n
+    return None
 
 
-def test_window_run_count_follows_the_target_and_the_cap():
-    assert pt.energy_window_runs(0.5, 1.0) == 2 and pt.energy_window_runs(0.5, 100.0) == 50
-    assert pt.energy_window_runs(0.5, 100.0, max_runs=7) == 7
+@pytest.mark.parametrize("seconds, target, n", [
+    ([30.0], 10.0, 1), ([10.0], 10.0, 1), ([9.99, 0.02], 10.0, 2), ([9.99, 0.01], 10.0, 2), ([0.1] * 200, 10.0, 50),
+    ([2.0] * 10, 10.0, 5), ([2.0, 2.0, 2.0, 2.0, 2.5], 10.0, 5), ([5.0, 5.0, 5.0], 10.0, 2), ([0.5, 0.5], 1.0, 2),
+    ([0.1, 0.1, 0.1, 6.0, 9.0], 5.0, 4), ([0.001] * 60, 10.0, 50), ([0.2] * 100, 10.0, 50), ([0.3] * 100, 10.0, 34)])
+def test_window_stop_rule_edges(seconds, target, n):
+    assert runs_made(seconds, target) == n
+    assert pt.energy_window_stop_violation(seconds[:n], target) is None            # what the rule makes is what the gate accepts
+
+
+def test_window_stop_rule_details():
+    assert pt.energy_window_complete([], 10.0) is False and pt.energy_window_complete([9.99], 10.0) is False
+    assert pt.energy_window_complete([10.0], 10.0) is True                         # reaching the target exactly stops the window
+    assert pt.energy_window_complete([0.001] * 49, 10.0) is False and pt.energy_window_complete([0.001] * 50, 10.0) is True
+    assert pt.energy_window_complete([1.0] * 7, 100.0, max_runs=7) is True
     assert pt.ENERGY_WINDOW_MAX_RUNS == 50
+    assert pt.energy_window_complete([4.0, 4.0, 2.0], 10.0) is True and pt.energy_window_complete([4.0, 4.0, 1.9], 10.0) is False
+
+
+@pytest.mark.parametrize("seconds, target, text", [
+    ([], 10.0, "no run"), ([1.0, 1.0, 1.0], 10.0, "stopped after 3 runs"), ([6.0, 6.0, 6.0], 10.0, "should have stopped"),
+    ([10.0, 1.0], 10.0, "should have stopped"), ([0.1] * 51, 100.0, "exceed the cap"), ([1.0, 0.0], 10.0, "positive finite"),
+    ([1.0, float("nan")], 10.0, "positive finite"), ([1.0], 0, "target_seconds")])
+def test_window_stop_violations_are_named(seconds, target, text):
+    assert text in pt.energy_window_stop_violation(seconds, target)
+
+
+def test_a_window_at_the_cap_may_stay_below_the_target_and_one_at_the_target_may_stop_early():
+    assert pt.energy_window_stop_violation([0.01] * 50, 10.0) is None              # cap reached: below the target is allowed
+    assert pt.energy_window_stop_violation([0.01] * 49, 10.0) is not None          # not the cap, not the target
+    assert pt.energy_window_stop_violation([3.0, 3.0, 4.5], 10.0) is None
 
 
 @pytest.mark.parametrize("bad", [0, -1.0, float("nan"), float("inf"), None, "2", True])
 def test_the_rule_is_never_applied_to_a_time_it_cannot_be_applied_to(bad):
     with pytest.raises(ValueError):
-        pt.energy_window_runs(bad, 10.0)
+        pt.energy_window_complete([1.0], bad)
     with pytest.raises(ValueError):
-        pt.energy_window_runs(1.0, bad)
+        pt.energy_window_complete([bad], 10.0)
 
 
 # ---- aggregation: window sums, gaps excluded ----------------------------------------------------------------
@@ -98,7 +156,8 @@ def test_window_energy_is_the_sum_of_the_runs_and_excludes_every_gap():
     energy = block["gpu_energy"]
     assert energy["window_delta_mj"] == 4500 and energy["per_run_delta_mj"] == 1500.0 and energy["valid_runs"] == 3
     assert block["n"] == 3 and block["window_seconds"] == pytest.approx(3.1) and block["per_run_seconds"] == pytest.approx(3.1 / 3)
-    assert block["below_target"] is True                                  # 3.1 s of runs against a 10 s target
+    assert block["below_target"] is True and block["stop_reason"] == "max_runs"      # 3.1 s of runs against a 10 s target
+    assert "t_hat" not in block["rule"] and "QA only" in block["t_hat_source"] and block["format"] == pt.ENERGY_WINDOW_FORMAT == 2
     assert block["span"]["seconds"] > block["window_seconds"] and block["span"]["gap_seconds"] > 0
     assert block["span"]["start_monotonic_ns"] == entries[0]["timed_start_monotonic_ns"]
     assert block["span"]["end_monotonic_ns"] == entries[-1]["timed_end_monotonic_ns"]
@@ -131,13 +190,14 @@ def test_one_unreadable_run_voids_the_window_energy_but_not_its_time():
     energy = block["gpu_energy"]
     assert energy["window_delta_mj"] is None and energy["per_run_delta_mj"] is None
     assert energy["valid_runs"] == 2 and energy["invalid_runs"] == [2] and energy["scope_tag"] == "none"
-    assert block["window_seconds"] == 3.0 and block["below_target"] is False
+    assert block["window_seconds"] == 3.0 and block["below_target"] is False and block["stop_reason"] == "target_reached"
 
 
 def test_a_single_run_window_is_still_a_window():
     block = pt.aggregate_energy_window(synthetic_runs([700], [12.0]), scope="module", source=pt.GPU_ENERGY_NVML, device=0,
                                        target_seconds=10.0, t_hat_seconds=12.0)
     assert block["n"] == 1 and block["per_run_seconds"] == 12.0 and block["gpu_energy"]["per_run_delta_mj"] == 700.0
+    assert block["stop_reason"] == "target_reached"
     assert block["gpu_energy"]["scope_tag"] == "S1-module" and block["span"]["gap_seconds"] == pytest.approx(0.0, abs=1e-6)
 
 
@@ -228,7 +288,7 @@ def test_cpu_energy_scope_tags_follow_the_sampler_report():
 
 # ---- the worker in window mode --------------------------------------------------------------------------------
 
-def test_a_measured_trial_is_a_window_of_the_rules_n_runs(monkeypatch, tmp_path, worker_data, scoped):
+def test_a_measured_trial_is_a_window_of_back_to_back_runs_that_follow_the_stop_rule(monkeypatch, tmp_path, worker_data, scoped):
     install_fake_suite(monkeypatch)
     result = window_run(monkeypatch, tmp_path, worker_data)
     warm = {r["query"]: r for r in result["records"] if r["phase"] == "warmup"}
@@ -237,9 +297,10 @@ def test_a_measured_trial_is_a_window_of_the_rules_n_runs(monkeypatch, tmp_path,
     assert result["energy_window_rule"]["target_seconds"] == 5 and result["energy_window_rule"]["max_runs"] == 50
     for record in rows:
         block = record["energy_window"]
-        t_hat = warm[record["query"]]["seconds"]                                  # t_hat is that query's warmup time
-        assert block["t_hat_seconds"] == t_hat and block["target_seconds"] == 5
-        assert block["n"] == pt.energy_window_runs(t_hat, 5) == len(block["runs"]) > 1
+        assert block["t_hat_seconds"] == warm[record["query"]]["seconds"]         # recorded for QA: the query's warmup time
+        assert block["target_seconds"] == 5 and block["n"] == len(block["runs"]) > 1
+        assert pt.energy_window_stop_violation([r["seconds"] for r in block["runs"]], 5) is None
+        assert block["stop_reason"] == "max_runs" and block["below_target"] is True   # 50 runs of a millisecond cannot reach 5 s
         assert block["window_seconds"] == pytest.approx(sum(r["seconds"] for r in block["runs"]))
         assert record["seconds"] == block["per_run_seconds"] == pytest.approx(block["window_seconds"] / block["n"])
         assert "gpu_energy" not in record                                         # the window replaces the single-run value
@@ -310,7 +371,8 @@ def test_scope_none_reads_no_counter_and_tags_none(monkeypatch, tmp_path, worker
     def forbidden(*args, **kwargs):
         raise AssertionError("no GPU counter is read on a host declared --gpu-energy-scope none")
     monkeypatch.setattr(worker, "GpuEnergyReader", forbidden)
-    result = run_worker(monkeypatch, tmp_path, worker_data, "polars", 2, "--gpu-energy-scope", "none", "--energy-window-s", "0.02")
+    result = run_worker(monkeypatch, tmp_path, worker_data, "polars", 2, "--gpu-energy-scope", "none", "--energy-window-s", "0.02",
+                        *NO_IDLE)
     assert result["gpu_energy_counter"] == {"source": "disabled", "scope": "none", "scope_tag": "none"}
     assert result["energy_scope"]["gpu_counter_scope_tag"] == "none"
     for record in measured(result):
@@ -319,12 +381,12 @@ def test_scope_none_reads_no_counter_and_tags_none(monkeypatch, tmp_path, worker
         assert all("gpu_energy" not in run for run in record["energy_window"]["runs"])
 
 
-def test_a_window_of_one_run_when_the_warmup_is_longer_than_the_target(monkeypatch, tmp_path, worker_data, scoped):
+def test_a_window_of_one_run_when_the_first_run_reaches_the_target(monkeypatch, tmp_path, worker_data, scoped):
     install_fake_suite(monkeypatch)
     result = window_run(monkeypatch, tmp_path, worker_data, target="0.0000001")
     for record in measured(result):
         block = record["energy_window"]
-        assert block["n"] == 1 and len(block["runs"]) == 1 and block["below_target"] is False
+        assert block["n"] == 1 and len(block["runs"]) == 1 and block["below_target"] is False and block["stop_reason"] == "target_reached"
         assert record["seconds"] == block["runs"][0]["seconds"]
         assert block["gpu_energy"]["window_delta_mj"] == block["gpu_energy"]["per_run_delta_mj"] == 2500
 
@@ -334,6 +396,36 @@ def test_the_run_count_is_capped_at_fifty(monkeypatch, tmp_path, worker_data, sc
     result = window_run(monkeypatch, tmp_path, worker_data, runs=1, target="1000")
     assert {r["energy_window"]["n"] for r in measured(result)} == {50}
     assert all(len(r["energy_window"]["runs"]) == 50 for r in measured(result))
+    assert all(r["energy_window"]["stop_reason"] == "max_runs" and r["energy_window"]["below_target"] for r in measured(result))
+
+
+@pytest.mark.parametrize("script, target, n, reason", [
+    ([0.5, 0.2, 0.2, 0.2, 0.2, 0.2], "0.7", 4, "target_reached"),        # 0.2 x 4 = 0.8 >= 0.7 > 0.6; the warm-up (0.5 s) does not count
+    ([0.1, 5.0], "3", 1, "target_reached"),                              # the first run alone reaches the target
+    ([100.0, 0.2], "0.7", 4, "target_reached"),                          # a huge warm-up changes nothing: t_hat is QA only
+    ([0.0005, 0.4], "0.7", 2, "target_reached"),                         # a tiny warm-up neither
+    ([0.001, 0.001], "1", 50, "max_runs"),                               # 50 runs of a millisecond: capped, below the target
+    ([0.3, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], "0.65", 7, "target_reached")])
+def test_n_follows_the_elapsed_time_of_the_runs_not_the_warmup(monkeypatch, tmp_path, worker_data, scoped, script, target, n, reason):
+    install_fake_suite(monkeypatch)
+    result = scripted(monkeypatch, tmp_path, worker_data, script, target)
+    for record in measured(result):
+        block = record["energy_window"]
+        assert block["n"] == n == len(block["runs"]) and block["stop_reason"] == reason
+        assert block["t_hat_seconds"] == pytest.approx(script[0]) and block["target_seconds"] == float(target)
+        assert block["window_seconds"] == pytest.approx(sum(r["seconds"] for r in block["runs"]))
+        assert block["below_target"] == (reason == "max_runs")
+        assert pt.energy_window_stop_violation([r["seconds"] for r in block["runs"]], float(target)) is None
+        assert record["seconds"] == pytest.approx(block["window_seconds"] / n)
+    assert not preflight.energy_window_problems(result, result["records"])
+
+
+def test_trials_of_one_query_may_differ_in_n(monkeypatch, tmp_path, worker_data, scoped):
+    install_fake_suite(monkeypatch)
+    ScriptedClock(monkeypatch, [0.1, 0.3, 0.3, 0.3, 0.9, 0.9])               # warm-up; trial 1 needs 3 runs of 0.3; trial 2 one of 0.9
+    result = window_run(monkeypatch, tmp_path, worker_data, runs=2, target="0.8", extra=("--queries", "qa"))
+    assert [r["energy_window"]["n"] for r in measured(result)] == [3, 1]
+    assert not preflight.energy_window_problems(result, result["records"])
 
 
 def test_a_spark_cpu_window_runs_n_times_with_the_first_runs_plan(monkeypatch, tmp_path, worker_data, scoped):
@@ -423,7 +515,7 @@ def test_the_later_runs_of_a_window_are_checked_against_the_first(monkeypatch, t
         value = {4: 1.0 + 1e-12, 5: 2.0}.get(seen[query], 1.0) if query == "qa" else 1.0
         return pl.LazyFrame({"k": [1], query: [value]})
     monkeypatch.setattr(sys.modules["workloads"], "polars_query", drifting)
-    monkeypatch.setattr(worker, "energy_window_runs", lambda t_hat, target: 4)
+    monkeypatch.setattr(worker, "energy_window_complete", lambda seconds, target, max_runs=50: len(seconds) >= 4)
     result = window_run(monkeypatch, tmp_path, worker_data, runs=1, target="5")
     qa = next(r for r in measured(result) if r["query"] == "qa")["energy_window"]["runs"]
     qb = next(r for r in measured(result) if r["query"] == "qb")["energy_window"]["runs"]
@@ -438,7 +530,7 @@ def test_the_later_runs_of_a_window_are_checked_against_the_first(monkeypatch, t
     assert bad["rows"] == [{"k": 1, "qa": 2.0}]                                            # the evidence of the disagreement is kept
     flagged = preflight.energy_window_problems(dict(result, engine="polars"), result["records"])
     assert preflight.G2 in flagged.gates() and any("qa/measured1 run 4" in text for text in flagged.texts())
-    assert preflight.G1 in flagged.gates()     # n was forced to 4 here, which the gate sees: the rule gives 5 s / t_hat runs
+    assert preflight.G1 in flagged.gates()     # n was forced to 4 here, which the gate sees: 4 ms of runs is neither the target nor the cap
 
 
 def test_a_failing_run_voids_the_window_and_the_query_is_not_run_again(monkeypatch, tmp_path, worker_data, scoped):
@@ -503,6 +595,9 @@ def test_the_gate_catches_a_window_that_broke_the_rule(monkeypatch, tmp_path, wo
     assert not good
     first = next(r for r in result["records"] if r["phase"] == "measured")
     for mutate, gate in ((lambda b: b.update(n=b["n"] + 1), "G1"),
+                         (lambda b: b["runs"].pop(), "G1"),                       # 49 runs of a millisecond: neither the target nor the cap
+                         (lambda b: b.update(target_seconds=b["target_seconds"] * 2), "G1"),
+                         (lambda b: b.update(window_seconds=b["window_seconds"] * 2), "G1"),
                          (lambda b: b.update(t_hat_seconds=b["t_hat_seconds"] * 2), "G1"),
                          (lambda b: b["runs"][1]["output_check"].update(agrees=False, mismatch_count=3), "G2"),
                          (lambda b: b["gpu_energy"].pop("scope_tag"), "G1")):
@@ -560,3 +655,106 @@ def test_the_workers_row_comparison_is_the_preflight_g2_rule(expected, actual):
     assert (passed, count) == (verdict["passed"], verdict["mismatch_count"])
     assert (first is None) == passed
     assert (worker.ROW_REL_TOL, worker.ROW_ABS_TOL) == (preflight.REL_TOL, preflight.ABS_TOL)
+
+
+# ---- the in-session idle windows (design section 2.2) ---------------------------------------------------------------
+
+IDLE = ("--session-idle-seconds", "0.06", "--session-idle-settle-seconds", "0.03")
+
+
+def test_the_design_defaults_of_the_idle_windows():
+    assert (pt.SESSION_IDLE_SECONDS, pt.SESSION_IDLE_SETTLE_SECONDS) == (30.0, 60.0)
+
+
+def test_two_idle_windows_bracket_the_session_with_the_engine_ready(monkeypatch, tmp_path, worker_data, scoped):
+    install_fake_suite(monkeypatch)
+    result = window_run(monkeypatch, tmp_path, worker_data, runs=1, target="0.0000001", extra=IDLE)
+    before, after = result["idle_windows"]
+    assert [w["label"] for w in result["idle_windows"]] == ["before_warmups", "after_last_trial"]
+    assert result["session_idle_rule"]["enabled"] is True and result["session_idle_rule"]["window_seconds"] == 0.06
+    assert result["session_idle_rule"]["settle_seconds"] == 0.03
+    records = result["records"]
+    assert before["end_monotonic_ns"] < records[0]["timed_start_monotonic_ns"]                # nothing ran before it but the set-up
+    assert after["start_monotonic_ns"] > records[-1]["timed_end_monotonic_ns"]                 # nothing runs after it
+    assert before["end_monotonic_ns"] < after["start_monotonic_ns"]
+    for window in (before, after):
+        settle = window["settle"]
+        assert settle["requested_seconds"] == 0.03 and (settle["end_monotonic_ns"] - settle["start_monotonic_ns"]) / 1e9 >= 0.03
+        assert settle["end_monotonic_ns"] <= window["start_monotonic_ns"]                       # the settle precedes the window
+        assert window["requested_seconds"] == 0.06 and window["actual_seconds"] >= 0.06
+        assert (window["end_monotonic_ns"] - window["start_monotonic_ns"]) / 1e9 == window["actual_seconds"]
+        for key in ("start_utc", "end_utc"):
+            assert len(window[key].split(".")[1]) == len("123456+00:00")                        # UTC with microseconds, as every stamp
+        energy = window["gpu_energy"]
+        assert energy["scope_tag"] == "S1-counter" and energy["delta_mj"] == 2500 and energy["unit"] == "mJ"
+        assert energy["start_read_monotonic_ns"][0] >= settle["end_monotonic_ns"]               # read after the settle, outside the window
+        assert energy["start_read_monotonic_ns"][1] <= window["start_monotonic_ns"]
+        assert window["end_monotonic_ns"] <= energy["end_read_monotonic_ns"][0]
+        assert window["energy_interval_seconds"] == pytest.approx(window["actual_seconds"], abs=0.01)
+        assert window["mean_power_w"] == pytest.approx(2.5 / window["energy_interval_seconds"])
+    assert result["active_query"] is None
+    assert measured(result) and all("energy_window" in r for r in measured(result))             # the windows do not disturb the trials
+
+
+def test_the_idle_windows_are_reported_by_a_session_without_the_window_rule_too(monkeypatch, tmp_path, worker_data, scoped):
+    install_fake_suite(monkeypatch)
+    result = run_worker(monkeypatch, tmp_path, worker_data, "polars", 1, "--gpu-device", "0", "--gpu-energy-scope", "module", *IDLE)
+    assert len(result["idle_windows"]) == 2 and "energy_window_rule" not in result
+    assert {w["gpu_energy"]["scope_tag"] for w in result["idle_windows"]} == {"S1-module"}
+    assert all("energy_window" not in r for r in result["records"])
+
+
+def test_the_idle_windows_use_the_design_lengths_unless_a_flag_says_otherwise(monkeypatch, tmp_path, worker_data, scoped):
+    install_fake_suite(monkeypatch)
+    monkeypatch.setattr(worker, "SESSION_IDLE_SECONDS", 0.04)                                    # stand-ins for the 30 s and 60 s defaults
+    monkeypatch.setattr(worker, "SESSION_IDLE_SETTLE_SECONDS", 0.02)
+    result = run_worker(monkeypatch, tmp_path, worker_data, "polars", 1, "--gpu-energy-scope", "board")
+    assert [(w["requested_seconds"], w["settle"]["requested_seconds"]) for w in result["idle_windows"]] == [(0.04, 0.02)] * 2
+
+
+def test_zero_disables_the_idle_windows_and_paper1_has_none(monkeypatch, tmp_path, worker_data, scoped):
+    install_fake_suite(monkeypatch)
+    off = run_worker(monkeypatch, tmp_path / "off", worker_data, "polars", 1, "--gpu-energy-scope", "board", "--session-idle-seconds", "0")
+    assert off["idle_windows"] == [] and off["session_idle_rule"]["enabled"] is False
+    plain = run_worker(monkeypatch, tmp_path / "plain", worker_data, "polars", 1)
+    assert "idle_windows" not in plain and "session_idle_rule" not in plain
+
+
+def test_idle_windows_on_a_host_without_a_gpu_counter_still_carry_stamps(monkeypatch, tmp_path, worker_data):
+    install_fake_suite(monkeypatch)
+    result = run_worker(monkeypatch, tmp_path, worker_data, "polars", 1, "--gpu-energy-scope", "none", *IDLE)
+    for window in result["idle_windows"]:
+        assert window["gpu_energy"] == {"source": "disabled", "scope_tag": "none"}
+        assert window["mean_power_w"] is None and window["energy_interval_seconds"] is None
+        assert window["start_monotonic_ns"] < window["end_monotonic_ns"] and window["settle"]["start_monotonic_ns"]       # CPU energy can be cut
+
+
+def test_an_unreadable_counter_gives_idle_windows_without_power(monkeypatch, tmp_path, worker_data):
+    install_fake_suite(monkeypatch)
+    monkeypatch.setattr(worker, "GpuEnergyReader", lambda device, scope=None: pt.GpuEnergyReader(
+        device, nvml=FakeNvml(not_supported=True), which=lambda name: None, scope=scope))
+    result = run_worker(monkeypatch, tmp_path, worker_data, "polars", 1, "--gpu-energy-scope", "board", *IDLE)
+    for window in result["idle_windows"]:
+        assert window["gpu_energy"]["scope_tag"] == "none" and window["gpu_energy"]["delta_mj"] is None and window["mean_power_w"] is None
+
+
+@pytest.mark.parametrize("flags, message", [(["--session-idle-seconds", "5"], "needs an explicit --gpu-energy-scope"),
+                                            (["--session-idle-settle-seconds", "5"], "needs an explicit --gpu-energy-scope"),
+                                            (["--gpu-energy-scope", "board", "--session-idle-seconds", "-1"], "non-negative"),
+                                            (["--gpu-energy-scope", "board", "--session-idle-settle-seconds", "nan"], "non-negative")])
+def test_invalid_idle_options_are_rejected_before_anything_runs(monkeypatch, tmp_path, worker_data, capsys, flags, message):
+    install_fake_suite(monkeypatch)
+    with pytest.raises(SystemExit) as raised:
+        run_worker(monkeypatch, tmp_path, worker_data, "polars", 1, *flags)
+    assert raised.value.code == 2 and message in capsys.readouterr().err and not (tmp_path / "out-polars").exists()
+
+
+def test_idle_window_power_from_the_counter_reads():
+    energy = {"delta_mj": 90_000, "start_read_monotonic_ns": [1_000, 3_000], "end_read_monotonic_ns": [30_000_001_000, 30_000_003_000]}
+    seconds, watts = pt.idle_window_power_w(energy)
+    assert seconds == 30.0 and watts == 3.0                              # 90 J over the 30 s between the midpoints of the two reads
+    for bad in (None, {}, {"delta_mj": None}, {"delta_mj": True, "start_read_monotonic_ns": [1, 2], "end_read_monotonic_ns": [3, 4]},
+                {"delta_mj": -5, "start_read_monotonic_ns": [1, 2], "end_read_monotonic_ns": [3, 4]},
+                {"delta_mj": 5, "start_read_monotonic_ns": [3, 4], "end_read_monotonic_ns": [1, 2]},
+                {"delta_mj": 5, "start_read_monotonic_ns": [1, 2]}):
+        assert pt.idle_window_power_w(bad) == (None, None)

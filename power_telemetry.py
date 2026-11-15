@@ -47,7 +47,9 @@ Paper 3 mode (opt-in; with none of its flags every record and description is the
 operator per host class (GPU_ENERGY_SCOPES: board = whole GPU board, S1-counter; module = Grace + GPU + memory on GH200, S1-module; none = no
 GPU counter in use), never inferred. Every energy value then carries one of SCOPE_TAGS (S1-counter | S1-sampled | S1-module | S2-pinned |
 S2-all | S3 | none), and describe() words its semantics by the declared scope. A measured trial can be a window of n back-to-back runs
-(energy_window_runs, aggregate_energy_window): window energy is the sum of the runs' own counter differences, never end minus start.
+(energy_window_complete, aggregate_energy_window): runs continue until their summed timed time reaches the target or the cap, and window
+energy is the sum of the runs' own counter differences, never end minus start. A session can hold two idle windows with the engine ready
+(idle_window_power_w): the host is left alone for a settle period, then the counter is read at both ends of a fixed-length window.
 
 The sidecar does not record the hostname unless asked (include_hostname / --include-hostname): cloud hostnames can encode the
 public IP and these files are meant to be published. Nothing else this module writes contains one.
@@ -131,8 +133,11 @@ GPU_SCOPE_SEMANTICS = {
               "(see --probe-gpu-energy)",
     "none": "no GPU energy counter is used on this host (declared with --gpu-energy-scope none)",
 }
-ENERGY_WINDOW_MAX_RUNS = 50              # design section 2.1: n = clamp(ceil(10 s / t_hat), 1, 50)
-ENERGY_WINDOW_FORMAT = 1
+ENERGY_WINDOW_MAX_RUNS = 50              # design section 2.1: runs continue until their summed timed time reaches the target or 50 runs
+ENERGY_WINDOW_FORMAT = 2                 # 2: n is set by elapsed time while the window runs (1: n was set in advance from t_hat)
+# Design section 2.2: per session two idle windows with the engine ready and no query running, each preceded by >= 60 s without load.
+SESSION_IDLE_SECONDS = 30.0
+SESSION_IDLE_SETTLE_SECONDS = 60.0
 CPU_ENERGY_MODES = ("auto", "require", "off")
 MPOL_BIND = 2
 # set_mempolicy and get_mempolicy: Linux syscall numbers per architecture (used only when libnuma cannot be loaded)
@@ -692,20 +697,51 @@ def require_scope_tag(value) -> str:
     return tag
 
 
-def energy_window_runs(t_hat_seconds, target_seconds, max_runs=ENERGY_WINDOW_MAX_RUNS) -> int:
-    """Runs per measured trial (design section 2.1): n = clamp(ceil(target / t_hat), 1, max_runs).
-
-    t_hat is the query's warmup time in the same session. n is 1 when t_hat >= target. ValueError for a t_hat or target
-    that is not a positive finite number: the rule is never applied to a value it cannot be applied to."""
-    for name, value in (("t_hat_seconds", t_hat_seconds), ("target_seconds", target_seconds)):
-        if not (isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value > 0):
-            raise ValueError(f"{name} must be a positive finite number, got {value!r}")
-    ratio = target_seconds / t_hat_seconds
-    return max_runs if ratio >= max_runs else max(1, math.ceil(ratio))
+def _positive_seconds(name, value):
+    if not (isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value > 0):
+        raise ValueError(f"{name} must be a positive finite number, got {value!r}")
 
 
-def aggregate_energy_window(runs, *, scope, source, device, target_seconds, t_hat_seconds, max_runs=ENERGY_WINDOW_MAX_RUNS) -> dict:
+def energy_window_complete(run_seconds, target_seconds, max_runs=ENERGY_WINDOW_MAX_RUNS) -> bool:
+    """Whether a window may stop after the runs made so far (design section 2.1).
+
+    Runs continue until the summed timed time of the window's runs reaches target_seconds or max_runs runs have been made,
+    whichever comes first; n is the number of runs made, so n is 1 when the first run takes target_seconds or longer. n
+    depends only on elapsed time. ValueError for a non-positive or non-finite time: the rule is never applied to a value it
+    cannot be applied to."""
+    _positive_seconds("target_seconds", target_seconds)
+    for index, seconds in enumerate(run_seconds, start=1):
+        _positive_seconds(f"run {index} seconds", seconds)
+    return len(run_seconds) >= max_runs or math.fsum(run_seconds) >= target_seconds
+
+
+def energy_window_stop_violation(run_seconds, target_seconds, max_runs=ENERGY_WINDOW_MAX_RUNS):
+    """None when a finished window's runs are exactly what the stop rule makes, else a sentence saying how they are not.
+
+    Valid: the first n-1 runs sum to less than the target (the window had to continue), and either all n runs reach the
+    target or n is max_runs (the window could stop)."""
+    n = len(run_seconds)
+    try:
+        _positive_seconds("target_seconds", target_seconds)
+        for index, seconds in enumerate(run_seconds, start=1):
+            _positive_seconds(f"run {index} seconds", seconds)
+    except ValueError as exc:
+        return str(exc)
+    if n < 1:
+        return "the window has no run"
+    if n > max_runs:
+        return f"{n} runs exceed the cap of {max_runs}"
+    if n > 1 and math.fsum(run_seconds[:-1]) >= target_seconds:
+        return f"the first {n - 1} runs already sum to {math.fsum(run_seconds[:-1]):.6g} s >= {target_seconds:g} s: the window should have stopped"
+    if n < max_runs and math.fsum(run_seconds) < target_seconds:
+        return f"stopped after {n} runs at {math.fsum(run_seconds):.6g} s < {target_seconds:g} s with fewer than {max_runs} runs"
+    return None
+
+
+def aggregate_energy_window(runs, *, scope, source, device, target_seconds, t_hat_seconds=None, max_runs=ENERGY_WINDOW_MAX_RUNS) -> dict:
     """The "energy_window" block of one measured trial from its n per-run entries.
+
+    t_hat_seconds is the query's warmup time, recorded for QA only: it does not set n.
 
     Every entry carries seconds, the four timed_* stamps and gpu_energy (a tagged gpu_energy_window() value, or None).
     Window time and window energy are sums over the runs' own timed regions and counter differences: the gaps between
@@ -732,11 +768,13 @@ def aggregate_energy_window(runs, *, scope, source, device, target_seconds, t_ha
         energy["invalid_runs"] = [i + 1 for i, d in enumerate(deltas) if d not in valid]
     return {
         "format": ENERGY_WINDOW_FORMAT,
-        "rule": "n = clamp(ceil(target_seconds / t_hat_seconds), 1, max_runs); n = 1 when t_hat_seconds >= target_seconds",
+        "rule": "runs continue until the summed timed time of the window's runs reaches target_seconds or max_runs runs have been "
+                "made; n = runs made; n = 1 when the first run takes target_seconds or longer",
         "target_seconds": target_seconds, "max_runs": max_runs,
-        "t_hat_seconds": t_hat_seconds, "t_hat_source": "seconds of this query's warmup record in this session",
+        "t_hat_seconds": t_hat_seconds, "t_hat_source": "QA only, does not set n: seconds of this query's warmup record in this session",
         "n": n, "window_seconds": window_seconds, "per_run_seconds": window_seconds / n,
         "below_target": window_seconds < target_seconds,
+        "stop_reason": "target_reached" if window_seconds >= target_seconds else "max_runs",
         "span": {"start_utc": first["timed_start_utc"], "end_utc": last["timed_end_utc"],
                  "start_monotonic_ns": first["timed_start_monotonic_ns"], "end_monotonic_ns": last["timed_end_monotonic_ns"],
                  "seconds": span_ns / 1e9, "gap_seconds": span_ns / 1e9 - window_seconds},
@@ -753,6 +791,23 @@ def energy_window_per_run_j(record):
     if isinstance(per_run, bool) or not isinstance(per_run, (int, float)) or not per_run >= 0:
         return None
     return per_run / 1000.0, require_scope_tag(energy)
+
+
+def idle_window_power_w(energy):
+    """(interval seconds, mean watts) of an idle window's gpu_energy_window() value, or (None, None) when it has no usable delta.
+
+    The interval is the time between the midpoints of the two counter reads: that is the span the counter difference
+    describes (the reads sit just outside the window's stamps)."""
+    if not isinstance(energy, dict):
+        return None, None
+    delta, start, end = energy.get("delta_mj"), energy.get("start_read_monotonic_ns"), energy.get("end_read_monotonic_ns")
+    if isinstance(delta, bool) or not isinstance(delta, int) or delta < 0:
+        return None, None
+    try:
+        seconds = ((end[0] + end[1]) / 2 - (start[0] + start[1]) / 2) / 1e9
+    except (TypeError, IndexError):
+        return None, None
+    return (seconds, delta / 1000.0 / seconds) if seconds > 0 else (None, None)
 
 
 def gpu_energy_resolution_verdict(record, update_interval_ms, factor=10):

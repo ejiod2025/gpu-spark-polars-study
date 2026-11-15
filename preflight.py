@@ -722,9 +722,11 @@ def warm_rows(session: dict) -> dict:
 def energy_window_problems(session: dict, records: list) -> Problems:
     """The window-mode (Paper 3) records of one session against the rule they were made under; empty when the rule was off.
 
-    Per measured record: the window has n runs, n is what the rule gives for the query's warmup time, every later run's output
-    agrees with run 1 (G2; run 1 itself is compared with the polars reference by the agreement check), a spark_gpu run kept
-    its GPU plan (G4), and the energy carries a valid scope tag."""
+    Per measured record: the window stopped exactly where the rule says (the runs before the last sum to less than the target,
+    and the last either brings the sum to the target or is run number max_runs; n is the number of runs held), the warmup time
+    is recorded as t_hat (QA only; it does not set n), every later run's output agrees with run 1 (G2; run 1 itself is compared
+    with the polars reference by the agreement check), a spark_gpu run kept its GPU plan (G4), and the energy carries a valid
+    scope tag."""
     rule = session.get("energy_window_rule")
     problems = Problems()
     windows = {id(r): r["energy_window"] for r in records if isinstance(r.get("energy_window"), dict)}
@@ -744,16 +746,20 @@ def energy_window_problems(session: dict, records: list) -> Problems:
             problems.add(f"{label}: no energy_window although the session ran with the window rule", G1)
             continue
         runs = block.get("runs") or []
-        try:
-            expected = power_telemetry.energy_window_runs(warmup.get(record["query"]), rule["target_seconds"],
-                                                          rule.get("max_runs", power_telemetry.ENERGY_WINDOW_MAX_RUNS))
-        except (ValueError, KeyError) as exc:
-            problems.add(f"{label}: the window rule cannot be recomputed from the warmup record ({exc})", G1)
-            continue
+        violation = power_telemetry.energy_window_stop_violation(
+            [run.get("seconds") for run in runs], rule.get("target_seconds"), rule.get("max_runs", power_telemetry.ENERGY_WINDOW_MAX_RUNS))
+        if violation:
+            problems.add(f"{label}: the window does not follow the stop rule: {violation}", G1)
+        if block.get("n") != len(runs):
+            problems.add(f"{label}: window says n={block.get('n')!r} but holds {len(runs)} runs", G1)
+        window_seconds = block.get("window_seconds")
+        if not (isinstance(window_seconds, (int, float)) and math.isclose(window_seconds, math.fsum(
+                r.get("seconds") for r in runs if isinstance(r.get("seconds"), (int, float))), rel_tol=1e-9, abs_tol=1e-12)):
+            problems.add(f"{label}: window_seconds {window_seconds!r} is not the sum of its runs' seconds", G1)
+        if block.get("target_seconds") != rule.get("target_seconds"):
+            problems.add(f"{label}: window target {block.get('target_seconds')!r} is not the session's {rule.get('target_seconds')!r}", G1)
         if block.get("t_hat_seconds") != warmup.get(record["query"]):
             problems.add(f"{label}: t_hat {block.get('t_hat_seconds')!r} is not the warmup time {warmup.get(record['query'])!r}", G1)
-        if block.get("n") != expected or len(runs) != expected:
-            problems.add(f"{label}: window has n={block.get('n')!r} with {len(runs)} runs, the rule gives {expected}", G1)
         try:
             power_telemetry.require_scope_tag((block.get("gpu_energy") or {}))
         except ValueError as exc:
