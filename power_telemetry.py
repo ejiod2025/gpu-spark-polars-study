@@ -43,6 +43,12 @@ load) synchronously, so worker.py can read it immediately before and after each 
 record. Source order: NVML through ctypes on libnvidia-ml.so.1 (no Python package needed), then pynvml, then
 `nvidia-smi --query-gpu=total_energy_consumption` (absent on some drivers), else "unavailable". `--probe-gpu-energy` reports how the counter really advances (update interval, step size, read latency).
 
+Paper 3 mode (opt-in; with none of its flags every record and description is the Paper 1 one). What the counter measures is declared by the
+operator per host class (GPU_ENERGY_SCOPES: board = whole GPU board, S1-counter; module = Grace + GPU + memory on GH200, S1-module; none = no
+GPU counter in use), never inferred. Every energy value then carries one of SCOPE_TAGS (S1-counter | S1-sampled | S1-module | S2-pinned |
+S2-all | S3 | none), and describe() words its semantics by the declared scope. A measured trial can be a window of n back-to-back runs
+(energy_window_runs, aggregate_energy_window): window energy is the sum of the runs' own counter differences, never end minus start.
+
 The sidecar does not record the hostname unless asked (include_hostname / --include-hostname): cloud hostnames can encode the
 public IP and these files are meant to be published. Nothing else this module writes contains one.
 
@@ -76,6 +82,7 @@ from datetime import datetime, timezone
 import errno
 import importlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -108,6 +115,24 @@ GPU_ENERGY_CTYPES = "nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption"
 GPU_ENERGY_NVML = "pynvml.nvmlDeviceGetTotalEnergyConsumption"
 GPU_ENERGY_SMI = "nvidia-smi:total_energy_consumption"
 GPU_ENERGY_UNAVAILABLE = "unavailable"
+# Scope tags (docs/PAPER3_ENERGY_DESIGN.md section 2.4): every energy value written in Paper 3 mode carries exactly one.
+SCOPE_S1_COUNTER, SCOPE_S1_SAMPLED, SCOPE_S1_MODULE = "S1-counter", "S1-sampled", "S1-module"
+SCOPE_S2_PINNED, SCOPE_S2_ALL, SCOPE_S3, SCOPE_NONE = "S2-pinned", "S2-all", "S3", "none"
+SCOPE_TAGS = (SCOPE_S1_COUNTER, SCOPE_S1_SAMPLED, SCOPE_S1_MODULE, SCOPE_S2_PINNED, SCOPE_S2_ALL, SCOPE_S3, SCOPE_NONE)
+# --gpu-energy-scope: what the GPU energy counter of this host class measures. Declared by the operator, never inferred
+# from the hardware. "none" declares a host with no GPU counter in use (the CPU-only host).
+GPU_ENERGY_SCOPES = ("board", "module", "none")
+GPU_SCOPE_TAG = {"board": SCOPE_S1_COUNTER, "module": SCOPE_S1_MODULE, "none": SCOPE_NONE}
+GPU_SCOPE_SEMANTICS = {
+    "board": "cumulative whole-board energy of this device since the driver was loaded; take the difference of two reads; "
+             "update granularity is host-specific (see --probe-gpu-energy)",
+    "module": "cumulative whole-module energy (Grace CPU, GPU and memory of the Grace-Hopper module, not GPU-only) of this "
+              "device since the driver was loaded; take the difference of two reads; update granularity is host-specific "
+              "(see --probe-gpu-energy)",
+    "none": "no GPU energy counter is used on this host (declared with --gpu-energy-scope none)",
+}
+ENERGY_WINDOW_MAX_RUNS = 50              # design section 2.1: n = clamp(ceil(10 s / t_hat), 1, 50)
+ENERGY_WINDOW_FORMAT = 1
 CPU_ENERGY_MODES = ("auto", "require", "off")
 MPOL_BIND = 2
 # set_mempolicy and get_mempolicy: Linux syscall numbers per architecture (used only when libnuma cannot be loaded)
@@ -198,6 +223,18 @@ def record_window(record: dict) -> dict:
     record = record if isinstance(record, dict) else {}
     return {"basis": "legacy", "start_utc": record.get("started_at_utc"), "end_utc": record.get("ended_at_utc"),
             "start_monotonic_ns": None, "end_monotonic_ns": None}
+
+
+def record_run_windows(record: dict) -> list:
+    """The windows to integrate CPU energy over for one results.json record, as record_window() dicts.
+
+    One per run of an energy window (Paper 3 window rule): the gaps between the runs are in none of them. A record without
+    an energy_window (Paper 1, or a warmup) has its single window."""
+    block = record.get("energy_window") if isinstance(record, dict) else None
+    runs = block.get("runs") if isinstance(block, dict) else None
+    if isinstance(runs, list) and runs and all(isinstance(run, dict) for run in runs):
+        return [record_window(run) for run in runs]
+    return [record_window(record)]
 
 
 # ---- reading ----------------------------------------------------------------------------------------
@@ -530,8 +567,10 @@ class GpuEnergyReader:
     both NVML candidates with an injected module; ctypes_loader, which and run are injectable for tests.
     """
 
-    def __init__(self, device=0, *, nvml=None, ctypes_loader=None, which=None, run=None):
-        self.device = device
+    def __init__(self, device=0, *, nvml=None, ctypes_loader=None, which=None, run=None, scope=None):
+        if scope is not None and scope not in GPU_ENERGY_SCOPES:
+            raise ValueError(f"scope {scope!r} is not one of {GPU_ENERGY_SCOPES}")
+        self.device, self.scope = device, scope
         self.which, self.run = which or shutil.which, run or subprocess.run
         self.source, self.reasons = GPU_ENERGY_UNAVAILABLE, []
         self.nvml = self.handle = None
@@ -587,9 +626,13 @@ class GpuEnergyReader:
         return out
 
     def describe(self) -> dict:
-        return {"source": self.source, "unit": "mJ", "device_index": self.device, "reasons": list(self.reasons),
-                "semantics": "cumulative whole-board energy of this device since the driver was loaded; take the "
-                             "difference of two reads; update granularity is host-specific (see --probe-gpu-energy)"}
+        """The counter's source and what it measures. Without a declared scope (Paper 1) the text is the original one;
+        with one (Paper 3) the text follows the scope, and scope and scope_tag are added."""
+        out = {"source": self.source, "unit": "mJ", "device_index": self.device, "reasons": list(self.reasons),
+               "semantics": GPU_SCOPE_SEMANTICS["board" if self.scope is None else self.scope]}
+        if self.scope is not None:
+            out.update(scope=self.scope, scope_tag=gpu_energy_scope_tag(self.scope, self.source))
+        return out
 
 
 def gpu_energy_window(source: str, device: int, start: dict, end: dict, timed_start_mono=None, timed_end_mono=None) -> dict:
@@ -624,6 +667,92 @@ def gpu_energy_delta_j(record):
     energy = record.get("gpu_energy") if isinstance(record, dict) else None
     delta = energy.get("delta_mj") if isinstance(energy, dict) else None
     return delta / 1000.0 if isinstance(delta, int) and not isinstance(delta, bool) and delta >= 0 else None
+
+
+def gpu_energy_scope_tag(scope, source=None, has_value=True) -> str:
+    """Scope tag of one GPU energy value: the declared scope's tag, or "none" when there is no counter value to tag
+    (scope declared none, source unavailable, or the read failed)."""
+    if scope not in GPU_SCOPE_TAG:
+        raise ValueError(f"scope {scope!r} is not one of {GPU_ENERGY_SCOPES}")
+    if scope == "none" or source == GPU_ENERGY_UNAVAILABLE or not has_value:
+        return SCOPE_NONE
+    return GPU_SCOPE_TAG[scope]
+
+
+def tag_gpu_energy(window: dict, scope) -> dict:
+    """A gpu_energy_window() value with its scope tag added (Paper 3 mode); the value itself is untouched."""
+    return {**window, "scope_tag": gpu_energy_scope_tag(scope, window.get("source"), window.get("delta_mj") is not None)}
+
+
+def require_scope_tag(value) -> str:
+    """The tag of an energy value, or ValueError when it is missing or not one of SCOPE_TAGS (analysis refuses untagged values)."""
+    tag = value.get("scope_tag") if isinstance(value, dict) else value
+    if tag not in SCOPE_TAGS:
+        raise ValueError(f"energy value without a valid scope tag ({tag!r}); expected one of {SCOPE_TAGS}")
+    return tag
+
+
+def energy_window_runs(t_hat_seconds, target_seconds, max_runs=ENERGY_WINDOW_MAX_RUNS) -> int:
+    """Runs per measured trial (design section 2.1): n = clamp(ceil(target / t_hat), 1, max_runs).
+
+    t_hat is the query's warmup time in the same session. n is 1 when t_hat >= target. ValueError for a t_hat or target
+    that is not a positive finite number: the rule is never applied to a value it cannot be applied to."""
+    for name, value in (("t_hat_seconds", t_hat_seconds), ("target_seconds", target_seconds)):
+        if not (isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value > 0):
+            raise ValueError(f"{name} must be a positive finite number, got {value!r}")
+    ratio = target_seconds / t_hat_seconds
+    return max_runs if ratio >= max_runs else max(1, math.ceil(ratio))
+
+
+def aggregate_energy_window(runs, *, scope, source, device, target_seconds, t_hat_seconds, max_runs=ENERGY_WINDOW_MAX_RUNS) -> dict:
+    """The "energy_window" block of one measured trial from its n per-run entries.
+
+    Every entry carries seconds, the four timed_* stamps and gpu_energy (a tagged gpu_energy_window() value, or None).
+    Window time and window energy are sums over the runs' own timed regions and counter differences: the gaps between
+    runs (plan serialisation, cleanup, bookkeeping) are in neither, although the counter advanced during them.
+    Per-run values are the window value divided by n. An energy value is only produced when every run has a valid
+    counter difference; otherwise it is None and invalid_runs names the runs."""
+    n = len(runs)
+    if n < 1:
+        raise ValueError("an energy window needs at least one run")
+    window_seconds = math.fsum(r["seconds"] for r in runs)
+    first, last = runs[0], runs[-1]
+    span_ns = last["timed_end_monotonic_ns"] - first["timed_start_monotonic_ns"]
+    deltas = [(r.get("gpu_energy") or {}).get("delta_mj") for r in runs]
+    valid = [d for d in deltas if isinstance(d, int) and not isinstance(d, bool) and d >= 0]
+    counted = scope != "none" and source != GPU_ENERGY_UNAVAILABLE
+    complete = counted and len(valid) == n
+    overhangs = [(r.get("gpu_energy") or {}).get("overhang_ns_max") for r in runs]
+    energy = {"scope_tag": gpu_energy_scope_tag(scope, source, complete), "source": source, "unit": "mJ",
+              "device_index": device, "valid_runs": len(valid) if counted else 0,
+              "window_delta_mj": sum(valid) if complete else None,
+              "per_run_delta_mj": sum(valid) / n if complete else None,
+              "overhang_ns_max_sum": sum(overhangs) if complete and all(isinstance(o, int) for o in overhangs) else None}
+    if counted and not complete:
+        energy["invalid_runs"] = [i + 1 for i, d in enumerate(deltas) if d not in valid]
+    return {
+        "format": ENERGY_WINDOW_FORMAT,
+        "rule": "n = clamp(ceil(target_seconds / t_hat_seconds), 1, max_runs); n = 1 when t_hat_seconds >= target_seconds",
+        "target_seconds": target_seconds, "max_runs": max_runs,
+        "t_hat_seconds": t_hat_seconds, "t_hat_source": "seconds of this query's warmup record in this session",
+        "n": n, "window_seconds": window_seconds, "per_run_seconds": window_seconds / n,
+        "below_target": window_seconds < target_seconds,
+        "span": {"start_utc": first["timed_start_utc"], "end_utc": last["timed_end_utc"],
+                 "start_monotonic_ns": first["timed_start_monotonic_ns"], "end_monotonic_ns": last["timed_end_monotonic_ns"],
+                 "seconds": span_ns / 1e9, "gap_seconds": span_ns / 1e9 - window_seconds},
+        "gpu_energy": energy,
+        "runs": list(runs),
+    }
+
+
+def energy_window_per_run_j(record):
+    """(joules per run, scope tag) of a window-mode results.json record, or None (not a window record, or no valid energy)."""
+    window = record.get("energy_window") if isinstance(record, dict) else None
+    energy = window.get("gpu_energy") if isinstance(window, dict) else None
+    per_run = energy.get("per_run_delta_mj") if isinstance(energy, dict) else None
+    if isinstance(per_run, bool) or not isinstance(per_run, (int, float)) or not per_run >= 0:
+        return None
+    return per_run / 1000.0, require_scope_tag(energy)
 
 
 def gpu_energy_resolution_verdict(record, update_interval_ms, factor=10):
@@ -665,6 +794,28 @@ def probe_gpu_energy_resolution(reader, duration=1.0, clock=time.monotonic_ns) -
             "nondecreasing": all(b[1] >= a[1] for a, b in zip(reads, reads[1:])),
             "note": "update_interval_ms is the spacing of observed value changes: the finest time resolution of a "
                     "counter difference; a timed run shorter than it has an energy delta of 0 or one step"}
+
+
+def cpu_energy_scope_tags(report: dict) -> dict:
+    """{scope tag: what carries it} for the CPU-side series of a PowerSampler report (Paper 3 mode).
+
+    powercap-rapl and amd-energy give one counter per socket and DRAM domain: S2-all is every sampled zone, S2-pinned the
+    pinned sockets' zones when the run is pinned and attribution is possible. perf-stat and turbostat sum all sockets
+    (S2-all only). ipmi-dcmi is whole-node power (S3). With no CPU energy source the only tag is "none": no model value is
+    ever substituted."""
+    tags = {}
+    source = report.get("cpu_energy_source")
+    attribution = (report.get("pinning") or {}).get("attribution") or {}
+    if source in ("powercap-rapl", "amd-energy"):
+        tags[SCOPE_S2_ALL] = {"source": source, "what": "every sampled socket and DRAM zone"}
+        if attribution.get("possible"):
+            tags[SCOPE_S2_PINNED] = {"source": source, "pinned_sockets": attribution.get("pinned_sockets"),
+                                     "zones": attribution.get("pinned_zones")}
+    elif source in ("perf-stat", "turbostat"):
+        tags[SCOPE_S2_ALL] = {"source": source, "what": "all sockets summed; not attributable to one socket"}
+    if report.get("node_power_source"):
+        tags[SCOPE_S3] = {"source": report["node_power_source"], "what": "whole-node power from the BMC"}
+    return tags or {SCOPE_NONE: {"what": "no CPU energy source on this host"}}
 
 
 # ---- the sampler -------------------------------------------------------------------------------------
@@ -1625,6 +1776,9 @@ def main(argv=None) -> int:
     parser.add_argument("--probe-gpu-energy", action="store_true",
                         help="report the GPU energy counter source and how it advances over --duration seconds (3 if none)")
     parser.add_argument("--gpu-device", type=int, default=0)
+    parser.add_argument("--gpu-energy-scope", choices=GPU_ENERGY_SCOPES,
+                        help="with --probe-gpu-energy: the scope the operator declares for the counter (Paper 3); adds scope "
+                             "and scope_tag to the report and words its semantics text accordingly")
     parser.add_argument("--topology", action="store_true",
                         help="print this host's sockets (CPU lists, physical cores, NUMA nodes): what --socket/--cpu-list select")
     parser.add_argument("--probe-membind", action="store_true",
@@ -1675,7 +1829,7 @@ def main(argv=None) -> int:
         print()
         return 0 if verdict["ok"] else 4
     if args.probe_gpu_energy:
-        reader = GpuEnergyReader(args.gpu_device)
+        reader = GpuEnergyReader(args.gpu_device, scope=args.gpu_energy_scope)
         report = {**reader.describe(), "resolution": probe_gpu_energy_resolution(reader, args.duration)
                   if reader.source != GPU_ENERGY_UNAVAILABLE else None}
         json.dump(report, sys.stdout, indent=2, default=str)

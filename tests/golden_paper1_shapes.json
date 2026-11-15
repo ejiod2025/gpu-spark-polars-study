@@ -1,0 +1,662 @@
+{
+ "energy_counter_description": {
+  "device_index": 0,
+  "reasons": [],
+  "semantics": "cumulative whole-board energy of this device since the driver was loaded; take the difference of two reads; update granularity is host-specific (see --probe-gpu-energy)",
+  "source": "pynvml.nvmlDeviceGetTotalEnergyConsumption",
+  "unit": "mJ"
+ },
+ "run_experiment_polars": {
+  "environment": {
+   "arguments": {
+    "cleanup_timeout_seconds": "int",
+    "cpu_energy": "str",
+    "cpu_list": "NoneType",
+    "cpus": "int",
+    "data_root": "str",
+    "driver_memory": "str",
+    "engine_order": "NoneType",
+    "engine_timeout_seconds": "NoneType",
+    "engines": [
+     "str"
+    ],
+    "gpu_energy": "str",
+    "gpu_idle_timeout_seconds": "int",
+    "idle_baseline_seconds": "float",
+    "ipmi_interval_seconds": "float",
+    "jar": "str",
+    "keep_going": "bool",
+    "no_membind": "bool",
+    "output": "str",
+    "polars_gpu_executor": "str",
+    "polars_gpu_executor_options": "str",
+    "power_interval_ms": "float",
+    "power_telemetry": "str",
+    "queries": [
+     "str"
+    ],
+    "query_cleanup": "str",
+    "redact_gpu_identifiers": "str",
+    "runs": "int",
+    "scales": [
+     "str"
+    ],
+    "socket": "NoneType",
+    "spark_gpu_conf_file": "NoneType",
+    "spark_gpu_profile": "str",
+    "suite": "str"
+   },
+   "cpu_energy_gate": "NoneType",
+   "cpu_pinning": {
+    "affinity": "<platform dependent>",
+    "pinned": "bool"
+   },
+   "engine_order": "NoneType",
+   "gpu_energy_counter": {
+    "error": "str",
+    "source": "str"
+   },
+   "gpu_engine_options": {
+    "polars_gpu_executor": "str",
+    "polars_gpu_executor_options": {},
+    "spark_gpu_conf_file": "NoneType",
+    "spark_gpu_conf_file_sha256": "NoneType",
+    "spark_gpu_extra_conf": {},
+    "spark_gpu_profile": "str"
+   },
+   "gpu_telemetry": {
+    "anchor_after_launch": {
+     "monotonic_ns": "int",
+     "uncertainty_ns": "int",
+     "utc": "str"
+    },
+    "anchor_before_launch": {
+     "monotonic_ns": "int",
+     "uncertainty_ns": "int",
+     "utc": "str"
+    },
+    "interval_ms": "int",
+    "started": "bool",
+    "timestamp_column": "str",
+    "timestamp_format": "str",
+    "timezone": "<platform dependent>"
+   },
+   "platform": "str",
+   "power_telemetry": {
+    "enabled": "bool"
+   },
+   "python": "str",
+   "redactions": {
+    "counts": {},
+    "fields": [
+     "str"
+    ],
+    "gpu_identifiers": "str",
+    "scope": "str"
+   },
+   "source_sha256": "<platform dependent>",
+   "started_at_utc": "str"
+  },
+  "files": [
+   "environment.json",
+   "gpu.csv",
+   "host.csv",
+   "schedule.json",
+   "sf1"
+  ],
+  "inventory_commands": [
+   [
+    "lscpu"
+   ],
+   [
+    "free",
+    "-b"
+   ],
+   [
+    "df",
+    "-B1"
+   ],
+   [
+    "nvidia-smi",
+    "-q"
+   ],
+   [
+    "java",
+    "-version"
+   ],
+   [
+    "<python>",
+    "-m",
+    "pip",
+    "freeze"
+   ],
+   [
+    "nvidia-smi",
+    "topo",
+    "-m"
+   ],
+   [
+    "nvidia-smi",
+    "--query-gpu=name,driver_version,memory.total",
+    "--format=csv"
+   ],
+   [
+    "<python>",
+    "-c",
+    "\nimport importlib, importlib.metadata as metadata, json\nout = {\"distributions\": {}, \"imports\": {}}\nfor dist in (\"polars\", \"cudf-polars-cu12\", \"cudf-polars-cu13\", \"cudf-cu12\", \"cudf-cu13\",\n             \"pylibcudf-cu12\", \"pylibcudf-cu13\", \"rmm-cu12\", \"rmm-cu13\", \"rapidsmpf-cu12\",\n             \"rapidsmpf-cu13\", \"cuda-python\", \"cuda-bindings\", \"nvidia-ml-py\"):\n    try:\n        out[\"distributions\"][dist] = metadata.version(dist)\n    except metadata.PackageNotFoundError:\n        pass\nfor name in (\"cudf_polars\", \"pylibcudf\", \"rmm\", \"cuda.bindings\", \"pynvml\"):\n    try:\n        module = importlib.import_module(name)\n        out[\"imports\"][name] = str(getattr(module, \"__version__\", \"imported\"))\n    except Exception as exc:\n        out[\"imports\"][name] = (\"unavailable: %s: %s\" % (type(exc).__name__, exc))[:300]\ntry:\n    from cuda.bindings import runtime\n    out[\"cuda_runtime_version\"] = runtime.cudaRuntimeGetVersion()[1]\n    out[\"cuda_driver_version\"] = runtime.cudaDriverGetVersion()[1]\nexcept Exception as exc:\n    out[\"cuda_versions_error\"] = (\"%s: %s\" % (type(exc).__name__, exc))[:300]\nprint(json.dumps(out, indent=2))\n"
+   ]
+  ],
+  "monitor_command_flags": [
+   "nvidia-smi",
+   "--query-gpu=timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem",
+   "--format=csv"
+  ],
+  "monitor_query": "--query-gpu=timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem",
+  "schedule": [
+   {
+    "command": [
+     "str"
+    ],
+    "engine": "str",
+    "preheat": {
+     "bytes": "int",
+     "seconds": "float"
+    },
+    "process_wall_seconds": "float",
+    "returncode": "int",
+    "scale": "str",
+    "start_utc": "str",
+    "status": "str"
+   }
+  ],
+  "worker_flags": [
+   "--engine",
+   "--data",
+   "--output",
+   "--runs",
+   "--suite",
+   "--query-cleanup",
+   "--cleanup-timeout-seconds",
+   "--queries"
+  ]
+ },
+ "worker_polars_counter": {
+  "measured_record": {
+   "cpu_core_operators": [],
+   "ended_at_utc": "str",
+   "gpu_energy": {
+    "delta_mj": "int",
+    "device_index": "int",
+    "end_mj": "int",
+    "end_read_latency_ns": "int",
+    "end_read_monotonic_ns": [
+     "int"
+    ],
+    "overhang_ns_max": "int",
+    "source": "str",
+    "start_mj": "int",
+    "start_read_latency_ns": "int",
+    "start_read_monotonic_ns": [
+     "int"
+    ],
+    "unit": "str"
+   },
+   "gpu_execution_class": "str",
+   "gpu_operators": [],
+   "gpu_plan_observed": "bool",
+   "peak_process_tree_rss_bytes": "int",
+   "phase": "str",
+   "plan": "str",
+   "query": "str",
+   "rows": [
+    {
+     "k": "int",
+     "qb": "float"
+    }
+   ],
+   "seconds": "float",
+   "started_at_utc": "str",
+   "timed_end_monotonic_ns": "int",
+   "timed_end_utc": "str",
+   "timed_start_monotonic_ns": "int",
+   "timed_start_utc": "str",
+   "trial": "int"
+  },
+  "record_order": [
+   [
+    "qa",
+    "warmup",
+    0
+   ],
+   [
+    "qb",
+    "warmup",
+    0
+   ],
+   [
+    "qb",
+    "measured",
+    1
+   ],
+   [
+    "qa",
+    "measured",
+    1
+   ],
+   [
+    "qb",
+    "measured",
+    2
+   ],
+   [
+    "qa",
+    "measured",
+    2
+   ]
+  ],
+  "top": {
+   "active_query": "NoneType",
+   "cache_policy": "str",
+   "cleanup_records": [],
+   "completed_at_utc": "str",
+   "cpu_affinity": "<platform dependent>",
+   "cpu_threads": "int",
+   "engine": "str",
+   "failure_policy": "str",
+   "gpu_energy_counter": {
+    "device_index": "int",
+    "reasons": [],
+    "source": "str",
+    "unit": "str"
+   },
+   "manifest_sha256": "str",
+   "pid": "int",
+   "polars_execution_engine": "str",
+   "queries": [
+    "str"
+   ],
+   "query_cleanup_policy": "str",
+   "query_descriptions": {
+    "qa": "str",
+    "qb": "str"
+   },
+   "query_errors": [],
+   "query_execution_status": "str",
+   "runs": "int",
+   "scale_factor": "int",
+   "session_and_table_setup_seconds": "float",
+   "started_at_utc": "str",
+   "suite": "str",
+   "suite_version": "str",
+   "timing_clock": {
+    "anchor": {
+     "monotonic_ns": "int",
+     "uncertainty_ns": "int",
+     "utc": "str"
+    },
+    "boundary": "str",
+    "monotonic": "str",
+    "wall": "str"
+   },
+   "timing_scope": "str",
+   "version": "str"
+  },
+  "warmup_record": {
+   "cpu_core_operators": [],
+   "ended_at_utc": "str",
+   "gpu_energy": {
+    "delta_mj": "int",
+    "device_index": "int",
+    "end_mj": "int",
+    "end_read_latency_ns": "int",
+    "end_read_monotonic_ns": [
+     "int"
+    ],
+    "overhang_ns_max": "int",
+    "source": "str",
+    "start_mj": "int",
+    "start_read_latency_ns": "int",
+    "start_read_monotonic_ns": [
+     "int"
+    ],
+    "unit": "str"
+   },
+   "gpu_execution_class": "str",
+   "gpu_operators": [],
+   "gpu_plan_observed": "bool",
+   "peak_process_tree_rss_bytes": "int",
+   "phase": "str",
+   "plan": "str",
+   "query": "str",
+   "rows": [
+    {
+     "k": "int",
+     "qa": "float"
+    }
+   ],
+   "seconds": "float",
+   "started_at_utc": "str",
+   "timed_end_monotonic_ns": "int",
+   "timed_end_utc": "str",
+   "timed_start_monotonic_ns": "int",
+   "timed_start_utc": "str",
+   "trial": "int"
+  }
+ },
+ "worker_polars_counter_unavailable": {
+  "measured_record": {
+   "cpu_core_operators": [],
+   "ended_at_utc": "str",
+   "gpu_energy": {
+    "delta_mj": "NoneType",
+    "device_index": "int",
+    "end_mj": "NoneType",
+    "source": "str",
+    "start_mj": "NoneType",
+    "unit": "str"
+   },
+   "gpu_execution_class": "str",
+   "gpu_operators": [],
+   "gpu_plan_observed": "bool",
+   "peak_process_tree_rss_bytes": "int",
+   "phase": "str",
+   "plan": "str",
+   "query": "str",
+   "rows": [
+    {
+     "k": "int",
+     "qb": "float"
+    }
+   ],
+   "seconds": "float",
+   "started_at_utc": "str",
+   "timed_end_monotonic_ns": "int",
+   "timed_end_utc": "str",
+   "timed_start_monotonic_ns": "int",
+   "timed_start_utc": "str",
+   "trial": "int"
+  },
+  "record_order": [
+   [
+    "qa",
+    "warmup",
+    0
+   ],
+   [
+    "qb",
+    "warmup",
+    0
+   ],
+   [
+    "qb",
+    "measured",
+    1
+   ],
+   [
+    "qa",
+    "measured",
+    1
+   ],
+   [
+    "qb",
+    "measured",
+    2
+   ],
+   [
+    "qa",
+    "measured",
+    2
+   ]
+  ],
+  "top": {
+   "active_query": "NoneType",
+   "cache_policy": "str",
+   "cleanup_records": [],
+   "completed_at_utc": "str",
+   "cpu_affinity": "<platform dependent>",
+   "cpu_threads": "int",
+   "engine": "str",
+   "failure_policy": "str",
+   "gpu_energy_counter": {
+    "device_index": "int",
+    "reasons": [
+     "str"
+    ],
+    "semantics": "str",
+    "source": "str",
+    "unit": "str"
+   },
+   "manifest_sha256": "str",
+   "pid": "int",
+   "polars_execution_engine": "str",
+   "queries": [
+    "str"
+   ],
+   "query_cleanup_policy": "str",
+   "query_descriptions": {
+    "qa": "str",
+    "qb": "str"
+   },
+   "query_errors": [],
+   "query_execution_status": "str",
+   "runs": "int",
+   "scale_factor": "int",
+   "session_and_table_setup_seconds": "float",
+   "started_at_utc": "str",
+   "suite": "str",
+   "suite_version": "str",
+   "timing_clock": {
+    "anchor": {
+     "monotonic_ns": "int",
+     "uncertainty_ns": "int",
+     "utc": "str"
+    },
+    "boundary": "str",
+    "monotonic": "str",
+    "wall": "str"
+   },
+   "timing_scope": "str",
+   "version": "str"
+  },
+  "warmup_record": {
+   "cpu_core_operators": [],
+   "ended_at_utc": "str",
+   "gpu_energy": {
+    "delta_mj": "NoneType",
+    "device_index": "int",
+    "end_mj": "NoneType",
+    "source": "str",
+    "start_mj": "NoneType",
+    "unit": "str"
+   },
+   "gpu_execution_class": "str",
+   "gpu_operators": [],
+   "gpu_plan_observed": "bool",
+   "peak_process_tree_rss_bytes": "int",
+   "phase": "str",
+   "plan": "str",
+   "query": "str",
+   "rows": [
+    {
+     "k": "int",
+     "qa": "float"
+    }
+   ],
+   "seconds": "float",
+   "started_at_utc": "str",
+   "timed_end_monotonic_ns": "int",
+   "timed_end_utc": "str",
+   "timed_start_monotonic_ns": "int",
+   "timed_start_utc": "str",
+   "trial": "int"
+  }
+ },
+ "worker_spark_cpu_counter": {
+  "measured_record": {
+   "cpu_core_operators": [
+    "str"
+   ],
+   "ended_at_utc": "str",
+   "gpu_energy": {
+    "delta_mj": "int",
+    "device_index": "int",
+    "end_mj": "int",
+    "end_read_latency_ns": "int",
+    "end_read_monotonic_ns": [
+     "int"
+    ],
+    "overhang_ns_max": "int",
+    "source": "str",
+    "start_mj": "int",
+    "start_read_latency_ns": "int",
+    "start_read_monotonic_ns": [
+     "int"
+    ],
+    "unit": "str"
+   },
+   "gpu_execution_class": "str",
+   "gpu_operators": [],
+   "gpu_plan_observed": "bool",
+   "peak_process_tree_rss_bytes": "int",
+   "phase": "str",
+   "plan": "str",
+   "query": "str",
+   "rows": [
+    {
+     "k": "int",
+     "total": "float"
+    }
+   ],
+   "seconds": "float",
+   "started_at_utc": "str",
+   "timed_end_monotonic_ns": "int",
+   "timed_end_utc": "str",
+   "timed_start_monotonic_ns": "int",
+   "timed_start_utc": "str",
+   "trial": "int"
+  },
+  "record_order": [
+   [
+    "qa",
+    "warmup",
+    0
+   ],
+   [
+    "qb",
+    "warmup",
+    0
+   ],
+   [
+    "qb",
+    "measured",
+    1
+   ],
+   [
+    "qa",
+    "measured",
+    1
+   ],
+   [
+    "qb",
+    "measured",
+    2
+   ],
+   [
+    "qa",
+    "measured",
+    2
+   ]
+  ],
+  "top": {
+   "active_query": "NoneType",
+   "cache_policy": "str",
+   "cleanup_records": [],
+   "completed_at_utc": "str",
+   "cpu_affinity": "<platform dependent>",
+   "cpu_threads": "int",
+   "engine": "str",
+   "failure_policy": "str",
+   "gpu_energy_counter": {
+    "device_index": "int",
+    "reasons": [],
+    "source": "str",
+    "unit": "str"
+   },
+   "manifest_sha256": "str",
+   "pid": "int",
+   "polars_execution_engine": "NoneType",
+   "queries": [
+    "str"
+   ],
+   "query_cleanup_policy": "str",
+   "query_descriptions": {
+    "qa": "str",
+    "qb": "str"
+   },
+   "query_errors": [],
+   "query_execution_status": "str",
+   "runs": "int",
+   "scale_factor": "int",
+   "session_and_table_setup_seconds": "float",
+   "spark_conf": {},
+   "started_at_utc": "str",
+   "suite": "str",
+   "suite_version": "str",
+   "timing_clock": {
+    "anchor": {
+     "monotonic_ns": "int",
+     "uncertainty_ns": "int",
+     "utc": "str"
+    },
+    "boundary": "str",
+    "monotonic": "str",
+    "wall": "str"
+   },
+   "timing_scope": "str",
+   "version": "str"
+  },
+  "warmup_record": {
+   "cpu_core_operators": [
+    "str"
+   ],
+   "ended_at_utc": "str",
+   "gpu_energy": {
+    "delta_mj": "int",
+    "device_index": "int",
+    "end_mj": "int",
+    "end_read_latency_ns": "int",
+    "end_read_monotonic_ns": [
+     "int"
+    ],
+    "overhang_ns_max": "int",
+    "source": "str",
+    "start_mj": "int",
+    "start_read_latency_ns": "int",
+    "start_read_monotonic_ns": [
+     "int"
+    ],
+    "unit": "str"
+   },
+   "gpu_execution_class": "str",
+   "gpu_operators": [],
+   "gpu_plan_observed": "bool",
+   "peak_process_tree_rss_bytes": "int",
+   "phase": "str",
+   "plan": "str",
+   "query": "str",
+   "rows": [
+    {
+     "k": "int",
+     "total": "float"
+    }
+   ],
+   "seconds": "float",
+   "started_at_utc": "str",
+   "timed_end_monotonic_ns": "int",
+   "timed_end_utc": "str",
+   "timed_start_monotonic_ns": "int",
+   "timed_start_utc": "str",
+   "trial": "int"
+  }
+ }
+}

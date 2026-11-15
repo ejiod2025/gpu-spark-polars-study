@@ -719,6 +719,57 @@ def warm_rows(session: dict) -> dict:
     return {query: rows[0] for query, rows in found.items() if len(rows) == 1 and isinstance(rows[0], list) and rows[0]}
 
 
+def energy_window_problems(session: dict, records: list) -> Problems:
+    """The window-mode (Paper 3) records of one session against the rule they were made under; empty when the rule was off.
+
+    Per measured record: the window has n runs, n is what the rule gives for the query's warmup time, every later run's output
+    agrees with run 1 (G2; run 1 itself is compared with the polars reference by the agreement check), a spark_gpu run kept
+    its GPU plan (G4), and the energy carries a valid scope tag."""
+    rule = session.get("energy_window_rule")
+    problems = Problems()
+    windows = {id(r): r["energy_window"] for r in records if isinstance(r.get("energy_window"), dict)}
+    if not rule:
+        for record in records:
+            if id(record) in windows:
+                problems.add(f"{record['query']}/{record['phase']}{record['trial']}: energy_window without the session's "
+                             "energy_window_rule", G1)
+        return problems
+    warmup = {r["query"]: r.get("seconds") for r in records if r.get("phase") == "warmup"}
+    for record in records:
+        if record.get("phase") != "measured":
+            continue
+        label = f"{record['query']}/measured{record['trial']}"
+        block = windows.get(id(record))
+        if block is None:
+            problems.add(f"{label}: no energy_window although the session ran with the window rule", G1)
+            continue
+        runs = block.get("runs") or []
+        try:
+            expected = power_telemetry.energy_window_runs(warmup.get(record["query"]), rule["target_seconds"],
+                                                          rule.get("max_runs", power_telemetry.ENERGY_WINDOW_MAX_RUNS))
+        except (ValueError, KeyError) as exc:
+            problems.add(f"{label}: the window rule cannot be recomputed from the warmup record ({exc})", G1)
+            continue
+        if block.get("t_hat_seconds") != warmup.get(record["query"]):
+            problems.add(f"{label}: t_hat {block.get('t_hat_seconds')!r} is not the warmup time {warmup.get(record['query'])!r}", G1)
+        if block.get("n") != expected or len(runs) != expected:
+            problems.add(f"{label}: window has n={block.get('n')!r} with {len(runs)} runs, the rule gives {expected}", G1)
+        try:
+            power_telemetry.require_scope_tag((block.get("gpu_energy") or {}))
+        except ValueError as exc:
+            problems.add(f"{label}: {exc}", G1)
+        for run in runs[1:]:
+            check = run.get("output_check") or {}
+            if check.get("agrees") is not True:
+                problems.add(f"{label} run {run.get('run')}: output differs from run 1 ({check.get('mismatch_count')} mismatches, "
+                             f"first {check.get('first_mismatch')})", G2)
+        if session.get("engine") == "spark_gpu" or any("gpu_execution_class" in run for run in runs):
+            for run in runs:
+                if run.get("gpu_execution_class") not in ("hybrid", "gpu_operators_present"):
+                    problems.add(f"{label} run {run.get('run')}: gpu_execution_class {run.get('gpu_execution_class')!r}", G4)
+    return problems
+
+
 def validate_engine(checks: Checks, tag: str, suite: str, queries, engine: str, session: dict, run_dir: Path,
                     scale_dir: Path, runs: int, args, reference_rows: dict | None, schedule_item: dict | None,
                     scale: str | None = None, is_reference: bool = False, schedule_entries: int = 1) -> dict:
@@ -918,6 +969,13 @@ def validate_engine(checks: Checks, tag: str, suite: str, queries, engine: str, 
                      f"{len(queries) - len(excluded)} queries x (1 warmup + {runs} measured), finite times, non-empty results",
                      gates=(G1,), session=sess)
 
+    # --- Paper 3 window rule (only in a session that ran with it)
+    window_problems = energy_window_problems(session, records)
+    if session.get("energy_window_rule") or window_problems:
+        checks.summarize(f"{tag}:{engine}:energy_windows", window_problems,
+                         "every measured trial is a window of the rule's n runs; later runs agree with run 1; energy is scope-tagged",
+                         gates=(G1, G2, G4), session=sess)
+
     # --- engine-specific contract
     problems, notes = Problems(), []
     expected_engine = {"polars": "streaming", "polars_gpu": "gpu"}.get(engine)
@@ -987,7 +1045,8 @@ def validate_engine(checks: Checks, tag: str, suite: str, queries, engine: str, 
                 problems.add("cleanup_records do not pair one-to-one with the query records", G5)
         elif formal and cleanup:
             problems.add("cleanup_records carry no phase/trial; cannot pair barriers with actions", G5)
-        not_passed = [c.get("query") for c in cleanup + failed_cleanup if c.get("status") != "passed"]
+        not_passed = [c.get("query") for c in cleanup + failed_cleanup + (session.get("window_cleanup_records") or [])
+                      if c.get("status") != "passed"]
         if not_passed:
             problems.add(f"cleanup barrier did not pass for {not_passed[:5]}", G5)
         if formal and len(failed_cleanup) != len(errors):

@@ -34,25 +34,33 @@ Same TPC-H-derived workload, engines and integrity gates as Paper 1 (not a certi
   timer) and reads the NVML counter (§2.3) just outside them; read latency and overhang are stored per run and summarised in
   the QA table (not a gate). CPU energy (§2.4) comes from the runner's 200 ms counter series (`power.csv`, same monotonic
   clock), interpolated linearly at the stamps. No cross-process clock alignment is needed.
-- **Window rule.** A measured trial is a window of `n` back-to-back runs of one query, `n = clamp(ceil(10 s / t_hat), 1,
-  50)`, `t_hat` = that query's warmup time in the same session (`n = 1` when `t_hat >= 10 s`). Window energy = sum of
-  per-run counter differences (gaps, cleanup and plan-explain excluded); per-run energy and time = window value / `n`. 3
-  trials per query; the median is the round's value (as Paper 1).
+- **Window rule.** A measured trial is a window of back-to-back runs of one query; runs continue until the summed timed time
+  of the window's runs reaches 10 s or 50 runs have been made, whichever comes first (`n` = runs made; `n = 1` when the
+  first run takes >= 10 s). Window energy = sum of per-run counter differences (gaps, cleanup and plan-explain excluded);
+  per-run energy and time = window value / `n`. 3 trials per query; the median is the round's value (as Paper 1). `n`
+  depends only on elapsed time, never on energy, so the trials of one query may differ in `n`. The warm-up time `t_hat` is
+  still recorded, for QA only; it no longer sets `n`. (Pre-lock correction 2026-11-15, §12: the first draft set `n =
+  clamp(ceil(10 s / t_hat), 1, 50)` from the warm-up time, but the warm-up is the cold first run, so it overstates the steady
+  per-run time and left windows short of 10 s.)
 - **Resolution.** The NVML counter updates every ~100 ms (P1) and the RAPL series every 200 ms, so each end of a run is
   uncertain by up to one update period: a 10 s window bounds this at 2% (NVML) or 4% (RAPL) for one run, and for `n` short
-  runs the errors are independent in expectation and add like sqrt(n), not n (P6, below: the H100's errors have mixed
-  signs, consistent with this; the A100's are one-sided, all 30 windows positive at every length, about 4-12 J per run, so
-  on A100 they do not average out like sqrt(n)). P6 measured this before the lock on synthetic pulses of known length:
-  the per-run counter error against the 20 ms integral of the instantaneous-power field that has the counter's scope
+  runs the errors are independent in expectation and add like sqrt(n), not n (P6, below: the H100's errors have mixed signs,
+  consistent with this; the A100's are one-sided, all 30 windows positive at every length, about 4-12 J per run, so on A100
+  they do not average out like sqrt(n)). P6 measured this before the lock on synthetic pulses of known length: the per-run
+  counter error against the 20 ms integral of the instantaneous-power field that has the counter's scope
   (`power.draw.instant` on H100 and A100; `module.power.draw.instant` on GH200, §2.3), for one isolated pulse and for
-  windows built by the window rule above (summed over the runs, gaps excluded).
-- **`t_min` is per host** (author decision 2026-11-15, §11 item 8.1). Rule: the smallest per-run length whose median
-  |error| is <= 2% and every longer length also is, taken from the windows-mode result (the mode the study uses), with the
-  locked 1 s default as a floor: `t_min(host) = max(1 s, measured)`. (The first draft worded the rule as "the shortest
-  per-run time at which the median error is <= 2%"; the "every longer length also" clause and |error| are the tool's
-  definition, `tools/paper3_probes/p3_gpu_probes.py`, and give the same `t_min` on every valid result below.) A cell whose
-  median trial has a summed window below 10 s or a per-run time below its host's `t_min` is "below measurement resolution",
-  never a number. The limit is not tuned to the observed values.
+  windows of `n = ceil(10 s / length)` runs of the known length, capped at 50 (summed over the runs, gaps excluded). For
+  runs of fixed length that is what the window rule above gives, up to timing jitter at exact multiples of the length (the
+  P6 windows of 0.1 s pulses stop at the cap of 50 runs, 5 s, as the rule does), so the P6-derived `t_min` applies to the
+  rule as worded now.
+- **`t_min` is per host** (author decision 2026-11-15, §11 item 8.1). Rule: the smallest per-run length whose median |error|
+  is <= 2% and every longer length also is, taken from the windows-mode result (the mode the study uses), with the locked
+  default of 1 s as a floor: `t_min(host) = max(1 s, measured)`. (The first draft worded the rule as "the shortest per-run time
+  at which the median error is <= 2%"; the "every longer length also" clause and |error| are the tool's definition,
+  `tools/paper3_probes/p3_gpu_probes.py`, and give the same `t_min` on every valid result below.) A cell whose median trial
+  has a summed window below 10 s or a per-run time below its host's `t_min` is "below measurement resolution", never a
+  number (a summed window below 10 s arises only when the cap of 50 runs is reached, an average run under 0.2 s, which is
+  also below any `t_min` >= 1 s). The limit is not tuned to the observed values.
 
   | Host (reference field) | median absolute error in %, windows mode, per-run length 0.1 / 0.25 / 0.5 / 1 / 2 / 5 s | measured `t_min`, windows / isolated | `t_min` used |
   |---|---|---|---|
@@ -71,9 +79,9 @@ Same TPC-H-derived workload, engines and integrity gates as Paper 1 (not a certi
   isolated pulses), a scope offset and not a resolution effect, so it yields no `t_min`. `t_min(GH200)` is **pending**: a
   P6-only rerun against `module.power.draw.instant` (`--p6-field` in `tools/paper3_probes/p3_gpu_probes.py`) is queued for
   when Lambda has GH200 capacity; the lock waits for it (§7.1).
-- **The isolated (single-run) `t_min` is never binding.** A window of one run (`n = 1`) arises only when `t_hat >= 10 s`,
-  and a cell whose median trial has a summed window below 10 s is "below measurement resolution" whatever its `t_min`; a
-  valid one-run window therefore has a per-run time >= 10 s, where the isolated P6 error is 0.34% (H100) and 0.22% (A100).
+- **The isolated (single-run) `t_min` is never binding.** A window of one run (`n = 1`) arises only when the first run takes
+  >= 10 s (otherwise the window continues), and a summed window below 10 s arises only when the cap of 50 runs is reached;
+  so every valid one-run window has a per-run time >= 10 s, where the isolated P6 error is 0.34% (H100) and 0.22% (A100).
   The A100's isolated 5 s is thus never reached by a valid cell; the windows-mode value above is the one used.
 
 ### 2.2 Idle baseline, both ways
@@ -560,7 +568,9 @@ that Paper 3 omits). GPU host = (2 x that time + 3 h set-up for two launches) x 
 C-GCP = (2 x 9.25 h x 0.75 (CPU engines assumed <= 75% of a four-engine round) + 2 h set-up + 0.5 h boot) x 1.2 = 20 h.
 **Instrumentation overhead** (P5 confirms): the §2.2 brackets cost 180 s per session (256 sessions per GPU host, 128 on
 C-GCP) and the window rule at most 180 s more per session where queries run under 10 s (half the sessions), x 1.2: 23.0 h
-per GPU host, 11.5 h on C-GCP.
+per GPU host, 11.5 h on C-GCP. Checked against the window rule as reworded on 2026-11-15 (§2.1): the 180 s is 6 queries x 3
+trials x 10 s (both suites have 6 queries), and for runs of equal length T the time a window adds over a single run is
+(n-1)T, which is under 10 s, so the estimate, which already assumed full 10 s windows, is unchanged.
 
 | Item | Hours | USD/h | USD (est.) |
 |---|---|---|---|
@@ -662,7 +672,8 @@ answers.
       |error| <= 2% and every longer length also is), applied to the windows-mode P6 result, with the locked 1 s default as
       a floor: `t_min(host) = max(1 s, measured)`. So H100 1 s, A100 2 s, GH200 pending its P6 rerun, B200 from its own P6
       before any B200 session. The A100's isolated (single-run) value of 5 s is never binding, because a single-run window
-      (`n = 1`) only occurs when the per-run time is >= 10 s; checked against the window rule and confirmed in §2.1.
+      (`n = 1`) only occurs when the per-run time is >= 10 s; checked against the window rule (as reworded 2026-11-15: `n =
+      1` only when the first run takes >= 10 s) and confirmed in §2.1.
    2. **Lock timing and B200.** The lock happens once the GH200 P6 rerun is in. B200 is a conditional host: its sessions may
       run only after its semantics, P5, P6 and G8 pass under the same rules; if it never passes or never gets capacity
       before the campaign ends, B200 is reported as not measured, with no substitution by an 8-GPU AWS or GCP B200 machine
@@ -688,6 +699,14 @@ definition are unchanged; `t_min` is set per host by the rule stated before the 
 changed:
 - **Status line, RQ table:** the lock now waits for the GH200 P6 rerun; B200 conditional; RQ1 pointer, RQ4/RQ5 wording for
   GH200 and B200, new RQ6 (GH200 module scope, secondary).
+- **§2.1 (window rule; technical correction by the team lead, 2026-11-15):** `n` is no longer set in advance from the
+  warm-up time (`n = clamp(ceil(10 s / t_hat), 1, 50)`); runs continue until the window's summed timed time reaches 10 s or
+  50 runs have been made. Reason: the warm-up is the cold first run (JIT, plan compilation, caches), so `t_hat` overstates
+  the steady per-run time and windows fell short of 10 s, which would have lost those cells as "below measurement
+  resolution" (found in code review; a synthetic local run gave a 0.056 s window against a 3 s target). No study data are
+  involved. The 10 s target, the cap of 50, the resolution rule and G9 are kept; `n` depends only on elapsed time and may
+  differ between trials; `t_hat` is recorded for QA only; the P6 `t_min` applies unchanged (§2.1), and the §9 time estimate
+  is unchanged. The author may object before the lock.
 - **§2.1:** `t_min` is per host, `max(1 s, measured windows-mode value)`; P6 results per host with the invalid GH200 run
   identified and `t_min(GH200)` pending; reference field matches the counter's scope; the isolated single-run `t_min` shown
   never to bind; the rule's "every longer length" and |error| wording made explicit (same values as the first wording);

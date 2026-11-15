@@ -22,7 +22,9 @@ import time
 import warnings
 
 import psutil
-from power_telemetry import GpuEnergyReader, clock_anchor, gpu_energy_window, process_affinity, stamp_close, stamp_open
+from power_telemetry import (
+    ENERGY_WINDOW_MAX_RUNS, GPU_ENERGY_SCOPES, GPU_SCOPE_TAG, GpuEnergyReader, aggregate_energy_window, clock_anchor,
+    energy_window_runs, gpu_energy_window, process_affinity, stamp_close, stamp_open, tag_gpu_energy)
 from query_cleanup import CleanupBarrier, CleanupTimeout, discover_blockmgr_dirs
 
 def normalized(value):
@@ -45,6 +47,44 @@ def save(path, value):
 
 POLARS_ENGINES = ("polars", "polars_gpu")
 GPU_ENGINES = ("polars_gpu", "spark_gpu")
+# Output agreement of the later runs of an energy window with the first: the rule of preflight.py's compare_values (G2).
+ROW_REL_TOL, ROW_ABS_TOL = 1e-8, 1e-6
+
+
+def rows_agree(expected, actual):
+    """(passed, mismatch_count, first mismatch) of two normalized result sets: ints exact, floats rel 1e-8 / abs 1e-6.
+
+    The same comparison as preflight.compare_values (a test keeps them identical); kept here so a worker, which runs in
+    the engine's own Python environment, does not import the preflight module."""
+    found = []
+
+    def visit(left, right, path):
+        if isinstance(left, bool) or isinstance(right, bool):
+            if type(left) is not type(right) or left != right:
+                found.append((path, "boolean differs"))
+        elif isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            if not math.isfinite(left) or not math.isfinite(right):
+                found.append((path, "non-finite numeric output"))
+            elif isinstance(left, int) or isinstance(right, int):
+                if left != right:
+                    found.append((path, "integer differs"))
+            elif not math.isclose(left, right, rel_tol=ROW_REL_TOL, abs_tol=ROW_ABS_TOL):
+                found.append((path, "numeric value differs"))
+        elif isinstance(left, dict) and isinstance(right, dict):
+            if left.keys() != right.keys():
+                found.append((path, "column names differ"))
+            for key in sorted(left.keys() & right.keys()):
+                visit(left[key], right[key], f"{path}.{key}")
+        elif isinstance(left, list) and isinstance(right, list):
+            if len(left) != len(right):
+                found.append((path, "row count differs"))
+            for index, (a, b) in enumerate(zip(left, right)):
+                visit(a, b, f"{path}[{index}]")
+        elif type(left) is not type(right) or left != right:
+            found.append((path, "value or type differs"))
+
+    visit(expected, actual, "$")
+    return not found, len(found), ({"path": found[0][0], "reason": found[0][1]} if found else None)
 
 
 class MemorySampler:
@@ -376,7 +416,22 @@ def main():
     parser.add_argument("--gpu-energy", choices=["auto", "off"], default="auto",
                         help="auto: store the NVML cumulative energy delta of device --gpu-device in every timed record "
                              "(source tagged; \"unavailable\" when neither pynvml nor nvidia-smi can read it); off: do not read it")
+    parser.add_argument("--gpu-energy-scope", choices=GPU_ENERGY_SCOPES, default=None,
+                        help="Paper 3 energy mode (off by default: Paper 1 records). Declares what the GPU energy counter of this "
+                             "host class measures: board (S1-counter), module (S1-module, GH200) or none (no GPU counter in use). "
+                             "Never inferred from the hardware; adds a scope tag to every energy value")
+    parser.add_argument("--energy-window-s", type=float, default=None,
+                        help="Paper 3 window rule (needs --gpu-energy-scope): a measured trial is a window of n back-to-back runs, "
+                             "n = clamp(ceil(SECONDS / t_hat), 1, 50), t_hat = the query's warmup time; default off: one run per trial")
     args = parser.parse_args()
+    if args.energy_window_s is not None and not (math.isfinite(args.energy_window_s) and args.energy_window_s > 0):
+        parser.error("--energy-window-s must be a positive number of seconds")
+    if args.energy_window_s is not None and args.gpu_energy_scope is None:
+        parser.error("--energy-window-s needs an explicit --gpu-energy-scope {board,module,none}: the scope is declared, never inferred")
+    if args.gpu_energy_scope in ("board", "module") and args.gpu_energy == "off":
+        parser.error(f"--gpu-energy-scope {args.gpu_energy_scope} needs the counter: drop --gpu-energy off")
+    if args.gpu_energy_scope == "none" and args.engine in GPU_ENGINES:
+        parser.error(f"--gpu-energy-scope none declares a host with no GPU counter in use, but --engine {args.engine} is a GPU engine")
     if args.engine != "polars_gpu" and (args.polars_gpu_executor or args.polars_gpu_executor_options):
         parser.error("--polars-gpu-executor and --polars-gpu-executor-options require --engine polars_gpu")
     args.polars_gpu_executor = args.polars_gpu_executor or "streaming"
@@ -487,8 +542,36 @@ def main():
             "scope": "sum of device memory of the worker process tree (plus the SparkSubmit JVM parent), "
                      "sampled during the timed action; a sampled peak can miss short transients",
         }
-    gpu_energy = GpuEnergyReader(args.gpu_device) if args.gpu_energy == "auto" else None
+    if args.gpu_energy_scope is None:
+        gpu_energy = GpuEnergyReader(args.gpu_device) if args.gpu_energy == "auto" else None
+    elif args.gpu_energy_scope == "none":
+        gpu_energy = None                       # declared: no GPU counter is used on this host
+    else:
+        gpu_energy = GpuEnergyReader(args.gpu_device, scope=args.gpu_energy_scope)
     metadata["gpu_energy_counter"] = gpu_energy.describe() if gpu_energy else {"source": "disabled"}
+    window_mode = args.energy_window_s is not None
+    if args.gpu_energy_scope is not None:
+        if gpu_energy is None:
+            metadata["gpu_energy_counter"].update(scope=args.gpu_energy_scope, scope_tag=GPU_SCOPE_TAG[args.gpu_energy_scope])
+        metadata["energy_scope"] = {
+            "gpu_energy_scope": args.gpu_energy_scope, "declared_with": "--gpu-energy-scope (never inferred from the hardware)",
+            "gpu_counter_scope_tag": GPU_SCOPE_TAG[args.gpu_energy_scope],
+            "tags": "every gpu_energy value carries scope_tag: the counter tag, or none when it has no value"}
+    if window_mode:
+        metadata["energy_window_rule"] = {
+            "format": 1, "target_seconds": args.energy_window_s, "max_runs": ENERGY_WINDOW_MAX_RUNS,
+            "rule": "per measured trial of a query: n = clamp(ceil(target_seconds / t_hat_seconds), 1, max_runs), "
+                    "n = 1 when t_hat_seconds >= target_seconds",
+            "t_hat_source": "seconds of the query's warmup record (phase warmup, trial 0) in this session",
+            "trials_per_query": args.runs,
+            "record": "one record per (query, measured, trial): seconds is the window time divided by n, rows and the plan are run 1's, "
+                      "timed_* span the window (gaps included), gpu_energy is replaced by energy_window (per-run stamps, counter "
+                      "reads and energy, window sums, per-run means). energy sums the runs' own counter differences, never end minus start",
+            "cleanup": "the query-cleanup barrier runs after every run as in Paper 1 and is outside the window energy; the barrier after "
+                       "run n is in cleanup_records, the ones after runs 1..n-1 in window_cleanup_records",
+            "output_check": "run 1: rows stored, compared with the polars reference by preflight (G2). Runs 2..n: compared in this "
+                            "process with run 1's rows (ints exact, floats rel 1e-8 / abs 1e-6, the G2 rule); verdict and row count "
+                            "stored, rows stored only for a run that disagrees"}
     metadata["cpu_affinity"] = process_affinity()  # what the kernel really allows this session (socket pinning is verified here)
     metadata["session_and_table_setup_seconds"] = time.perf_counter() - setup_start
     metadata["timing_clock"] = {
@@ -502,11 +585,17 @@ def main():
         metadata["launch_to_engine_ready_seconds"] = time.time() - float(os.environ["BENCHMARK_LAUNCH_UNIX"])
     save(args.output / "results.json", metadata)
 
-    def execute(query, phase, trial):
+    def execute(query, phase, trial, window_run=None):
+        # window_run is None for every Paper 1 run. With the window rule on, a measured trial is a window of runs: each is
+        # executed here exactly as a single run, then returned to attempt_window() instead of being appended on its own.
+        first_run = window_run in (None, 1)   # later runs of a window skip the plan work: a query's plan does not change
         # Materialization is essential: timing only a lazy plan gives false speedups.
         start_utc = datetime.now(timezone.utc).isoformat()
         metadata["active_query"] = {"query": query, "phase": phase, "trial": trial, "started_at_utc": start_utc}
-        save(args.output / "results.json", metadata)
+        if window_run is not None:
+            metadata["active_query"]["window_run"] = window_run
+        if first_run:  # the window's later runs skip the (growing) results.json rewrite to keep the gaps between runs short
+            save(args.output / "results.json", metadata)
         # Only polars_gpu records warnings: cudf-polars reports streaming single-partition
         # fallbacks there. CPU engines keep their original, unwrapped warning behaviour.
         warning_scope = (warnings.catch_warnings(record=True) if args.engine == "polars_gpu"
@@ -527,7 +616,10 @@ def main():
                 energy_end = gpu_energy.read() if gpu_energy else None
                 gpu_memory.stop()
                 rows = result.to_dicts()
-                plan = frame.explain(engine="streaming") if args.engine == "polars" else frame.explain()
+                if first_run:
+                    plan = frame.explain(engine="streaming") if args.engine == "polars" else frame.explain()
+                else:
+                    plan = ""
             else:
                 frame = spark.sql(spark_sql(query))
                 result = frame.collect()
@@ -536,7 +628,8 @@ def main():
                 energy_end = gpu_energy.read() if gpu_energy else None
                 gpu_memory.stop()
                 rows = [r.asDict(recursive=True) for r in result]
-                plan = frame._jdf.queryExecution().executedPlan().toString()
+                # spark_gpu checks the executed plan of every run of a window (a GPU operator must be present in each)
+                plan = frame._jdf.queryExecution().executedPlan().toString() if first_run or args.engine == "spark_gpu" else ""
         rows = normalized(rows)
         final_plan = plan.split("== Final Plan ==", 1)[-1].split("== Initial Plan ==", 1)[0]
         gpu_operators = sorted(set(re.findall(r"\bGpu[A-Za-z0-9_]+", final_plan)))
@@ -544,17 +637,18 @@ def main():
             r"\b(?:HashAggregate|ObjectHashAggregate|SortAggregate|BroadcastHashJoin|SortMergeJoin|"
             r"ShuffledHashJoin|BroadcastNestedLoopJoin|CartesianProduct|Window|WindowGroupLimit|"
             r"Expand|Sort|FileScan|BatchScan|TakeOrderedAndProject)\b", final_plan)))
-        plan_text = plan
-        if args.engine == "polars_gpu":
-            if query not in gpu_plans:  # deterministic per query: explain once, after the timed region
-                gpu_plans[query] = gpu_physical_plan(frame, polars_engine)
-                metadata.setdefault("polars_gpu_physical_plan_status", {})[query] = (
-                    "unavailable" if gpu_plans[query].startswith("unavailable:") else "captured")
-            plan_text = (f"== Polars optimized plan (CPU optimizer; executed by cudf-polars, "
-                         f"executor={args.polars_gpu_executor}) ==\n{plan}\n"
-                         f"== cudf-polars physical plan ==\n{gpu_plans[query]}")
         plan_name = f"{query}-{phase}-{trial}.txt"
-        (plans / plan_name).write_text(plan_text + "\n")
+        if first_run:
+            plan_text = plan
+            if args.engine == "polars_gpu":
+                if query not in gpu_plans:  # deterministic per query: explain once, after the timed region
+                    gpu_plans[query] = gpu_physical_plan(frame, polars_engine)
+                    metadata.setdefault("polars_gpu_physical_plan_status", {})[query] = (
+                        "unavailable" if gpu_plans[query].startswith("unavailable:") else "captured")
+                plan_text = (f"== Polars optimized plan (CPU optimizer; executed by cudf-polars, "
+                             f"executor={args.polars_gpu_executor}) ==\n{plan}\n"
+                             f"== cudf-polars physical plan ==\n{gpu_plans[query]}")
+            (plans / plan_name).write_text(plan_text + "\n")
         record = {
             "query": query, "phase": phase, "trial": trial,
             "seconds": elapsed, "rows": rows,
@@ -575,44 +669,54 @@ def main():
         if gpu_energy:
             record["gpu_energy"] = gpu_energy_window(gpu_energy.source, args.gpu_device, energy_start, energy_end,
                                                      timed_start_mono, timed_end_mono)
+            if args.gpu_energy_scope is not None:
+                record["gpu_energy"] = tag_gpu_energy(record["gpu_energy"], args.gpu_energy_scope)
         if args.engine in GPU_ENGINES:
             record["peak_gpu_memory_bytes"] = gpu_memory.peak
         if args.engine == "polars_gpu":
             record["gpu_engine_warnings"] = sorted(
                 {f"{w.category.__name__}: {str(w.message)[:300]}" for w in caught})[:10]
-        metadata["records"].append(record)
-        metadata["active_query"] = None
-        save(args.output / "results.json", metadata)
-        print(json.dumps({k: v for k, v in record.items() if k != "rows"}), flush=True)
-        if args.engine == "spark_gpu" and args.suite == "baseline" and not (
+        gpu_plan_missing = args.engine == "spark_gpu" and args.suite == "baseline" and not (
             any("Scan" in op for op in gpu_operators)
             and any("Aggregate" in op for op in gpu_operators)
-        ):
+        )
+        if window_run is not None:
+            if gpu_plan_missing:
+                raise RuntimeError(f"Missing GPU scan/aggregate in executed plan for {query}: {gpu_operators}")
+            return record
+        metadata["records"].append(record)
+        metadata["active_query"] = None
+        if phase == "warmup":
+            warmup_seconds[query] = elapsed  # t_hat of the window rule: this query's warmup time in this session
+        save(args.output / "results.json", metadata)
+        print(json.dumps({k: v for k, v in record.items() if k != "rows"}), flush=True)
+        if gpu_plan_missing:
             raise RuntimeError(f"Missing GPU scan/aggregate in executed plan for {query}: {gpu_operators}")
 
     failed_queries = set()
     gpu_plans = {}
-    def attempt(query, phase, trial):
-        succeeded = False
-        try:
-            execute(query, phase, trial)
-            succeeded = True
-        except Exception as exc:
-            if failure_policy == "raise":
-                raise
-            failed_queries.add(query)
-            error = {"query": query, "phase": phase, "trial": trial,
-                     "type": type(exc).__name__, "message": str(exc)[:2000],
-                     "failed_at_utc": datetime.now(timezone.utc).isoformat()}
-            metadata["query_errors"].append(error)
-            metadata["active_query"] = None
-            save(args.output / "results.json", metadata)
-            print(json.dumps({"event": "query_failed", **error}), flush=True)
-        # execute() must return before collection: its DataFrame/JavaObject
+    warmup_seconds = {}
+
+    def note_failure(query, phase, trial, exc, window_run=None):
+        failed_queries.add(query)
+        error = {"query": query, "phase": phase, "trial": trial,
+                 "type": type(exc).__name__, "message": str(exc)[:2000],
+                 "failed_at_utc": datetime.now(timezone.utc).isoformat()}
+        if window_run is not None:
+            error["window_run"] = window_run
+        metadata["query_errors"].append(error)
+        metadata["active_query"] = None
+        save(args.output / "results.json", metadata)
+        print(json.dumps({"event": "query_failed", **error}), flush=True)
+
+    def cleanup_after(query, phase, trial, succeeded, window_run=None, interim=False):
+        # The caller must have returned from execute() before this: its DataFrame/JavaObject
         # references would otherwise keep shuffle dependencies alive.
         if cleanup_barrier is not None:
             context = {"query": query, "phase": phase, "trial": trial,
                        "policy": args.query_cleanup}
+            if window_run is not None:
+                context["window_run"] = window_run
             try:
                 cleaned = cleanup_barrier.cleanup()
                 cleaned.update(context)
@@ -620,9 +724,11 @@ def main():
                                              "bytes": cleaned["before"]["shuffle_bytes"]}
                 cleaned["scratch_after"] = {"files": cleaned["after"]["shuffle_files"],
                                             "bytes": cleaned["after"]["shuffle_bytes"]}
-                key = "cleanup_records" if succeeded else "failed_query_cleanup_records"
+                key = ("failed_query_cleanup_records" if not succeeded else
+                       "window_cleanup_records" if interim else "cleanup_records")
                 metadata.setdefault(key, []).append(cleaned)
-                save(args.output / "results.json", metadata)
+                if not interim:  # between the runs of a window the results.json rewrite is skipped (short gaps)
+                    save(args.output / "results.json", metadata)
                 print(json.dumps({"event": "query_cleanup", **context,
                     "status": cleaned["status"], "seconds": cleaned["seconds"],
                     "scratch_before": cleaned["scratch_before"],
@@ -633,6 +739,90 @@ def main():
                 save(args.output / "results.json", metadata)
                 raise
 
+    def attempt(query, phase, trial):
+        succeeded = False
+        try:
+            execute(query, phase, trial)
+            succeeded = True
+        except Exception as exc:
+            if failure_policy == "raise":
+                raise
+            note_failure(query, phase, trial, exc)
+        cleanup_after(query, phase, trial, succeeded)
+
+    def window_run_entry(run, index, reference_rows):
+        """What a window keeps of one run: its stamps, time, counter reads and energy, and how its output was checked."""
+        entry = {"run": index, "seconds": run["seconds"]}
+        entry.update({k: run[k] for k in ("timed_start_utc", "timed_end_utc", "timed_start_monotonic_ns", "timed_end_monotonic_ns",
+                                          "peak_process_tree_rss_bytes")})
+        if "gpu_energy" in run:
+            entry["gpu_energy"] = run["gpu_energy"]
+        if "peak_gpu_memory_bytes" in run:
+            entry["peak_gpu_memory_bytes"] = run["peak_gpu_memory_bytes"]
+        if "gpu_engine_warnings" in run:
+            entry["gpu_engine_warnings"] = run["gpu_engine_warnings"]
+        if args.engine == "spark_gpu":  # the plan is the only evidence that a run did not fall back: every run's is kept
+            entry.update(gpu_execution_class=run["gpu_execution_class"], gpu_operators=run["gpu_operators"])
+        if index == 1:
+            entry["output_check"] = {"rows": len(run["rows"]), "checked_against": "polars reference warmup rows (preflight G2)"}
+        else:
+            passed, count, first_mismatch = rows_agree(reference_rows, run["rows"])
+            entry["output_check"] = {"rows": len(run["rows"]), "checked_against": "window run 1", "agrees": passed,
+                                     "mismatch_count": count}
+            if not passed:
+                entry["output_check"]["first_mismatch"] = first_mismatch
+                entry["rows"] = run["rows"]  # the evidence of the disagreement
+        return entry
+
+    def publish_window(first, last_ended_utc, entries, t_hat):
+        """Append the one record of a finished window: Paper 1's record of run 1 with the window's time and energy."""
+        block = aggregate_energy_window(
+            entries, scope=args.gpu_energy_scope, source=gpu_energy.source if gpu_energy else "unavailable",
+            device=args.gpu_device, target_seconds=args.energy_window_s, t_hat_seconds=t_hat)
+        record = {k: v for k, v in first.items() if k != "gpu_energy"}
+        record.update(seconds=block["per_run_seconds"], timed_start_utc=block["span"]["start_utc"],
+                      timed_end_utc=block["span"]["end_utc"], timed_start_monotonic_ns=block["span"]["start_monotonic_ns"],
+                      timed_end_monotonic_ns=block["span"]["end_monotonic_ns"], ended_at_utc=last_ended_utc,
+                      peak_process_tree_rss_bytes=max(e["peak_process_tree_rss_bytes"] for e in entries))
+        if args.engine in GPU_ENGINES:
+            peaks = [e["peak_gpu_memory_bytes"] for e in entries if e["peak_gpu_memory_bytes"] is not None]
+            record["peak_gpu_memory_bytes"] = max(peaks) if peaks else None
+        if args.engine == "polars_gpu":
+            record["gpu_engine_warnings"] = sorted({w for e in entries for w in e["gpu_engine_warnings"]})[:10]
+        record["energy_window"] = block
+        metadata["records"].append(record)
+        metadata["active_query"] = None
+        save(args.output / "results.json", metadata)
+        print(json.dumps({**{k: v for k, v in record.items() if k not in ("rows", "energy_window")},
+                          "energy_window": {k: v for k, v in block.items() if k != "runs"}}), flush=True)
+
+    def attempt_window(query, trial):
+        """One measured trial under the window rule: n back-to-back runs of the query, n from its warmup time.
+
+        Each run is a Paper 1 run (stamps and counter reads just outside the timer) followed by Paper 1's cleanup barrier;
+        the gaps and the cleanup are outside every window sum. A run that fails voids the window (no record) and the query
+        is not run again, as after any failed attempt in Paper 1."""
+        t_hat = warmup_seconds[query]
+        n = energy_window_runs(t_hat, args.energy_window_s)
+        first, entries, last_ended = None, [], None
+        for index in range(1, n + 1):
+            succeeded = False
+            try:
+                run = execute(query, "measured", trial, window_run=index)
+                first = first or run
+                last_ended = run["ended_at_utc"]
+                entries.append(window_run_entry(run, index, first["rows"]))
+                if index == n:
+                    publish_window(first, last_ended, entries, t_hat)
+                succeeded = True
+            except Exception as exc:
+                if failure_policy == "raise":
+                    raise
+                note_failure(query, "measured", trial, exc, window_run=index)
+            cleanup_after(query, "measured", trial, succeeded, window_run=index, interim=succeeded and index != n)
+            if not succeeded:
+                break
+
     try:
         for query in args.queries:
             attempt(query, "warmup", 0)
@@ -642,7 +832,10 @@ def main():
             rng.shuffle(order)
             for query in order:
                 if query not in failed_queries:
-                    attempt(query, "measured", trial)
+                    if window_mode:
+                        attempt_window(query, trial)
+                    else:
+                        attempt(query, "measured", trial)
         metadata["query_execution_status"] = "partial" if failed_queries else "complete"
         metadata["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
         save(args.output / "results.json", metadata)

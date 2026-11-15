@@ -227,9 +227,12 @@ def read_gpu_csv(path: Path) -> Stream:
         return stream
     try:
         header = [c.strip() for c in first_line(path).split(",")]
-        stream.header_ok = header == GPU_HEADER
+        # Columns are only ever appended (run_experiment.GPU_TELEMETRY_QUERY): a Paper 3 gpu.csv holds the nine Paper 1 columns
+        # first, then the power.draw.average/.instant (and module.*) fields. The extras are never inspected, only skipped.
+        stream.header_ok = header[:len(GPU_HEADER)] == GPU_HEADER
+        schema = GPU_SCHEMA | {f"x{i}": pl.String for i in range(max(0, len(header) - len(GPU_HEADER)))}
         stream.ends_with_newline = ends_with_newline(path)
-        frame = (pl.scan_csv(path, has_header=False, skip_rows=1, schema=GPU_SCHEMA, separator=",", quote_char=None)
+        frame = (pl.scan_csv(path, has_header=False, skip_rows=1, schema=schema, separator=",", quote_char=None)
                  .select(
                      pl.col("timestamp").str.strip_chars().str.strptime(pl.Datetime("us"), GPU_TIMESTAMP_FORMAT, strict=False)
                      .dt.epoch("us").alias("t_us"),

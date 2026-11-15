@@ -80,7 +80,9 @@ CRITICAL_SOURCES = ("run_experiment.py", "worker.py", "power_telemetry.py", "que
 # Measurement instrumentation passed through to run_experiment.py only when given (campaign key -> its flag).
 TELEMETRY_FLAGS = {"redact_gpu_identifiers": "--redact-gpu-identifiers", "gpu_energy": "--gpu-energy", "power_telemetry": "--power-telemetry", "power_interval_ms": "--power-interval-ms",
                    "ipmi_interval_seconds": "--ipmi-interval-seconds", "idle_baseline_seconds": "--idle-baseline-seconds",
-                   "cpu_energy": "--cpu-energy"}
+                   "cpu_energy": "--cpu-energy",
+                   # Paper 3 energy mode (docs/PAPER3_ENERGY_DESIGN.md sections 2.1, 2.3, 2.4); absent = Paper 1 command lines
+                   "gpu_energy_scope": "--gpu-energy-scope", "energy_window_s": "--energy-window-s"}
 COST_FIELDS = ("instance_type", "provider", "region", "hourly_price_usd", "price_source_url", "price_snapshot_utc")
 
 EXIT_STOPPED, EXIT_GATE_TOOL, EXIT_DESIGN, EXIT_LEASE, EXIT_INTERRUPTED = 3, 4, 5, 6, 130
@@ -308,6 +310,9 @@ def design_dict(cfg: Config, units: list) -> dict:
         "test_flags": cfg.test_flags,
         **({"pinning": {"socket": cfg.pin_socket, "cpu_list": cfg.pin_cpu_list, "membind": not cfg.no_membind}}
            if cfg.pin_socket is not None or cfg.pin_cpu_list is not None else {}),
+        # The declared GPU counter scope and window rule are part of the resolved design: a resume with other values is refused.
+        **({"energy": {"gpu_energy_scope": cfg.telemetry.get("gpu_energy_scope"), "energy_window_s": cfg.telemetry.get("energy_window_s")}}
+           if cfg.telemetry.get("gpu_energy_scope") is not None else {}),
     }
 
 
@@ -596,6 +601,10 @@ def startup_checks(cfg: Config, units: list, prov: dict) -> None:
         raise CampaignError(f"no manifest.json under {cfg.data_root} for {missing}; generate and verify inputs first", EXIT_DESIGN)
     if "spark_gpu" in cfg.engines and not cfg.jar.is_file():
         raise CampaignError(f"spark_gpu selected but --jar {cfg.jar} does not exist", EXIT_DESIGN)
+    if cfg.telemetry.get("gpu_energy_scope") == "none" and [e for e in cfg.engines if e in GPU_ENGINES]:
+        raise CampaignError("--gpu-energy-scope none declares a host with no GPU counter in use, but GPU engine(s) "
+                            f"{[e for e in cfg.engines if e in GPU_ENGINES]} are selected (use --engines-override for a CPU-only host)",
+                            EXIT_DESIGN)
     side_needed = any(u.kind == "side" for u in units)
     if side_needed and not cfg.side_python:
         raise CampaignError("the side study needs --a100compat-env (or $PYTHON_A100COMPAT_ENV)", EXIT_DESIGN)
@@ -1096,6 +1105,8 @@ def print_schedule(cfg: Config, units: list, design: dict, verbose: bool) -> Non
     print("Latin square check: each engine once per position, each ordered pair adjacent exactly once: OK")
     print(f"formal: {cfg.formal}" + (f"  (test flags: {', '.join(cfg.test_flags)})" if cfg.test_flags else ""))
     print(f"flags: {design['flags']}   engines: {design['engines']}")
+    if "energy" in design:
+        print(f"Paper 3 energy mode: {design['energy']}")
     for spec_name, spec in design["suites"].items():
         print(f"suite {spec_name}: SF {', '.join(spec['scales'])}, query cleanup {spec['query_cleanup']}")
     for kind, title in (("main", "MAIN ROUNDS"), ("side", "SIDE STUDY (polars 1.44.2 vs 2.0.0)")):
@@ -1239,6 +1250,13 @@ def parse_args(argv):
                                  "are unreadable (fix: ./setup_h100.sh --power-only --enable-rapl-read); absent counters are "
                                  "recorded as unavailable. require: refuse unless a CPU energy source works (CPU-only metal). "
                                  "off: no check")
+    instrument.add_argument("--gpu-energy-scope", choices=power_telemetry.GPU_ENERGY_SCOPES, dest="gpu_energy_scope",
+                            help="Paper 3 energy mode: what this host class's GPU energy counter measures, declared and never "
+                                 "inferred (board: S1-counter; module: S1-module on GH200; none: CPU-only host). Recorded in the "
+                                 "design and in campaign.json; absent = Paper 1 behaviour")
+    instrument.add_argument("--energy-window-s", type=positive_number, dest="energy_window_s", metavar="SECONDS",
+                            help="Paper 3 window rule (needs --gpu-energy-scope): measured trials become windows of n back-to-back "
+                                 "runs, n = clamp(ceil(SECONDS / t_hat), 1, 50); absent = one run per trial")
     pin = instrument.add_mutually_exclusive_group()
     pin.add_argument("--socket", type=int, metavar="N", dest="pin_socket",
                      help="pin every engine process to the CPUs of socket N (CPU-only bare metal); the resolved CPU list is "
@@ -1267,6 +1285,10 @@ def parse_args(argv):
     args = parser.parse_args(argv)
     if args.no_membind and args.pin_socket is None and args.pin_cpu_list is None:
         parser.error("--no-membind needs --socket or --cpu-list: memory is only bound in a pinned run")
+    if args.energy_window_s is not None and args.gpu_energy_scope is None:
+        parser.error("--energy-window-s needs an explicit --gpu-energy-scope {board,module,none}: the scope is declared, never inferred")
+    if args.gpu_energy_scope in ("board", "module") and args.gpu_energy == "off":
+        parser.error(f"--gpu-energy-scope {args.gpu_energy_scope} needs the counter: drop --gpu-energy off")
     return args
 
 
