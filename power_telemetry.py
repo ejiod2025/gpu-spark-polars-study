@@ -907,6 +907,118 @@ def probe_gpu_energy_resolution(reader, duration=1.0, clock=time.monotonic_ns) -
                     "counter difference; a timed run shorter than it has an energy delta of 0 or one step"}
 
 
+# ---- CPU energy at a run's stamps (design section 2.1: interpolated linearly from the sampler's counter series) -------------
+
+INVALID_FLAGS = ("decrease", "gap")      # a window that contains a sample with one of these flags is invalid (design section 2.4)
+
+
+def read_power_csv_series(path) -> dict:
+    """The energy-counter series of a power.csv: {zone: {"domain", "mono": [ns], "uj": [cumulative uJ], "flags": [str]}}.
+
+    Rows without energy_uj (ipmi/turbostat power readings) are skipped, as are rows that do not parse. A zone is the
+    sysfs name ("intel-rapl:0"), the series key of the sampler; domain is its readable name ("package-0/dram")."""
+    series = {}
+    with Path(path).open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row.get("energy_uj") in (None, ""):
+                continue
+            try:
+                mono, energy = int(row["monotonic_ns"]), float(row["energy_uj"])
+            except (TypeError, ValueError):
+                continue
+            entry = series.setdefault(row["zone"], {"domain": row["domain"], "mono": [], "uj": [], "flags": []})
+            entry["mono"].append(mono)
+            entry["uj"].append(energy)
+            entry["flags"].append(row.get("flag") or "")
+    return series
+
+
+def energy_between_uj(series: dict, start_ns: int, end_ns: int) -> dict:
+    """Energy of one cumulative series between two CLOCK_MONOTONIC instants, each interpolated linearly between the two
+    samples around it. {"uj": float | None, "reason": str | None, "samples_inside": int, "max_gap_seconds": float | None}.
+
+    uj is None, with the reason, when an end lies outside the sampled range, when the series has fewer than two samples, or
+    when an interval the window uses was closed by a sample flagged decrease (counter went backwards) or gap (more than
+    30 s since the previous sample): such a window is invalid, never a number."""
+    times, values, flags = series["mono"], series["uj"], series["flags"]
+    result = {"uj": None, "reason": None, "samples_inside": 0, "max_gap_seconds": None}
+    if len(times) < 2:
+        result["reason"] = "fewer than two samples"
+        return result
+    if end_ns < start_ns:
+        result["reason"] = "window ends before it starts"
+        return result
+    if start_ns < times[0] or end_ns > times[-1]:
+        result["reason"] = "window outside the sampled range"
+        return result
+
+    def around(instant):
+        low, high = 0, len(times) - 1
+        while high - low > 1:
+            middle = (low + high) // 2
+            if times[middle] <= instant:
+                low = middle
+            else:
+                high = middle
+        if times[low] == instant:                                              # an end on a sample is that sample's value: no interval after it
+            return low, low
+        return (high, high) if times[high] == instant else (low, high)
+
+    def at(instant, low, high):
+        if times[high] == times[low]:
+            return float(values[low])
+        return values[low] + (values[high] - values[low]) * (instant - times[low]) / (times[high] - times[low])
+
+    start_low, start_high = around(start_ns)
+    end_low, end_high = around(end_ns)
+    used = range(start_low + 1, end_high + 1)                       # the intervals the window touches, each closed by its later sample
+    bad = sorted({flag for i in used for flag in flags[i].split("+") if flag in INVALID_FLAGS})
+    if bad:
+        result["reason"] = f"a sample the window uses is flagged {'+'.join(bad)}"
+        return result
+    result["uj"] = at(end_ns, end_low, end_high) - at(start_ns, start_low, start_high)
+    result["samples_inside"] = sum(1 for t in times if start_ns <= t <= end_ns)
+    result["max_gap_seconds"] = max(((times[i] - times[i - 1]) / 1e9 for i in used), default=None)
+    return result
+
+
+def pinned_energy_zones(report: dict) -> list:
+    """The zones of S2-pinned energy from a PowerSampler report or sidecar: the package and DRAM zones of the pinned sockets.
+
+    Core and uncore sub-zones are subsets of the package and are not added. [] when the run is not pinned or the energy
+    source cannot be attributed to a socket."""
+    attribution = (report.get("pinning") or {}).get("attribution") or {}
+    if not attribution.get("possible"):
+        return []
+    zones = []
+    for kinds in (attribution.get("pinned_zones") or {}).values():
+        for kind in ("package", "dram"):
+            zones += kinds.get(kind, [])
+    return sorted(zones)
+
+
+def s2_pinned_energy_j(series_by_zone: dict, zones, start_ns: int, end_ns: int) -> dict:
+    """S2-pinned energy between two instants: the zones' energy_between_uj summed, in joules.
+
+    {"joules": float | None, "reason": str | None, "zones": {zone: uj}}; None when any zone's window is invalid or a zone is
+    missing from the series (a missing series is not zero energy)."""
+    out = {"joules": None, "reason": None, "zones": {}}
+    if not zones:
+        out["reason"] = "no pinned zones"
+        return out
+    for zone in zones:
+        if zone not in series_by_zone:
+            out["reason"] = f"zone {zone} has no series"
+            return out
+        part = energy_between_uj(series_by_zone[zone], start_ns, end_ns)
+        if part["uj"] is None:
+            out["reason"] = f"zone {zone}: {part['reason']}"
+            return out
+        out["zones"][zone] = part["uj"]
+    out["joules"] = sum(out["zones"].values()) / 1e6
+    return out
+
+
 def cpu_energy_scope_tags(report: dict) -> dict:
     """{scope tag: what carries it} for the CPU-side series of a PowerSampler report (Paper 3 mode).
 

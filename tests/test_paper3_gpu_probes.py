@@ -164,3 +164,226 @@ def test_perf_watts_use_wall_seconds_not_summed_runtime():
     assert abs(row["watts"] - 356.9145) < 1e-3
     assert cpu_probes.add_perf_watts({"joules": None, "runtime_ns": 1}, 20).get("watts") is None
 
+
+
+# ---- p3_cpu_probes.py p6-cpu: the RAPL analogue of P6 ----------------------------------------------------------
+
+import argparse  # noqa: E402
+import csv  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
+
+import power_telemetry as pt  # noqa: E402
+from sysfs_fakes import c3_powercap  # noqa: E402
+from test_power_telemetry import no_tools  # noqa: E402
+
+LENGTHS = [0.05, 0.2, 0.6]
+
+
+class SimulatedHost:
+    """Hardware stand-in: the four RAPL counters of the c3 host advance with a power model, 150 W more on socket 0 under load."""
+    IDLE_W = {"intel-rapl:0": 60.0, "intel-rapl:0:0": 8.0, "intel-rapl:1": 55.0, "intel-rapl:1:0": 8.0}
+    LOAD_W = {"intel-rapl:0": 140.0, "intel-rapl:0:0": 10.0}
+
+    def __init__(self, tree):
+        self.tree, self.load, self.stop = Path(tree), False, threading.Event()
+        self.thread = threading.Thread(target=self.run, daemon=True)
+
+    def run(self):
+        last = time.monotonic()
+        while not self.stop.wait(0.002):
+            now = time.monotonic()
+            for zone, idle in self.IDLE_W.items():
+                watts = idle + (self.LOAD_W.get(zone, 0.0) if self.load else 0.0)
+                counter = self.tree / zone / "energy_uj"
+                temporary = counter.with_name("energy_uj.tmp")
+                temporary.write_text(f"{int(counter.read_text()) + int(watts * (now - last) * 1e6)}\n")
+                temporary.replace(counter)
+            last = now
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def __exit__(self, *_):
+        self.stop.set()
+        self.thread.join()
+
+
+class FakeCpuPulse:
+    def __init__(self, host, cpus):
+        self.host, self.cpus = host, cpus
+
+    def pulse(self, seconds):
+        self.host.load = True
+        time.sleep(seconds)
+        self.host.load = False
+        return {"nominal_s": seconds, "cpus": len(self.cpus)}
+
+
+def p6_cpu_args(tmp_path, **overrides):
+    values = dict(out=tmp_path / "out", cpus="0-12,96-108", repeats=2, window_repeats=1, lengths=LENGTHS, window_lengths=[0.05, 0.2],
+                  window_target_s=0.6, window_max_runs=8, settle=0.3, warmup_pulse_s=0.1, interval_ms=20.0, seed=7, wait_scale=0.02)
+    values.update(overrides)
+    return argparse.Namespace(**values)
+
+
+@pytest.fixture
+def simulated(monkeypatch, tmp_path, c3):
+    tree = c3_powercap(tmp_path / "powercap")
+    monkeypatch.setattr(pt, "POWERCAP_ROOT", tree)
+    no_tools(monkeypatch)
+    with SimulatedHost(tree) as host:
+        monkeypatch.setattr(cpu_probes, "CpuPulse", lambda cpus: FakeCpuPulse(host, cpus))
+        yield host
+
+
+def interpolate(rows, instant_ns):
+    """Plain-Python linear interpolation of (mono_ns, uJ) rows, independent of power_telemetry."""
+    for (t0, e0), (t1, e1) in zip(rows, rows[1:]):
+        if t0 <= instant_ns <= t1:
+            return e0 + (e1 - e0) * (instant_ns - t0) / (t1 - t0)
+    raise AssertionError("instant outside the series")
+
+
+def test_p6_cpu_end_to_end_on_a_simulated_host(simulated, tmp_path, capsys):
+    args = p6_cpu_args(tmp_path)
+    assert cpu_probes.p6_cpu(args) == 0
+    out = args.out
+    assert sorted(p.name for p in out.iterdir()) == ["p6-cpu-power-sources.json", "p6-cpu-power.csv", "p6-cpu.json"]
+    result = json.loads((out / "p6-cpu.json").read_text())
+    assert result["step"] == "p6-cpu" and "error" not in result
+    assert [z["zone"] for z in result["pinning"]["zones"]] == ["intel-rapl:0", "intel-rapl:0:0"]       # package-0 + its DRAM, not socket 1
+    assert result["meta"]["cpu_energy_source"] == "powercap-rapl" and result["meta"]["attribution"]["possible"] is True
+    assert result["meta"]["pinning"]["cpus"] == "0-12,96-108"
+    assert result["stream"]["csv"] == "p6-cpu-power.csv" and result["stream"]["interval_s"] == 0.02 and result["stream"]["series"] == 4
+    isolated, windows = result["isolated"], result["windows"]
+    assert len(isolated["records"]) == 2 * len(LENGTHS) and len(windows["records"]) == 1 * 2
+    assert {r["length_s"] for r in isolated["records"]} == set(LENGTHS) and all(r["runs"] == 1 for r in isolated["records"])
+    for record in isolated["records"]:
+        pair = record["pair"]
+        assert pair["start_mono_ns"] < pair["end_mono_ns"] and record["window_s"] == pytest.approx(pair["host_s"])
+        assert record["reference_j"] == pytest.approx(pair["reference_j"]) and record["estimate_j"] == pytest.approx(pair["estimate_j"])
+        watts = record["reference_j"] / record["window_s"]
+        assert 60 + 8 <= watts <= 60 + 8 + 150 + 10                                            # socket 0 only: package + DRAM, idle to load
+    long = [r for r in isolated["records"] if r["length_s"] == 0.6]
+    assert all(abs(r["rel_error"]) < 0.15 for r in long)                                         # 30 samples of 20 ms inside: interpolation is close
+    assert all(r["reference_j"] == pytest.approx((60 + 8 + 150) * r["window_s"], rel=0.2) for r in long)     # the reference follows the power model
+    for record in windows["records"]:
+        assert record["runs"] == len(record["pairs"]) >= 2 and record["stop_reason"] in ("target_reached", "max_runs")
+        assert record["window_s"] == pytest.approx(sum(p["host_s"] for p in record["pairs"]))
+        assert record["reference_j"] == pytest.approx(sum(p["reference_j"] for p in record["pairs"]))
+        assert (record["window_s"] >= 0.6) == (record["stop_reason"] == "target_reached") and record["runs"] <= 8
+        assert record["stop_reason"] == "max_runs" or sum(p["host_s"] for p in record["pairs"][:-1]) < 0.6
+    summary = isolated["summary"]["0.6"]
+    assert summary["n"] == 2 and summary["n_invalid"] == 0 and summary["median_estimate_j"] > 0 and summary["median_reference_j"] > 0
+    assert isolated["t_min"] == probes.t_min_candidates(isolated["summary"]) and windows["t_min"] == probes.t_min_candidates(windows["summary"])
+    # the recorded estimate is what the written power.csv gives, with plain interpolation
+    series = {}
+    with (out / "p6-cpu-power.csv").open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row["energy_uj"]:
+                series.setdefault(row["zone"], []).append((int(row["monotonic_ns"]), float(row["energy_uj"])))
+    pair = isolated["records"][0]["pair"]
+    expected = sum(interpolate(series[z], pair["end_mono_ns"]) - interpolate(series[z], pair["start_mono_ns"]) for z in ("intel-rapl:0", "intel-rapl:0:0")) / 1e6
+    assert pair["estimate_j"] == pytest.approx(expected, rel=1e-9)
+    assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])["step"] == "p6-cpu"
+
+
+def test_p6_cpu_uses_the_campaigns_sampler_pin_and_node_binding(simulated, tmp_path, c3):
+    cpu_probes.p6_cpu(p6_cpu_args(tmp_path, lengths=[0.05], window_lengths=[], repeats=1, window_repeats=0))
+    assert c3.membind.calls == [[0]] and c3.mask["set_calls"] == [set(pt.parse_cpu_list("0-12,96-108"))]      # node 0 only, the 26 vCPUs
+    sidecar = json.loads((tmp_path / "out" / "p6-cpu-power-sources.json").read_text())
+    assert sidecar["interval_seconds"] == 0.02 and sidecar["pinning"]["cpus"] == "0-12,96-108"
+    assert sidecar["pinning"]["attribution"]["pinned_zones"] == {"0": {"package": ["intel-rapl:0"], "dram": ["intel-rapl:0:0"]}}
+
+
+def test_p6_cpu_refuses_a_host_without_pinned_energy_zones(monkeypatch, tmp_path, c3):
+    monkeypatch.setattr(pt, "POWERCAP_ROOT", tmp_path / "no-powercap")
+    no_tools(monkeypatch)
+    assert cpu_probes.p6_cpu(p6_cpu_args(tmp_path)) == 1
+    result = json.loads((tmp_path / "out" / "p6-cpu.json").read_text())
+    assert "cannot measure" in result["error"] and "isolated" not in result
+
+
+def test_a_window_the_series_cannot_cover_is_invalid_and_counted_not_averaged(simulated, tmp_path, monkeypatch):
+    real = pt.read_power_csv_series
+
+    def truncated(path):
+        series = real(path)
+        for entry in series.values():                      # the sampler "stopped" before the last second
+            keep = [i for i, t in enumerate(entry["mono"]) if t <= entry["mono"][-1] - 700_000_000]
+            for key in ("mono", "uj", "flags"):
+                entry[key] = [entry[key][i] for i in keep]
+        return series
+    monkeypatch.setattr(pt, "read_power_csv_series", truncated)
+    cpu_probes.p6_cpu(p6_cpu_args(tmp_path, window_lengths=[0.2], repeats=1, window_repeats=1))
+    result = json.loads((tmp_path / "out" / "p6-cpu.json").read_text())
+    invalid = [r for r in result["isolated"]["records"] + result["windows"]["records"] if r["rel_error"] is None]
+    assert invalid and all("outside the sampled range" in r["estimate_reason"] for r in invalid)
+    assert sum(row["n_invalid"] for row in result["isolated"]["summary"].values()) + \
+        sum(row["n_invalid"] for row in result["windows"]["summary"].values()) == len(invalid)
+
+
+def test_zone_reader_counts_a_wrap_once_and_reads_the_files_directly(tmp_path):
+    for name, value in (("a", 900), ("b", 5_000)):
+        (tmp_path / name).write_text(f"{value}\n")
+    reader = cpu_probes.ZoneReader([{"zone": "a", "path": tmp_path / "a", "max": 1000}, {"zone": "b", "path": tmp_path / "b", "max": 10_000}])
+    start = reader.read()
+    (tmp_path / "a").write_text("100\n")                       # 900 -> 100 with a range of 1000: 200 uJ
+    (tmp_path / "b").write_text("5700\n")
+    end = reader.read()
+    assert start["uj"] == {"a": 900, "b": 5000} and start["monotonic_ns"][0] <= start["monotonic_ns"][1]
+    assert reader.delta_j(start, end) == pytest.approx((200 + 700) / 1e6)
+
+
+def test_pinned_zone_files_come_from_the_samplers_own_report():
+    report = {"pinning": {"attribution": {"possible": True, "pinned_zones": {"0": {"package": ["intel-rapl:0"], "dram": ["intel-rapl:0:1"]}}}},
+              "sources": [{"source": "powercap-rapl", "domains": [
+                  {"zone": "intel-rapl:0", "domain": "package-0", "path": "/p/0", "max_energy_range_uj": 262143328850, "sampled": True},
+                  {"zone": "intel-rapl:0:1", "domain": "package-0/dram", "path": "/p/0/1", "max_energy_range_uj": 65712999613, "sampled": True},
+                  {"zone": "intel-rapl:1", "domain": "package-1", "path": "/p/1", "max_energy_range_uj": 262143328850, "sampled": True}]}]}
+    assert cpu_probes.pinned_zone_files(report) == [
+        {"zone": "intel-rapl:0", "domain": "package-0", "path": "/p/0", "max": 262143328850},
+        {"zone": "intel-rapl:0:1", "domain": "package-0/dram", "path": "/p/0/1", "max": 65712999613}]
+    assert cpu_probes.pinned_zone_files({}) == []
+
+
+def test_cpu_error_summary_names_its_keys_and_counts_invalid_runs():
+    records = [{"length_s": 1.0, "runs": 1, "estimate_j": 99.0, "reference_j": 100.0, "window_s": 1.0, "rel_error": -0.01},
+               {"length_s": 1.0, "runs": 1, "estimate_j": 103.0, "reference_j": 100.0, "window_s": 1.0, "rel_error": 0.03},
+               {"length_s": 1.0, "runs": 1, "estimate_j": None, "reference_j": 100.0, "window_s": 1.0, "rel_error": None}]
+    row = cpu_probes.cpu_error_summary(records)["1.0"]
+    assert row["n"] == 2 and row["n_total"] == 3 and row["n_invalid"] == 1
+    assert row["median_abs_rel_error"] == pytest.approx(0.02) and row["median_estimate_j"] == pytest.approx(101.0)
+    assert "median_counter_j" not in row and "median_integral_j" not in row
+
+
+@pytest.mark.skipif(not hasattr(os, "sched_setaffinity") or not hasattr(os, "fork"), reason="forked, pinned spin loops need Linux")
+def test_the_cpu_pulse_forks_one_pinned_spin_loop_per_cpu_for_the_requested_time():
+    cpus = sorted(os.sched_getaffinity(0))[:2]
+    started = time.monotonic()
+    done = cpu_probes.CpuPulse(cpus).pulse(0.2)
+    assert done == {"nominal_s": 0.2, "cpus": len(cpus)} and 0.2 <= time.monotonic() - started < 2.0
+
+
+def test_p6_cpu_defaults_mirror_the_gpu_p6_and_the_campaign(capsys, monkeypatch):
+    parser_args = []
+    monkeypatch.setattr(cpu_probes, "p6_cpu", lambda args: parser_args.append(args) or 0)
+    assert cpu_probes.main(["p6-cpu", "--out", "x"]) == 0
+    args = parser_args[0]
+    assert args.cpus == "0-12,96-108" and args.repeats == 8 and args.window_repeats == 5
+    assert args.lengths == list(probes.PULSE_LENGTHS_S) == [0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0]
+    assert args.window_lengths == list(probes.WINDOW_LENGTHS_S) and args.window_target_s == 10.0 and args.window_max_runs == 50
+    assert args.interval_ms is None and cpu_probes.P6_CPU_INTERVAL_S == 0.2
+    minutes = float(re.search(r"about (\d+) min", capsys.readouterr().err).group(1))
+    assert 12 <= minutes <= 25                                                                 # ~17 min of pulses and pauses, plus fork cost on the host
+
+
+@pytest.mark.parametrize("flags", [["--lengths", "0"], ["--window-target-s", "-1"], ["--repeats", "0"], ["--interval-ms", "0"],
+                                   ["--wait-scale", "-1"], ["--warmup-pulse-s", "0"]])
+def test_p6_cpu_rejects_nonsense_options(flags):
+    with pytest.raises(SystemExit):
+        cpu_probes.main(["p6-cpu", "--out", "x", *flags])

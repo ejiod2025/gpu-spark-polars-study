@@ -833,3 +833,76 @@ def test_chrony_tracking_is_parsed_with_a_sign():
     assert pt.parse_chrony_tracking("506 Cannot talk to daemon") == {"system_time_offset_seconds": None, "last_offset_seconds": None,
                                                                     "stratum": None, "leap_status": None}
     assert pt.parse_chrony_tracking(None)["leap_status"] is None
+
+
+# ---- CPU energy at stamps: power.csv interpolation (shared by the campaign analysis and the P6-CPU probe) ---------------------
+
+def series_of(times_s, joules, flags=None):
+    return {"domain": "package-0", "mono": [int(t * 1e9) for t in times_s], "uj": [j * 1e6 for j in joules],
+            "flags": flags or [""] * len(times_s)}
+
+
+def test_energy_between_stamps_interpolates_linearly_between_the_samples_around_each_end():
+    flat = series_of([0, 0.2, 0.4, 0.6, 0.8, 1.0], [0, 20, 40, 60, 80, 100])                  # 100 W
+    got = pt.energy_between_uj(flat, int(0.25e9), int(0.75e9))
+    assert got["uj"] == pytest.approx(50e6) and got["reason"] is None and got["samples_inside"] == 2
+    assert got["max_gap_seconds"] == pytest.approx(0.2)                                       # the longest of the three intervals the window touches
+    ramp = series_of([0, 1, 2, 3], [0, 10, 40, 90])                                           # 10 W, then 30 W, then 50 W
+    assert pt.energy_between_uj(ramp, int(0.5e9), int(2.5e9))["uj"] == pytest.approx((5 + 30 + 25) * 1e6)   # 0.5..1: 5 J; 1..2: 30 J; 2..2.5: 25 J
+    assert pt.energy_between_uj(ramp, int(1e9), int(1e9))["uj"] == pytest.approx(0.0)         # a zero-length window is zero energy
+    assert pt.energy_between_uj(ramp, 0, int(3e9))["uj"] == pytest.approx(90e6)               # the whole series, ends on samples
+
+
+def test_a_window_outside_the_samples_or_in_a_series_without_enough_of_them_is_not_a_number():
+    flat = series_of([1, 2, 3], [0, 10, 20])
+    for start, end, text in ((0.5, 2, "outside"), (1.5, 3.5, "outside"), (2.5, 1.5, "ends before")):
+        got = pt.energy_between_uj(flat, int(start * 1e9), int(end * 1e9))
+        assert got["uj"] is None and text in got["reason"]
+    assert pt.energy_between_uj(series_of([1], [0]), int(1e9), int(1e9))["reason"] == "fewer than two samples"
+    assert pt.energy_between_uj(series_of([], []), 0, 1)["uj"] is None
+
+
+def test_a_decrease_or_gap_flag_in_a_used_interval_voids_the_window_and_a_wrap_does_not():
+    flags = ["", "", "decrease", "", "gap", "wrap", ""]
+    series = series_of([0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 3, 4, 5, 6], flags)
+    assert "decrease" in pt.energy_between_uj(series, int(1.5e9), int(2.5e9))["reason"]       # closed by the flagged sample at t = 2
+    assert "gap" in pt.energy_between_uj(series, int(3.5e9), int(4.5e9))["reason"]
+    assert pt.energy_between_uj(series, int(2.5e9), int(3.5e9))["reason"].endswith("gap")      # 3 -> 4 is the interval the gap sample closes
+    assert pt.energy_between_uj(series, int(2.25e9), int(2.75e9))["uj"] == pytest.approx(0.5e6)   # inside 2 -> 3, between the flags: valid
+    assert pt.energy_between_uj(series, int(4.5e9), int(5.5e9))["uj"] == pytest.approx(1e6)   # wrap was unwrapped: not an invalid flag
+    assert pt.energy_between_uj(series, int(2e9), int(3e9))["uj"] == pytest.approx(1e6)       # the flag on the sample the window starts on is not used
+    assert "decrease+gap" in pt.energy_between_uj(series_of([0, 1], [0, 1], ["", "decrease+gap"]), 0, int(1e9))["reason"]
+
+
+def test_power_csv_series_are_read_per_zone_and_skip_rows_without_an_energy_counter(tmp_path):
+    path = tmp_path / "power.csv"
+    lines = [",".join(pt.CSV_COLUMNS),
+             "2026-01-01T00:00:00.000000+00:00,1000000000,powercap-rapl,intel-rapl:0,package-0,5000000,,5000000,,1,p6,execute",
+             "2026-01-01T00:00:00.200000+00:00,1200000000,powercap-rapl,intel-rapl:0,package-0,7000000,,7000000,wrap,1,p6,execute",
+             "2026-01-01T00:00:00.200000+00:00,1200000000,powercap-rapl,intel-rapl:0:0,package-0/dram,900000,,900000,,1,p6,execute",
+             "2026-01-01T00:00:00.200000+00:00,1200000000,ipmi-dcmi,node,node,,312,,,1,p6,execute",
+             "2026-01-01T00:00:00.400000+00:00,not-a-number,powercap-rapl,intel-rapl:0,package-0,9000000,,9000000,,1,p6,execute"]
+    path.write_text("\n".join(lines) + "\n")
+    series = pt.read_power_csv_series(path)
+    assert set(series) == {"intel-rapl:0", "intel-rapl:0:0"}
+    assert series["intel-rapl:0"] == {"domain": "package-0", "mono": [1_000_000_000, 1_200_000_000], "uj": [5e6, 7e6], "flags": ["", "wrap"]}
+    assert series["intel-rapl:0:0"]["domain"] == "package-0/dram"
+
+
+def test_s2_pinned_zones_are_the_pinned_sockets_package_and_dram_only():
+    report = {"pinning": {"attribution": {"possible": True, "pinned_sockets": [0], "pinned_zones": {
+        "0": {"package": ["intel-rapl:0"], "dram": ["intel-rapl:0:1"], "core": ["intel-rapl:0:0"]}}}}}
+    assert pt.pinned_energy_zones(report) == ["intel-rapl:0", "intel-rapl:0:1"]                # the core zone is a subset of the package
+    assert pt.pinned_energy_zones({"pinning": {"attribution": {"possible": False}}}) == []
+    assert pt.pinned_energy_zones({}) == [] and pt.pinned_energy_zones({"pinning": {}}) == []
+
+
+def test_s2_pinned_energy_sums_the_zones_and_is_never_a_partial_sum():
+    series = {"a": series_of([0, 1, 2], [0, 10, 20]), "b": series_of([0, 1, 2], [0, 1, 2])}
+    got = pt.s2_pinned_energy_j(series, ["a", "b"], 0, int(2e9))
+    assert got["joules"] == pytest.approx(22.0) and got["zones"] == {"a": 20e6, "b": 2e6} and got["reason"] is None
+    assert pt.s2_pinned_energy_j(series, ["a", "c"], 0, int(2e9))["joules"] is None                 # a zone without a series is not zero
+    assert "no pinned zones" in pt.s2_pinned_energy_j(series, [], 0, int(2e9))["reason"]
+    series["b"]["flags"][2] = "decrease"
+    got = pt.s2_pinned_energy_j(series, ["a", "b"], 0, int(2e9))
+    assert got["joules"] is None and got["reason"].startswith("zone b:") and "decrease" in got["reason"]
