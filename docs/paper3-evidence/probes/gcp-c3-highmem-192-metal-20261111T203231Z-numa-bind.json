@@ -1,0 +1,407 @@
+{
+  "topology": {
+    "sockets": [
+      {
+        "socket": 0,
+        "cpus": "0-47,96-143",
+        "cpu_count": 96,
+        "physical_cores": 48,
+        "numa_nodes": [
+          0,
+          1
+        ]
+      },
+      {
+        "socket": 1,
+        "cpus": "48-95,144-191",
+        "cpu_count": 96,
+        "physical_cores": 48,
+        "numa_nodes": [
+          2,
+          3
+        ]
+      }
+    ],
+    "numa": {
+      "0": "0-23,96-119",
+      "1": "24-47,120-143",
+      "2": "48-71,144-167",
+      "3": "72-95,168-191"
+    },
+    "problems": []
+  },
+  "pinned_26_cpus": "0-12,96-108",
+  "socket1_probe_cpus": "48-60,144-156",
+  "membind_probe": {
+    "socket0_nodes": {
+      "nodes": "0,1",
+      "ok": true,
+      "mechanism": "libnuma (libnuma.so.1) set_mempolicy",
+      "readback": {
+        "mode": 2,
+        "nodes": [
+          0,
+          1
+        ]
+      },
+      "reasons": []
+    },
+    "pinned_cpu_nodes": {
+      "nodes": "0",
+      "ok": true,
+      "mechanism": "libnuma (libnuma.so.1) set_mempolicy",
+      "readback": {
+        "mode": 2,
+        "nodes": [
+          0
+        ]
+      },
+      "reasons": []
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "pin26-bound",
+      "pinning": {
+        "cpus": "0-12,96-108",
+        "cpu_count": 26,
+        "sockets": [
+          0
+        ],
+        "numa_nodes": [
+          0
+        ]
+      },
+      "plan": {
+        "enabled": true,
+        "policy": "MPOL_BIND",
+        "nodes": [
+          0
+        ]
+      },
+      "membind": {
+        "policy": "MPOL_BIND",
+        "nodes": [
+          0
+        ],
+        "mechanism": "libnuma (libnuma.so.1) set_mempolicy",
+        "verified": true,
+        "readback": {
+          "source": "get_mempolicy",
+          "mode": 2,
+          "nodes": [
+            0
+          ]
+        }
+      },
+      "applied_affinity": "0-12,96-108",
+      "policy_after": [
+        "bind:0"
+      ],
+      "allocator_exit": 0,
+      "allocator": {
+        "pid": 4973,
+        "cpus_allowed_list": "0-12,96-108",
+        "numa_maps": {
+          "pages": {
+            "0": 2100334,
+            "1": 620,
+            "2": 100,
+            "3": 78
+          },
+          "mib": {
+            "0": 8204.4,
+            "1": 2.4,
+            "2": 0.4,
+            "3": 0.3
+          },
+          "policies": [
+            "bind:0"
+          ]
+        },
+        "running_cpu": 3
+      },
+      "socket_nodes": {
+        "0": [
+          0,
+          1
+        ],
+        "1": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "scenario": "socket0-bound",
+      "pinning": {
+        "cpus": "0-47,96-143",
+        "cpu_count": 96,
+        "sockets": [
+          0
+        ],
+        "numa_nodes": [
+          0,
+          1
+        ]
+      },
+      "plan": {
+        "enabled": true,
+        "policy": "MPOL_BIND",
+        "nodes": [
+          0,
+          1
+        ]
+      },
+      "membind": {
+        "policy": "MPOL_BIND",
+        "nodes": [
+          0,
+          1
+        ],
+        "mechanism": "libnuma (libnuma.so.1) set_mempolicy",
+        "verified": true,
+        "readback": {
+          "source": "get_mempolicy",
+          "mode": 2,
+          "nodes": [
+            0,
+            1
+          ]
+        }
+      },
+      "applied_affinity": "0-47,96-143",
+      "policy_after": [
+        "bind:0-1"
+      ],
+      "allocator_exit": 0,
+      "allocator": {
+        "pid": 4976,
+        "cpus_allowed_list": "0-47,96-143",
+        "numa_maps": {
+          "pages": {
+            "0": 2100322,
+            "1": 620,
+            "2": 98,
+            "3": 80
+          },
+          "mib": {
+            "0": 8204.4,
+            "1": 2.4,
+            "2": 0.4,
+            "3": 0.3
+          },
+          "policies": [
+            "bind:0-1"
+          ]
+        },
+        "running_cpu": 101
+      },
+      "socket_nodes": {
+        "0": [
+          0,
+          1
+        ],
+        "1": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "scenario": "socket1-cpus-bound-to-socket0-nodes",
+      "pinning": {
+        "cpus": "48-60,144-156",
+        "cpu_count": 26,
+        "sockets": [
+          1
+        ],
+        "numa_nodes": [
+          2
+        ]
+      },
+      "plan": {
+        "enabled": true,
+        "policy": "MPOL_BIND",
+        "nodes": [
+          0,
+          1
+        ]
+      },
+      "membind": {
+        "policy": "MPOL_BIND",
+        "nodes": [
+          0,
+          1
+        ],
+        "mechanism": "libnuma (libnuma.so.1) set_mempolicy",
+        "verified": true,
+        "readback": {
+          "source": "get_mempolicy",
+          "mode": 2,
+          "nodes": [
+            0,
+            1
+          ]
+        }
+      },
+      "applied_affinity": "48-60,144-156",
+      "policy_after": [
+        "bind:0-1"
+      ],
+      "allocator_exit": 0,
+      "allocator": {
+        "pid": 4979,
+        "cpus_allowed_list": "48-60,144-156",
+        "numa_maps": {
+          "pages": {
+            "0": 2100336,
+            "1": 631,
+            "2": 120,
+            "3": 77
+          },
+          "mib": {
+            "0": 8204.4,
+            "1": 2.5,
+            "2": 0.5,
+            "3": 0.3
+          },
+          "policies": [
+            "bind:0-1"
+          ]
+        },
+        "running_cpu": 146
+      },
+      "socket_nodes": {
+        "0": [
+          0,
+          1
+        ],
+        "1": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "scenario": "socket1-cpus-unbound-control",
+      "pinning": {
+        "cpus": "48-60,144-156",
+        "cpu_count": 26,
+        "sockets": [
+          1
+        ],
+        "numa_nodes": [
+          2
+        ]
+      },
+      "plan": {
+        "enabled": false,
+        "policy": "default",
+        "nodes": [
+          2
+        ]
+      },
+      "applied_affinity": "48-60,144-156",
+      "policy_after": [
+        "default"
+      ],
+      "allocator_exit": 0,
+      "allocator": {
+        "pid": 4982,
+        "cpus_allowed_list": "48-60,144-156",
+        "numa_maps": {
+          "pages": {
+            "0": 1117,
+            "1": 625,
+            "2": 2099307,
+            "3": 74
+          },
+          "mib": {
+            "0": 4.4,
+            "1": 2.4,
+            "2": 8200.4,
+            "3": 0.3
+          },
+          "policies": [
+            "default"
+          ]
+        },
+        "running_cpu": 52
+      },
+      "socket_nodes": {
+        "0": [
+          0,
+          1
+        ],
+        "1": [
+          2,
+          3
+        ]
+      }
+    }
+  ],
+  "verdicts": {
+    "pin26-bound": {
+      "mib_by_node": {
+        "0": 8204.4,
+        "1": 2.4,
+        "2": 0.4,
+        "3": 0.3
+      },
+      "total_mib": 8207.5,
+      "node_share": {
+        "0": 0.9996,
+        "1": 0.0003,
+        "2": 0.0,
+        "3": 0.0
+      }
+    },
+    "socket0-bound": {
+      "mib_by_node": {
+        "0": 8204.4,
+        "1": 2.4,
+        "2": 0.4,
+        "3": 0.3
+      },
+      "total_mib": 8207.5,
+      "node_share": {
+        "0": 0.9996,
+        "1": 0.0003,
+        "2": 0.0,
+        "3": 0.0
+      }
+    },
+    "socket1-cpus-bound-to-socket0-nodes": {
+      "mib_by_node": {
+        "0": 8204.4,
+        "1": 2.5,
+        "2": 0.5,
+        "3": 0.3
+      },
+      "total_mib": 8207.7,
+      "node_share": {
+        "0": 0.9996,
+        "1": 0.0003,
+        "2": 0.0001,
+        "3": 0.0
+      }
+    },
+    "socket1-cpus-unbound-control": {
+      "mib_by_node": {
+        "0": 4.4,
+        "1": 2.4,
+        "2": 8200.4,
+        "3": 0.3
+      },
+      "total_mib": 8207.5,
+      "node_share": {
+        "0": 0.0005,
+        "1": 0.0003,
+        "2": 0.9991,
+        "3": 0.0
+      }
+    }
+  },
+  "mib_requested": 8192
+}

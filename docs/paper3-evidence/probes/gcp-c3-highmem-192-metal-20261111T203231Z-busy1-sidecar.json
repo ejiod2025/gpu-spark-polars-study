@@ -1,0 +1,258 @@
+{
+  "format": 1,
+  "tool": "power_telemetry.py",
+  "status": "available",
+  "cpu_energy_source": "powercap-rapl",
+  "node_power_source": null,
+  "interval_seconds": 0.2,
+  "ipmi_interval_seconds": null,
+  "reasons": [
+    "ipmi-dcmi: exit 1: Could not open device at /dev/ipmi0 or /dev/ipmi/0 or /dev/ipmidev/0: No such file or directory"
+  ],
+  "sources": [
+    {
+      "status": "active",
+      "kind": "energy_counter",
+      "unit": "uJ",
+      "reasons": [],
+      "domains": [
+        {
+          "zone": "intel-rapl:0",
+          "domain": "package-0",
+          "socket": 0,
+          "kind": "package",
+          "interface": "msr",
+          "path": "/sys/class/powercap/intel-rapl:0/energy_uj",
+          "max_energy_range_uj": 262143328850,
+          "readable": true,
+          "advancing": true,
+          "error": null,
+          "duplicate_of": null,
+          "sampled": true
+        },
+        {
+          "zone": "intel-rapl:0:0",
+          "domain": "package-0/dram",
+          "socket": 0,
+          "kind": "dram",
+          "interface": "msr",
+          "path": "/sys/class/powercap/intel-rapl:0:0/energy_uj",
+          "max_energy_range_uj": 262143328850,
+          "readable": true,
+          "advancing": true,
+          "error": null,
+          "duplicate_of": null,
+          "sampled": true
+        },
+        {
+          "zone": "intel-rapl:1",
+          "domain": "package-1",
+          "socket": 1,
+          "kind": "package",
+          "interface": "msr",
+          "path": "/sys/class/powercap/intel-rapl:1/energy_uj",
+          "max_energy_range_uj": 262143328850,
+          "readable": true,
+          "advancing": true,
+          "error": null,
+          "duplicate_of": null,
+          "sampled": true
+        },
+        {
+          "zone": "intel-rapl:1:0",
+          "domain": "package-1/dram",
+          "socket": 1,
+          "kind": "dram",
+          "interface": "msr",
+          "path": "/sys/class/powercap/intel-rapl:1:0/energy_uj",
+          "max_energy_range_uj": 262143328850,
+          "readable": true,
+          "advancing": true,
+          "error": null,
+          "duplicate_of": null,
+          "sampled": true
+        }
+      ],
+      "source": "powercap-rapl",
+      "setup_hint": null
+    },
+    {
+      "source": "amd-energy",
+      "status": "skipped",
+      "reasons": [
+        "not probed: powercap-rapl is already the CPU energy source"
+      ]
+    },
+    {
+      "source": "perf-stat",
+      "status": "skipped",
+      "reasons": [
+        "not probed: powercap-rapl is already the CPU energy source"
+      ]
+    },
+    {
+      "source": "turbostat",
+      "status": "skipped",
+      "reasons": [
+        "not probed: powercap-rapl is already the CPU energy source"
+      ]
+    },
+    {
+      "status": "unavailable",
+      "reasons": [
+        "exit 1: Could not open device at /dev/ipmi0 or /dev/ipmi/0 or /dev/ipmidev/0: No such file or directory"
+      ],
+      "source": "ipmi-dcmi",
+      "setup_hint": "ipmitool needs a local BMC: apt install ipmitool; sudo modprobe ipmi_si ipmi_devintf; /dev/ipmi0 is root-only, so run as root or point POWER_TELEMETRY_IPMI_COMMAND at 'sudo -n ipmitool' with a NOPASSWD rule. Cloud VMs have no BMC."
+    }
+  ],
+  "sockets": {
+    "per_socket_counters": true,
+    "zones": {
+      "0": {
+        "package": [
+          "intel-rapl:0"
+        ],
+        "dram": [
+          "intel-rapl:0:0"
+        ]
+      },
+      "1": {
+        "package": [
+          "intel-rapl:1"
+        ],
+        "dram": [
+          "intel-rapl:1:0"
+        ]
+      }
+    },
+    "zones_not_sampled": [],
+    "mapping": "socket N is the N of the powercap zone package-N / amd_energy Esocket N, taken to be the physical_package_id of the CPUs listed under topology",
+    "topology": [
+      {
+        "socket": 0,
+        "cpus": "0-47,96-143",
+        "cpu_count": 96,
+        "physical_cores": 48,
+        "numa_nodes": [
+          0,
+          1
+        ]
+      },
+      {
+        "socket": 1,
+        "cpus": "48-95,144-191",
+        "cpu_count": 96,
+        "physical_cores": 48,
+        "numa_nodes": [
+          2,
+          3
+        ]
+      }
+    ],
+    "problems": []
+  },
+  "setup_hints": [
+    "ipmitool needs a local BMC: apt install ipmitool; sudo modprobe ipmi_si ipmi_devintf; /dev/ipmi0 is root-only, so run as root or point POWER_TELEMETRY_IPMI_COMMAND at 'sudo -n ipmitool' with a NOPASSWD rule. Cloud VMs have no BMC."
+  ],
+  "csv": "power.csv",
+  "csv_columns": [
+    "timestamp_utc",
+    "monotonic_ns",
+    "source",
+    "zone",
+    "domain",
+    "energy_uj",
+    "power_w",
+    "raw_counter_uj",
+    "flag",
+    "scale",
+    "engine",
+    "phase"
+  ],
+  "notes": [
+    "energy_uj is cumulative and unwrapped; use differences between samples of one (source, zone)",
+    "RAPL package/dram/psys are separate domains; core and uncore are subsets of package",
+    "ipmi-dcmi rows are stamped when ipmitool returns; the BMC value is averaged over its own period",
+    "perf-stat rows are stamped at line arrival and cover the preceding interval"
+  ],
+  "host": {
+    "platform": "Linux-7.0.0-1017-gcp-x86_64-with-glibc2.39",
+    "kernel": "7.0.0-1017-gcp",
+    "euid": 1001,
+    "timezone": {
+      "tz_env": null,
+      "tzname": [
+        "UTC",
+        "UTC"
+      ],
+      "utc_offset_seconds": 0,
+      "dst_in_effect": false,
+      "has_dst_rules": false,
+      "etc_localtime": "/usr/share/zoneinfo/Etc/UTC"
+    }
+  },
+  "clock": {
+    "start": {
+      "utc": "2026-11-11T20:41:22.537213+00:00",
+      "monotonic_ns": 495584856970,
+      "uncertainty_ns": 14389
+    },
+    "stop": {
+      "utc": "2026-11-11T20:42:22.541522+00:00",
+      "monotonic_ns": 555589171886,
+      "uncertainty_ns": 31998
+    }
+  },
+  "state": "finished",
+  "samples": {
+    "rows": {
+      "powercap-rapl": 1208
+    },
+    "total": 1208
+  },
+  "read_errors": {},
+  "liveness": {
+    "powercap-rapl/intel-rapl:0": {
+      "kind": "energy",
+      "verdict": "advancing",
+      "samples": 302,
+      "changes": 300,
+      "longest_flat_seconds": 0.2
+    },
+    "powercap-rapl/intel-rapl:0:0": {
+      "kind": "energy",
+      "verdict": "advancing",
+      "samples": 302,
+      "changes": 300,
+      "longest_flat_seconds": 0.2
+    },
+    "powercap-rapl/intel-rapl:1": {
+      "kind": "energy",
+      "verdict": "advancing",
+      "samples": 302,
+      "changes": 301,
+      "longest_flat_seconds": 0.2
+    },
+    "powercap-rapl/intel-rapl:1:0": {
+      "kind": "energy",
+      "verdict": "advancing",
+      "samples": 302,
+      "changes": 301,
+      "longest_flat_seconds": 0.2
+    }
+  },
+  "overhead": {
+    "sampler_thread_cpu_seconds": {
+      "counters": 0.233075
+    },
+    "wall_seconds": 60.004,
+    "cpu_fraction_of_one_core": 0.003884,
+    "counter_polls": 302,
+    "mean_poll_ms": 1.1197,
+    "max_poll_ms": 1.659,
+    "max_gap_between_polls_seconds": 0.2001,
+    "overruns": 0,
+    "note": "thread CPU time of the sampler threads; child processes (ipmitool, perf, turbostat) are not included"
+  }
+}
