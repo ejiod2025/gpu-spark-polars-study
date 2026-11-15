@@ -1,11 +1,11 @@
 # Paper 3 — energy and cost per query, CPU versus GPU dataframe engines — pre-registered design
 
-Status: **DRAFT — not locked; the lock waits for the GH200 P6 rerun against the module-scope reference and for the C-GCP
-P6-CPU probe (§2.1, §7.1). B200 is a conditional host (§3.1, §11 item 8).** Drafted 2026-11-11 for Daniel Ejiofor (Boston
-University, ejiod@bu.edu), revised after probes P1-P4 (§7.2) and the pre-lock probes of 2026-11-11 to 2026-11-15 (§7.2; what
-changed: §12). Until the lock (§7) this text may be edited freely. After it, sections 1-11 are never edited; changes are
-dated, append-only amendments in §12 (rule of `docs/H100_EXPERIMENT_DESIGN.md`, extended in §7.4). All author decisions are
-answered (§11).
+Status: **DRAFT — ready to lock; awaiting the author's go-ahead (§12 lists the lead's pre-lock changes).** Two conditions
+follow the lock, each before the first session of its host: B200 admission (§3.1) and the C-GCP P6-CPU probe (§7.1). Drafted
+2026-11-11 for Daniel Ejiofor (Boston University, ejiod@bu.edu), revised after probes P1-P4 (§7.2) and the pre-lock probes
+of 2026-11-11 to 2026-11-15 (§7.2; what changed: §12). Until the lock (§7) this text may be edited freely. After it,
+sections 1-11 are never edited; changes are dated, append-only amendments in §12 (rule of `docs/H100_EXPERIMENT_DESIGN.md`,
+extended in §7.4). All author decisions are answered (§11).
 
 Aim (author's words): rigorous, reproducible evaluation methods and tools that help U.S. organizations choose cost- and
 energy-efficient CPU or GPU engines for analytical data processing. Paper 3 contributes a measurement protocol and
@@ -67,27 +67,41 @@ Same TPC-H-derived workload, engines and integrity gates as Paper 1 (not a certi
   |---|---|---|---|
   | H100 SXM5 (`power.draw.instant`) | 9.3 / 5.5 / 1.1 / 0.78 / 0.56 / 0.57 | 0.5 s / 0.5 s | **1 s** (floor) |
   | A100 SXM4 (`power.draw.instant`) | 34 / 18 / 11 / 5.3 / 1.9 / 0.69 | 2.0 s / 5.0 s | **2 s** |
-  | GH200 (`power.draw.instant`, GPU-only: wrong scope) | 46 / 26 / 19 / 16 / 15 / 14.7 | none / none | **pending** (P6 rerun with the module reference) |
+  | GH200, first run (`power.draw.instant`, GPU-only: wrong scope, invalid) | 46 / 26 / 19 / 16 / 15 / 14.7 | none / none | superseded |
+  | GH200, rerun 2026-11-15 (`module.power.draw.instant`) | 11.0 / 5.95 / 2.93 / 0.41 / 0.45 / 0.47 | 1.0 s / 1.0 s | **1 s** (equals the floor) |
   | B200 | not probed | not probed | **pending** (its own P6, before any B200 session) |
-  | C-GCP (S2-pinned; direct `energy_uj` reads as reference) | P6-CPU not run | not run | **pending** (P6-CPU, below) |
+  | C-GCP (S2-pinned; direct `energy_uj` reads as reference) | P6-CPU not run | not run | **pending** (P6-CPU before the first C-GCP session, below) |
 
   Evidence: `docs/paper3-evidence/probes/lambda-h100-20261112T035018Z-p6.json`, `lambda-a100-20261112T035051Z-p6.json`,
-  `lambda-gh200-20261115T171353Z-p6.json` (5 windows per length, 8 isolated pulses per length; the H100 and A100 errors were
-  recomputed independently from the raw counter reads and the 20 ms CSV and match the recorded values exactly, the GH200
-  medians from its records). The A100's 1.91% at 2 s is close to the 2% limit and its 1.0 s windows give 5.3%; the H100's
+  `lambda-gh200-20261115T171353Z-p6.json` (first GH200 run) and `lambda-gh200-20261115T213713Z-p6.json` (GH200 rerun); 5
+  windows per length and 8 isolated pulses per length. The H100, A100 and GH200-rerun errors were recomputed independently
+  from the raw counter reads and the 20 ms CSV and match the recorded values exactly; the first GH200 run's medians were
+  recomputed from its records. The A100's 1.91% at 2 s is close to the 2% limit and its 1.0 s windows give 5.3%; the H100's
   isolated 0.5 s and 1 s values are 1.97% and 1.91%. All are recorded as measured; no limit is moved.
-- **GH200 P6 is invalid as a resolution test.** It was scored against GPU-only `power.draw.instant`, which does not have
-  the GH200 counter's scope (§2.3): the gap never falls below 14.7% at any length (14.7% for 5 s windows, 14.8% for 10 s
-  isolated pulses), a scope offset and not a resolution effect, so it yields no `t_min`. `t_min(GH200)` is **pending**: a
-  P6-only rerun against `module.power.draw.instant` (`--p6-field` in `tools/paper3_probes/p3_gpu_probes.py`) is queued for
-  when Lambda has GH200 capacity; the lock waits for it (§7.1).
-- **`t_min(C-GCP)` comes from a RAPL probe, P6-CPU** (lead's decision 2026-11-15). The P6 above is an NVML test and says
-  nothing about the RAPL path. On C-GCP `t_min` is fixed before the lock by a RAPL resolution probe: per-run S2-pinned energy
-  from the campaign's own path (the 200 ms `power.csv` series interpolated linearly at the run's stamps) against direct
-  `energy_uj` reads at the same stamps, which are the reference (the RAPL counter updates about every 1 ms: stated, to be
-  checked by the probe), on synthetic CPU pulses of known length on the 26-vCPU pin, isolated and in windows built by the
-  window rule, with the same 2% rule as above on the windows-mode result: `t_min(C-GCP) = max(1 s, measured)`. It is pending;
-  the lock waits for it (§7.1).
+- **GH200 P6: first run invalid, rerun valid.** The first GH200 P6 was scored against GPU-only `power.draw.instant`, which
+  does not have the counter's scope (§2.3): the gap never fell below 14.7% at any length (14.7% for 5 s windows, 14.8% for
+  10 s isolated pulses), a scope offset and not a resolution effect, so it yields no `t_min` and is superseded. The rerun
+  (2026-11-15 21:43-21:59 UTC, a second GH200 instance, driver 570.148.08, reference `module.power.draw.instant` via
+  `--p6-field` in `tools/paper3_probes/p3_gpu_probes.py`) gives windows-mode median absolute errors of 11.0 / 5.95 / 2.93 /
+  0.41 / 0.45 / 0.47% at 0.1 / 0.25 / 0.5 / 1 / 2 / 5 s and isolated errors of 31.5 / 20.2 / 5.5 / 1.4 / 1.1 / 0.35 / 0.17%
+  at 0.1 / 0.25 / 0.5 / 1 / 2 / 5 / 10 s. The measured `t_min` is 1.0 s in both modes, so `t_min(GH200) = max(1 s, 1.0 s) =
+  1 s`. Windows-mode errors are positive in all 5 windows at 0.1, 0.25 and 0.5 s (one-sided below 1 s) and of mixed sign
+  from 1 s (3, 4 and 3 of 5 positive at 1, 2 and 5 s). Provenance: the `power_telemetry.py` copied to the host had
+  uncommitted edits against HEAD 0cbb2a7, whose exact diff is `lambda-gh200-20261115T213713Z-power_telemetry-vs-HEAD.diff`:
+  a negative-window-energy guard in `energy_between_uj`, a new S2-all zone helper (`all_package_dram_zones`) and a docstring
+  change. The GPU steps do not call `energy_between_uj` (not called by `p3_gpu_probes.py` or `probe_power.py`; the counter
+  is read through `GpuEnergyReader`).
+- **`t_min(C-GCP)` comes from a RAPL probe, P6-CPU** (lead's decision 2026-11-15; the author may object before the lock).
+  The P6 above is an NVML test and says nothing about the RAPL path. On C-GCP `t_min` is fixed by a RAPL resolution probe:
+  per-run S2-pinned energy from the campaign's own path (the 200 ms `power.csv` series interpolated linearly at the run's
+  stamps) against direct `energy_uj` reads at the same stamps, which are the reference (the RAPL counter updates about every
+  1 ms: stated, to be checked by the probe), on synthetic CPU pulses of known length on the 26-vCPU pin, isolated and in
+  windows built by the window rule, with the same 2% rule as above on the windows-mode result: `t_min(C-GCP) = max(1 s,
+  measured)`. It is pending. Because `c3-highmem-192-metal` is stocked out in every US zone (team lead's report, not
+  archived), so that no pre-lock launch can be had, the probe is a pre-first-session condition like B200's (§3.1): it is run
+  on a C-GCP instance, which may be the campaign's own first launch, before the first C-GCP session, and its results,
+  `t_min(C-GCP)` and the `paper3_hosts.json` value are recorded in an append-only §12 amendment before that session (outcome
+  data seen: none beyond synthetic probe load; §7.1).
 - **The isolated (single-run) `t_min` is never binding.** A window of one run (`n = 1`) arises only when the first run takes
   >= 10 s (otherwise the window continues), and a summed window below 10 s arises only when the cap of 50 runs is reached;
   so every valid one-run window has a per-run time >= 10 s, where the isolated P6 error is 0.34% (H100) and 0.22% (A100).
@@ -160,16 +174,19 @@ and `gcp-c3-highmem-192-metal-20261111T203231Z-idle{1,2}-*`.
   `power.draw` is GPU-only (88 W against the 162 W counter at bare idle). B200: scope from its own semantics step. Also
   logged: temperature, SM/memory clocks, throttle reasons, power limit. Nothing is tuned: no clock locking, power capping or
   governor change.
-- **GH200 power limits, recorded.** In `docs/paper3-evidence/probes/lambda-gh200-20261115T171353Z-semantics.json`
-  (2026-11-15 17:30:19 UTC) the `nvidia-smi --query-gpu` row in `meta` reports `power.limit` 900.00 W and
-  `power.default_limit` 900.00 W. The `nvidia-smi -q -d POWER` text stored in the same file for the same second, parsed,
-  gives: GPU Current and Requested Power Limit 700.00 W, GPU Default and Max 900.00 W (Min 100.00 W); Module Power Readings
-  Current, Requested, Default and Max limit 1000.00 W (Min 200.00 W). So the `--query-gpu` `power.limit` of 900 W equals the
-  GPU's default and max limit and not its current limit; the team lead reads this as that query field reflecting the
-  default/max view (not verified here), and no claim is made here about which value is enforced. On the H100 (700 and 700 W)
-  and the A100 (400 and 400 W) the two sources agree. So that G11's "power limit logged" is unambiguous, the harness logs
-  the `nvidia-smi -q -d POWER` text at session start and end as well as the `--query-gpu` fields, and the QA table shows
-  both.
+- **GH200 power limits, recorded; the enforced limit is 700 W.** In
+  `docs/paper3-evidence/probes/lambda-gh200-20261115T171353Z-semantics.json` (2026-11-15 17:30:19 UTC) the `nvidia-smi
+  --query-gpu` row in `meta` reports `power.limit` 900.00 W and `power.default_limit` 900.00 W, while the `nvidia-smi -q -d
+  POWER` text in the same file, parsed, gives GPU Current and Requested Power Limit 700.00 W, GPU Default and Max 900.00 W
+  (Min 100.00 W) and Module Power Readings limits of 1000.00 W (Min 200.00 W). The source check on a second GH200 instance
+  (`lambda-gh200-20261115T213713Z-sources.json`, 21:43 UTC) settles which value is enforced: `--query-gpu
+  enforced.power.limit` reads 700.00 W (with `power.limit`, `power.default_limit` and `power.max_limit` at 900.00 W and
+  `power.min_limit` at 100.00 W), NVML reports a management limit of 900 W and an enforced limit of 700 W, and the `-q -d
+  POWER` text again shows Current Power Limit 700.00 W. So the GPU's enforced limit on the GH200 is 700 W, equal to the `-q`
+  Current Power Limit; `--query-gpu power.limit` (900 W) is the default/max view and is not the enforced limit. On the H100
+  (700 and 700 W) and the A100 (400 and 400 W; enforced 400 W in the 1x A100 source check) the sources agree. G11 therefore
+  records the enforced limit (`enforced.power.limit`) as the power limit, with `power.limit` and the `-q -d POWER` text,
+  logged at session start and end, beside it; the QA table shows them.
 
 ### 2.4 CPU energy (scopes S2, S3)
 Source order, decided per host class by the probe report (fixed at the lock, never at analysis time):
@@ -199,19 +216,23 @@ Source order, decided per host class by the probe report (fixed at the lock, nev
   of 2026-11-15, `docs/paper3-evidence/probes/lambda-a100-20261115T181846Z-sources.json`, `probe_power.py --no-load`, valid
   lease): a virtualized guest (hypervisor flag, `systemd-detect-virt` kvm, QEMU Q35 / SeaBIOS DMI), AMD EPYC 7J13 reported
   as 30 sockets of 1 core, SMT off; powercap has no zones (the `intel_rapl_*` modules are loaded but list none), no hwmon
-  energy or power device, no perf power PMU, no `/dev/cpu/*/msr`, no BMC; `best_source` is `none`, nothing readable as user or
-  root; the NVML GPU energy counter is present (power limit 400 W, enforced 400 W). **GH200:** the source check (powercap,
-  hwmon, perf, IPMI) has not been run yet (queued with the P6 rerun, same launch); its counter includes the Grace CPU
-  (S1-module, §2.3), so CPU-engine energy there is measured at module scope (§2.5, X7); Grace has no x86 RAPL. **B200:** not
-  probed; its battery will end with the same source check (informational, not an admission condition). P3, P5: RAPL works on
-  the metal host, no BMC.
+  energy or power device, no perf power PMU, no `/dev/cpu/*/msr`, no BMC; `best_source` is `none`, nothing readable as user
+  or root; the NVML GPU energy counter is present (power limit 400 W, enforced 400 W). **GH200: no separable CPU energy**
+  (CPU-energy source check of 2026-11-15, `docs/paper3-evidence/probes/lambda-gh200-20261115T213713Z-sources.json`,
+  `probe_power.py --no-load`, valid lease, a second GH200 instance): a virtualized guest (`systemd-detect-virt` kvm, QEMU
+  KVM Virtual Machine DMI, EDK II firmware), Neoverse-V2 (aarch64) with 64 vCPUs shown as 1 socket of 64 cores, SMT off;
+  powercap sysfs present with no zones, no hwmon energy or power device, no perf power PMU, no MSR device, no BMC;
+  `best_source` is `none`. CPU energy on the GH200 exists only inside the module counter (S1-module, §2.3), so CPU-engine
+  energy there is measured at module scope (§2.5, X7); Grace has no x86 RAPL, and no author decision is triggered. **B200:**
+  not probed; its battery will end with the same source check (informational, not an admission condition). P3, P5: RAPL
+  works on the metal host, no BMC.
 
 ### 2.5 Scope matrix and what may be compared
 | Host class | Engines | Energy reported | Cost |
 |---|---|---|---|
 | Lambda x86 GPU host (A100, H100, B200 if admitted; H100, 1x A100 and 8x A100 verified KVM guests, B200 not checked) | GPU engines | S1-counter, GPU-board-only (CPU energy not measurable: P1, P4, 1x A100 source check) | host price |
 | same host | CPU engines | S1 *idle GPU* (the GPU paid for while idle), GPU-board-only | host price |
-| Lambda GH200 (Arm) | GPU engines | **S1-module**: Grace CPU + GPU + memory, whole-module energy (P7, §2.3) | host price |
+| Lambda GH200 (Arm; verified KVM guest) | GPU engines | **S1-module**: Grace CPU + GPU + memory, whole-module energy (P7, §2.3) | host price |
 | same host | CPU engines | **S1-module**: the CPU engine's draw on Grace plus the idle GPU's (whole-module energy; secondary comparison X7, below) | host price |
 | CPU-only bare metal (GCP `c3-highmem-192-metal`; fallbacks §3.1) | CPU engines | S2-pinned, S2-all | right-sized VM B1 (primary), as rented B2 (§2.6) |
 
@@ -381,7 +402,7 @@ Source order, decided per host class by the probe report (fixed at the lock, nev
   >= 60 s cool-down between sessions, met by the §2.2 brackets (>= 150 s without query load between the last query of one
   session and the first of the next; the harness flag `--session-cooldown-seconds` is 0 on the campaign hosts and 60 s on
   the C-VM, which has no brackets, §3.1); C-GCP is single-tenant bare metal (network storage is shared); Lambda hosts are
-  KVM VMs where checked (H100, 1x A100, 8x A100; noise visible via `host.csv`, clock and throttle logs). Measurement
+  KVM VMs where checked (H100, 1x A100, 8x A100, GH200; noise visible via `host.csv`, clock and throttle logs). Measurement
   processes (`nvidia-smi` with `TZ=UTC`, RAPL sampler) run in every session including idle windows, so their draw is in
   `P_idle` and `E`; P5 quantified their overhead (§2.2: 0.004-0.72 W for the `nvidia-smi` poller on the 1x GPU hosts, the
   H100 figure within its window-to-window variation; 0.39-0.48% of one core for the RAPL sampler).
@@ -396,9 +417,9 @@ Paper 1 §7 and A1 apply unchanged: G1 every session exits, no timeout; G2 outpu
 | G6 source conformance | each session's counters match the probe-declared sources; none missing or non-monotone mid-session; every sampler series has liveness verdict "advancing", judged per session on the samples inside that session's stamps; launch, completed and process-exit stamps with counter readings present | session energy invalid; round fails, repeated once; no substitution |
 | G7 sample coverage | trapezoid windows have >= 80% of expected 200 ms samples, no gap > 1 s | cross-check flagged; counter value unaffected |
 | G8 clock alignment | activity-onset correlation, **onset times only** (no magnitudes): for GPU-engine windows >= 5 s, the first `gpu.csv` sample with `utilization.gpu` >= 10% must follow the worker's window start with median lag within +-0.4 s and first-third versus last-third drift <= 0.2 s; sessions without such windows use a 3 s load pulse (separate process) at start and end; `chronyc tracking` offset logged | `gpu.csv` values disabled for the session |
-| G9 resolution | window rule and the host's `t_min` (§2.1: 1 s H100, 2 s A100; GH200, B200 and C-GCP pending) met | cell "below resolution" |
+| G9 resolution | window rule and the host's `t_min` (§2.1: 1 s H100, 1 s GH200, 2 s A100; B200 and C-GCP pending) met | cell "below resolution" |
 | G10 idle stability | pre/post idle mean power within 10% per scope | above-idle flagged unreliable; total unaffected |
-| G11 thermal/power state | throttle reasons, power limit (the `--query-gpu` fields and the `nvidia-smi -q -d POWER` text at session start and end, §2.3), temperature logged | flagged, not excluded |
+| G11 thermal/power state | throttle reasons, power limit (the enforced limit, `enforced.power.limit`, with the `--query-gpu` fields and the `nvidia-smi -q -d POWER` text at session start and end beside it, §2.3), temperature logged | flagged, not excluded |
 | G12 exclusive use | no foreign GPU compute process; nothing else scheduled on C-GCP | integrity failure |
 
 **G8 pre-lock probe, thresholds unchanged** (20 synthetic 3 s pulses per host against a 200 ms `nvidia-smi` stream with
@@ -505,11 +526,13 @@ The external timestamp is a Zenodo deposit of the locked design file made at the
 the annotated tag `paper3-design-lock` (its tagger date); the Zenodo deposit is made the same UTC day.
 
 **Timing (author decision 2026-11-15, §11 item 8.2).** The lock is made once the GH200 P6 rerun against
-`module.power.draw.instant` is in and `t_min(GH200)` has been written into §2.1 by the rule stated there; by the lead's
-decision of 2026-11-15 it also waits for the C-GCP P6-CPU probe and `t_min(C-GCP)` (§2.1). B200 is a
-conditional host (§3.1): if Lambda 1x B200 capacity appears, its probes run after the lock with synthetic load only and are
-recorded in an append-only §12 amendment, with `t_min(B200)` and its scope tag, before its first session; a locked design
-without B200 data is complete.
+`module.power.draw.instant` is in and `t_min(GH200)` has been written into §2.1 by the rule stated there: both are met
+(rerun of 2026-11-15, `t_min(GH200)` = 1 s). Two conditions follow the lock instead, each recorded in an append-only §12
+amendment before the first session of its host (outcome data seen: none beyond synthetic probe load): B200 admission (§3.1),
+and the C-GCP P6-CPU probe with `t_min(C-GCP)` and the `paper3_hosts.json` value (§2.1). The second is the lead's decision
+of 2026-11-15, which the author may object to before the lock; reason: `c3-highmem-192-metal` is stocked out in every US
+zone (team lead's report, not archived), so a pre-lock launch cannot be had, and the probe may run on the campaign's own
+first C-GCP launch. A locked design without B200 data is complete.
 
 ### 7.2 What may precede the lock (all disclosed in a dated probe report committed before the lock)
 - Drafting and review of this design, reading the repository, papers and published Paper 1/2 results, and harness and
@@ -524,8 +547,8 @@ without B200 data is complete.
     (§2.4), no BMC, availability as in §3.1. **P4** ~15:20, Lambda `gpu_8x_a100` europe-central-1 (KVM VM; the 8x type, not
     the study's 1x type): no CPU energy source, NVML counter on all 8 GPUs. **Instrumentation smoke test** ~14:18-14:21 on
     the H100: `power_telemetry.py` and the worker's per-run counter reads, synthetic CUDA pulse load only.
-  - **Done, 2026-11-11 to 2026-11-15 (no study queries run; synthetic CUDA spin kernel, `nvidia-smi` pollers and CPU
-    burners only).** **P5 on C-GCP**, `c3-highmem-192-metal` us-east4-a, launched 2026-11-11 20:32:31 UTC, deleted 20:44:14:
+  - **Done, 2026-11-11 to 2026-11-15 (no study queries run; synthetic CUDA spin kernel, `nvidia-smi` pollers and CPU burners
+    only).** **P5 on C-GCP**, `c3-highmem-192-metal` us-east4-a, launched 2026-11-11 20:32:31 UTC, deleted 20:44:14:
     topology, the `--probe-membind` check, the four-scenario NUMA-binding check (`numa_maps` must show the engine's pages on
     the bound nodes: it does, §3.1), perf versus powercap, sampler overhead, two idle and one busy 60 s window
     (`gcp-c3-highmem-192-metal-20261111-summary.md` and `gcp-c3-highmem-192-metal-20261111T203231Z-*`; results §2.4, §3.1).
@@ -533,15 +556,19 @@ without B200 data is complete.
     H100 SXM5 (us-south-2, launched 2026-11-12 03:50 UTC, stamp `20261112T035018Z`), A100 SXM4 40 GB (us-east-1, launched
     03:50 UTC, `20261112T035051Z`) and GH200 (us-east-3, launched 2026-11-15 17:13 UTC, `20261115T171353Z`); files
     `lambda-<class>-<stamp>-*` (results §2.1-§2.3, §4). A first H100/A100 attempt left no kept data (team lead's report, not
-    archived). The GH200 P6 in these files is invalid (§2.1). **1x A100 CPU-energy source check** (`probe_power.py --no-load`,
-    valid lease): Lambda `gpu_1x_a100_sxm4` us-east-1, launched 2026-11-15 18:18:48 UTC, probe 18:23:02, termination
-    confirmed 18:24:40; files `lambda-a100-20261115T181846Z-sources.json` and `-run.log` (result §2.4).
-  - **Pending.** *Before the lock:* the GH200 P6 rerun against `module.power.draw.instant` (queued until Lambda has GH200
-    capacity), run in the same launch as the GH200 CPU-energy source check (§2.4); and the C-GCP P6-CPU probe (§2.1; one
-    metal-host launch with synthetic CPU pulses, expected to fit the roughly 2 h probe allowance of the C-GCP
-    overhead-and-probes row of §9, of which P5 used 0.2 h; not re-estimated). *After the lock, if capacity appears:* the
-    full B200 battery, which now ends with a CPU-energy source check (§3.1, §2.4). *Not run:* P8 RAPL, topology and idle
-    floor of a fallback host if one is used.
+    archived). The GH200 P6 in these files is invalid (§2.1; rerun below). **1x A100 CPU-energy source check**
+    (`probe_power.py --no-load`, valid lease): Lambda `gpu_1x_a100_sxm4` us-east-1, launched 2026-11-15 18:18:48 UTC, probe
+    18:23:02, termination confirmed 18:24:40; files `lambda-a100-20261115T181846Z-sources.json` and `-run.log` (result
+    §2.4).
+  - **GH200 P6 rerun and CPU-energy source check** (2026-11-15; no study queries, synthetic load only): Lambda
+    `gpu_1x_gh200` us-east-3, a second instance, launched 21:37:15 UTC; `probe_power.py --no-load` at 21:43:11; P6 against
+    `module.power.draw.instant` 21:43:26-21:59:35; termination confirmed 22:00:43; files `lambda-gh200-20261115T213713Z-*`
+    (results §2.1, §2.3, §2.4; the copied `power_telemetry.py` differed from HEAD, see §2.1).
+  - **Pending.** *Before the lock:* nothing; the GH200 P6 rerun and source check are in. *After the lock, before the first
+    session of the host concerned:* the C-GCP P6-CPU probe (§2.1; a C-GCP launch with synthetic CPU pulses, possibly the
+    campaign's own first launch, expected to fit the roughly 2 h probe allowance of the C-GCP overhead-and-probes row of §9,
+    of which P5 used 0.2 h; not re-estimated) and, if capacity appears, the full B200 battery, which ends with a CPU-energy
+    source check (§3.1, §2.4). *Not run:* P8 RAPL, topology and idle floor of a fallback host if one is used.
   - **Harness readiness (before round 1; not a lock item).** The campaign needs the harness to implement the window rule
     (§2.1), the `gpu.csv` power fields (`power.draw.average` and `.instant`, and `module.power.draw.average` and `.instant`
     on GH200), the scope tags (§2.4) and a scope-aware counter description (module, not "whole-board", on GH200), and to log
@@ -637,20 +664,21 @@ engines x 3 scales x 2 rounds), 11 x 60 s = 0.2 h inside the 6 h C-VM row, also 
 **Probe spend so far (approximate; not part of the core total above, which is not re-estimated here).** GCP P5, 703 s of
 `c3-highmem-192-metal` at list price: $2.48. Lambda, billed at the API price (the 2026-11-16 prices were not yet in force):
 the first lost H100/A100 attempt about $5.76 (team lead's figure, no logs kept), the H100 and A100 rerun about $8 (the
-launch-to-terminate times in the run logs times the API prices give about $7.1-7.4), GH200 about $1.40 (35 minutes at $2.29/h,
-about $1.34-1.38 from the logs), and the 1x A100 source check of 2026-11-15 about $0.15-0.20 (4.3-5.9 minutes at $1.99/h
-from the run log). Total about $18. The table rows "Remaining probes and validation P5-P7" and "overhead and
-probes P5, P6" overlap with this spend and were not reduced. The B200 rows (base run, its share of the overhead and probe
-rows) are spent only if B200 is admitted (§3.1).
+launch-to-terminate times in the run logs times the API prices give about $7.1-7.4), GH200 about $1.40 (35 minutes at
+$2.29/h, about $1.34-1.38 from the logs), the 1x A100 source check of 2026-11-15 about $0.15-0.20 (4.3-5.9 minutes at
+$1.99/h from the run log), and the GH200 P6 rerun with source check of 2026-11-15 about $0.90 (about 23 minutes at $2.29/h;
+22.4-23.5 minutes from the run log, $0.86-0.90). Total about $19. The table rows "Remaining probes and validation P5-P7" and
+"overhead and probes P5, P6" overlap with this spend and were not reduced. The B200 rows (base run, its share of the
+overhead and probe rows) are spent only if B200 is admitted (§3.1).
 
 ## 10. Threats to validity
 - **Virtualised counters.** Lambda H100 and 8x A100 guests are KVM VMs with a working NVML counter and no CPU energy (P1,
   P4), so x86 GPU-host CPU/DRAM energy is unmeasured (§2.5); the GH200's counter includes the Grace CPU (module scope); the
-  1x A100 is a virtualized EPYC 7J13 guest with no CPU-energy source (2026-11-15), and the GH200 and B200 source checks are
-  pending (§2.4). RAPL covers package and DRAM only (no PSU, fans, storage,
-  network), and no external wall-power reference exists in a public cloud. P3's virtualisation verdict was "ambiguous" (no
-  hypervisor flag, but DMI says Google); its counters advance and agree between powercap and perf, and G6 re-checks them
-  every session.
+  1x A100 (EPYC 7J13) and the GH200 (Neoverse-V2) are virtualized guests with no separable CPU-energy source (2026-11-15; on
+  the GH200 CPU energy is only inside the module counter), and the B200 source check is pending (§2.4). RAPL covers package
+  and DRAM only (no PSU, fans, storage, network), and no external wall-power reference exists in a public cloud. P3's
+  virtualisation verdict was "ambiguous" (no hypervisor flag, but DMI says Google); its counters advance and agree between
+  powercap and perf, and G6 re-checks them every session.
 - **Scope asymmetry and N1.** S1 and S2 are different slices of a node; §2.5 limits the claims, and N1 is untested: the
   tipping points show its weight without testing it. The GH200's S1-module is a third scope (Grace CPU + GPU + memory): its
   energy is not like-for-like with the board-only S1 of the other GPU hosts, and X7 is whole-module energy, not node energy.
@@ -693,10 +721,11 @@ author. GPU-board energy is a lower bound on the node's, so "the CPU engine wins
 wins" cannot. **Exception, GH200 only (author decision 2026-11-15, item 8.3):** the GH200 counter covers the whole
 Grace-Hopper module (P7, §2.3), so a CPU engine's and a GPU engine's energy are measured on one scope, S1-module, and "the
 GPU engine uses less (equal, more) whole-module energy than its CPU counterpart on the GH200" may be reported for that scope
-(X7, secondary), worded as whole-module energy, not node energy, and not generalised to x86 hosts. The 1x A100 exposes no
-CPU-energy source (source check of 2026-11-15, §2.4); the GH200 (beyond its module counter) and B200 source checks are
-pending, and if either exposes separable CPU energy, that is an author decision (GH200: before the lock; B200: before its
-first session).
+(X7, secondary), worded as whole-module energy, not node energy, and not generalised to x86 hosts. The 1x A100 and the GH200
+expose no separable CPU-energy source (source checks of 2026-11-15, §2.4; on the GH200 CPU energy is only inside the module
+counter), so no author decision is triggered; the B200 source check is pending, and if it exposes separable CPU energy, that
+is an author decision before its first session.
+
 All answered by the author on 2026-11-11: items 1-6 are the approved defaults ("approve defaults"), item 7 the final
 answers.
 1. R = 8 rounds on two launches (R = 4 only if one square completes, §3.2).
@@ -714,16 +743,16 @@ answers.
 8. **Decisions of 2026-11-15, after the pre-lock probes** (author Daniel Ejiofor; recorded in substance):
    1. **`t_min` per host.** `t_min` is set per host by the pre-stated §2.1 rule (the smallest per-run length whose median
       |error| <= 2% and every longer length also is), applied to the windows-mode P6 result, with the locked 1 s default as
-      a floor: `t_min(host) = max(1 s, measured)`. So H100 1 s, A100 2 s, GH200 pending its P6 rerun, B200 from its own P6
-      before any B200 session. The A100's isolated (single-run) value of 5 s is never binding, because a single-run window
-      (`n = 1`) only occurs when the per-run time is >= 10 s; checked against the window rule (as reworded 2026-11-15: `n =
-      1` only when the first run takes >= 10 s) and confirmed in §2.1.
-   2. **Lock timing and B200.** The lock happens once the GH200 P6 rerun is in. B200 is a conditional host: its sessions may
-      run only after its semantics, P5, P6 and G8 pass under the same rules; if it never passes or never gets capacity
-      before the campaign ends, B200 is reported as not measured, with no substitution by an 8-GPU AWS or GCP B200 machine
-      (different host classes). Mechanics: §3.1, §7.1. The numeric admission threshold in §3.1 (counter / integral within
-      0.98-1.02) is the drafter's specification of "the same rules", fixed 2026-11-15 before any B200 data; the author
-      confirms it at the lock.
+      a floor: `t_min(host) = max(1 s, measured)`. So H100 1 s, A100 2 s, GH200 pending its P6 rerun [drafter's update:
+      rerun in, 1 s, §2.1], B200 from its own P6 before any B200 session. The A100's isolated (single-run) value of 5 s is
+      never binding, because a single-run window (`n = 1`) only occurs when the per-run time is >= 10 s; checked against the
+      window rule (as reworded 2026-11-15: `n = 1` only when the first run takes >= 10 s) and confirmed in §2.1.
+   2. **Lock timing and B200.** The lock happens once the GH200 P6 rerun is in [drafter's update: met 2026-11-15]. B200 is a
+      conditional host: its sessions may run only after its semantics, P5, P6 and G8 pass under the same rules; if it never
+      passes or never gets capacity before the campaign ends, B200 is reported as not measured, with no substitution by an
+      8-GPU AWS or GCP B200 machine (different host classes). Mechanics: §3.1, §7.1. The numeric admission threshold in §3.1
+      (counter / integral within 0.98-1.02) is the drafter's specification of "the same rules", fixed 2026-11-15 before any
+      B200 data; the author confirms it at the lock.
    3. **GH200 CPU-versus-GPU energy at module scope.** A planned comparison of CPU-engine versus GPU-engine energy per query
       on the GH200 at module scope (scope tag S1-module), clearly labelled whole-module energy: a CPU engine's number
       includes the idle GPU's draw and a GPU engine's number includes the Grace CPU's. Same estimators, rounds, window rule,
@@ -741,8 +770,9 @@ synthetic-load probe results only (power-interface behaviour); no study query wa
 power or cost aggregate exists. Gate thresholds (G8, G10), the equivalence margin, the estimators and the primary idle
 definition are unchanged; `t_min` is set per host by the rule stated before the probes (author decision, item 8.1). What
 changed:
-- **Status line, RQ table:** the lock now waits for the GH200 P6 rerun; B200 conditional; RQ1 pointer, RQ4/RQ5 wording for
-  GH200 and B200, new RQ6 (GH200 module scope, secondary).
+- **Status line, RQ table:** the status line first said the lock waits for the GH200 P6 rerun, then (lead) also for the
+  C-GCP P6-CPU probe, and now reads "ready to lock; awaiting the author's go-ahead" (see the last bullets of this list);
+  B200 conditional; RQ1 pointer, RQ4/RQ5 wording for GH200 and B200, new RQ6 (GH200 module scope, secondary).
 - **Campaign-driver decisions (lead's decisions 2026-11-15, all pre-lock; the author may object before the lock):**
   - **§3.2 CPU-only letters:** the two CPU engines take A and B in the order their letters appear in the GPU-host assignment
     from the same seed (no operator choice); C-VM uses the same letters with orders `AB` and `BA`.
@@ -751,9 +781,9 @@ changed:
     §3.2 applies literally).
   - **§2.2:** the runner's pre-session bare idle baseline is off in Paper 3; `P_idle` comes only from the engine-ready
     windows; nothing budgeted.
-  - **§2.1 `t_min(C-GCP)`:** fixed before the lock by a RAPL resolution probe (P6-CPU) of the campaign's 200 ms path against
-    direct `energy_uj` reads on synthetic CPU pulses, same 2% rule, `max(1 s, measured)`. The status line, §4 G9, §7.1 and
-    §7.2 now say the lock also waits for it.
+  - **§2.1 `t_min(C-GCP)`:** set by a RAPL resolution probe (P6-CPU) of the campaign's 200 ms path against direct
+    `energy_uj` reads on synthetic CPU pulses, same 2% rule, `max(1 s, measured)`. First worded as a lock condition;
+    superseded the same day (the last bullets of this list): it is a pre-first-session condition.
   - **§7.1, §3.2 lock date:** the UTC date of the annotated `paper3-design-lock` tag (tagger date); the Zenodo deposit is
     made the same UTC day.
   - **§3.2, §5.4 partial squares:** confirmatory estimates use complete squares only; one complete square gives R = 4 from
@@ -764,9 +794,9 @@ changed:
   (`--session-cooldown-seconds` is 0 in the campaign) and the §9 estimate is unchanged (core ~$1,364). A separate 60 s sleep
   before every session but the first was costed (about 5.1 h per GPU host and 2.5 h on C-GCP with the 1.2 margin, about $121
   at P-NEW) and rejected: dropping it avoids that cost with no measurement benefit. The author may object before the lock.
-- **§2.3 (GH200 power limits):** the discrepancy bullet is made factual with the parsed `nvidia-smi -q -d POWER` values: GPU
-  Current 700 W, GPU Default and Max 900 W, Module current 1000 W; `--query-gpu power.limit` of 900 W equals the default and
-  max limit (the team lead reads it as the default/max view; not verified here).
+- **§2.3 (GH200 power limits):** the discrepancy bullet was made factual with the parsed `nvidia-smi -q -d POWER` values
+  (GPU Current 700 W, GPU Default and Max 900 W, Module current 1000 W; `--query-gpu power.limit` of 900 W equal to the
+  default and max limit), and then settled by the GH200 source check of 2026-11-15 (last bullets of this list).
 - **§2.1 (window rule; technical correction by the team lead, 2026-11-15):** `n` is no longer set in advance from the
   warm-up time (`n = clamp(ceil(10 s / t_hat), 1, 50)`); runs continue until the window's summed timed time reaches 10 s or
   50 runs have been made. Reason: the warm-up is the cold first run (JIT, plan compilation, caches), so `t_hat` overstates
@@ -786,8 +816,8 @@ changed:
 - **§2.4:** perf cross-check wording corrected (Joules versus runtime column), RAPL-read path verified on the real host,
   CPU-energy probe results restated per host class (the "not measurable on GH200, B200, 1x A100" sentence removed).
 - **§2.5:** scope matrix split into x86 GPU hosts and GH200; mixed-scope note for X4; new GH200 module-scope comparison (X7).
-- **§3.1, §3.2:** G-GH200 and G-B200 rows; B200 conditional-host rules; C-GCP idle floor and NUMA topology and binding evidence;
-  controls bullet states the P5 overhead and that KVM is verified only on H100 and 8x A100.
+- **§3.1, §3.2:** G-GH200 and G-B200 rows; B200 conditional-host rules; C-GCP idle floor and NUMA topology and binding
+  evidence; controls bullet states the P5 overhead and that KVM is verified only on H100 and 8x A100.
 - **§4:** G9 names the per-host `t_min`; G8 probe results per host (A100 marginal), thresholds unchanged.
 - **§5.1, §5.3, §5.4:** X7 (secondary) defined; break-even rule extended to it at module scope; confirmatory set unchanged.
 - **§7.1, §7.2:** lock timing and B200 handling; probe list updated from "planned" to done and pending.
@@ -797,10 +827,23 @@ changed:
   and end.
 - **§3.1, §11 item 8.2:** the B200 admission rule gets a numeric threshold (counter / integral within 0.98-1.02 on the 10 s
   idle and 20 s load windows), fixed before any B200 data.
-- **§2.4, §2.5, §3.1, §3.2, §7.2, §9, §10, §11:** the 1x A100 CPU-energy source check (2026-11-15) is recorded: a virtualized
-  EPYC 7J13 guest with no CPU-energy source, so "not measurable" is now shown for it. Wording "no source check run" for the 1x
-  A100 removed; the 1x A100 is added to the verified KVM guests; GH200 and B200 source checks remain pending (GH200 in the P6
-  rerun launch, B200 as the last stage of its battery, informational).
-- **§7.2:** harness readiness (window rule, `gpu.csv` power fields, scope tags, scope-aware description, synthetic smoke test).
+- **§2.4, §2.5, §3.1, §3.2, §7.2, §9, §10, §11:** the 1x A100 CPU-energy source check (2026-11-15) is recorded: a
+  virtualized EPYC 7J13 guest with no CPU-energy source, so "not measurable" is now shown for it. Wording "no source check
+  run" for the 1x A100 removed; the 1x A100 is added to the verified KVM guests.
+- **§7.2:** harness readiness (window rule, `gpu.csv` power fields, scope tags, scope-aware description, synthetic smoke
+  test).
 - **§11:** standing limitation gains the GH200 exception; item 3 points to item 8; new item 8 (the three 2026-11-15
   decisions).
+- **GH200 P6 rerun and source check folded in (2026-11-15; §2.1, §2.3, §2.4, §2.5, §3.2, §4 G9 and G11, §7.2, §9, §10,
+  §11):** the rerun against `module.power.draw.instant` gives a measured `t_min` of 1.0 s in both modes, so `t_min(GH200)` =
+  1 s (the first GH200 P6, scored against the wrong field, is superseded); the CPU-energy source check finds a virtualized
+  Neoverse-V2 guest with no separable CPU-energy source (CPU energy only inside the module counter), so no author decision
+  is triggered; the enforced GPU power limit is 700 W (`enforced.power.limit`, = the `-q` Current Power Limit), and G11
+  records it. The copied `power_telemetry.py` differed from HEAD 0cbb2a7 (diff archived; stated in §2.1). Probe spend about
+  $0.90. Outcome data seen: synthetic-load probe results only.
+- **Lock condition changed (lead's decision 2026-11-15; the author may object before the lock):** with the GH200 P6 rerun
+  in, the lock waits for nothing else. `t_min(C-GCP)` becomes a pre-first-session condition like B200's (§2.1, §3.1, §7.1,
+  §7.2): the P6-CPU probe runs on a C-GCP instance, possibly the campaign's own first launch, before its first session, and
+  its results, `t_min(C-GCP)` and the `paper3_hosts.json` value are recorded in an append-only §12 amendment before that
+  session. Reason: `c3-highmem-192-metal` is stocked out in every US zone (team lead's report, not archived), so a pre-lock
+  launch cannot be had. The status line now reads "ready to lock; awaiting the author's go-ahead".

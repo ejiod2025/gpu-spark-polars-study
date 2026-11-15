@@ -1,0 +1,42 @@
+diff --git a/power_telemetry.py b/power_telemetry.py
+index 3bc9e69..91719c0 100644
+--- a/power_telemetry.py
++++ b/power_telemetry.py
+@@ -976,7 +976,11 @@ def energy_between_uj(series: dict, start_ns: int, end_ns: int) -> dict:
+     if bad:
+         result["reason"] = f"a sample the window uses is flagged {'+'.join(bad)}"
+         return result
+-    result["uj"] = at(end_ns, end_low, end_high) - at(start_ns, start_low, start_high)
++    energy = at(end_ns, end_low, end_high) - at(start_ns, start_low, start_high)
++    if energy < 0:
++        result["reason"] = "negative window energy"            # a counter that stepped back without a decrease or gap flag: not an energy
++        return result
++    result["uj"] = energy
+     result["samples_inside"] = sum(1 for t in times if start_ns <= t <= end_ns)
+     result["max_gap_seconds"] = max(((times[i] - times[i - 1]) / 1e9 for i in used), default=None)
+     return result
+@@ -997,8 +1001,23 @@ def pinned_energy_zones(report: dict) -> list:
+     return sorted(zones)
+ 
+ 
++def all_package_dram_zones(report: dict) -> list:
++    """The zones of S2-all energy from a PowerSampler report or sidecar: the package and DRAM zones of every socket it lists.
++
++    Core and uncore sub-zones are subsets of the package and are never added. [] when the energy source is not per socket
++    (perf-stat and turbostat sum all sockets in one series; no source at all)."""
++    sockets = report.get("sockets") or {}
++    if not sockets.get("per_socket_counters"):
++        return []
++    zones = []
++    for kinds in (sockets.get("zones") or {}).values():
++        for kind in ("package", "dram"):
++            zones += kinds.get(kind, [])
++    return sorted(zones)
++
++
+ def s2_pinned_energy_j(series_by_zone: dict, zones, start_ns: int, end_ns: int) -> dict:
+-    """S2-pinned energy between two instants: the zones' energy_between_uj summed, in joules.
++    """S2-pinned (or S2-all, with all_package_dram_zones) energy between two instants: the zones' energy_between_uj summed, in joules.
+ 
+     {"joules": float | None, "reason": str | None, "zones": {zone: uj}}; None when any zone's window is invalid or a zone is
+     missing from the series (a missing series is not zero energy)."""
