@@ -1,10 +1,11 @@
 # Paper 3 — energy and cost per query, CPU versus GPU dataframe engines — pre-registered design
 
-Status: **DRAFT — not locked; the lock waits for the GH200 P6 rerun against the module-scope reference (§2.1, §7.1). B200
-is a conditional host (§3.1, §11 item 8).** Drafted 2026-11-11 for Daniel Ejiofor (Boston University, ejiod@bu.edu),
-revised after probes P1-P4 (§7.2) and the pre-lock probes of 2026-11-11 to 2026-11-15 (§7.2; what changed: §12). Until the
-lock (§7) this text may be edited freely. After it, sections 1-11 are never edited; changes are dated, append-only
-amendments in §12 (rule of `docs/H100_EXPERIMENT_DESIGN.md`, extended in §7.4). All author decisions are answered (§11).
+Status: **DRAFT — not locked; the lock waits for the GH200 P6 rerun against the module-scope reference and for the C-GCP
+P6-CPU probe (§2.1, §7.1). B200 is a conditional host (§3.1, §11 item 8).** Drafted 2026-11-11 for Daniel Ejiofor (Boston
+University, ejiod@bu.edu), revised after probes P1-P4 (§7.2) and the pre-lock probes of 2026-11-11 to 2026-11-15 (§7.2; what
+changed: §12). Until the lock (§7) this text may be edited freely. After it, sections 1-11 are never edited; changes are
+dated, append-only amendments in §12 (rule of `docs/H100_EXPERIMENT_DESIGN.md`, extended in §7.4). All author decisions are
+answered (§11).
 
 Aim (author's words): rigorous, reproducible evaluation methods and tools that help U.S. organizations choose cost- and
 energy-efficient CPU or GPU engines for analytical data processing. Paper 3 contributes a measurement protocol and
@@ -53,14 +54,14 @@ Same TPC-H-derived workload, engines and integrity gates as Paper 1 (not a certi
   runs of fixed length that is what the window rule above gives, up to timing jitter at exact multiples of the length (the
   P6 windows of 0.1 s pulses stop at the cap of 50 runs, 5 s, as the rule does), so the P6-derived `t_min` applies to the
   rule as worded now.
-- **`t_min` is per host** (author decision 2026-11-15, §11 item 8.1). Rule: the smallest per-run length whose median |error|
-  is <= 2% and every longer length also is, taken from the windows-mode result (the mode the study uses), with the locked
-  default of 1 s as a floor: `t_min(host) = max(1 s, measured)`. (The first draft worded the rule as "the shortest per-run time
-  at which the median error is <= 2%"; the "every longer length also" clause and |error| are the tool's definition,
-  `tools/paper3_probes/p3_gpu_probes.py`, and give the same `t_min` on every valid result below.) A cell whose median trial
-  has a summed window below 10 s or a per-run time below its host's `t_min` is "below measurement resolution", never a
-  number (a summed window below 10 s arises only when the cap of 50 runs is reached, an average run under 0.2 s, which is
-  also below any `t_min` >= 1 s). The limit is not tuned to the observed values.
+- **`t_min` is per host** (author decision 2026-11-15, §11 item 8.1). Rule: the smallest per-run length whose median
+  |error| is <= 2% and every longer length also is, taken from the windows-mode result (the mode the study uses), with the
+  locked default of 1 s as a floor: `t_min(host) = max(1 s, measured)`. (The first draft worded the rule as "the shortest
+  per-run time at which the median error is <= 2%"; the "every longer length also" clause and |error| are the tool's
+  definition, `tools/paper3_probes/p3_gpu_probes.py`, and give the same `t_min` on every valid result below.) A cell whose
+  median trial has a summed window below 10 s or a per-run time below its host's `t_min` is "below measurement resolution",
+  never a number (a summed window below 10 s arises only when the cap of 50 runs is reached, an average run under 0.2 s,
+  which is also below any `t_min` >= 1 s). The limit is not tuned to the observed values.
 
   | Host (reference field) | median absolute error in %, windows mode, per-run length 0.1 / 0.25 / 0.5 / 1 / 2 / 5 s | measured `t_min`, windows / isolated | `t_min` used |
   |---|---|---|---|
@@ -68,17 +69,25 @@ Same TPC-H-derived workload, engines and integrity gates as Paper 1 (not a certi
   | A100 SXM4 (`power.draw.instant`) | 34 / 18 / 11 / 5.3 / 1.9 / 0.69 | 2.0 s / 5.0 s | **2 s** |
   | GH200 (`power.draw.instant`, GPU-only: wrong scope) | 46 / 26 / 19 / 16 / 15 / 14.7 | none / none | **pending** (P6 rerun with the module reference) |
   | B200 | not probed | not probed | **pending** (its own P6, before any B200 session) |
+  | C-GCP (S2-pinned; direct `energy_uj` reads as reference) | P6-CPU not run | not run | **pending** (P6-CPU, below) |
 
   Evidence: `docs/paper3-evidence/probes/lambda-h100-20261112T035018Z-p6.json`, `lambda-a100-20261112T035051Z-p6.json`,
-  `lambda-gh200-20261115T171353Z-p6.json` (5 windows per length, 8 isolated pulses per length; the H100 and A100 errors
-  were recomputed independently from the raw counter reads and the 20 ms CSV and match the recorded values exactly, the GH200
-  medians from its records). The A100's 1.91% at 2 s is close to the 2% limit and its 1.0 s windows give 5.3%; the H100's isolated 0.5 s
-  and 1 s values are 1.97% and 1.91%. All are recorded as measured; no limit is moved.
+  `lambda-gh200-20261115T171353Z-p6.json` (5 windows per length, 8 isolated pulses per length; the H100 and A100 errors were
+  recomputed independently from the raw counter reads and the 20 ms CSV and match the recorded values exactly, the GH200
+  medians from its records). The A100's 1.91% at 2 s is close to the 2% limit and its 1.0 s windows give 5.3%; the H100's
+  isolated 0.5 s and 1 s values are 1.97% and 1.91%. All are recorded as measured; no limit is moved.
 - **GH200 P6 is invalid as a resolution test.** It was scored against GPU-only `power.draw.instant`, which does not have
   the GH200 counter's scope (§2.3): the gap never falls below 14.7% at any length (14.7% for 5 s windows, 14.8% for 10 s
   isolated pulses), a scope offset and not a resolution effect, so it yields no `t_min`. `t_min(GH200)` is **pending**: a
   P6-only rerun against `module.power.draw.instant` (`--p6-field` in `tools/paper3_probes/p3_gpu_probes.py`) is queued for
   when Lambda has GH200 capacity; the lock waits for it (§7.1).
+- **`t_min(C-GCP)` comes from a RAPL probe, P6-CPU** (lead's decision 2026-11-15). The P6 above is an NVML test and says
+  nothing about the RAPL path. On C-GCP `t_min` is fixed before the lock by a RAPL resolution probe: per-run S2-pinned energy
+  from the campaign's own path (the 200 ms `power.csv` series interpolated linearly at the run's stamps) against direct
+  `energy_uj` reads at the same stamps, which are the reference (the RAPL counter updates about every 1 ms: stated, to be
+  checked by the probe), on synthetic CPU pulses of known length on the 26-vCPU pin, isolated and in windows built by the
+  window rule, with the same 2% rule as above on the windows-mode result: `t_min(C-GCP) = max(1 s, measured)`. It is pending;
+  the lock waits for it (§7.1).
 - **The isolated (single-run) `t_min` is never binding.** A window of one run (`n = 1`) arises only when the first run takes
   >= 10 s (otherwise the window continues), and a summed window below 10 s arises only when the cap of 50 runs is reached;
   so every valid one-run window has a per-run time >= 10 s, where the isolated P6 error is 0.34% (H100) and 0.22% (A100).
@@ -90,7 +99,9 @@ Each session is bracketed by two 30 s idle windows (engine ready, no query runni
 **total** `E` = counter difference over the timed runs (**primary**: what the machine draws); **above-idle** `E_above = E -
 P_idle * t`, negative values reported as they are (not clamped). For a CPU engine on an x86 GPU host (S1 idle GPU)
 above-idle is zero by construction and not reported; on GH200 the counter is module scope and includes the Grace CPU
-(§2.3), so above-idle is reported there for CPU engines too.
+(§2.3), so above-idle is reported there for CPU engines too. The runner's own pre-session bare idle baseline
+(`run_idle_baseline`, phase `idle-baseline`) is off in Paper 3: `P_idle` comes only from the two engine-ready windows above,
+and no time is budgeted for it.
 
 **Measured idle floors (P5, pre-lock, synthetic load; QA values, not outcomes).** The primary definition above is
 unchanged. Counter mean power over 60 s windows, two per state; "bare" = no CUDA context (nothing has touched the GPU),
@@ -292,7 +303,7 @@ Source order, decided per host class by the probe report (fixed at the lock, nev
 | G-GH200 | Lambda `gpu_1x_gh200` (GH200 96 GB, 64 vCPU Arm, 432 GiB) | 4 engines; energy at S1-module (§2.3); module-scope CPU-vs-GPU comparison X7 (§2.5) | 2.59 (2.29) |
 | G-B200 | Lambda `gpu_1x_b200_sxm6` (B200 180 GB, 26 vCPU, 360 GiB) | 4 engines; **conditional host** (below) | 7.99 (6.99) |
 | C-GCP | GCP `c3-highmem-192-metal`, us-east4-a (2x Xeon Platinum 8481C, 96 cores / 192 threads, 1,536 GB), engines pinned to 26 vCPUs on socket 0 | 2 CPU engines, RAPL (P3) | 12.701568 (same) |
-| C-VM | smallest GCP C3 VM with >= 26 vCPU and >= 200 GiB (§2.6; `c3-highmem-44`) | time check for B1: baseline SF10, SF30, SF300, 2 rounds, time only | 2.910776 (same) |
+| C-VM | smallest GCP C3 VM with >= 26 vCPU and >= 200 GiB (§2.6; `c3-highmem-44`) | time check for B1: baseline SF10, SF30, SF300, 2 rounds, time only; protocol below | 2.910776 (same) |
 
 - The four GPU hosts are Paper 1's, so energy and cost can be set beside its timings. Only instance types returned by the
   Lambda API at the lock (response archived) are used (it lists no H200, GB200 or B300); a type missing at the lock is
@@ -334,6 +345,14 @@ Source order, decided per host class by the probe report (fixed at the lock, nev
   socket 1 puts 99.91% on its own node. DRAM attribution to the pinned socket is therefore sound. Placement and cross-socket
   traffic are recorded, not attributed. C-GCP has network storage (Hyperdisk only), not Lambda's local SSD, so Spark spill
   I/O may differ (recorded).
+- **C-VM protocol** (lead's decision 2026-11-15; the draft stated no pinning for the VM, only "26 threads", §2.6). So that
+  the B1 time check is like-for-like with the metal host: the engines are pinned to 26 vCPUs made of 13 physical cores plus
+  their SMT siblings, taken from the VM's reported topology and recorded (if the VM reports no SMT siblings, 26 vCPUs,
+  recorded, and the caveat is stated), with NUMA binding only if the VM reports more than one node. The window rule (10 s) of
+  §2.1 applies as on the metal host, because the metal times come from windows of back-to-back warm runs. Time only: no
+  energy, no `t_min`, no cell is "below resolution". The two engines take the letters of §3.2 with orders `AB` and `BA`. The
+  C-VM has no §2.2 idle brackets, so the >= 60 s cool-down between sessions of §3.2 applies literally: the harness runs it
+  with a 60 s `--session-cooldown-seconds` (the campaign hosts use 0, §3.2).
 
 ### 3.2 Workload, rounds, controls
 - **Workload.** Baseline suite q01, q03, q06, q10, q12, q14 at SF1, SF10, SF30, SF100, SF300; complex suite (v2) at SF30,
@@ -342,23 +361,30 @@ Source order, decided per host class by the probe report (fixed at the lock, nev
   coverage-versus-integrity classification carry over. The scale grid is Paper 1's (SF1 is the small-data end where fixed
   GPU/JVM start-up should matter), so Paper 3 can be read against Paper 1 timings; SF1 energy may be "below resolution". The
   grid is not refined after seeing data (§5.3).
-- **GPU hosts:** R = 8 rounds = the Paper 1 Williams square (n = 4) twice, the second time in reverse row order. Seed rule:
-  the integer `YYYYMMDD` of the lock date; `random.Random(seed).shuffle(["polars","polars_gpu","spark_cpu", "spark_gpu"])`
-  gives letters A-D; rounds 1-4 use `A B D C / B C A D / C D B A / D A C B`, rounds 5-8 use the same rows in reverse order
-  (4, 3, 2, 1). Suite order alternates (odd rounds baseline first); scales ascend. **CPU-only host:** 2 engines, orders `AB
-  BA BA AB BA AB AB BA`.
+- **GPU hosts:** R = 8 rounds = the Paper 1 Williams square (n = 4) twice, the second time in reverse row order. Seed
+  rule: the integer `YYYYMMDD` of the lock date (§7.1: the UTC date of the annotated `paper3-design-lock` tag);
+  `random.Random(seed).shuffle(["polars","polars_gpu","spark_cpu", "spark_gpu"])` gives letters A-D; rounds 1-4 use `A B D C
+  / B C A D / C D B A / D A C B`, rounds 5-8 use the same rows in reverse order (4, 3, 2, 1). Suite order alternates (odd
+  rounds baseline first); scales ascend. **CPU-only host:** 2 engines, orders `AB BA BA AB BA AB AB BA`. The two CPU engines
+  (`polars`, `spark_cpu`) take the letters A and B in the order in which their letters appear in the GPU-host assignment
+  from the same seed (no operator choice); for example, if the shuffle gave `[spark_gpu, polars, polars_gpu, spark_cpu]`
+  (letters A-D), `polars` (B) comes before `spark_cpu` (D) and so is A on the CPU-only host. C-VM uses the same letters,
+  orders `AB` and `BA`.
 - The two squares run on **separate instance launches** where capacity allows, so between-instance variation enters the
-  across-round interval; instance is reported as a sensitivity factor. If a host completes only one square, R = 4 (df = 3)
-  is used and stated. No round is added or dropped for what its values look like. Sessions: 32 per GPU-host round, 16 per
-  CPU-only round.
+  across-round interval; instance is reported as a sensitivity factor. A square is rounds 1-4 or rounds 5-8 (on C-GCP
+  likewise the first or the last four orders); it is complete when all four of its rounds pass the gates (§4). Confirmatory
+  estimates use complete squares only: two complete squares give R = 8; one complete square gives R = 4 (df = 3) from it,
+  stated; the rounds of an incomplete square enter no confirmatory estimate and appear only as a sensitivity; a host with no
+  complete square is reported descriptively, outside the confirmatory set. No round is added or dropped for what its values
+  look like. Sessions: 32 per GPU-host round, 16 per CPU-only round.
 - **Controls.** Paper 1 §6 (no other workload, no foreign GPU processes, preheated files, off-host rsync + checksums), plus:
   >= 60 s cool-down between sessions, met by the §2.2 brackets (>= 150 s without query load between the last query of one
-  session and the first of the next; the harness flag `--session-cooldown-seconds` is set to 0 for the campaign); C-GCP is
-  single-tenant bare metal (network storage is shared); Lambda hosts are KVM VMs where checked (H100, 1x A100, 8x A100;
-  noise visible via `host.csv`, clock and throttle logs). Measurement processes (`nvidia-smi` with `TZ=UTC`, RAPL sampler)
-  run in every session including idle windows, so their draw is in `P_idle` and `E`; P5 quantified their overhead (§2.2:
-  0.004-0.72 W for the `nvidia-smi` poller on the 1x GPU hosts, the H100 figure within its window-to-window variation;
-  0.39-0.48% of one core for the RAPL sampler).
+  session and the first of the next; the harness flag `--session-cooldown-seconds` is 0 on the campaign hosts and 60 s on
+  the C-VM, which has no brackets, §3.1); C-GCP is single-tenant bare metal (network storage is shared); Lambda hosts are
+  KVM VMs where checked (H100, 1x A100, 8x A100; noise visible via `host.csv`, clock and throttle logs). Measurement
+  processes (`nvidia-smi` with `TZ=UTC`, RAPL sampler) run in every session including idle windows, so their draw is in
+  `P_idle` and `E`; P5 quantified their overhead (§2.2: 0.004-0.72 W for the `nvidia-smi` poller on the 1x GPU hosts, the
+  H100 figure within its window-to-window variation; 0.39-0.48% of one core for the RAPL sampler).
 
 ## 4. Integrity and telemetry gates (pass/fail; never based on engine comparisons)
 Paper 1 §7 and A1 apply unchanged: G1 every session exits, no timeout; G2 output agreement with `polars` (rel 1e-8, abs
@@ -367,10 +393,10 @@ Paper 1 §7 and A1 apply unchanged: G1 every session exits, no timeout; G2 outpu
 
 | Gate | Rule | On failure |
 |---|---|---|
-| G6 source conformance | each session's counters match the probe-declared sources; none missing or non-monotone mid-session; every sampler series has liveness verdict "advancing"; launch, completed and process-exit stamps with counter readings present | session energy invalid; round fails, repeated once; no substitution |
+| G6 source conformance | each session's counters match the probe-declared sources; none missing or non-monotone mid-session; every sampler series has liveness verdict "advancing", judged per session on the samples inside that session's stamps; launch, completed and process-exit stamps with counter readings present | session energy invalid; round fails, repeated once; no substitution |
 | G7 sample coverage | trapezoid windows have >= 80% of expected 200 ms samples, no gap > 1 s | cross-check flagged; counter value unaffected |
 | G8 clock alignment | activity-onset correlation, **onset times only** (no magnitudes): for GPU-engine windows >= 5 s, the first `gpu.csv` sample with `utilization.gpu` >= 10% must follow the worker's window start with median lag within +-0.4 s and first-third versus last-third drift <= 0.2 s; sessions without such windows use a 3 s load pulse (separate process) at start and end; `chronyc tracking` offset logged | `gpu.csv` values disabled for the session |
-| G9 resolution | window rule and the host's `t_min` (§2.1: 1 s H100, 2 s A100, GH200 and B200 pending) met | cell "below resolution" |
+| G9 resolution | window rule and the host's `t_min` (§2.1: 1 s H100, 2 s A100; GH200, B200 and C-GCP pending) met | cell "below resolution" |
 | G10 idle stability | pre/post idle mean power within 10% per scope | above-idle flagged unreliable; total unaffected |
 | G11 thermal/power state | throttle reasons, power limit (the `--query-gpu` fields and the `nvidia-smi -q -d POWER` text at session start and end, §2.3), temperature logged | flagged, not excluded |
 | G12 exclusive use | no foreign GPU compute process; nothing else scheduled on C-GCP | integrity failure |
@@ -434,7 +460,8 @@ scales are added to refine a break-even inside this design.
   Intervals are marginal; no multiplicity correction. No power calculation: between-round variance of energy is unknown
   before data; interval width is a result, and R is set by time and instance availability.
 - Ineligible cells (coverage outcome, below resolution, scope absent, invalid session) go to a coverage matrix and are
-  excluded from the affected contrast; no imputation.
+  excluded from the affected contrast; no imputation. Rounds of an incomplete Williams square are excluded from every
+  confirmatory estimate (§3.2).
 - Analysis code is committed before the lock and run only on a synthetic campaign with injected known effects (as
   `artifacts/campaign-synthetic`) to show it recovers them; its sha256 is recorded at the lock.
 
@@ -474,10 +501,12 @@ and §7.2.` Then an annotated tag `paper3-design-lock`. It must precede (a) any 
 of any Paper 3 energy, power or cost aggregate from any data, archived data included. The commit hash and push time are
 recorded here, in every host's `campaign.json` and in the paper. The lock wording must not say "before any data existed".
 The external timestamp is a Zenodo deposit of the locked design file made at the lock, its DOI recorded here, in every
-`campaign.json` and in the paper (commit dates are author-controlled).
+`campaign.json` and in the paper (commit dates are author-controlled). **Lock date** (the seed rule of §3.2): the UTC date of
+the annotated tag `paper3-design-lock` (its tagger date); the Zenodo deposit is made the same UTC day.
 
 **Timing (author decision 2026-11-15, §11 item 8.2).** The lock is made once the GH200 P6 rerun against
-`module.power.draw.instant` is in and `t_min(GH200)` has been written into §2.1 by the rule stated there. B200 is a
+`module.power.draw.instant` is in and `t_min(GH200)` has been written into §2.1 by the rule stated there; by the lead's
+decision of 2026-11-15 it also waits for the C-GCP P6-CPU probe and `t_min(C-GCP)` (§2.1). B200 is a
 conditional host (§3.1): if Lambda 1x B200 capacity appears, its probes run after the lock with synthetic load only and are
 recorded in an append-only §12 amendment, with `t_min(B200)` and its scope tag, before its first session; a locked design
 without B200 data is complete.
@@ -508,9 +537,11 @@ without B200 data is complete.
     valid lease): Lambda `gpu_1x_a100_sxm4` us-east-1, launched 2026-11-15 18:18:48 UTC, probe 18:23:02, termination
     confirmed 18:24:40; files `lambda-a100-20261115T181846Z-sources.json` and `-run.log` (result §2.4).
   - **Pending.** *Before the lock:* the GH200 P6 rerun against `module.power.draw.instant` (queued until Lambda has GH200
-    capacity), run in the same launch as the GH200 CPU-energy source check (§2.4). *After the lock, if capacity appears:* the
-    full B200 battery, which now ends with a CPU-energy source check (§3.1, §2.4). *Not run:* P8 RAPL, topology and idle floor
-    of a fallback host if one is used.
+    capacity), run in the same launch as the GH200 CPU-energy source check (§2.4); and the C-GCP P6-CPU probe (§2.1; one
+    metal-host launch with synthetic CPU pulses, expected to fit the roughly 2 h probe allowance of the C-GCP
+    overhead-and-probes row of §9, of which P5 used 0.2 h; not re-estimated). *After the lock, if capacity appears:* the
+    full B200 battery, which now ends with a CPU-energy source check (§3.1, §2.4). *Not run:* P8 RAPL, topology and idle
+    floor of a fallback host if one is used.
   - **Harness readiness (before round 1; not a lock item).** The campaign needs the harness to implement the window rule
     (§2.1), the `gpu.csv` power fields (`power.draw.average` and `.instant`, and `module.power.draw.average` and `.instant`
     on GH200), the scope tags (§2.4) and a scope-aware counter description (module, not "whole-board", on GH200), and to log
@@ -599,8 +630,9 @@ Availability and calendar time bind, not cost.
 by the §2.2 brackets already costed above: between the last query of one session and the first query of the next there are
 always >= 150 s without query load (that session's 60 s settle and 30 s closing idle window, then the next session's 60 s
 settle before its opening idle window; this lower bound does not count the next engine's start-up or the opening window
-itself). The harness has a `--session-cooldown-seconds` flag; the campaign sets it to 0. The estimate above is therefore
-unchanged (core total ~$1,364).
+itself). The harness has a `--session-cooldown-seconds` flag; the campaign hosts set it to 0. The estimate above is
+therefore unchanged (core total ~$1,364). The C-VM sessions have no brackets and use a 60 s cool-down (§3.1): 12 sessions (2
+engines x 3 scales x 2 rounds), 11 x 60 s = 0.2 h inside the 6 h C-VM row, also unchanged.
 
 **Probe spend so far (approximate; not part of the core total above, which is not re-estimated here).** GCP P5, 703 s of
 `c3-highmem-192-metal` at list price: $2.48. Lambda, billed at the API price (the 2026-11-16 prices were not yet in force):
@@ -711,6 +743,22 @@ definition are unchanged; `t_min` is set per host by the rule stated before the 
 changed:
 - **Status line, RQ table:** the lock now waits for the GH200 P6 rerun; B200 conditional; RQ1 pointer, RQ4/RQ5 wording for
   GH200 and B200, new RQ6 (GH200 module scope, secondary).
+- **Campaign-driver decisions (lead's decisions 2026-11-15, all pre-lock; the author may object before the lock):**
+  - **§3.2 CPU-only letters:** the two CPU engines take A and B in the order their letters appear in the GPU-host assignment
+    from the same seed (no operator choice); C-VM uses the same letters with orders `AB` and `BA`.
+  - **§3.1 C-VM protocol:** the draft stated no pinning for the VM; now 26 vCPUs = 13 physical cores plus SMT siblings as on
+    the metal host, the 10 s window rule, time only, and a 60 s cool-down between its sessions (no §2.2 brackets there, so
+    §3.2 applies literally).
+  - **§2.2:** the runner's pre-session bare idle baseline is off in Paper 3; `P_idle` comes only from the engine-ready
+    windows; nothing budgeted.
+  - **§2.1 `t_min(C-GCP)`:** fixed before the lock by a RAPL resolution probe (P6-CPU) of the campaign's 200 ms path against
+    direct `energy_uj` reads on synthetic CPU pulses, same 2% rule, `max(1 s, measured)`. The status line, §4 G9, §7.1 and
+    §7.2 now say the lock also waits for it.
+  - **§7.1, §3.2 lock date:** the UTC date of the annotated `paper3-design-lock` tag (tagger date); the Zenodo deposit is
+    made the same UTC day.
+  - **§3.2, §5.4 partial squares:** confirmatory estimates use complete squares only; one complete square gives R = 4 from
+    it; rounds of an incomplete square are a sensitivity only; a host with no complete square is reported descriptively.
+  - **§4 G6:** sampler liveness is judged per session, on the samples inside the session's stamps.
 - **§3.2, §9 (cool-down clarification; lead's decision 2026-11-15):** the >= 60 s between-session cool-down of §3.2 is met
   by the §2.2 brackets (>= 150 s without query load between sessions), so no separate sleep is run
   (`--session-cooldown-seconds` is 0 in the campaign) and the §9 estimate is unchanged (core ~$1,364). A separate 60 s sleep
