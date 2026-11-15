@@ -118,8 +118,8 @@ INTERPRETATIONS = {
     "G9.window_rule": "a window that does not follow the stop rule (n < 50 needs sum of the first n-1 runs < target <= sum of all n) "
                       "is a rule violation, reported as its own reason; the cell is not usable",
     "G10.difference": "relative difference = |post - pre| / mean(pre, post), the pair difference of the P5 probe",
-    "G10.scopes": "the GPU counter, and on a RAPL host S2-all (the package and DRAM zones of every socket in the sidecar, else every "
-                  "series) and S2-pinned (power_telemetry.pinned_energy_zones) where attribution is possible, each summed by "
+    "G10.scopes": "the GPU counter, and on a RAPL host S2-all (power_telemetry.all_package_dram_zones; every series for a source that "
+                  "is not per socket) and S2-pinned (power_telemetry.pinned_energy_zones) where attribution is possible, each summed by "
                   "power_telemetry.s2_pinned_energy_j; a scope that exists on the host but has no valid energy in both idle windows "
                   "(for instance a window that touches a flagged sample) makes the session's above-idle unreliable",
     "G11.logged": "G11 passes when the throttle reasons, the temperature and the power-limit text are logged for the session; "
@@ -210,7 +210,8 @@ class HostGates:
         return self
 
 
-_ENTRY_KEYS = {"kind", "energy_measured", "t_min_s", "t_min_basis", "gpu_counter", "cpu_energy", "exclusive_use", "idle_windows"}
+_ENTRY_KEYS = {"kind", "energy_measured", "t_min_s", "t_min_basis", "gpu_counter", "cpu_energy", "cpu_energy_basis", "exclusive_use",
+               "idle_windows"}
 
 
 def parse_host_entry(host: str, entry) -> HostGates:
@@ -232,6 +233,9 @@ def parse_host_entry(host: str, entry) -> HostGates:
         raise GateConfigError(f"host {host!r}: t_min_s {t_min!r} is not a positive number, null or 'not_applicable'")
     if t_min == "not_applicable" and entry["energy_measured"]:
         raise GateConfigError(f"host {host!r}: t_min_s 'not_applicable' only for a host that measures no energy")
+    for key in ("t_min_basis", "cpu_energy_basis"):
+        if key in entry and not (isinstance(entry[key], str) and entry[key]):
+            raise GateConfigError(f"host {host!r}: {key} must be a non-empty string when present")
     counter, cpu, exclusive = (entry.get(k) for k in ("gpu_counter", "cpu_energy", "exclusive_use"))
     for name, block, keys in (("gpu_counter", counter, {"source", "scope"}), ("cpu_energy", cpu, {"source", "series"}),
                               ("exclusive_use", exclusive, {"allowed_scheduled"})):

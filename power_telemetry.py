@@ -866,6 +866,29 @@ def parse_power_limits(text) -> dict:
     return {key: limits for key, limits in found.items() if any(v is not None for v in limits.values())}
 
 
+# `nvidia-smi --query-gpu` power-limit fields: enforced.power.limit is the limit in force (700 W on the GH200 probe) while power.limit
+# read 900 W there (design 2.3, G11). Only the ones the driver lists are queried.
+POWER_LIMIT_QUERY_FIELDS = ("power.limit", "enforced.power.limit", "power.default_limit", "power.min_limit", "power.max_limit")
+
+
+def parse_query_gpu_numbers(fields, text) -> dict:
+    """{"values": {field: watts | None}, "problem": str | None} from the first line of `--query-gpu=<fields> --format=csv,noheader,nounits`.
+
+    N/A, [Not Supported] and anything that is not a number are None; a line with the wrong number of cells gives no values."""
+    fields = list(fields)
+    lines = [line for line in str(text or "").splitlines() if line.strip()]
+    if not lines:
+        return {"values": {f: None for f in fields}, "problem": "no output"}
+    cells = [cell.strip() for cell in lines[0].split(",")]
+    if len(cells) != len(fields):
+        return {"values": {f: None for f in fields}, "problem": f"{len(cells)} cells for {len(fields)} fields: {lines[0][:120]!r}"}
+    values = {}
+    for field, cell in zip(fields, cells):
+        match = re.fullmatch(r"\d+(?:\.\d+)?", cell)
+        values[field] = float(cell) if match else None
+    return {"values": values, "problem": None}
+
+
 def gpu_energy_resolution_verdict(record, update_interval_ms, factor=10):
     """"below_resolution" when the timed run is shorter than factor x the counter's update interval, else "ok".
 
@@ -976,7 +999,11 @@ def energy_between_uj(series: dict, start_ns: int, end_ns: int) -> dict:
     if bad:
         result["reason"] = f"a sample the window uses is flagged {'+'.join(bad)}"
         return result
-    result["uj"] = at(end_ns, end_low, end_high) - at(start_ns, start_low, start_high)
+    energy = at(end_ns, end_low, end_high) - at(start_ns, start_low, start_high)
+    if energy < 0:
+        result["reason"] = "negative window energy"            # a counter that stepped back without a decrease or gap flag: not an energy
+        return result
+    result["uj"] = energy
     result["samples_inside"] = sum(1 for t in times if start_ns <= t <= end_ns)
     result["max_gap_seconds"] = max(((times[i] - times[i - 1]) / 1e9 for i in used), default=None)
     return result
@@ -997,8 +1024,23 @@ def pinned_energy_zones(report: dict) -> list:
     return sorted(zones)
 
 
+def all_package_dram_zones(report: dict) -> list:
+    """The zones of S2-all energy from a PowerSampler report or sidecar: the package and DRAM zones of every socket it lists.
+
+    Core and uncore sub-zones are subsets of the package and are never added. [] when the energy source is not per socket
+    (perf-stat and turbostat sum all sockets in one series; no source at all)."""
+    sockets = report.get("sockets") or {}
+    if not sockets.get("per_socket_counters"):
+        return []
+    zones = []
+    for kinds in (sockets.get("zones") or {}).values():
+        for kind in ("package", "dram"):
+            zones += kinds.get(kind, [])
+    return sorted(zones)
+
+
 def s2_pinned_energy_j(series_by_zone: dict, zones, start_ns: int, end_ns: int) -> dict:
-    """S2-pinned energy between two instants: the zones' energy_between_uj summed, in joules.
+    """S2-pinned (or S2-all, with all_package_dram_zones) energy between two instants: the zones' energy_between_uj summed, in joules.
 
     {"joules": float | None, "reason": str | None, "zones": {zone: uj}}; None when any zone's window is invalid or a zone is
     missing from the series (a missing series is not zero energy)."""

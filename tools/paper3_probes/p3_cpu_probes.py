@@ -401,7 +401,7 @@ class ZoneReader:
 
     def read(self) -> dict:
         before = time.monotonic_ns()
-        values = {z["zone"]: int(Path(z["path"]).read_text()) for z in self.zones}
+        values = {z["zone"]: pt.read_int(z["path"]) for z in self.zones}              # the sampler's own reader
         return {"uj": values, "monotonic_ns": [before, time.monotonic_ns()]}
 
     def delta_j(self, start: dict, end: dict) -> float:
@@ -459,10 +459,11 @@ def jitter(rng, low: float, spread: float = 0.1) -> float:
     return low + rng.random() * spread                  # random phase against the 200 ms sampler ticks
 
 
-def run_p6_cpu(args, out: Path, sampler, reader, pulse, zones, sleep=time.sleep) -> dict:
+def run_p6_cpu(args, out: Path, sampler, reader, pulse, zones, sleep=None) -> dict:
     """Pulses of known length against the sampler's series; the analysis of both modes. sampler.start() has been called by the
     caller; sampler.stop() is called here once the last pulse and a settle are over, so the series covers every window."""
     rng = random.Random(args.seed)
+    sleep = sleep or time.sleep                                     # looked up now, so a test can substitute the module's clock
     wait = lambda seconds: sleep(seconds * args.wait_scale)         # noqa: E731  (wait_scale shrinks every pause; 1 on the real host)
     isolated, windows = [], []
     sleep(args.settle)
@@ -532,8 +533,11 @@ def run_p6_cpu(args, out: Path, sampler, reader, pulse, zones, sleep=time.sleep)
                         "summary": window_summary, "t_min": gpu_probes.t_min_candidates(window_summary), "records": windows}}
 
 
-def p6_cpu(args) -> int:
-    """The step on the real host: the campaign's pin and node binding, then pt.PowerSampler exactly as run_experiment starts it."""
+def p6_cpu(args, start_background=True, on_started=None) -> int:
+    """The step on the real host: the campaign's pin and node binding, then pt.PowerSampler exactly as run_experiment starts it.
+
+    start_background=False leaves the sampler threads off and on_started(sampler) is called once it is running: a test drives
+    the polls itself, on a simulated clock."""
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     pinning = pt.resolve_pinning(None, args.cpus)
@@ -545,7 +549,9 @@ def p6_cpu(args) -> int:
     interval = (P6_CPU_INTERVAL_S if args.interval_ms is None else args.interval_ms / 1000)
     sampler = pt.PowerSampler(out, interval=interval, labels=lambda: ("", "p6-cpu", "execute"), pinning=pinning,
                               csv_name="p6-cpu-power.csv", sidecar_name="p6-cpu-power-sources.json")
-    report = sampler.start()
+    report = sampler.start(background=start_background)
+    if on_started is not None:
+        on_started(sampler)
     zones = pinned_zone_files(report)
     if report.get("cpu_energy_source") != "powercap-rapl" or not zones:
         sampler.stop()

@@ -54,9 +54,15 @@ POLARS, GPU = "baseline/sf1/polars", "baseline/sf1/polars_gpu"
 def test_the_shipped_config_names_exactly_what_is_pending():
     config = REPO / "paper3_hosts.json"
     unset = {h: pg.load_host_config(config, h).unset() for h in ("h100", "a100", "gh200", "b200", "c-gcp", "c-vm")}
-    assert unset == {"h100": [], "a100": [], "gh200": ["t_min_s", "cpu_source"], "b200": ["t_min_s", "gpu_source", "gpu_scope", "cpu_source"],
+    assert unset == {"h100": [], "a100": [], "gh200": [], "b200": ["t_min_s", "gpu_source", "gpu_scope", "cpu_source"],
                      "c-gcp": ["t_min_s", "allowed_scheduled"], "c-vm": []}
     assert pg.load_host_config(config, "h100").t_min_s == 1.0 and pg.load_host_config(config, "a100").t_min_s == 2.0
+    assert pg.load_host_config(config, "gh200").t_min_s == 1.0, "GH200 P6 rerun against module.power.draw.instant: max(1 s, measured 1.0 s)"
+    gh200 = pg.load_host_config(config, "gh200")
+    assert (gh200.gpu_source, gh200.gpu_scope, gh200.cpu_source, gh200.cpu_series) == (
+        "nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption", "module", "none", None), "CPU energy only inside the S1-module counter"
+    assert "lambda-gh200-20261115T213713Z-sources.json" in json.loads(config.read_text())["hosts"]["gh200"]["cpu_energy_basis"]
+    assert pg.load_host_config(config, "b200").t_min_s is None and pg.load_host_config(config, "c-gcp").t_min_s is None
     assert pg.load_host_config(config, "gh200").gpu_scope == "module" and pg.load_host_config(config, "h100").gpu_scope == "board"
     assert pg.load_host_config(config, "c-vm").t_min_s == "not_applicable" and pg.load_host_config(config, "c-gcp").cpu_series == 4
 
@@ -81,6 +87,7 @@ def test_a_host_with_an_unset_value_is_refused_not_evaluated(tmp_path):
     ({"energy_measured": "yes"}, "energy_measured"), ({"gpu_counter": {"source": "x"}}, "gpu_counter"),
     ({"gpu_counter": {"source": "x", "scope": "planet"}}, "scope"), ({"cpu_energy": {"source": "x", "series": 0}}, "series"),
     ({"exclusive_use": {"allowed_scheduled": "timer:x"}}, "allowed_scheduled"), ({"gpu_counter": {"source": 3, "scope": "board"}}, "source"),
+    ({"cpu_energy_basis": ""}, "cpu_energy_basis must be a non-empty string"), ({"t_min_basis": 3}, "t_min_basis must be a non-empty string"),
 ])
 def test_a_malformed_host_entry_is_a_config_error(change, message):
     entry = copy.deepcopy(HOST_ENTRIES["h100"])
@@ -362,14 +369,14 @@ def test_the_gates_use_the_shared_power_csv_reader_and_interpolation(tmp_path):
     report = json.loads((run.root / "power_sources.json").read_text())
     results = json.loads((run.root / "sf1" / "polars" / "results.json").read_text())
     shared = {}
-    for scope, zones in (("S2-all", pg.energy_zones(report)), ("S2-pinned", pt.pinned_energy_zones(report))):
+    for scope, zones in (("S2-all", pt.all_package_dram_zones(report)), ("S2-pinned", pt.pinned_energy_zones(report))):
         watts = []
         for window in results["idle_windows"]:
             start, end = window["start_monotonic_ns"], window["end_monotonic_ns"]
             watts.append(pt.s2_pinned_energy_j(series, zones, start, end)["joules"] / ((end - start) / 1e9))
         shared[scope] = round(abs(watts[1] - watts[0]) / ((watts[0] + watts[1]) / 2), 5)
     assert one(run.root, host_gates("c-gcp"), "G10", "baseline/sf1/polars")["relative_difference"] == shared
-    assert pg.energy_zones(report) == ["intel-rapl:0", "intel-rapl:0:0", "intel-rapl:1", "intel-rapl:1:0"]
+    assert pt.all_package_dram_zones(report) == ["intel-rapl:0", "intel-rapl:0:0", "intel-rapl:1", "intel-rapl:1:0"]
     assert pt.pinned_energy_zones(report) == ["intel-rapl:0", "intel-rapl:0:0"]
 
 
@@ -389,6 +396,18 @@ def test_core_sub_zones_are_not_added_to_the_cpu_scopes(tmp_path):
     assert one(with_core.root, host_gates("c-gcp"), "G10", "baseline/sf1/polars")["relative_difference"] == baseline
     assert any("5 counter series, probe-declared 4" in p for p in one(with_core.root, host_gates("c-gcp"), "G6", "baseline/sf1/polars")["problems"]), \
         "an unexpected series is still a source mismatch for G6"
+
+
+def test_a_source_that_is_not_per_socket_has_one_summed_s2_all_and_no_pinned_scope(tmp_path):
+    """perf-stat and turbostat sum all sockets in one series: the shared helper lists no zones, S2-all is every series, S2-pinned does not exist."""
+    run = RunBuilder(tmp_path / "run", host="c-gcp", engines=("polars",), post_idle_scale=1.05).build()
+
+    def not_per_socket(sidecar):
+        sidecar["sockets"]["per_socket_counters"] = False
+        sidecar["pinning"] = {"sockets": [0], "attribution": {"possible": False}}
+    edit_json(run.root / "power_sources.json", not_per_socket)
+    result = one(run.root, host_gates("c-gcp"), "G10", "baseline/sf1/polars")
+    assert result["outcome"] == "pass" and set(result["relative_difference"]) == {"S2-all"}
 
 
 def test_g10_has_no_idle_power_for_a_scope_whose_window_touches_a_flagged_sample(tmp_path):

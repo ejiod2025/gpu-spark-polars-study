@@ -174,42 +174,59 @@ import json  # noqa: E402
 import os  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
+import types  # noqa: E402
 
 import power_telemetry as pt  # noqa: E402
-from sysfs_fakes import c3_powercap  # noqa: E402
+from sysfs_fakes import bump, c3_powercap  # noqa: E402
 from test_power_telemetry import no_tools  # noqa: E402
 
 LENGTHS = [0.05, 0.2, 0.6]
 
 
-class SimulatedHost:
-    """Hardware stand-in: the four RAPL counters of the c3 host advance with a power model, 150 W more on socket 0 under load."""
+class VirtualHost:
+    """A host whose clock, RAPL counters and sampler polls are all simulated: no wall time passes, so nothing depends on load.
+
+    time.sleep() advances a virtual CLOCK_MONOTONIC and calls the sampler's poll_counters() at every sampler tick it passes;
+    the counters (power_telemetry.read_int on an energy_uj file) are exact functions of that clock: idle power on every zone,
+    and 150 W more on socket 0 (140 W package, 10 W DRAM) while a pulse runs."""
     IDLE_W = {"intel-rapl:0": 60.0, "intel-rapl:0:0": 8.0, "intel-rapl:1": 55.0, "intel-rapl:1:0": 8.0}
     LOAD_W = {"intel-rapl:0": 140.0, "intel-rapl:0:0": 10.0}
 
-    def __init__(self, tree):
-        self.tree, self.load, self.stop = Path(tree), False, threading.Event()
-        self.thread = threading.Thread(target=self.run, daemon=True)
+    def __init__(self, monkeypatch):
+        self.now = 5_000_000_000_000
+        self.origin = self.now
+        self.loads = []                                   # [start_ns, end_ns] of every pulse, the running one included
+        self.sampler, self.next_poll, self.interval_ns = None, None, None
+        shim = types.SimpleNamespace(**{name: getattr(time, name) for name in dir(time) if not name.startswith("__")})
+        shim.monotonic_ns = lambda: self.now
+        shim.monotonic = shim.perf_counter = lambda: self.now / 1e9
+        shim.time_ns = lambda: 1_800_000_000_000_000_000 + self.now - self.origin
+        shim.time = lambda: shim.time_ns() / 1e9
+        shim.sleep = self.sleep
+        real_read_int = pt.read_int
+        monkeypatch.setattr(pt, "time", shim)
+        monkeypatch.setattr(cpu_probes, "time", shim)
+        monkeypatch.setattr(pt, "read_int", lambda path: self.counter(Path(path)) if Path(path).name == "energy_uj" else real_read_int(path))
 
-    def run(self):
-        last = time.monotonic()
-        while not self.stop.wait(0.002):
-            now = time.monotonic()
-            for zone, idle in self.IDLE_W.items():
-                watts = idle + (self.LOAD_W.get(zone, 0.0) if self.load else 0.0)
-                counter = self.tree / zone / "energy_uj"
-                temporary = counter.with_name("energy_uj.tmp")
-                temporary.write_text(f"{int(counter.read_text()) + int(watts * (now - last) * 1e6)}\n")
-                temporary.replace(counter)
-            last = now
+    def energy_j(self, zone, at_ns):
+        """The exact energy of a zone since the origin, joules."""
+        load_ns = sum(max(0, min(at_ns, end) - start) for start, end in self.loads)
+        return (self.IDLE_W[zone] * (at_ns - self.origin) + self.LOAD_W.get(zone, 0.0) * load_ns) / 1e9
 
-    def __enter__(self):
-        self.thread.start()
-        return self
+    def counter(self, path):
+        return 1_000_000 + int(self.energy_j(path.parent.name, self.now) * 1e6)
 
-    def __exit__(self, *_):
-        self.stop.set()
-        self.thread.join()
+    def attach(self, sampler, interval_s):
+        self.sampler, self.interval_ns = sampler, int(interval_s * 1e9)
+        self.next_poll = self.now + self.interval_ns
+
+    def sleep(self, seconds):
+        target = self.now + int(round(seconds * 1e9))
+        while self.sampler is not None and self.next_poll <= target:
+            self.now = self.next_poll
+            self.sampler.poll_counters()
+            self.next_poll += self.interval_ns
+        self.now = target
 
 
 class FakeCpuPulse:
@@ -217,27 +234,31 @@ class FakeCpuPulse:
         self.host, self.cpus = host, cpus
 
     def pulse(self, seconds):
-        self.host.load = True
-        time.sleep(seconds)
-        self.host.load = False
+        self.host.loads.append([self.host.now, self.host.now + int(round(seconds * 1e9))])
+        self.host.sleep(seconds)
         return {"nominal_s": seconds, "cpus": len(self.cpus)}
 
 
 def p6_cpu_args(tmp_path, **overrides):
     values = dict(out=tmp_path / "out", cpus="0-12,96-108", repeats=2, window_repeats=1, lengths=LENGTHS, window_lengths=[0.05, 0.2],
-                  window_target_s=0.6, window_max_runs=8, settle=0.3, warmup_pulse_s=0.1, interval_ms=20.0, seed=7, wait_scale=0.02)
+                  window_target_s=0.65, window_max_runs=8, settle=0.3, warmup_pulse_s=0.1, interval_ms=20.0, seed=7, wait_scale=0.02)
     values.update(overrides)
     return argparse.Namespace(**values)
 
 
 @pytest.fixture
-def simulated(monkeypatch, tmp_path, c3):
+def virtual(monkeypatch, tmp_path, c3):
     tree = c3_powercap(tmp_path / "powercap")
     monkeypatch.setattr(pt, "POWERCAP_ROOT", tree)
     no_tools(monkeypatch)
-    with SimulatedHost(tree) as host:
-        monkeypatch.setattr(cpu_probes, "CpuPulse", lambda cpus: FakeCpuPulse(host, cpus))
-        yield host
+    host = VirtualHost(monkeypatch)
+    monkeypatch.setattr(cpu_probes, "CpuPulse", lambda cpus: FakeCpuPulse(host, cpus))
+    return host
+
+
+def run_virtual(host, args, **kwargs):
+    """p6_cpu on the virtual host: no sampler threads, the host polls the sampler at its tick."""
+    return cpu_probes.p6_cpu(args, start_background=False, on_started=lambda sampler: host.attach(sampler, args.interval_ms / 1000), **kwargs)
 
 
 def interpolate(rows, instant_ns):
@@ -248,9 +269,18 @@ def interpolate(rows, instant_ns):
     raise AssertionError("instant outside the series")
 
 
-def test_p6_cpu_end_to_end_on_a_simulated_host(simulated, tmp_path, capsys):
+def read_series(path):
+    series = {}
+    with Path(path).open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row["energy_uj"]:
+                series.setdefault(row["zone"], []).append((int(row["monotonic_ns"]), float(row["energy_uj"])))
+    return series
+
+
+def test_p6_cpu_end_to_end_on_a_virtual_host(virtual, tmp_path, capsys):
     args = p6_cpu_args(tmp_path)
-    assert cpu_probes.p6_cpu(args) == 0
+    assert run_virtual(virtual, args) == 0
     out = args.out
     assert sorted(p.name for p in out.iterdir()) == ["p6-cpu-power-sources.json", "p6-cpu-power.csv", "p6-cpu.json"]
     result = json.loads((out / "p6-cpu.json").read_text())
@@ -258,42 +288,61 @@ def test_p6_cpu_end_to_end_on_a_simulated_host(simulated, tmp_path, capsys):
     assert [z["zone"] for z in result["pinning"]["zones"]] == ["intel-rapl:0", "intel-rapl:0:0"]       # package-0 + its DRAM, not socket 1
     assert result["meta"]["cpu_energy_source"] == "powercap-rapl" and result["meta"]["attribution"]["possible"] is True
     assert result["meta"]["pinning"]["cpus"] == "0-12,96-108"
-    assert result["stream"]["csv"] == "p6-cpu-power.csv" and result["stream"]["interval_s"] == 0.02 and result["stream"]["series"] == 4
+    stream = result["stream"]
+    assert stream["csv"] == "p6-cpu-power.csv" and stream["interval_s"] == 0.02 and stream["series"] == 4
+    assert stream["median_spacing_ms"] == pytest.approx(20.0) and stream["max_spacing_ms"] == pytest.approx(20.0)      # the clock is virtual: no jitter
     isolated, windows = result["isolated"], result["windows"]
     assert len(isolated["records"]) == 2 * len(LENGTHS) and len(windows["records"]) == 1 * 2
     assert {r["length_s"] for r in isolated["records"]} == set(LENGTHS) and all(r["runs"] == 1 for r in isolated["records"])
-    for record in isolated["records"]:
-        pair = record["pair"]
-        assert pair["start_mono_ns"] < pair["end_mono_ns"] and record["window_s"] == pytest.approx(pair["host_s"])
-        assert record["reference_j"] == pytest.approx(pair["reference_j"]) and record["estimate_j"] == pytest.approx(pair["estimate_j"])
-        watts = record["reference_j"] / record["window_s"]
-        assert 60 + 8 <= watts <= 60 + 8 + 150 + 10                                            # socket 0 only: package + DRAM, idle to load
+    series = read_series(out / "p6-cpu-power.csv")
+    pinned = ("intel-rapl:0", "intel-rapl:0:0")
+    step_w = sum(VirtualHost.LOAD_W.values())                                                    # the power step at a pulse edge: 150 W
+    interval = 0.02
+    for record in isolated["records"] + windows["records"]:
+        pairs = [record["pair"]] if "pair" in record else record["pairs"]
+        for pair in pairs:
+            length = record["length_s"]
+            assert pair["host_s"] == pytest.approx(length)                                       # stamps, reads and pulse coincide on the virtual clock
+            # the reference is exactly the model's energy of the two zones over the pulse (idle + load), up to the integer uJ of each read
+            assert pair["reference_j"] == pytest.approx((60 + 8 + step_w) * length, abs=3e-6)
+            # the estimate is the plain interpolation of the written power.csv ...
+            expected = sum(interpolate(series[z], pair["end_mono_ns"]) - interpolate(series[z], pair["start_mono_ns"]) for z in pinned) / 1e6
+            assert pair["estimate_j"] == pytest.approx(expected, rel=1e-9)
+            # ... and its error is the model's: a power step inside a sample interval is spread over that interval, at most
+            # (step) x (interval) at each of the two edges
+            assert abs(pair["estimate_j"] - pair["reference_j"]) <= step_w * 2 * interval + 1e-6
     long = [r for r in isolated["records"] if r["length_s"] == 0.6]
-    assert all(abs(r["rel_error"]) < 0.15 for r in long)                                         # 30 samples of 20 ms inside: interpolation is close
-    assert all(r["reference_j"] == pytest.approx((60 + 8 + 150) * r["window_s"], rel=0.2) for r in long)     # the reference follows the power model
+    assert all(abs(r["rel_error"]) <= step_w * 2 * interval / ((60 + 8 + step_w) * 0.6) + 1e-9 for r in long)       # <= 4.6 % for a 0.6 s pulse at 20 ms
+    by_length = {r["length_s"]: r for r in windows["records"]}
+    assert by_length[0.05]["runs"] == 8 and by_length[0.05]["stop_reason"] == "max_runs"             # 8 x 0.05 s = 0.4 s < 0.65 s: the cap
+    assert by_length[0.2]["runs"] == 4 and by_length[0.2]["stop_reason"] == "target_reached"          # 3 x 0.2 s = 0.6 s < 0.65 s <= 4 x 0.2 s
     for record in windows["records"]:
-        assert record["runs"] == len(record["pairs"]) >= 2 and record["stop_reason"] in ("target_reached", "max_runs")
-        assert record["window_s"] == pytest.approx(sum(p["host_s"] for p in record["pairs"]))
+        assert record["window_s"] == pytest.approx(record["runs"] * record["length_s"])
         assert record["reference_j"] == pytest.approx(sum(p["reference_j"] for p in record["pairs"]))
-        assert (record["window_s"] >= 0.6) == (record["stop_reason"] == "target_reached") and record["runs"] <= 8
-        assert record["stop_reason"] == "max_runs" or sum(p["host_s"] for p in record["pairs"][:-1]) < 0.6
+        assert record["estimate_j"] == pytest.approx(sum(p["estimate_j"] for p in record["pairs"]))
     summary = isolated["summary"]["0.6"]
     assert summary["n"] == 2 and summary["n_invalid"] == 0 and summary["median_estimate_j"] > 0 and summary["median_reference_j"] > 0
     assert isolated["t_min"] == probes.t_min_candidates(isolated["summary"]) and windows["t_min"] == probes.t_min_candidates(windows["summary"])
-    # the recorded estimate is what the written power.csv gives, with plain interpolation
-    series = {}
-    with (out / "p6-cpu-power.csv").open(newline="") as handle:
-        for row in csv.DictReader(handle):
-            if row["energy_uj"]:
-                series.setdefault(row["zone"], []).append((int(row["monotonic_ns"]), float(row["energy_uj"])))
-    pair = isolated["records"][0]["pair"]
-    expected = sum(interpolate(series[z], pair["end_mono_ns"]) - interpolate(series[z], pair["start_mono_ns"]) for z in ("intel-rapl:0", "intel-rapl:0:0")) / 1e6
-    assert pair["estimate_j"] == pytest.approx(expected, rel=1e-9)
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])["step"] == "p6-cpu"
 
 
-def test_p6_cpu_uses_the_campaigns_sampler_pin_and_node_binding(simulated, tmp_path, c3):
-    cpu_probes.p6_cpu(p6_cpu_args(tmp_path, lengths=[0.05], window_lengths=[], repeats=1, window_repeats=0))
+def test_p6_cpu_counts_a_pulse_inside_a_sample_interval_at_the_models_exact_error(virtual, tmp_path):
+    """One 0.05 s pulse against a 200 ms sampler, on a clock where the answer is known: the estimate is the pulse's energy
+    smeared over the sample interval(s) it falls in, not zero and not the full pulse."""
+    args = p6_cpu_args(tmp_path, lengths=[0.05], window_lengths=[], repeats=1, window_repeats=0, interval_ms=200.0, settle=1.0, wait_scale=1.0)
+    assert run_virtual(virtual, args) == 0
+    record = json.loads((tmp_path / "out" / "p6-cpu.json").read_text())["isolated"]["records"][0]
+    pair = record["pair"]
+    series = read_series(tmp_path / "out" / "p6-cpu-power.csv")
+    expected = sum(interpolate(series[z], pair["end_mono_ns"]) - interpolate(series[z], pair["start_mono_ns"]) for z in ("intel-rapl:0", "intel-rapl:0:0")) / 1e6
+    assert record["estimate_j"] == pytest.approx(expected, rel=1e-9)
+    assert pair["reference_j"] == pytest.approx(218 * 0.05, abs=3e-6)
+    interval_energy = (68 * 0.2 + 150 * 0.05)                              # the whole 200 ms interval holding the pulse: idle for 0.2 s plus 150 W for 0.05 s
+    assert 0 < record["estimate_j"] <= 68 * 0.05 + interval_energy * 0.05 / 0.2 + 1e-6      # a 50 ms slice of a 200 ms interval
+
+
+def test_p6_cpu_uses_the_campaigns_sampler_pin_and_node_binding(virtual, tmp_path, c3):
+    run_virtual(virtual, p6_cpu_args(tmp_path, lengths=[0.05], window_lengths=[], repeats=1, window_repeats=0))
     assert c3.membind.calls == [[0]] and c3.mask["set_calls"] == [set(pt.parse_cpu_list("0-12,96-108"))]      # node 0 only, the 26 vCPUs
     sidecar = json.loads((tmp_path / "out" / "p6-cpu-power-sources.json").read_text())
     assert sidecar["interval_seconds"] == 0.02 and sidecar["pinning"]["cpus"] == "0-12,96-108"
@@ -308,7 +357,7 @@ def test_p6_cpu_refuses_a_host_without_pinned_energy_zones(monkeypatch, tmp_path
     assert "cannot measure" in result["error"] and "isolated" not in result
 
 
-def test_a_window_the_series_cannot_cover_is_invalid_and_counted_not_averaged(simulated, tmp_path, monkeypatch):
+def test_a_window_the_series_cannot_cover_is_invalid_and_counted_not_averaged(virtual, tmp_path, monkeypatch):
     real = pt.read_power_csv_series
 
     def truncated(path):
@@ -319,12 +368,54 @@ def test_a_window_the_series_cannot_cover_is_invalid_and_counted_not_averaged(si
                 entry[key] = [entry[key][i] for i in keep]
         return series
     monkeypatch.setattr(pt, "read_power_csv_series", truncated)
-    cpu_probes.p6_cpu(p6_cpu_args(tmp_path, window_lengths=[0.2], repeats=1, window_repeats=1))
+    run_virtual(virtual, p6_cpu_args(tmp_path, window_lengths=[0.2], repeats=1, window_repeats=1))
     result = json.loads((tmp_path / "out" / "p6-cpu.json").read_text())
     invalid = [r for r in result["isolated"]["records"] + result["windows"]["records"] if r["rel_error"] is None]
     assert invalid and all("outside the sampled range" in r["estimate_reason"] for r in invalid)
     assert sum(row["n_invalid"] for row in result["isolated"]["summary"].values()) + \
         sum(row["n_invalid"] for row in result["windows"]["summary"].values()) == len(invalid)
+    assert all(r["reference_j"] > 0 for r in invalid)                         # the reference is still there; only the estimate is withheld
+
+
+def test_a_counter_that_runs_backwards_without_a_flag_gives_no_estimate(virtual, tmp_path, monkeypatch):
+    """energy_between_uj returns None for a negative window energy, so the probe records the run as invalid, as the gates would."""
+    real = pt.read_power_csv_series
+
+    def stepped_back(path):
+        series = real(path)
+        zone = series["intel-rapl:0"]
+        zone["uj"] = [1e12 - v for v in zone["uj"]]        # a counter that runs backwards with no decrease flag in the file
+        return series
+    monkeypatch.setattr(pt, "read_power_csv_series", stepped_back)
+    run_virtual(virtual, p6_cpu_args(tmp_path, lengths=[0.6], window_lengths=[], repeats=4, window_repeats=0))
+    records = json.loads((tmp_path / "out" / "p6-cpu.json").read_text())["isolated"]["records"]
+    assert any(r["estimate_reason"] and "negative window energy" in r["estimate_reason"] for r in records)
+
+
+def test_p6_cpu_runs_with_real_sampler_threads_too(monkeypatch, tmp_path, c3):
+    """The threaded path (start_background=True, the real clock) with structural checks only: no timing-dependent bound."""
+    tree = c3_powercap(tmp_path / "powercap")
+    monkeypatch.setattr(pt, "POWERCAP_ROOT", tree)
+    no_tools(monkeypatch)
+    stop = threading.Event()
+
+    def tick():                                            # idle hardware: every counter advances every 5 ms (replaced atomically, as sysfs is read)
+        while not stop.wait(0.005):
+            bump(tree, 5_000)
+    thread = threading.Thread(target=tick, daemon=True)
+    thread.start()
+    pulses = []
+    monkeypatch.setattr(cpu_probes, "CpuPulse", lambda cpus: types.SimpleNamespace(pulse=lambda seconds: pulses.append(seconds) or time.sleep(seconds) or {"nominal_s": seconds}))
+    try:
+        code = cpu_probes.p6_cpu(p6_cpu_args(tmp_path, lengths=[0.05], window_lengths=[0.05], repeats=1, window_repeats=1,
+                                             window_target_s=0.1, window_max_runs=3, settle=0.3, wait_scale=0.02))
+    finally:
+        stop.set()
+        thread.join()
+    result = json.loads((tmp_path / "out" / "p6-cpu.json").read_text())
+    assert code == 0 and result["stream"]["series"] == 4 and len(result["isolated"]["records"]) == 1
+    window = result["windows"]["records"][0]
+    assert 1 <= window["runs"] <= 3 and len(window["pairs"]) == window["runs"] and pulses[:2] == [0.1, 0.1]       # two warm-ups first
 
 
 def test_zone_reader_counts_a_wrap_once_and_reads_the_files_directly(tmp_path):

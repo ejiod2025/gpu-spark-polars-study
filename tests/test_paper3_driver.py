@@ -155,7 +155,9 @@ def test_dry_run_prints_the_paper3_schedule_and_writes_nothing(capsys, tmp_path)
     assert "round 5 (square 2, row 4)  DACB  polars_gpu -> spark_cpu -> polars -> spark_gpu" in out and "THIS LAUNCH: rounds [5, 6, 7, 8], 128 sessions" in out
     assert "t_min: 1.0" in out and "cool-down: 0 s" in out and "--gpu-energy-scope board --energy-window-s 10.0" in out
     assert rc.main([*argv_for("gh200", "1"), "--dry-run"]) == 0
-    assert "host config unset: ['t_min_s', 'cpu_source']" in capsys.readouterr().out
+    assert "t_min: 1.0   host config unset: nothing" in capsys.readouterr().out, "GH200: P6 rerun and source check are in"
+    assert rc.main([*argv_for("b200", "1", "--gpu-energy-scope", "board"), "--dry-run"]) == 0
+    assert "host config unset: ['t_min_s', 'gpu_source', 'gpu_scope', 'cpu_source']" in capsys.readouterr().out
 
 
 # ---- usage errors ---------------------------------------------------------------------------------------------------------
@@ -210,13 +212,18 @@ def test_a_formal_campaign_needs_its_instance_type_and_the_hosts_config_values(m
         rc.paper3_startup_checks(cfg, resolved_pinning=False)
     cfg.host_label = "gpu_1x_h100_sxm5"
     rc.paper3_startup_checks(cfg, resolved_pinning=False)
-    gh200 = formal_cfg("gh200", "--host-label", "gpu_1x_gh200")
-    with pytest.raises(rc.CampaignError, match="unset in paper3_hosts.json: t_min_s, cpu_source"):
-        rc.paper3_startup_checks(gh200, resolved_pinning=False)
+    rc.paper3_startup_checks(formal_cfg("gh200", "--host-label", "gpu_1x_gh200"), resolved_pinning=False)       # complete since the P6 rerun and the source check
+    b200 = formal_cfg("b200", "--host-label", "gpu_1x_b200_sxm6", "--gpu-energy-scope", "board")
+    with pytest.raises(rc.CampaignError, match="unset in paper3_hosts.json: t_min_s, gpu_source, gpu_scope, cpu_source"):
+        rc.paper3_startup_checks(b200, resolved_pinning=False)
+    c_gcp = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("c-gcp"), "--paper3-lock-commit", "c" * 40, "--paper3-lock-doi", "d",
+                                             "--host-label", "c3-highmem-192-metal"]))
+    with pytest.raises(rc.CampaignError, match="unset in paper3_hosts.json: t_min_s, allowed_scheduled"):
+        rc.paper3_startup_checks(c_gcp, resolved_pinning=False)
 
 
 def test_a_test_campaign_only_warns_about_unset_values(capsys):
-    cfg = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("gh200"), "--rounds", "1"]))
+    cfg = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("b200", "1", "--gpu-energy-scope", "module"), "--rounds", "1"]))
     assert not cfg.formal
     rc.paper3_startup_checks(cfg, resolved_pinning=False)
     assert "gates will not be evaluated" in capsys.readouterr().out
@@ -413,7 +420,7 @@ def test_a_second_invocation_runs_nothing_and_a_changed_design_is_refused(p3rig,
 def test_another_hosts_pending_values_do_not_change_this_hosts_design(p3rig):
     assert p3rig.run() == 0
     config = json.loads(p3rig.config.read_text())
-    config["hosts"]["gh200"]["t_min_s"] = 1.0
+    config["hosts"]["b200"]["t_min_s"] = 1.0
     p3rig.config.write_text(json.dumps(config))
     assert p3rig.run() == 0
 

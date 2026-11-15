@@ -906,3 +906,50 @@ def test_s2_pinned_energy_sums_the_zones_and_is_never_a_partial_sum():
     series["b"]["flags"][2] = "decrease"
     got = pt.s2_pinned_energy_j(series, ["a", "b"], 0, int(2e9))
     assert got["joules"] is None and got["reason"].startswith("zone b:") and "decrease" in got["reason"]
+
+
+def test_a_window_whose_energy_comes_out_negative_is_not_an_energy():
+    backwards = series_of([0, 1, 2, 3], [100, 90, 80, 70])                  # a counter that stepped back with no decrease flag in the file
+    got = pt.energy_between_uj(backwards, int(0.5e9), int(2.5e9))
+    assert got["uj"] is None and got["reason"] == "negative window energy" and got["samples_inside"] == 0
+    assert pt.s2_pinned_energy_j({"a": backwards}, ["a"], int(0.5e9), int(2.5e9))["reason"] == "zone a: negative window energy"
+    assert pt.energy_between_uj(series_of([0, 1, 2], [5, 5, 5]), 0, int(2e9))["uj"] == 0.0                       # a flat counter is zero, not negative
+    assert pt.energy_between_uj(series_of([0, 1, 2], [5, 6, 7]), int(1e9), int(1e9))["uj"] == 0.0               # so is an empty window
+
+
+def probed_report(tmp_path, tree, **kwargs):
+    from test_power_telemetry import sampler_for
+    return sampler_for(tmp_path, tree, ipmi=False, **kwargs).probe()
+
+
+def test_s2_all_zones_are_every_sockets_package_and_dram_never_core_or_uncore(tmp_path):
+    from test_power_telemetry import two_socket_tree
+    report = probed_report(tmp_path, two_socket_tree(tmp_path / "powercap"))
+    assert pt.all_package_dram_zones(report) == ["intel-rapl:0", "intel-rapl:0:1", "intel-rapl:1", "intel-rapl:1:1"]     # not :0 (core), not the MMIO copy
+    from sysfs_fakes import c3_powercap
+    report = probed_report(tmp_path / "c3", c3_powercap(tmp_path / "c3" / "powercap"))
+    assert pt.all_package_dram_zones(report) == ["intel-rapl:0", "intel-rapl:0:0", "intel-rapl:1", "intel-rapl:1:0"]
+
+
+def test_s2_all_contains_s2_pinned_and_is_empty_without_per_socket_counters(tmp_path):
+    from sysfs_fakes import c3_powercap
+    tree = c3_powercap(tmp_path / "powercap")
+    pinning = {"cpus": "0-12", "cpu_count": 13, "sockets": [0], "numa_nodes": [0]}
+    report = probed_report(tmp_path, tree, pinning=pinning)
+    assert pt.pinned_energy_zones(report) == ["intel-rapl:0", "intel-rapl:0:0"]
+    assert set(pt.pinned_energy_zones(report)) < set(pt.all_package_dram_zones(report)) == {"intel-rapl:0", "intel-rapl:0:0", "intel-rapl:1", "intel-rapl:1:0"}
+    summed = {"sockets": {"per_socket_counters": False, "zones": {"0": {"package": ["x"]}}}}                   # perf-stat / turbostat: one series for all sockets
+    assert pt.all_package_dram_zones(summed) == [] and pt.all_package_dram_zones({}) == [] and pt.all_package_dram_zones({"sockets": {}}) == []
+
+
+def test_query_gpu_power_limits_are_parsed_by_field():
+    fields = ["power.limit", "enforced.power.limit", "power.default_limit"]
+    assert pt.parse_query_gpu_numbers(fields, "900.00, 700.00, 900.00\n") == {
+        "values": {"power.limit": 900.0, "enforced.power.limit": 700.0, "power.default_limit": 900.0}, "problem": None}
+    assert pt.parse_query_gpu_numbers(fields, "[N/A], 700, [Not Supported]\n")["values"] == {
+        "power.limit": None, "enforced.power.limit": 700.0, "power.default_limit": None}
+    for text, problem in (("", "no output"), ("\n", "no output"), ("1, 2\n", "2 cells for 3 fields"), ("1, 2, 3, 4\n", "4 cells")):
+        got = pt.parse_query_gpu_numbers(fields, text)
+        assert problem in got["problem"] and set(got["values"].values()) == {None}
+    assert pt.parse_query_gpu_numbers(fields, "-5, 1e3, 7 W\n")["values"] == {"power.limit": None, "enforced.power.limit": None, "power.default_limit": None}
+    assert pt.POWER_LIMIT_QUERY_FIELDS == ("power.limit", "enforced.power.limit", "power.default_limit", "power.min_limit", "power.max_limit")

@@ -124,11 +124,12 @@ def gpu_telemetry_plan(listed, scope):
             "extra_fields": extra, "missing_fields": missing, "throttle_field": throttle}
 
 
-def capture_gpu_state(directory, engine, section, label, redact):
+def capture_gpu_state(directory, engine, section, label, redact, query_fields=None):
     """`nvidia-smi -q -d <section>` text at a session's start or end, written beside the session's log; returns what is recorded.
 
     POWER has the limit the driver enforces now (`--query-gpu power.limit` reported 900 W on a GH200 while -q showed 700 W);
-    PERFORMANCE has the clock event (throttle) reasons. Files: <engine>-gpu-<section lower case>-<label>.txt."""
+    PERFORMANCE has the clock event (throttle) reasons. Files: <engine>-gpu-<section lower case>-<label>.txt. For POWER,
+    query_fields (the power-limit fields this driver lists) are also read with `--query-gpu` and stored beside the -q values."""
     command = ["nvidia-smi", "-q", "-d", section]
     result = capture(command, timeout=60)
     text = result.get("output") or ""
@@ -142,6 +143,27 @@ def capture_gpu_state(directory, engine, section, label, redact):
         record["error"] = result["error"]
     if section == "POWER":
         record["power_limits_w"] = power_telemetry.parse_power_limits(text)    # {"gpu": {"current_w": ...}, "module": {...}}
+        if query_fields:
+            record["power_limits_query"] = query_gpu_power_limits(query_fields)
+    return record
+
+
+def query_gpu_power_limits(fields):
+    """The listed power-limit fields of device 0 from `nvidia-smi --query-gpu`, parsed: the enforced limit is enforced.power.limit.
+
+    {"command", "returncode", "fields", "raw", "values_w": {field: watts | None}, optional "error"}; a failing query is recorded."""
+    command = ["nvidia-smi", "-i", "0", f"--query-gpu={','.join(fields)}", "--format=csv,noheader,nounits"]
+    result = capture(command, timeout=60)
+    parsed = power_telemetry.parse_query_gpu_numbers(fields, result.get("output") if result["returncode"] == 0 else "")
+    record = {"command": command, "returncode": result["returncode"], "fields": list(fields),
+              "raw": (result.get("output") or "").strip(), "values_w": parsed["values"]}
+    problem = None
+    if result["returncode"] != 0:
+        problem = result.get("error") or (result.get("output") or "").strip()[-200:] or "failed"
+    elif parsed["problem"]:
+        problem = parsed["problem"]
+    if problem:
+        record["error"] = problem
     return record
 
 
@@ -499,6 +521,7 @@ def main():
             fail(f"GPU engine(s) {gpu_selected} selected but nvidia-smi is unavailable or failing: "
                  f"{smi.get('error') or smi['output'].strip()}")
     telemetry_plan = gpu_telemetry_plan([], None)
+    power_limit_fields = []
     gpu_fields = None                    # what this driver lists, recorded with the session (Paper 3 energy mode only)
     if args.gpu_energy_scope in ("board", "module"):
         listed_help = capture(["nvidia-smi", "--help-query-gpu"], timeout=60)
@@ -512,6 +535,7 @@ def main():
             fail("--gpu-energy-scope module declared but this driver does not list "
                  f"{[f for f in telemetry_plan['missing_fields'] if f in GPU_TELEMETRY_MODULE_FIELDS]}: there is no module-scope "
                  "power field to cross-check the counter against (is this a Grace-Hopper host?)")
+        power_limit_fields = [f for f in power_telemetry.POWER_LIMIT_QUERY_FIELDS if f in listed]
         gpu_fields = {"listed_by_driver": listed, "driver_versions": sorted({line.strip() for line in (driver.get("output") or "").splitlines()
                                                                            if line.strip()}),
                       "help_command": ["nvidia-smi", "--help-query-gpu"]}
@@ -655,6 +679,7 @@ def main():
             "gpu_power_state": ("nvidia-smi -q -d POWER at each session's start and end: <engine>-gpu-power-start.txt and "
                                 "-end.txt beside the session log, listed under gpu_power_state in schedule.json"
                                 if args.gpu_energy_scope in ("board", "module") else None),
+            "power_limit_query_fields": power_limit_fields if args.gpu_energy_scope in ("board", "module") else None,
             "gpu_performance_state": ("nvidia-smi -q -d PERFORMANCE (clock event / throttle reasons) at each session's start and end: "
                                       "<engine>-gpu-performance-start.txt and -end.txt, listed under gpu_performance_state in schedule.json"
                                       if args.gpu_energy_scope in ("board", "module") else None)}
@@ -805,7 +830,8 @@ def main():
                 (args.output / "schedule.json").write_text(json.dumps(schedule, indent=2) + "\n")
                 if args.gpu_energy_scope in ("board", "module"):
                     for section, key in GPU_STATE_SECTIONS.items():
-                        item[key] = {"start": capture_gpu_state(target.parent, engine, section, "start", args.redact_gpu_identifiers == "on")}
+                        item[key] = {"start": capture_gpu_state(target.parent, engine, section, "start", args.redact_gpu_identifiers == "on",
+                                                                power_limit_fields if section == "POWER" else None)}
                 if args.gpu_energy_scope is not None:
                     item["clock_sync"] = {"start": capture_clock_sync()}
                 # G8: a sync pulse for every session of a GPU host by default (a session without a GPU-engine window of at least 5 s
@@ -844,7 +870,8 @@ def main():
                 active["phase"] = "idle"
                 for section, key in GPU_STATE_SECTIONS.items():
                     if key in item:
-                        item[key]["end"] = capture_gpu_state(target.parent, engine, section, "end", args.redact_gpu_identifiers == "on")
+                        item[key]["end"] = capture_gpu_state(target.parent, engine, section, "end", args.redact_gpu_identifiers == "on",
+                                                             power_limit_fields if section == "POWER" else None)
                 if "clock_sync" in item:
                     item["clock_sync"]["end"] = capture_clock_sync()
                 if args.gpu_energy_scope in ("board", "module"):

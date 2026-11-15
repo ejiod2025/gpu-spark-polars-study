@@ -81,6 +81,9 @@ def help_text(*fields):
 ALL_POWER_FIELDS = ("power.draw.average", "power.draw.instant", "module.power.draw.average", "module.power.draw.instant")
 THROTTLE, OLD_THROTTLE = "clocks_event_reasons.active", "clocks_throttle_reasons.active"
 ALL_FIELDS = (*ALL_POWER_FIELDS, THROTTLE)
+LIMIT_FIELDS = ("power.limit", "enforced.power.limit", "power.default_limit", "power.min_limit", "power.max_limit")
+GH200_LIMITS = {"power.limit": "900.00", "enforced.power.limit": "700.00", "power.default_limit": "900.00", "power.min_limit": "100.00",
+                "power.max_limit": "900.00"}                                  # the 2026-11-15 GH200 probe: power.limit 900 W, enforced 700 W
 PERFORMANCE_TEXT = """GPU 00000000:CB:00.0
     Clocks Event Reasons
         Idle                              : Active
@@ -91,8 +94,9 @@ PERFORMANCE_TEXT = """GPU 00000000:CB:00.0
 @pytest.fixture
 def smi(host, monkeypatch):
     """The `host` fixture's nvidia-smi plus the Paper 3 queries: field list, driver version, `-q -d POWER` text."""
-    state = types.SimpleNamespace(fields=ALL_FIELDS, driver="570.148.08\n", help_returncode=0, power_calls=[], performance_calls=[],
-                                  chrony_calls=0, chrony=CHRONY_TEXT, popen=[], order=[], pulses=[], pulse_reply=None)
+    state = types.SimpleNamespace(fields=(*ALL_FIELDS, *LIMIT_FIELDS), driver="570.148.08\n", help_returncode=0, power_calls=[], performance_calls=[],
+                                  chrony_calls=0, chrony=CHRONY_TEXT, popen=[], order=[], pulses=[], pulse_reply=None,
+                                  limit_calls=[], limit_values=dict(GH200_LIMITS), limit_reply=None)
     base = host.capture
 
     def capture(command, timeout=None):
@@ -117,6 +121,12 @@ def smi(host, monkeypatch):
         if command[:2] == ["nvidia-smi", "--help-query-gpu"]:
             return {"command": command, "returncode": state.help_returncode,
                     "output": help_text(*state.fields) if state.help_returncode == 0 else ""}
+        if len(command) > 3 and command[1:3] == ["-i", "0"] and command[3].startswith("--query-gpu=power."):
+            state.limit_calls.append(command)
+            if state.limit_reply is not None:
+                return state.limit_reply(command)
+            requested = command[3].removeprefix("--query-gpu=").split(",")
+            return {"command": command, "returncode": 0, "output": ", ".join(state.limit_values[f] for f in requested) + "\n"}
         if command[:2] == ["nvidia-smi", "--query-gpu=driver_version"]:
             return {"command": command, "returncode": 0, "output": state.driver}
         if command == ["nvidia-smi", "-q", "-d", "POWER"]:
@@ -318,6 +328,59 @@ def test_nvidia_smi_power_text_is_kept_at_each_sessions_start_and_end(monkeypatc
         assert state["start"]["captured_utc"] <= state["end"]["captured_utc"]
     on_disk = json.loads((layout.out / "schedule.json").read_text())
     assert [i["gpu_power_state"]["start"]["file"] for i in on_disk] == [i["gpu_power_state"]["start"]["file"] for i in schedule]
+
+
+def test_the_enforced_power_limit_is_queried_at_each_sessions_start_and_end(monkeypatch, layout, smi):
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    power = schedule[0]["gpu_power_state"]
+    for label in ("start", "end"):
+        query = power[label]["power_limits_query"]
+        assert query["command"] == ["nvidia-smi", "-i", "0", f"--query-gpu={','.join(LIMIT_FIELDS)}", "--format=csv,noheader,nounits"]
+        assert query["fields"] == list(LIMIT_FIELDS) and query["returncode"] == 0 and "error" not in query
+        assert query["raw"] == "900.00, 700.00, 900.00, 100.00, 900.00"
+        assert query["values_w"] == {"power.limit": 900.0, "enforced.power.limit": 700.0, "power.default_limit": 900.0,
+                                     "power.min_limit": 100.0, "power.max_limit": 900.0}
+        assert power[label]["power_limits_w"]["gpu"]["current_w"] == 700.0                 # the -q text agrees with the enforced limit
+    assert len(smi.limit_calls) == 2 and environment["paper3_energy"]["power_limit_query_fields"] == list(LIMIT_FIELDS)
+    assert "power_limits_query" not in schedule[0]["gpu_performance_state"]["start"]
+
+
+def test_only_the_power_limit_fields_the_driver_lists_are_queried(monkeypatch, layout, smi):
+    smi.fields = (*ALL_FIELDS, "power.limit", "enforced.power.limit")
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    query = schedule[0]["gpu_power_state"]["start"]["power_limits_query"]
+    assert query["fields"] == ["power.limit", "enforced.power.limit"] and query["values_w"] == {"power.limit": 900.0, "enforced.power.limit": 700.0}
+    assert environment["paper3_energy"]["power_limit_query_fields"] == ["power.limit", "enforced.power.limit"]
+    layout.out.rename(layout.tmp / "first")
+    smi.fields, smi.limit_calls = ALL_FIELDS, []
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    assert "power_limits_query" not in schedule[0]["gpu_power_state"]["start"] and not smi.limit_calls          # nothing listed: no query
+    assert environment["paper3_energy"]["power_limit_query_fields"] == [] and "power_limits_w" in schedule[0]["gpu_power_state"]["start"]
+
+
+def test_unreadable_power_limit_values_are_recorded_as_missing_not_as_zero(monkeypatch, layout, smi):
+    smi.limit_values.update({"power.limit": "[N/A]", "power.min_limit": "[Not Supported]"})
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    values = schedule[0]["gpu_power_state"]["start"]["power_limits_query"]["values_w"]
+    assert values["power.limit"] is None and values["power.min_limit"] is None and values["enforced.power.limit"] == 700.0
+    layout.out.rename(layout.tmp / "first")
+    smi.limit_reply = lambda command: {"command": command, "returncode": 9, "output": "Unable to determine the device handle\n"}
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    query = schedule[0]["gpu_power_state"]["start"]["power_limits_query"]
+    assert query["returncode"] == 9 and "device handle" in query["error"] and set(query["values_w"].values()) == {None}
+    assert schedule[0]["status"] == "complete"                                                          # recorded, never fatal
+    layout.out.rename(layout.tmp / "second")
+    smi.limit_reply = lambda command: {"command": command, "returncode": 0, "output": "900.00, 700.00\n"}
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    assert "2 cells for 5 fields" in schedule[0]["gpu_power_state"]["start"]["power_limits_query"]["error"]
+
+
+def test_no_power_limit_query_on_scope_none_or_in_paper1(monkeypatch, layout, smi):
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "none")
+    assert not smi.limit_calls
+    layout.out.rename(layout.tmp / "first")
+    run_experiment(monkeypatch, layout, ["polars"], *QUIET)
+    assert not smi.limit_calls
 
 
 def test_nvidia_smi_performance_text_is_kept_beside_the_power_text(monkeypatch, layout, smi):
