@@ -1,0 +1,66 @@
+{
+  "format": 1,
+  "note": "Per-host values the Paper 3 gates (paper3_gates.py) compare sessions with. null = unset: the gates and a formal campaign refuse the host until it is filled in. Values come from docs/PAPER3_ENERGY_DESIGN.md and its probe evidence; nothing here is tuned. t_min_s: section 2.1 table (windows mode, max(1 s, measured)). Sources: the probe-declared counters of section 2.3/2.4.",
+  "hosts": {
+    "h100": {
+      "kind": "gpu",
+      "energy_measured": true,
+      "idle_windows": true,
+      "t_min_s": 1.0,
+      "t_min_basis": "section 2.1 table: H100 SXM5 windows-mode measured 0.5 s, floor 1 s",
+      "gpu_counter": {"source": "nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption", "scope": "board"},
+      "cpu_energy": {"source": "none", "series": null},
+      "exclusive_use": {"allowed_scheduled": null}
+    },
+    "a100": {
+      "kind": "gpu",
+      "energy_measured": true,
+      "idle_windows": true,
+      "t_min_s": 2.0,
+      "t_min_basis": "section 2.1 table: A100 SXM4 windows-mode measured 2.0 s",
+      "gpu_counter": {"source": "nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption", "scope": "board"},
+      "cpu_energy": {"source": "none", "series": null},
+      "exclusive_use": {"allowed_scheduled": null}
+    },
+    "gh200": {
+      "kind": "gpu",
+      "energy_measured": true,
+      "idle_windows": true,
+      "t_min_s": null,
+      "t_min_basis": "pending the GH200 P6 rerun against module.power.draw.instant (section 2.1)",
+      "gpu_counter": {"source": "nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption", "scope": "module"},
+      "cpu_energy": {"source": null, "series": null},
+      "exclusive_use": {"allowed_scheduled": null}
+    },
+    "b200": {
+      "kind": "gpu",
+      "energy_measured": true,
+      "idle_windows": true,
+      "t_min_s": null,
+      "t_min_basis": "pending the B200 battery and its section 12 amendment (section 3.1)",
+      "gpu_counter": {"source": null, "scope": null},
+      "cpu_energy": {"source": null, "series": null},
+      "exclusive_use": {"allowed_scheduled": null}
+    },
+    "c-gcp": {
+      "kind": "cpu-metal",
+      "energy_measured": true,
+      "idle_windows": true,
+      "t_min_s": null,
+      "t_min_basis": "section 2.1 defines t_min from the GPU counter's P6 only; no t_min exists for the RAPL series",
+      "gpu_counter": {"source": "none", "scope": "none"},
+      "cpu_energy": {"source": "powercap-rapl", "series": 4},
+      "exclusive_use": {"allowed_scheduled": null}
+    },
+    "c-vm": {
+      "kind": "cpu-vm",
+      "energy_measured": false,
+      "idle_windows": false,
+      "t_min_s": "not_applicable",
+      "t_min_basis": "time check only (section 3.1)",
+      "gpu_counter": {"source": "none", "scope": "none"},
+      "cpu_energy": {"source": "none", "series": null},
+      "exclusive_use": {"allowed_scheduled": null}
+    }
+  }
+}

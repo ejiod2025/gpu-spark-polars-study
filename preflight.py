@@ -98,6 +98,12 @@ FORMAL = {
 }
 
 
+def strict_mode(args) -> bool:
+    """The locked-design strictness of a campaign round: --formal (Paper 1's pinned design) or --paper3 (a Paper 3 host's round, whose
+    engines, scales and order come from the flags). Both read the session records with the same rules."""
+    return bool(getattr(args, "formal", False) or getattr(args, "paper3", False))
+
+
 def campaign_letters() -> dict[str, str]:
     """A..D -> engine, from the section 5 seeded shuffle."""
     order = list(ALL_ENGINES)
@@ -783,7 +789,7 @@ def validate_engine(checks: Checks, tag: str, suite: str, queries, engine: str, 
     scale = scale if scale is not None else tag.rsplit("/sf", 1)[-1].replace("p", ".")
     sess = {"suite": suite, "scale": scale, "engine": engine}
     classified = args.error_policy == "classified"
-    formal = bool(args.formal)
+    formal = strict_mode(args)
     declared = set(args.expect_gpu_unsupported) if engine == "polars_gpu" else set()
     gpu_gates = (G1, G3) if engine == "polars_gpu" else (G1,)
 
@@ -1251,7 +1257,7 @@ def validate_suite(checks: Checks, suite: str, run_dir: Path, scale: str, engine
     # --- reference engine: polars (section 7 gate 2); anything else only outside --formal
     wanted = args.reference_engine
     reference_engine = wanted if wanted in sessions else (
-        None if args.formal else next((e for e in ("polars", "spark_cpu", "polars_gpu", "spark_gpu") if e in sessions), None))
+        None if strict_mode(args) else next((e for e in ("polars", "spark_cpu", "polars_gpu", "spark_gpu") if e in sessions), None))
     reference_rows = None
     if reference_engine is None and sessions:
         checks.add(f"{tag}:reference", "FAIL", f"reference engine {wanted} has no results.json; agreement cannot be established",
@@ -1317,8 +1323,12 @@ def parse_utc(text):
 
 
 def check_executed_order(checks: Checks, args, suites, run_dirs, scales_by_suite, engines) -> None:
-    """Section 5: engine order within every (suite, scale) follows the round's row; scales ascend; suites alternate."""
-    expected_engines = [e for e in round_engine_order(args.round) if e in engines]
+    """Section 5: engine order within every (suite, scale) follows the round's row; scales ascend; suites alternate.
+
+    A Paper 3 round (--paper3) states its order and its first suite itself (--expect-engine-order, --expect-suite-first): its seed,
+    rows and rounds 5-8 are not Paper 1's."""
+    expected_engines = ([e for e in args.expect_engine_order if e in engines] if getattr(args, "expect_engine_order", None)
+                        else [e for e in round_engine_order(args.round) if e in engines])
     first_start = {}
     for suite in suites:
         path = run_dirs[suite] / "schedule.json"
@@ -1339,7 +1349,7 @@ def check_executed_order(checks: Checks, args, suites, run_dirs, scales_by_suite
         seen: dict[str, int] = {}
         for item in items:  # the runner stamps the 1-based position within the scale (--engine-order)
             seen[str(item.get("scale"))] = seen.get(str(item.get("scale")), 0) + 1
-            if (args.formal or "engine_order_position" in item) and item.get("engine_order_position") != seen[str(item.get("scale"))]:
+            if (strict_mode(args) or "engine_order_position" in item) and item.get("engine_order_position") != seen[str(item.get("scale"))]:
                 problems.add(f"sf{item.get('scale')}/{item.get('engine')}: engine_order_position "
                              f"{item.get('engine_order_position')!r}, executed {seen[str(item.get('scale'))]}th")
         if any(t is None for t in starts) or any(a > b for a, b in zip(starts, starts[1:]) if a and b):
@@ -1350,7 +1360,7 @@ def check_executed_order(checks: Checks, args, suites, run_dirs, scales_by_suite
                          f"round {args.round}: engines {' -> '.join(expected_engines)} within each scale, scales ascending")
     if len(first_start) == 2:
         baseline_first = first_start["baseline"] < first_start["complex"]
-        want = args.round % 2 == 1
+        want = (args.expect_suite_first == "baseline" if getattr(args, "expect_suite_first", None) else args.round % 2 == 1)
         checks.add("suite_order", "PASS" if baseline_first == want else "FAIL",
                    f"round {args.round}: {'baseline' if baseline_first else 'complex'} suite ran first "
                    f"(design: {'baseline' if want else 'complex'} first)", gates=(GO,))
@@ -1420,6 +1430,42 @@ def evidence_digests(run_dirs, suites, scales_by_suite, engines) -> dict:
             if path.is_file():
                 out[f"{suite}/{path.relative_to(root).as_posix()}"] = sha256_file(path)
     return out
+
+
+# ---- Paper 3 gates G6-G12 (paper3_gates.py) ---------------------------------------------------------
+
+def paper3_host_entry(parser, args):
+    """The host's entry of --paper3-host-config, or a usage error: a host whose t_min or probe-declared sources are unset is refused
+    before anything is judged (design section 2.1, 4)."""
+    import paper3_gates
+    try:
+        return paper3_gates.load_host_config(args.paper3_host_config, args.paper3_host).require_ready()
+    except paper3_gates.GateConfigError as exc:
+        parser.error(f"--paper3-host {args.paper3_host}: {exc}")
+
+
+def paper3_gate_checks(checks: Checks, args, host, suites, run_dirs) -> None:
+    """Run G6-G12 on the round's run directories and add their outcomes as checks.
+
+    G6 and G12 failures are FAIL checks (the round fails, as with G1-G5: repeat once, then stop); G7-G11 only set eligibility flags
+    and are INFO checks with their counts. The full report is written beside preflight's as paper3-gates.json."""
+    import paper3_gates
+    captures = [read_json(path) for path in args.host_capture]
+    try:
+        report = paper3_gates.evaluate_round({suite: run_dirs[suite] for suite in suites}, host, captures)
+    except paper3_gates.GateConfigError as exc:
+        checks.add("paper3_gates", "FAIL", f"G6-G12 could not be evaluated: {exc}", gates=(GO,))
+        return
+    (args.output / "paper3-gates.json").write_text(json.dumps(report, indent=2) + "\n")
+    for failure in report["round_failures"]:
+        checks.add(f"paper3:{failure.split(' ', 1)[0]}", "FAIL", failure, gates=())
+    for gate in paper3_gates.GATES:
+        counts = report["gates"][gate]
+        if gate not in paper3_gates.ROUND_FAILING:
+            checks.add(f"paper3:{gate}", "INFO", f"{counts['pass']} pass, {counts['fail']} flagged, {counts['not_evaluable']} not evaluable, "
+                       f"{counts['not_applicable']} not applicable: {counts['consequence']}")
+        elif not report["round_failures"] or not any(f.startswith(gate) for f in report["round_failures"]):
+            checks.add(f"paper3:{gate}", "PASS", f"{counts['pass']} pass, {counts['not_applicable']} not applicable")
 
 
 # ---- verdict ----------------------------------------------------------------------------------------
@@ -1550,8 +1596,24 @@ def build_parser():
                           help="validate one finished round of the locked design: all four engines, 3 measured runs, baseline "
                                "scales 1 10 30 100 300, complex scales 30 100 300, cx_q13/cx_window pre-declared, --cpus 26, "
                                "A1 error classification; requires --skip-run and --round")
-    campaign.add_argument("--round", type=int, choices=[1, 2, 3, 4],
-                          help="check that the executed engine/scale/suite order matches section 5 for this round")
+    campaign.add_argument("--round", type=int, choices=range(1, 9), metavar="{1..8}",
+                          help="check that the executed engine/scale/suite order matches section 5 for this round (Paper 1: rounds 1-4; "
+                               "with --paper3 the design's round number 1-8)")
+    campaign.add_argument("--paper3", action="store_true",
+                          help="validate one finished round of a Paper 3 host (docs/PAPER3_ENERGY_DESIGN.md) with the strictness of --formal "
+                               "(idle GPU gate, suite version, strict guard, cleanup policy, order positions, polars as the reference) "
+                               "but with engines, scales and suites from the flags; needs --skip-run, --round, --runs, "
+                               "--expect-engine-order and, for two suites, --expect-suite-first")
+    campaign.add_argument("--expect-engine-order", nargs="+", choices=ALL_ENGINES, metavar="ENGINE",
+                          help="--paper3: the engine order of every (suite, scale) of this round (a permutation of --engines)")
+    campaign.add_argument("--expect-suite-first", choices=list(SUITE_MODULES),
+                          help="--paper3: the suite that starts first in this round")
+    campaign.add_argument("--paper3-host", metavar="HOST",
+                          help="run the Paper 3 gates G6-G12 (paper3_gates.py) on the round's run directories; the host id in --paper3-host-config")
+    campaign.add_argument("--paper3-host-config", type=Path, metavar="JSON",
+                          help="with --paper3-host: the per-host config (t_min, probe-declared sources); an unset value is a usage error")
+    campaign.add_argument("--host-capture", type=Path, nargs="+", default=[], metavar="JSON",
+                          help="with --paper3-host: the host-exclusivity captures of the round (start and end)")
     campaign.add_argument("--error-policy", choices=["strict", "classified"], default=None,
                           help="strict: any query error outside --expect-gpu-unsupported fails; classified: amendment A1 "
                                "(coverage outcomes do not fail, unclassified errors do); --formal implies classified")
@@ -1591,6 +1653,33 @@ def resolve_args(parser, args) -> None:
             power_telemetry.parse_cpu_list(args.expect_affinity)
         except ValueError as exc:
             parser.error(f"--expect-affinity: {exc}")
+    if args.round is not None and args.round > 4 and not args.paper3:
+        parser.error(f"argument --round: invalid choice: {args.round} (choose from 1, 2, 3, 4); rounds 5-8 are Paper 3's: add --paper3")
+    for flag, value in (("--expect-engine-order", args.expect_engine_order), ("--expect-suite-first", args.expect_suite_first)):
+        if value is not None and not args.paper3:
+            parser.error(f"{flag} belongs to --paper3 (--formal fixes Paper 1's order)")
+    if (args.paper3_host is None) != (args.paper3_host_config is None) or (args.host_capture and args.paper3_host is None):
+        parser.error("--paper3-host, --paper3-host-config and --host-capture go together (the captures need the other two)")
+    if args.paper3:
+        if args.formal:
+            parser.error("--paper3 and --formal are alternatives: --formal is Paper 1's round, --paper3 a Paper 3 host's")
+        if not args.skip_run:
+            parser.error("--paper3 validates a finished round: add --skip-run")
+        if args.round is None:
+            parser.error("--paper3 requires --round N (the executed order is part of the design)")
+        if args.expect_engine_order is None:
+            parser.error("--paper3 requires --expect-engine-order (the round's engine order)")
+        if args.runs is None:
+            parser.error("--paper3 requires --runs (the design's 3 measured trials are not assumed)")
+        if args.error_policy == "strict":
+            parser.error("--paper3 uses --error-policy classified (amendment A1)")
+        args.error_policy = "classified"
+        if len(args.suites) > 1 and args.expect_suite_first is None:
+            parser.error("--paper3 with two suites requires --expect-suite-first")
+        if sorted(args.expect_engine_order) != sorted(args.engines or args.expect_engine_order):
+            parser.error(f"--expect-engine-order {args.expect_engine_order} must be a permutation of --engines {args.engines}")
+        if len(set(args.expect_engine_order)) != len(args.expect_engine_order):
+            parser.error("--expect-engine-order lists an engine twice")
     if args.formal:
         if not args.skip_run:
             parser.error("--formal validates a finished round: add --skip-run")
@@ -1654,8 +1743,13 @@ def main(argv=None) -> int:
             if run_dirs[suite].exists():
                 parser.error(f"{run_dirs[suite]} already exists; preflight needs a new directory")
     engines = [e for e in ALL_ENGINES if e in engines]
-    if args.reference_engine not in engines and args.formal:
+    if args.reference_engine not in engines and strict_mode(args):
         parser.error(f"--reference-engine {args.reference_engine} is not among the engines {engines}")
+    if args.paper3 and sorted(args.expect_engine_order) != sorted(engines):
+        parser.error(f"--expect-engine-order {args.expect_engine_order} must be a permutation of the engines {engines}")
+    paper3_host = None
+    if args.paper3_host:
+        paper3_host = paper3_host_entry(parser, args)
     args.engines = engines
     report_path = (args.report or args.output / "preflight-report.json").resolve()
     if report_path.exists():
@@ -1663,7 +1757,7 @@ def main(argv=None) -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     checks = Checks()
     print(f"preflight: engines={engines} suites={suites} scales={args.suite_scales} runs={args.runs} output={args.output}"
-          f"{' FORMAL round ' + str(args.round) if args.formal else ''}", flush=True)
+          f"{' FORMAL round ' + str(args.round) if args.formal else ''}{' PAPER3 round ' + str(args.round) if args.paper3 else ''}", flush=True)
 
     if not args.skip_env:
         check_environment(checks, args, engines)
@@ -1695,6 +1789,8 @@ def main(argv=None) -> int:
                 validate_suite(checks, suite, run_dirs[suite], scale, engines, args.runs, args)
         if args.round is not None:
             check_executed_order(checks, args, suites, run_dirs, args.suite_scales, engines)
+        if paper3_host is not None:
+            paper3_gate_checks(checks, args, paper3_host, suites, run_dirs)
     # sessions of a suite whose run root is missing still count as expected (and unevaluated -> fail)
     for suite in suites:
         for scale in args.suite_scales[suite]:
@@ -1732,8 +1828,10 @@ def main(argv=None) -> int:
                            "predeclared": list(args.expect_gpu_unsupported), "outcomes": outcomes, "unstable": [list(c) for c in unstable]},
               "expected": {"engines": engines, "suites": {s: {"scales": args.suite_scales[s], "run_dir": str(run_dirs[s])} for s in suites},
                            "runs": args.runs, "round": args.round, "formal": args.formal,
-                           "round_engine_order": round_engine_order(args.round) if args.round else None,
-                           "reference_engine": args.reference_engine, "expect_cpus": args.expect_cpus},
+                           "round_engine_order": (list(args.expect_engine_order) if args.paper3
+                                                  else round_engine_order(args.round) if args.round else None),
+                           "reference_engine": args.reference_engine, "expect_cpus": args.expect_cpus,
+                           **({"paper3": {"suite_first": args.expect_suite_first, "host_gates": args.paper3_host}} if args.paper3 else {})},
               "inputs": {"manifest_sha256": digests},
               "evidence_sha256": evidence_digests(run_dirs, suites, args.suite_scales, engines),
               "engines": engines, "suites": suites, "scales": args.scales, "runs": args.runs,

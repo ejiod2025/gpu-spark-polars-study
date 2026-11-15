@@ -22,6 +22,16 @@ Examples:
   python run_campaign.py --dry-run
   python run_campaign.py --root /data/campaign --jar $RAPIDS_JAR --data-root $DATA_ROOT --lease-name p3-main-owner-ab12-expires-20261201T1800Z
   python run_campaign.py ... --socket 0 --cpu-energy require     # CPU-only bare metal: engines on socket 0, RAPL mandatory
+
+Paper 3 campaign mode (docs/PAPER3_ENERGY_DESIGN.md; opt-in, Paper 1 campaigns are not affected): --paper3-host {a100,h100,gh200,
+b200,c-gcp,c-vm} fixes the engines, scales, GPU-energy scope and 10 s window of the host class; --paper3-launch 1|2 runs one
+Williams square (rounds 1-4 / 5-8, each launch with its own --root and lease); --paper3-lock-date YYYYMMDD is the seed. Rounds are
+named by the design's numbers (round-5 ... round-8), the per-round gate adds G6-G12 (paper3_gates.py, paper3-gates.json), and a
+formal campaign (no test flag) verifies the lock tag/commit/date and refuses a host whose t_min or sources are unset in
+paper3_hosts.json. See paper3_campaign.py for the schedule and the choices the design leaves open.
+  python run_campaign.py --dry-run --paper3-host h100 --paper3-launch 1 --paper3-lock-date 20261116
+  python run_campaign.py --root R --data-root D --jar J --lease-name L --host-label gpu_1x_h100_sxm5 --paper3-host h100 \
+      --paper3-launch 1 --paper3-lock-date 20261116 --paper3-lock-commit <sha> --paper3-lock-doi <doi>
 """
 from __future__ import annotations
 
@@ -45,6 +55,8 @@ import sys
 import threading
 import time
 
+import paper3_campaign
+import paper3_gates
 import power_telemetry
 from probe_power import LEASE_FILE, lease_status
 
@@ -84,6 +96,14 @@ TELEMETRY_FLAGS = {"redact_gpu_identifiers": "--redact-gpu-identifiers", "gpu_en
                    # Paper 3 energy mode (docs/PAPER3_ENERGY_DESIGN.md sections 2.1, 2.3, 2.4); absent = Paper 1 command lines
                    "gpu_energy_scope": "--gpu-energy-scope", "energy_window_s": "--energy-window-s"}
 COST_FIELDS = ("instance_type", "provider", "region", "hourly_price_usd", "price_source_url", "price_snapshot_utc")
+# Paper 3 campaign mode (docs/PAPER3_ENERGY_DESIGN.md): opt-in with --paper3-host; Paper 1 campaigns never touch these.
+PAPER3_HOSTS_CONFIG = HERE / "paper3_hosts.json"
+PAPER3_DESIGN_DOC = HERE / paper3_campaign.DESIGN_DOC_REL
+PAPER3_CRITICAL_SOURCES = ("paper3_campaign.py", "paper3_gates.py", "paper3_hosts.json", "gpu_pulse.py")
+PAPER3_TELEMETRY_FLAGS = {"session_idle_seconds": "--session-idle-seconds",      # keys only the Paper 3 host classes set
+                          "session_cooldown_seconds": "--session-cooldown-seconds",
+                          "g8_pulse_seconds": "--g8-pulse-seconds", "g8_pulse_engines": "--g8-pulse-engines"}
+PAPER3_COST_FIELDS = ("instance_id", "launch_utc", "credit_funded")             # section 2.6 P-BILLED; the terminate time is not known at start
 
 EXIT_STOPPED, EXIT_GATE_TOOL, EXIT_DESIGN, EXIT_LEASE, EXIT_INTERRUPTED = 3, 4, 5, 6, 130
 
@@ -219,6 +239,20 @@ class Unit:
 
 
 @dataclass
+class Paper3Setup:
+    """Everything --paper3-host adds to a campaign; None on Config for a Paper 1 campaign."""
+    plan: paper3_campaign.Plan
+    launch: str
+    rounds: list                              # the RoundPlans this launch runs (all of the design's, or its --rounds prefix)
+    lock: dict                                # date_utc, seed, tag, commit, zenodo_doi: part of the resolved design
+    host_config: Path
+    host: paper3_gates.HostGates
+    host_entry_sha256: str
+    vm_pin: dict | None = None                # C-VM: the pin read from the VM's own topology and what it rests on (paper3_campaign.vm_pin)
+    lock_evidence: dict | None = None         # verify_lock() result of a formal campaign, written to campaign.json
+
+
+@dataclass
 class Config:
     root: Path | None
     data_root: Path | None
@@ -250,9 +284,23 @@ class Config:
     pin_cpu_list: str | None = None
     no_membind: bool = False               # pinned runs bind memory to the pinned NUMA nodes unless this says otherwise
     pinning: dict | None = None            # power_telemetry.resolve_pinning() on this host, written to campaign.json
+    paper3: Paper3Setup | None = None      # Paper 3 campaign mode (--paper3-host); None = the Paper 1 campaign
+
+
+def build_units_paper3(cfg: Config) -> list:
+    """The rounds of one launch of a Paper 3 campaign: the design's own rounds (numbers 1-8), no side study."""
+    units = []
+    for plan in cfg.paper3.rounds:
+        order = [e for e in plan.engine_order if e in cfg.engines]
+        jobs = [Job(suite=suite, scales=list(cfg.scales[suite]), engines=[e for e in ENGINES if e in cfg.engines],
+                    order=order, python=cfg.main_python) for suite in plan.suites]
+        units.append(Unit("main", plan.round, plan.sequence, cfg.root or Path("<root>"), jobs))
+    return units
 
 
 def build_units(cfg: Config) -> list:
+    if cfg.paper3 is not None:
+        return build_units_paper3(cfg)
     letters = derive_letters()
     check_williams(SEQUENCES, letters)
     check_side_sequences()
@@ -277,7 +325,42 @@ def build_units(cfg: Config) -> list:
     return units
 
 
+def design_dict_paper3(cfg: Config, units: list) -> dict:
+    """The resolved design of a Paper 3 launch: the pre-registered one (both squares), and which rounds this launch runs."""
+    setup = cfg.paper3
+    plan = setup.plan
+    return {
+        "format": 1,
+        "design_doc": paper3_campaign.DESIGN_DOC_REL,
+        "seed": plan.seed,
+        "letters": plan.letters,
+        "sequences": [r.sequence for r in plan.rounds],
+        "williams_check": ("each engine once per position; each ordered pair adjacent exactly once, in each square"
+                           if plan.spec.kind == "gpu" else "two-engine orders as written in section 3.2"),
+        "engines": [e for e in ENGINES if e in cfg.engines],
+        "suites": {s: {**SUITES[s], "scales": list(cfg.scales[s])} for s in plan.spec.suites},
+        "main_rounds": [{"round": u.round, "sequence": u.label, "engine_order": u.jobs[0].order,
+                         "suite_order": [j.suite for j in u.jobs]} for u in units],
+        "flags": {"cpus": cfg.cpus, "driver_memory": cfg.driver_memory, "runs": FORMAL_FLAGS["runs"],
+                  "keep_going": True, "spark_gpu_profile": FORMAL_FLAGS["spark_gpu_profile"],
+                  "polars_gpu_executor": FORMAL_FLAGS["polars_gpu_executor"]},
+        "expect_gpu_unsupported": list(EXPECT_GPU_UNSUPPORTED),
+        "gpu_policy": "any_gpu (amendment A2 hosts)" if cfg.allow_any_gpu else "h100_required",
+        "totals": {"main_sessions": sum(u.sessions for u in units), "side_sessions": 0, "sessions": sum(u.sessions for u in units)},
+        "formal": cfg.formal,
+        "test_flags": cfg.test_flags,
+        **({"pinning": {"socket": cfg.pin_socket, "cpu_list": cfg.pin_cpu_list, "membind": not cfg.no_membind}}
+           if cfg.pin_socket is not None or cfg.pin_cpu_list is not None else {}),
+        "energy": {"gpu_energy_scope": cfg.telemetry.get("gpu_energy_scope"), "energy_window_s": cfg.telemetry.get("energy_window_s")},
+        "telemetry": {k: v for k, v in sorted(cfg.telemetry.items())},
+        "paper3": paper3_campaign.design_block(plan, setup.launch, setup.rounds, host_config_sha256=setup.host_entry_sha256,
+                                               t_min_s=setup.host.t_min_s, lock=setup.lock, vm_pin=setup.vm_pin),
+    }
+
+
 def design_dict(cfg: Config, units: list) -> dict:
+    if cfg.paper3 is not None:
+        return design_dict_paper3(cfg, units)
     letters = derive_letters()
     main = [u for u in units if u.kind == "main"]
     side = [u for u in units if u.kind == "side"]
@@ -334,6 +417,9 @@ def job_command(job: Job, out_dir: Path, cfg: Config) -> list:
     for key, flag in TELEMETRY_FLAGS.items():  # only what was asked for: run_experiment.py's defaults otherwise
         if key in cfg.telemetry:
             command += [flag, str(cfg.telemetry[key])]
+    for key, flag in PAPER3_TELEMETRY_FLAGS.items():
+        if key in cfg.telemetry:
+            command += [flag, str(cfg.telemetry[key])]
     if cfg.pin_socket is not None:
         command += ["--socket", str(cfg.pin_socket)]
     if cfg.pin_cpu_list is not None:
@@ -346,6 +432,8 @@ def job_command(job: Job, out_dir: Path, cfg: Config) -> list:
 def gate_command(unit: Unit, attempt: Path, cfg: Config, output: Path, prior_reports=()) -> list:
     """preflight.py in campaign mode. A formal campaign uses --formal, which pins the locked design itself;
     a test campaign passes the same facts as explicit flags so an engine/scale subset can be validated."""
+    if cfg.paper3 is not None:
+        return gate_command_paper3(unit, attempt, cfg, output, prior_reports)
     command = [sys.executable, str(PREFLIGHT), *(["--formal"] if cfg.formal else []),
                "--skip-run", "--skip-env", "--skip-inputs", "--round", str(unit.round),
                "--baseline-dir", str(attempt / "baseline"), "--complex-dir", str(attempt / "complex"),
@@ -357,6 +445,34 @@ def gate_command(unit: Unit, attempt: Path, cfg: Config, output: Path, prior_rep
                     "--baseline-scales", *cfg.scales["baseline"], "--complex-scales", *cfg.scales["complex"],
                     "--spark-gpu-profile", FORMAL_FLAGS["spark_gpu_profile"],
                     "--polars-gpu-executor", FORMAL_FLAGS["polars_gpu_executor"], "--error-policy", "classified"]
+    if cfg.allow_any_gpu:
+        command.append("--allow-any-gpu")
+    if cfg.pinning is not None:
+        command += ["--expect-affinity", cfg.pinning["cpus"]]
+    if cfg.inputs_reports:
+        command += ["--inputs-report", *map(str, cfg.inputs_reports)]
+    if prior_reports:
+        command += ["--prior-reports", *map(str, prior_reports)]
+    return command
+
+
+def gate_command_paper3(unit: Unit, attempt: Path, cfg: Config, output: Path, prior_reports=()) -> list:
+    """preflight.py (Paper 1 gates G1-G5 and the energy-window checks) for one Paper 3 round.
+
+    --formal pins Paper 1's seed, rows and four engines and --round to 1-4; --paper3 is its strictness with the engines, scales,
+    suites, engine order and first suite of this round taken from the flags. G6-G12 are run by the campaign itself
+    (paper3_gates.py, paper3-gates.json beside gates.json); conformance_problems() checks the executed order a second time."""
+    command = [sys.executable, str(PREFLIGHT), "--paper3", "--skip-run", "--skip-env", "--skip-inputs", "--round", str(unit.round),
+               "--expect-engine-order", *unit.jobs[0].order, "--expect-suite-first", unit.jobs[0].suite,
+               "--baseline-dir", str(attempt / "baseline"), "--complex-dir", str(attempt / "complex"), "--output", str(output),
+               "--suites", *[j.suite for j in unit.jobs],
+               "--engines", *[e for e in ENGINES if e in cfg.engines],
+               "--expect-gpu-unsupported", *EXPECT_GPU_UNSUPPORTED,
+               "--runs", str(FORMAL_FLAGS["runs"]), "--expect-cpus", str(cfg.cpus),
+               "--baseline-scales", *cfg.scales["baseline"],
+               *(["--complex-scales", *cfg.scales["complex"]] if "complex" in cfg.scales else []),
+               "--spark-gpu-profile", FORMAL_FLAGS["spark_gpu_profile"],
+               "--polars-gpu-executor", FORMAL_FLAGS["polars_gpu_executor"], "--error-policy", "classified"]
     if cfg.allow_any_gpu:
         command.append("--allow-any-gpu")
     if cfg.pinning is not None:
@@ -388,10 +504,13 @@ def git_info() -> dict:
             "diff_sha256": hashlib.sha256((git("diff", "HEAD") or "").encode()).hexdigest()}
 
 
-def source_hashes() -> dict:
+def source_hashes(paper3: bool = False) -> dict:
     files = sorted(HERE.glob("*.py")) + [HERE / "setup_h100.sh", HERE / "requirements-gpu.txt"]
     hashes = {str(p.relative_to(HERE)): sha256_file(p) for p in files if p.is_file()}
     hashes["docs/H100_EXPERIMENT_DESIGN.md"] = sha256_file(DESIGN_DOC)
+    if paper3:
+        hashes[paper3_campaign.DESIGN_DOC_REL] = sha256_file(PAPER3_DESIGN_DOC)
+        hashes["paper3_hosts.json"] = sha256_file(PAPER3_HOSTS_CONFIG)
     return hashes
 
 
@@ -486,13 +605,24 @@ def host_identity(cfg: Config) -> dict:
     return identity
 
 
+def design_doc_hashes(cfg: Config) -> dict:
+    """design_doc_sha256 is what a resume compares. Paper 1: the whole locked file. Paper 3: sections 1-11 only, because after
+    the lock only section 12 may grow (an amendment must not stop a running campaign; the whole-file hash is kept as drift)."""
+    if cfg.paper3 is None:
+        return {"design_doc_sha256": sha256_file(DESIGN_DOC)}
+    text = PAPER3_DESIGN_DOC.read_text()
+    return {"design_doc_sha256": hashlib.sha256(paper3_campaign.sections_1_to_11(text).rstrip().encode()).hexdigest(),
+            "design_doc_basis": "sections 1-11 of docs/PAPER3_ENERGY_DESIGN.md (text before the amendments heading)",
+            "design_doc_full_sha256": sha256_file(PAPER3_DESIGN_DOC)}
+
+
 def provenance(cfg: Config, units: list) -> dict:
     side_needed = any(u.kind == "side" for u in units)
     return {
         "created_utc": now(),
-        "design_doc_sha256": sha256_file(DESIGN_DOC),
+        **design_doc_hashes(cfg),
         "git": git_info(),
-        "source_sha256": source_hashes(),
+        "source_sha256": source_hashes(cfg.paper3 is not None),
         "host": host_identity(cfg),
         "environments": {"main": probe_python(cfg.main_python),
                          **({"side_a100compat": probe_python(cfg.side_python)} if side_needed and cfg.side_python else {})},
@@ -585,8 +715,43 @@ def resolve_pin(cfg: Config):
         raise CampaignError(f"CPU pinning: {exc}", EXIT_DESIGN)
 
 
+def paper3_startup_checks(cfg: Config, resolved_pinning: bool) -> None:
+    """What a Paper 3 campaign needs on top of the Paper 1 checks, refused in seconds. A formal campaign (no test flag) must
+    name its instance type, have every value the gates need set in the host config (t_min, probe-declared sources) and, on the
+    CPU-only host, pin 26 vCPUs of socket 0 (section 3.1). A test campaign only reports what is missing."""
+    setup = cfg.paper3
+    spec, missing = setup.plan.spec, setup.host.unset()
+    if not resolved_pinning:
+        if cfg.host_label and spec.instance_types and cfg.host_label not in spec.instance_types:
+            problem = f"--host-label {cfg.host_label!r} is not an instance type of Paper 3 host {spec.host} ({', '.join(spec.instance_types)})"
+            if cfg.formal:
+                raise CampaignError(problem, EXIT_DESIGN)
+            log(f"WARNING: {problem}")
+        if cfg.formal and not cfg.host_label:
+            raise CampaignError(f"a formal Paper 3 campaign records its instance type: pass --host-label "
+                                f"({', '.join(spec.instance_types)})", EXIT_DESIGN)
+        if missing:
+            problem = (f"host {spec.host!r} has values unset in {setup.host_config.name}: {', '.join(missing)} (null = pending in "
+                       "the design); the gates refuse to evaluate such a host")
+            if cfg.formal:
+                raise CampaignError("formal Paper 3 campaign: " + problem, EXIT_DESIGN)
+            log(f"WARNING: {problem}; gates will not be evaluated")
+        return
+    if spec.vm_pin and cfg.formal and (cfg.pinning or {}).get("cpu_count") != cfg.cpus:
+        raise CampaignError(f"formal Paper 3 campaign on {spec.host}: engines are pinned to {cfg.cpus} vCPUs read from the VM's "
+                            f"topology (section 3.1); the pinning resolves to {(cfg.pinning or {}).get('cpu_count')}", EXIT_DESIGN)
+    if spec.pinned and cfg.formal:
+        pinning = cfg.pinning or {}
+        if pinning.get("cpu_count") != cfg.cpus or pinning.get("sockets") != [0]:
+            raise CampaignError(f"formal Paper 3 campaign on {spec.host}: engines are pinned to {cfg.cpus} vCPUs on socket 0 "
+                                f"(section 3.1); the pinning resolves to {pinning.get('cpu_count')} CPUs on socket(s) "
+                                f"{pinning.get('sockets')}", EXIT_DESIGN)
+
+
 def startup_checks(cfg: Config, units: list, prov: dict) -> None:
     """Fail in seconds, not hours into the campaign."""
+    if cfg.paper3 is not None:
+        paper3_startup_checks(cfg, resolved_pinning=False)
     busy = running_workloads()
     if busy and cfg.formal:
         raise CampaignError("benchmark processes are already running on this host (design section 6: no other "
@@ -631,6 +796,8 @@ def startup_checks(cfg: Config, units: list, prov: dict) -> None:
     if cfg.pinning is not None and cfg.cpus > cfg.pinning["cpu_count"]:
         raise CampaignError(f"CPU pinning: {cfg.cpus} engine threads (--cpus) on {cfg.pinning['cpu_count']} pinned CPUs "
                             f"({cfg.pinning['cpus']}) is oversubscribed", EXIT_DESIGN)
+    if cfg.paper3 is not None:
+        paper3_startup_checks(cfg, resolved_pinning=True)
     if cfg.pinning is not None:
         cfg.pinning["membind"] = membind = power_telemetry.plan_membind(cfg.pinning, cfg.no_membind)
         if membind["enabled"]:  # fail now, not when the first session starts: the design attributes DRAM energy to this socket
@@ -776,7 +943,27 @@ class Status:
                                    "accepted_dir": str(self.accepted[u.uid]) if u.uid in self.accepted else None}
                            for u in self.units},
                 "eta": self.eta(),
+                **({"paper3": self.paper3_progress()} if self.cfg.paper3 is not None else {}),
             }
+
+    def paper3_progress(self) -> dict:
+        """Per square of this host: its rounds (the design's, not just this launch's prefix) and which are accepted.
+
+        Confirmatory estimates use complete squares only (one complete square gives R = 4); the accepted rounds of an incomplete
+        square are a sensitivity only; a host with no complete square is reported descriptively (design 3.2, lead's decision)."""
+        setup = self.cfg.paper3
+        squares = {}
+        for plan in setup.rounds:
+            squares.setdefault(str(plan.square), {"rounds": [r.round for r in setup.plan.rounds if r.square == plan.square], "accepted": []})
+        for plan in setup.rounds:
+            if f"main-r{plan.round}" in self.accepted:
+                squares[str(plan.square)]["accepted"].append(plan.round)
+        complete = sorted(int(sq) for sq, e in squares.items() if e["rounds"] == e["accepted"])
+        return {"host": setup.plan.spec.host, "launch": setup.launch, "squares": squares, "squares_complete": complete,
+                "confirmatory_rounds": sorted(r for sq in complete for r in squares[str(sq)]["rounds"]),
+                "sensitivity_only_rounds": sorted(r for sq, e in squares.items() if int(sq) not in complete for r in e["accepted"]),
+                "rule": "confirmatory estimates use complete squares only; one complete square gives R = 4; accepted rounds of an "
+                        "incomplete square are a sensitivity; no complete square: the host is reported descriptively"}
 
     def flush(self):
         with self.lock:
@@ -841,6 +1028,21 @@ class Campaign:
     def __init__(self, cfg: Config, units: list, status: Status, design_hash: str, args):
         self.cfg, self.units, self.status, self.args = cfg, units, status, args
         self.design_hash = design_hash
+        self.sleep = time.sleep                 # tests replace it
+        self.last_finished = None               # UTC time the last suite run ended (this invocation or an earlier one)
+
+    def cool_down(self):
+        """Paper 3: at least the host class's cool-down of no load since the last suite run ended (section 3.2). It is 0 on the hosts
+        with the section 2.2 idle brackets, which leave >= 150 s without query load between sessions, and 60 s on the time-only C-VM,
+        which has none. The first suite of a campaign has nothing to cool down from; a resume after a long stop waits for nothing."""
+        setup = self.cfg.paper3
+        if setup is None or not setup.plan.spec.cooldown_s or self.last_finished is None:
+            return
+        wait = setup.plan.spec.cooldown_s - (datetime.now(timezone.utc) - self.last_finished).total_seconds()
+        if wait > 0:
+            log(f"cool-down: {wait:.0f} s without load before the next suite run")
+            self.status.set_current(phase="cooldown", seconds=round(wait, 1))
+            self.sleep(wait)
 
     # -- one suite
     def run_job(self, unit: Unit, index: int, path: Path, meta: dict, job_record: dict, job: Job):
@@ -869,6 +1071,7 @@ class Campaign:
                 write_json(path / "attempt.json", meta)
                 raise
         job_record.update(state="finished", finished_utc=now(), returncode=returncode, log=str(log_path))
+        self.last_finished = datetime.now(timezone.utc)
         write_json(path / "attempt.json", meta)
         if returncode != 0:
             log(f"{job.key}: run_experiment.py exited {returncode}; see {log_path}")
@@ -921,6 +1124,12 @@ class Campaign:
             gates["preflight"] = report
             verdict = "pass" if report["verdict"] == "pass" else "fail"
             reasons = [f"preflight verdict {report['verdict']}"] if verdict == "fail" else []
+            if self.cfg.paper3 is not None:
+                summary = self.run_paper3_gates(unit, path)
+                gates["paper3"] = summary
+                if summary.get("round_failed"):
+                    verdict = "fail"
+                    reasons.append(f"Paper 3 gate(s) failed the round: {summary['round_failures'][:5]}")
         else:
             verdict, reasons = "pass", []
             gates["preflight"] = None
@@ -969,6 +1178,35 @@ class Campaign:
                 "report_sha256": sha256_file(report_path), "verdict": verdict, "counts": report.get("counts"),
                 "failing_checks": failing[:50], "failing_check_count": len(failing)}
 
+    def capture_exclusivity(self, path: Path, label: str):
+        """Host-exclusivity evidence (G12) at the start or end of an attempt; kept if it already exists (a resume or a re-gate)."""
+        target = path / f"host-exclusivity-{label}.json"
+        if not target.exists():
+            write_json(target, paper3_gates.capture_host_exclusivity(label, gpu=self.cfg.paper3.plan.spec.kind == "gpu"))
+
+    def run_paper3_gates(self, unit: Unit, path: Path) -> dict:
+        """G6-G12 for one round attempt: writes paper3-gates.json beside gates.json, returns the summary gates.json keeps."""
+        setup = self.cfg.paper3
+        runs = {job.suite: path / job.out_rel for job in unit.jobs}
+        absent = [s for s, root in runs.items() if not isinstance(read_json(root / "schedule.json"), list)]
+        if absent:
+            return {"evaluated": False, "round_failed": False,
+                    "reason": f"schedule.json missing for {absent}; the design-conformance check reports the round"}
+        self.capture_exclusivity(path, "end")
+        captures = [read_json(path / f"host-exclusivity-{label}.json") for label in ("start", "end")]
+        try:
+            report = paper3_gates.evaluate_round(runs, setup.host, captures)
+        except paper3_gates.GateConfigError as exc:
+            if self.cfg.formal:
+                raise CampaignError(f"Paper 3 gates cannot be evaluated: {exc}. The round is NOT counted as failed: fix the "
+                                    "host config and re-run to gate it again.", EXIT_GATE_TOOL)
+            return {"evaluated": False, "round_failed": False, "reason": str(exc)}
+        write_json(path / "paper3-gates.json", report)
+        return {"evaluated": True, "report": str(path / "paper3-gates.json"), "report_sha256": sha256_file(path / "paper3-gates.json"),
+                "round_failed": report["round_failed"], "round_failures": report["round_failures"][:50],
+                "gates": {g: {k: v for k, v in c.items() if k != "consequence"} for g, c in report["gates"].items()},
+                "ineligible_keys": len(report["ineligible"])}
+
     # -- one attempt (new or resumed), then its gate
     def run_attempt(self, unit: Unit, index: int, path: Path, resume: bool):
         if resume:
@@ -984,8 +1222,11 @@ class Campaign:
             for scale in j["scales"] for engine in j["engines"]}
         self.status.attempts[unit.uid] = index + 1
         by_key = {job.key: job for job in unit.jobs}
+        if self.cfg.paper3 is not None:
+            self.capture_exclusivity(path, "start")
         for record in meta["jobs"]:
             if record.get("state") != "finished":
+                self.cool_down()
                 self.run_job(unit, index, path, meta, record, by_key[record["key"]])
         meta["finished_utc"] = now()
         write_json(path / "attempt.json", meta)
@@ -1024,6 +1265,17 @@ class Campaign:
                 new_index = (attempts[-1][0] + 1) if attempts else 0
                 self.run_attempt(unit, new_index, unit.attempt_path(new_index), resume=False)
 
+    def note_last_finish(self, path: Path):
+        """Paper 3 cool-down after a resume: the latest end of a suite run found on disk."""
+        for job in (read_attempt(path) or {}).get("jobs", []):
+            for key in ("finished_utc", "interrupted_utc"):
+                try:
+                    stamp = datetime.fromisoformat(job[key]) if job.get(key) else None
+                except ValueError:
+                    stamp = None
+                if stamp is not None and (self.last_finished is None or stamp > self.last_finished):
+                    self.last_finished = stamp
+
     def scan(self):
         """Pick up what earlier invocations left on disk: accepted rounds and session durations for the ETA."""
         st = self.status
@@ -1032,6 +1284,8 @@ class Campaign:
             st.attempts[unit.uid] = len(attempts)
             for _, path in attempts:
                 st.load_history(unit, path)
+                if self.cfg.paper3 is not None:
+                    self.note_last_finish(path)
             passed = [path for _, path in attempts if classify(path)["state"] == "pass"]
             if passed:
                 st.accepted[unit.uid] = passed[-1]
@@ -1079,6 +1333,19 @@ def conformance_problems(unit: Unit, path: Path, cfg: Config) -> list:
         order = [str(i.get("scale")) for i in schedule]
         if [scale for scale, _ in itertools.groupby(order)] != [s for s in job.scales if s in seen_scales]:
             problems.append(f"{job.key}: scales did not run in ascending design order")
+    if cfg.paper3 is not None and len(unit.jobs) > 1:   # suite order alternates by round (section 3.2); preflight --round cannot check Paper 3 rounds
+        firsts = []
+        for job in unit.jobs:
+            schedule = read_json(path / job.out_rel / "schedule.json")
+            stamp = None
+            if isinstance(schedule, list) and schedule and isinstance(schedule[0], dict):
+                try:
+                    stamp = datetime.fromisoformat(str(schedule[0].get("start_utc")))
+                except ValueError:
+                    stamp = None
+            firsts.append(stamp if stamp is not None and stamp.tzinfo is not None else None)
+        if None in firsts or any(a >= b for a, b in zip(firsts, firsts[1:])):
+            problems.append(f"suites did not start in the planned order {[j.suite for j in unit.jobs]} (first start_utc {firsts})")
     return problems[:60]
 
 
@@ -1100,7 +1367,43 @@ def side_study_problems(unit: Unit, path: Path, cfg: Config) -> list:
 
 # ---- dry run ----------------------------------------------------------------------------------------
 
+def print_schedule_paper3(cfg: Config, units: list, design: dict, verbose: bool) -> None:
+    setup, block = cfg.paper3, design["paper3"]
+    spec = setup.plan.spec
+    print(f"Paper 3 campaign ({paper3_campaign.DESIGN_DOC_REL}): host {spec.host} ({spec.kind}), launch {setup.launch}, "
+          f"lock date {setup.lock['date_utc']} -> seed {design['seed']}")
+    print(f"letters {design['letters']}" + (f" (from the four-engine assignment {block['letters_all']})" if spec.kind != "gpu" else "")
+          + f"; rows {block['rows']}")
+    if spec.vm_pin:
+        print(f"pin: {block['vm_pin']}")
+    print(f"formal: {cfg.formal}" + (f"  (test flags: {', '.join(cfg.test_flags)})" if cfg.test_flags else ""))
+    print(f"engines: {design['engines']}   flags: {design['flags']}")
+    print(f"energy mode: {design['energy']}   telemetry: {design['telemetry']}   cool-down: {spec.cooldown_s:g} s")
+    print(f"t_min: {setup.host.t_min_s!r}   host config unset: {setup.host.unset() or 'nothing'}")
+    print("full design (both squares):")
+    for entry in block["schedule"]:
+        print(f"  round {entry['round']} (square {entry['square']}, row {entry['row']})  {entry['sequence']}  "
+              f"{' -> '.join(entry['engine_order'])}  suites {' then '.join(entry['suite_order'])}")
+    print(f"\nTHIS LAUNCH: rounds {block['launch_rounds']}, {sum(u.sessions for u in units)} sessions "
+          f"({block['sessions_per_round']} per round)")
+    for unit in units:
+        print(f"  round {unit.round}  {unit.label}  {unit.attempt_path(0)}  ({unit.sessions} sessions)")
+        for number, job in enumerate(unit.jobs, 1):
+            print(f"    {number}. {job.suite}: SF {', '.join(job.scales)} x engines {' -> '.join(job.order)}  = {job.sessions} sessions")
+            if verbose:
+                for scale in job.scales:
+                    print(f"         SF{scale}: " + " -> ".join(job.order))
+    first = next(iter(units), None)
+    if first:
+        job = first.jobs[0]
+        print("\nexample command (" + f"{first.uid} {job.key}" + "):\n  "
+              + " ".join(job_command(job, Path(f"<root>/{first.name}") / job.out_rel, cfg)))
+        print("gate command:\n  " + " ".join(gate_command(first, Path(f"<root>/{first.name}"), cfg, Path(f"<root>/{first.name}/preflight"))))
+
+
 def print_schedule(cfg: Config, units: list, design: dict, verbose: bool) -> None:
+    if cfg.paper3 is not None:
+        return print_schedule_paper3(cfg, units, design, verbose)
     print(f"Pre-registered design: seed {SEED}, letters {design['letters']}, sequences {design['sequences']}")
     print("Latin square check: each engine once per position, each ordered pair adjacent exactly once: OK")
     print(f"formal: {cfg.formal}" + (f"  (test flags: {', '.join(cfg.test_flags)})" if cfg.test_flags else ""))
@@ -1183,15 +1486,19 @@ def utc_timestamp(text):
 
 
 def cost_block(args, host_label):
-    """The optional campaign.json "cost" block, or None when no cost field was supplied. Missing fields are null."""
+    """The optional campaign.json "cost" block, or None when no cost field was supplied. Missing fields are null.
+
+    Paper 3 launches add instance_id, launch_utc and credit_funded when given (section 2.6, P-BILLED); the terminate time is
+    not known when campaign.json is written, so the operator's launch record carries it."""
+    extra = {name: getattr(args, "cost_" + name, None) for name in PAPER3_COST_FIELDS} if getattr(args, "paper3_host", None) else {}
     values = {"instance_type": args.cost_instance_type or None, "provider": args.cost_provider,
               "region": args.cost_region, "hourly_price_usd": args.cost_hourly_price_usd,
               "price_source_url": args.cost_price_source_url, "price_snapshot_utc": args.cost_price_snapshot_utc}
-    if all(value is None for value in values.values()):
+    if all(value is None for value in values.values()) and not any(extra.values()):
         return None
     if values["instance_type"] is None:
         values["instance_type"] = host_label
-    return {name: values[name] for name in COST_FIELDS}
+    return {**{name: values[name] for name in COST_FIELDS}, **{name: v for name, v in extra.items() if v is not None}}
 
 
 def parse_args(argv):
@@ -1209,9 +1516,9 @@ def parse_args(argv):
                         help="host other than an H100 (amendment A2); recorded in the design, passed to preflight.py")
     parser.add_argument("--dry-run", action="store_true", help="print the resolved schedule and exit; writes nothing")
     parser.add_argument("--verbose", action="store_true", help="with --dry-run: list the engine order of every scale")
-    parser.add_argument("--stop-after-round", type=int, choices=range(1, 5), metavar="K",
+    parser.add_argument("--stop-after-round", type=int, choices=range(1, 9), metavar="K",
                         help="pause after main round K passes (for the integrity review); does not mark the "
-                             "campaign informal. Resume by running again.")
+                             "campaign informal. Resume by running again. Rounds 1-4 (Paper 3: 1-8, by the design's round numbers)")
     parser.add_argument("--engine-timeout-seconds", type=float, default=None,
                         help="pass through to run_experiment.py (default: none, as in the design)")
     parser.add_argument("--include-hostname", action="store_true",
@@ -1267,6 +1574,25 @@ def parse_args(argv):
                             help="with --socket/--cpu-list: do not bind memory to the NUMA nodes of the pinned CPUs. Default: "
                                  "bind (set_mempolicy, else numactl) and refuse to start when neither works. Recorded in the "
                                  "design and in campaign.json's pinning block")
+    paper3 = parser.add_argument_group(
+        "Paper 3 campaign mode (docs/PAPER3_ENERGY_DESIGN.md; absent = the Paper 1 campaign, unchanged)",
+        "One host class per campaign root. GPU hosts run R = 8 rounds as two Williams squares on two launches (--paper3-launch 1 "
+        "= rounds 1-4, 2 = rounds 5-8, each with its own --root and lease); the letters come from the lock-date seed. "
+        "The host class fixes the engines, scales, GPU-energy scope and window (10 s); see paper3_campaign.py.")
+    paper3.add_argument("--paper3-host", choices=sorted(paper3_campaign.HOSTS), help="host class of this campaign")
+    paper3.add_argument("--paper3-launch", choices=paper3_campaign.LAUNCHES,
+                        help="1: first square (rounds 1-4); 2: second square (rounds 5-8); both: all eight rounds on one "
+                             "instance (the design runs the squares on separate launches where capacity allows)")
+    paper3.add_argument("--paper3-lock-date", metavar="YYYYMMDD", help="date of the design lock (UTC); its integer is the seed")
+    paper3.add_argument("--paper3-lock-commit", metavar="HASH", help="commit of the lock (tag paper3-design-lock); formal campaigns verify it")
+    paper3.add_argument("--paper3-lock-doi", metavar="DOI", help="Zenodo DOI of the locked design, recorded in campaign.json")
+    paper3.add_argument("--paper3-host-config", type=Path, default=PAPER3_HOSTS_CONFIG, metavar="JSON",
+                        help="per-host t_min and probe-declared sources for the gates (default: paper3_hosts.json)")
+    paper3.add_argument("--cost-instance-id", default=env("CAMPAIGN_COST_INSTANCE_ID"), help="provider instance id (section 2.6 P-BILLED)")
+    paper3.add_argument("--cost-launch-utc", type=utc_timestamp, default=env("CAMPAIGN_COST_LAUNCH_UTC"),
+                        help="launch time, ISO-8601 with an explicit offset or Z")
+    paper3.add_argument("--cost-credit-funded", choices=["yes", "no"], default=env("CAMPAIGN_COST_CREDIT_FUNDED"),
+                        help="whether the provider bills this instance against credits")
     lease = parser.add_argument_group(
         "lease (a campaign refuses to start without a valid one)",
         "Instance name p3-<purpose>-owner-<id>-expires-<YYYYMMDDTHHMMZ>, expiry in the future (docs/PAPER3_INFRA.md section 5).")
@@ -1285,14 +1611,68 @@ def parse_args(argv):
     args = parser.parse_args(argv)
     if args.no_membind and args.pin_socket is None and args.pin_cpu_list is None:
         parser.error("--no-membind needs --socket or --cpu-list: memory is only bound in a pinned run")
-    if args.energy_window_s is not None and args.gpu_energy_scope is None:
+    if args.energy_window_s is not None and args.gpu_energy_scope is None and args.paper3_host is None:
         parser.error("--energy-window-s needs an explicit --gpu-energy-scope {board,module,none}: the scope is declared, never inferred")
     if args.gpu_energy_scope in ("board", "module") and args.gpu_energy == "off":
         parser.error(f"--gpu-energy-scope {args.gpu_energy_scope} needs the counter: drop --gpu-energy off")
+    check_paper3_args(parser, args)
     return args
 
 
+PAPER3_FLAGS = ("paper3_launch", "paper3_lock_date", "paper3_lock_commit", "paper3_lock_doi",
+                "cost_instance_id", "cost_launch_utc", "cost_credit_funded")
+
+
+def check_paper3_args(parser, args) -> None:
+    """Usage errors of the Paper 3 flags; a Paper 1 invocation only fails here if it uses one of them or asks for round 5-8."""
+    used = [flag for flag in PAPER3_FLAGS if getattr(args, flag) is not None]
+    if args.paper3_host is None:
+        if used:
+            parser.error(f"--{used[0].replace('_', '-')} belongs to Paper 3 campaign mode: add --paper3-host")
+        if args.stop_after_round is not None and args.stop_after_round > 4:
+            parser.error(f"argument --stop-after-round: invalid choice: {args.stop_after_round} (choose from 1, 2, 3, 4)")
+        return
+    for name, flag in (("paper3_launch", "--paper3-launch"), ("paper3_lock_date", "--paper3-lock-date")):
+        if getattr(args, name) is None:
+            parser.error(f"Paper 3 campaign mode needs {flag}")
+    spec = paper3_campaign.HOSTS[args.paper3_host]
+    if args.only_side_study:
+        parser.error("--only-side-study is Paper 1's side study; Paper 3 has none")
+    if (args.pin_socket is not None or args.pin_cpu_list is not None) and not spec.pinned:
+        parser.error(f"--socket/--cpu-list: Paper 3 host {spec.host} takes no pin from the operator (c-gcp is given one; "
+                     "c-vm reads its own from the VM's topology; section 3.1)")
+    if spec.pinned and args.pin_socket is None and args.pin_cpu_list is None:
+        parser.error(f"Paper 3 host {spec.host} pins its engines to 26 vCPUs of socket 0 (section 3.1): pass --cpu-list")
+    for key, wanted in spec.telemetry.items():  # what the host class fixes may be repeated, not changed
+        given = getattr(args, key, None)
+        if wanted is not None and given is not None and given != wanted:
+            parser.error(f"--{key.replace('_', '-')} {given} conflicts with Paper 3 host {spec.host} ({wanted}): the host class fixes it")
+    if spec.scope is None and args.gpu_energy_scope not in ("board", "module"):
+        parser.error(f"Paper 3 host {spec.host} has no fixed GPU-energy scope (it comes from its own semantics step): "
+                     "declare it with --gpu-energy-scope board|module")
+    if args.engines_override and not set(args.engines_override) <= set(spec.engines):
+        parser.error(f"--engines-override {args.engines_override}: Paper 3 host {spec.host} runs {list(spec.engines)}")
+
+
+def resolve_paper3(args) -> Paper3Setup:
+    """The Paper 3 plan, host entry and lock of this invocation (no I/O beyond the host config); CampaignError when the design is not met."""
+    try:
+        plan = paper3_campaign.build_plan(args.paper3_host, args.paper3_lock_date)
+        rounds = paper3_campaign.launch_rounds(plan, args.paper3_launch)
+        host = paper3_gates.load_host_config(args.paper3_host_config, args.paper3_host)
+        digest = paper3_gates.host_entry_digest(args.paper3_host_config, args.paper3_host)
+    except (paper3_campaign.PlanError, paper3_gates.GateConfigError) as exc:
+        raise CampaignError(f"Paper 3 design: {exc}", EXIT_DESIGN)
+    if args.rounds:
+        rounds = rounds[:args.rounds]
+    lock = {"date_utc": plan.lock_date, "seed": plan.seed, "tag": paper3_campaign.LOCK_TAG,
+            "commit": args.paper3_lock_commit, "zenodo_doi": args.paper3_lock_doi}
+    return Paper3Setup(plan=plan, launch=args.paper3_launch, rounds=rounds, lock=lock,
+                       host_config=Path(args.paper3_host_config).resolve(), host=host, host_entry_sha256=digest)
+
+
 def resolve_config(args) -> Config:
+    paper3 = resolve_paper3(args) if getattr(args, "paper3_host", None) else None
     used = {"--rounds": args.rounds is not None, "--only-side-study": args.only_side_study,
             "--scales-override": args.scales_override is not None,
             "--engines-override": args.engines_override is not None,
@@ -1301,6 +1681,16 @@ def resolve_config(args) -> Config:
             "--no-lease-check": args.no_lease_check}
     test_flags = [flag for flag, on in used.items() if on]
     scales = {suite: list(args.scales_override or spec["scales"]) for suite, spec in SUITES.items()}
+    engines = list(args.engines_override or ENGINES)
+    telemetry = {key: getattr(args, key) for key in TELEMETRY_FLAGS if getattr(args, key) is not None}
+    if paper3 is not None:
+        spec = paper3.plan.spec
+        scales = {suite: list(args.scales_override or suite_scales) for suite, suite_scales in spec.suites.items()}
+        engines = list(args.engines_override or spec.engines)
+        # one cool-down number for the sessions of a suite run (run_experiment.py) and for the suite runs of a round (the campaign):
+        # 0 on the hosts with the section 2.2 idle brackets (>= 150 s without query load, design 3.2, 2026-11-15); 60 s on the C-VM, which has none
+        telemetry = {**telemetry, **{k: v for k, v in spec.telemetry.items() if v is not None},
+                     "session_cooldown_seconds": spec.cooldown_s}
     return Config(
         root=args.root.resolve() if args.root else None,
         data_root=Path(args.data_root).resolve() if args.data_root else None,
@@ -1309,13 +1699,14 @@ def resolve_config(args) -> Config:
         cpus=args.cpus_override or FORMAL_FLAGS["cpus"],
         driver_memory=args.driver_memory_override or FORMAL_FLAGS["driver_memory"],
         rounds=args.rounds or 4, only_side_study=args.only_side_study, scales=scales,
-        engines=list(args.engines_override or ENGINES), formal=not test_flags, test_flags=test_flags,
-        allow_any_gpu=args.allow_any_gpu, engine_timeout_seconds=args.engine_timeout_seconds,
+        engines=engines, formal=not test_flags, test_flags=test_flags,
+        allow_any_gpu=args.allow_any_gpu or (paper3 is not None and paper3.plan.spec.kind == "gpu" and paper3.plan.spec.host != "h100"),
+        engine_timeout_seconds=args.engine_timeout_seconds,
         inputs_reports=[p.resolve() for p in args.inputs_report or []], host_label=args.host_label,
         include_hostname=args.include_hostname, cost=cost_block(args, args.host_label),
-        telemetry={key: getattr(args, key) for key in TELEMETRY_FLAGS if getattr(args, key) is not None},
+        telemetry=telemetry,
         no_lease_check=args.no_lease_check, lease_name=args.lease_name, lease_min_minutes=args.lease_min_minutes,
-        pin_socket=args.pin_socket, pin_cpu_list=args.pin_cpu_list, no_membind=args.no_membind)
+        pin_socket=args.pin_socket, pin_cpu_list=args.pin_cpu_list, no_membind=args.no_membind, paper3=paper3)
 
 
 def lock_root(root: Path):
@@ -1344,9 +1735,16 @@ def start_campaign_file(cfg: Config, design: dict, prov: dict, args) -> str:
         before = stored["provenance"]
         if before["design_doc_sha256"] != prov["design_doc_sha256"]:
             if not args.accept_design_doc_change:
+                if cfg.paper3 is not None:
+                    raise CampaignError("sections 1-11 of docs/PAPER3_ENERGY_DESIGN.md changed since the campaign started; after "
+                                        "the lock only section 12 may grow (section 7.1). Re-run with --accept-design-doc-change "
+                                        "only for a change you will report.", EXIT_DESIGN)
                 raise CampaignError("docs/H100_EXPERIMENT_DESIGN.md changed since the campaign started. If this is a "
                                     "deliberate section 11 amendment, re-run with --accept-design-doc-change.", EXIT_DESIGN)
             drift.append("design_doc_sha256 (accepted)")
+        if before.get("design_doc_full_sha256") != prov.get("design_doc_full_sha256"):
+            drift.append({"design_doc_full_sha256_changed (section 12 amendments)": {"stored": before.get("design_doc_full_sha256"),
+                                                                                    "this_invocation": prov.get("design_doc_full_sha256")}})
         if before["inputs"]["manifest_sha256"] != prov["inputs"]["manifest_sha256"]:
             raise CampaignError("input manifests changed since the campaign started; refusing to mix datasets", EXIT_DESIGN)
         if before["inputs"].get("inputs_reports_sha256") != prov["inputs"]["inputs_reports_sha256"]:
@@ -1355,7 +1753,7 @@ def start_campaign_file(cfg: Config, design: dict, prov: dict, args) -> str:
             raise CampaignError("the RAPIDS jar changed since the campaign started", EXIT_DESIGN)
         changed = sorted(k for k in set(before["source_sha256"]) | set(prov["source_sha256"])
                          if before["source_sha256"].get(k) != prov["source_sha256"].get(k))
-        critical = [k for k in changed if k in CRITICAL_SOURCES]
+        critical = [k for k in changed if k in CRITICAL_SOURCES or (cfg.paper3 is not None and k in PAPER3_CRITICAL_SOURCES)]
         if changed:
             drift.append({"source_files_changed_since_start": changed, "critical": critical})
         if critical:
@@ -1382,6 +1780,10 @@ def start_campaign_file(cfg: Config, design: dict, prov: dict, args) -> str:
             record["pinning"] = cfg.pinning
         if cfg.lease is not None:
             record["lease"] = cfg.lease
+        if cfg.paper3 is not None:
+            record["paper3"] = {"lock_evidence": cfg.paper3.lock_evidence, "host_config": cfg.paper3.host_config.name,
+                                "host_entry_sha256": cfg.paper3.host_entry_sha256,
+                                **({"vm_pin": cfg.paper3.vm_pin} if cfg.paper3.plan.spec.vm_pin else {})}
         with path.open("x") as handle:  # never overwrite
             handle.write(json.dumps(record, indent=2, default=str) + "\n")
     with (cfg.root / "invocations.jsonl").open("a") as handle:
@@ -1391,9 +1793,57 @@ def start_campaign_file(cfg: Config, design: dict, prov: dict, args) -> str:
                                  **({"host_id_sha256": prov["host"]["host_id_sha256"]} if (prov.get("host") or {}).get("host_id_sha256") else {}),
                                  **({"lease": cfg.lease} if cfg.lease is not None else {}),
                                  **({"pinning": cfg.pinning} if cfg.pinning else {}),
+                                 **({"paper3": {"host": cfg.paper3.plan.spec.host, "launch": cfg.paper3.launch,
+                                                "lock_date": cfg.paper3.lock["date_utc"]}} if cfg.paper3 is not None else {}),
                                  **({"cost": cfg.cost} if cfg.cost else {}),
                                  **({"telemetry": cfg.telemetry} if cfg.telemetry else {})}, default=str) + "\n")
     return design_hash
+
+
+def resolve_vm_pin(cfg: Config, dry_run: bool) -> None:
+    """C-VM (design 3.1 "C-VM protocol"): pin to 13 physical cores + their SMT siblings = 26 vCPUs, read from the VM's own topology,
+    and bind memory only if the VM reports more than one NUMA node. Sets the pin on the config before the design is resolved, so
+    the resolved list is part of the design. A formal campaign refuses to start if the pin cannot be resolved; a test campaign
+    warns and runs unpinned (recorded); a dry run only says it will be read."""
+    setup = cfg.paper3
+    if setup is None or not setup.plan.spec.vm_pin:
+        return
+    if dry_run:
+        setup.vm_pin = {"resolved": False, "note": "read from the VM's topology when the campaign starts"}
+        return
+    try:
+        pin = paper3_campaign.vm_pin()
+    except paper3_campaign.PlanError as exc:
+        if cfg.formal:
+            raise CampaignError(f"C-VM pin cannot be resolved: {exc}", EXIT_DESIGN)
+        log(f"WARNING: C-VM pin cannot be resolved ({exc}); this test campaign runs unpinned")
+        setup.vm_pin = {"resolved": False, "reason": str(exc)}
+        return
+    cfg.pin_cpu_list, cfg.no_membind = pin["cpu_list"], not pin["bind_memory"]
+    setup.vm_pin = {"resolved": True, **pin}
+    if pin["caveat"]:
+        log(f"WARNING: {pin['caveat']}")
+
+
+def git_run(*args):
+    return run_text(["git", "-C", str(HERE), *args], timeout=60)
+
+
+def verify_paper3_lock(cfg: Config) -> None:
+    """A formal Paper 3 campaign runs only under the lock (section 7.1): its commit, DOI and date are given, the tag says the same
+    commit and date, and sections 1-11 of the design file are the locked ones. A test campaign skips this and says so (formal=false)."""
+    setup = cfg.paper3
+    if not cfg.formal:
+        return
+    for flag, value in (("--paper3-lock-commit", setup.lock["commit"]), ("--paper3-lock-doi", setup.lock["zenodo_doi"])):
+        if not value:
+            raise CampaignError(f"a formal Paper 3 campaign records the lock in campaign.json: pass {flag} (section 7.1)", EXIT_DESIGN)
+    try:
+        paper3_campaign.parse_lock_date(setup.lock["date_utc"], today=datetime.now(timezone.utc).date())
+        setup.lock_evidence = paper3_campaign.verify_lock(setup.lock["date_utc"], setup.lock["commit"], git=git_run,
+                                                          design_doc=PAPER3_DESIGN_DOC)
+    except paper3_campaign.PlanError as exc:
+        raise CampaignError(f"Paper 3 lock: {exc}", EXIT_DESIGN)
 
 
 def on_signal(signum, _frame):
@@ -1404,6 +1854,7 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     try:
         cfg = resolve_config(args)
+        resolve_vm_pin(cfg, args.dry_run)
         units = build_units(cfg)
         design = design_dict(cfg, units)
         if args.dry_run:
@@ -1419,6 +1870,8 @@ def main(argv=None) -> int:
             log(f"lease valid until {cfg.lease['expires_utc']} ({cfg.lease['minutes_left_at_start']} minutes left)")
         else:
             log(f"WARNING: {cfg.lease['reason']}")
+        if cfg.paper3 is not None:
+            verify_paper3_lock(cfg)
         cfg.root.mkdir(parents=True, exist_ok=True)
         lock = lock_root(cfg.root)
         try:
