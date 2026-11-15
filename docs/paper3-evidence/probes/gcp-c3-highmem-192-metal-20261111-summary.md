@@ -93,3 +93,15 @@ None. No foreign instances were listed, touched or affected (only `p3-probe-c3hm
 acted on; `gcloud compute instances list` without a name filter was not run against the whole project).
 `setup_h100.sh`'s `--enable-rapl-read` path (previously untested outside containers) worked first try with
 no manual intervention. No study queries were run.
+
+## Correction, 2026-11-15 (perf diagnosis)
+
+The "perf and powercap" paragraph above draws the wrong conclusion from the `perf stat -a` rows. In
+`...-rapl-perf.json`, bare `perf stat -a` returns **Joules equal to the two-package powercap sum** (idle: 7,138.3 J
+against 3,569.1 + 3,584.7 = 7,153.8 J, -0.2%; busy: 9,623.7 J against 6,073.9 + 3,573.9 = 9,647.8 J, -0.25%), with a
+`runtime` of 40.0 s for the 20 s window (summed over the two sockets). The `perf_over_sum = 0.49997` figure comes from
+dividing those Joules by the summed runtime, so it is an artefact of the runtime column, not perf covering one package.
+Rule unchanged: powercap is the primary CPU-energy source; any perf cross-check uses `--per-socket` and Joules, never
+power derived from perf's runtime column. (Found by the design reviewer; `docs/PAPER3_ENERGY_DESIGN.md` §2.4 and
+`docs/PAPER3_INFRA.md` open risk #2 carry the corrected wording.)
+

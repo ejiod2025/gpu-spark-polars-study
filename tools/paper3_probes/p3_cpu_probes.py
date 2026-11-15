@@ -208,6 +208,18 @@ def parse_perf_csv(text: str) -> list:
     return rows
 
 
+def add_perf_watts(row: dict, seconds: float) -> dict:
+    """Mean power of one perf row over the wall-clock window (`perf stat ... sleep seconds`).
+
+    Not joules / runtime: without --per-socket, `perf stat -a` reports a runtime summed over the sockets (40 s for a 20 s
+    window on a 2-socket host), so dividing by it halves the power (2026-11-11 GCP probe; corrected 2026-11-15). The
+    Joules themselves are whole-host and match the powercap package sum."""
+    if row.get("joules") is not None and seconds:
+        row["watts"] = row["joules"] / seconds
+        row["watts_basis"] = "joules / wall-clock window seconds"
+    return row
+
+
 def rapl_perf_window(seconds: int, perf_args, cpus: str | None) -> dict:
     """One window: powercap before, `perf stat ... sleep N` (optionally with spin loops pinned to `cpus`), powercap after."""
     burners = []
@@ -225,8 +237,7 @@ def rapl_perf_window(seconds: int, perf_args, cpus: str | None) -> dict:
              for name in before if "uj" in before[name] and "uj" in after.get(name, {})}
     perf = parse_perf_csv(done.stderr + "\n" + done.stdout)
     for row in perf:
-        if row["joules"] is not None and row["runtime_ns"]:
-            row["watts"] = row["joules"] / (row["runtime_ns"] / 1e9)
+        add_perf_watts(row, seconds)
     return {"seconds": seconds, "perf_args": perf_args, "burn_cpus": cpus, "powercap_window_s": window_s, "powercap": zones,
             "perf": perf, "perf_exit": done.returncode, "perf_raw": (done.stderr + done.stdout).strip().splitlines()[-12:]}
 

@@ -7,6 +7,13 @@ usage, bucket listing). The three probe hosts of section 3 (P1 Lambda H100, P3 G
 (UTC times given where they matter). "Unverified" means: not confirmed by a primary source or a measurement in
 this session; it is stated so that nobody builds on it unchecked.
 
+**Update 2026-11-15.** The sections below are as of 2026-11-11 except for dated bracketed annotations. Since then the Lambda
+1x H100, 1x A100 and GH200 GPU batteries (P5 idle floor, counter and `power.draw` semantics, counter scope, P6, G8) have run
+on synthetic load, so GH200 is no longer unprobed on the GPU side: its NVML counter covers the whole Grace-Hopper module.
+Results: `docs/PAPER3_ENERGY_DESIGN.md` sections 2.1-2.3 and 4; raw files: `docs/paper3-evidence/probes/lambda-<class>-<stamp>-*`.
+B200 is still unprobed. The 1x A100 CPU-energy source check has run (a virtualized EPYC 7J13 KVM guest with no CPU-energy
+source: `docs/paper3-evidence/probes/lambda-a100-20261115T181846Z-sources.json`); the GH200 and B200 source checks are pending.
+
 Contents: 0 Decisions - 1 Lambda GPU hosts - 2 CPU-only hosts - 3 Power-interface probes - 4 Data staging - 5 Lifecycle
 guardrails - 6 Tools in this repository - 7 Open risks - 8 Sources.
 
@@ -72,7 +79,7 @@ Host facts that matter for energy work, from earlier campaigns (`results/campaig
 |---|---|---|
 | H100 SXM5 | Xeon Platinum 8480+ (Sapphire Rapids); 1 socket, 13 cores / 26 threads in the VM | KVM/QEMU Q35 guest (P1, section 3) |
 | B200 | Xeon Platinum 8592+ (Emerald Rapids) | virtualization not checked (docs/PAPER3_FEASIBILITY.md: three of four hosts are KVM guests) |
-| A100 SXM4 (1x) | EPYC 7J13 (Zen 3 Milan) | earlier campaigns; virtualization not checked |
+| A100 SXM4 (1x) | EPYC 7J13 (Zen 3 Milan) | earlier campaigns; virtualization not checked **[2026-11-15: virtualized, KVM, QEMU Q35 / SeaBIOS DMI, 30 vCPUs shown as 30 sockets x 1 core, no CPU-energy source; `lambda-a100-20261115T181846Z-sources.json`]** |
 | A100 SXM4 (8x, `gpu_8x_a100`) | EPYC 7542 (Zen 2 Rome), shown as 2 sockets x 31 cores x 1 thread = 124 vCPU, 1772 GiB | KVM/QEMU Q35 guest (P4, section 3); no CPU energy source; NVML energy on all 8 GPUs |
 | GH200 | Neoverse-V2 (Grace), aarch64, 64 vCPU | idem; no x86 RAPL by construction |
 
@@ -109,7 +116,8 @@ Host facts that matter for energy work, from earlier campaigns (`results/campaig
   120-143, node2 48-71 and 144-167, node3 72-95 and 168-191). A package counter contains every core of its socket, so
   pin the engines (and their memory, `numactl --membind`) to one socket, read that package and its DRAM zone only
   (`intel-rapl:0` and `intel-rapl:0:0` for socket 0), and log the idle floor of both. Which NUMA nodes belong to which
-  package is not recorded in the probe (CPU numbering suggests nodes 0-1 = package 0; unverified).
+  package is not recorded in the probe (CPU numbering suggests nodes 0-1 = package 0; unverified). **[Resolved 2026-11-15:
+  socket 0 = NUMA nodes {0,1}, socket 1 = {2,3}; `docs/paper3-evidence/probes/gcp-c3-highmem-192-metal-20261111T203231Z-topology.json`.]**
 
 ### 2.2 Candidates and prices
 
@@ -264,8 +272,13 @@ from the counters), power limit 400 W (minimum 100 W). Clock synchronised. Neith
 **Recorded conclusions.**
 1. **CPU energy is measurable on the GCP metal host only** (RAPL package and DRAM per socket, root-only). It is not
    measurable on the Lambda H100 VM (P1) or the Lambda 8x A100 VM (P4); the other Lambda types (GH200, B200) have not
-   been probed (`docs/PAPER3_FEASIBILITY.md` expects KVM guests there too).
+   been probed (`docs/PAPER3_FEASIBILITY.md` expects KVM guests there too). **[Update 2026-11-15: GH200 has been probed on
+   the GPU side: its NVML counter includes the Grace CPU (module scope), see `docs/PAPER3_ENERGY_DESIGN.md` section 2.3. No
+   CPU-energy source check has been run on GH200 or B200 yet; B200 is not probed at all. The 1x A100 is a virtualized (KVM)
+   AMD EPYC 7J13 guest with no CPU-energy source: no powercap zones, hwmon device, perf power PMU, MSR or BMC
+   (`docs/paper3-evidence/probes/lambda-a100-20261115T181846Z-sources.json`, 2026-11-15).]**
 2. **GPU energy is measurable on every GPU host probed** (H100, 8x A100) through the NVML total-energy counter.
+   **[Update 2026-11-15: also the 1x H100, 1x A100 and GH200 (GH200 at module scope, not board scope); design section 2.3.]**
 3. **No probed host has a BMC power reading**, so there is no wall-power cross-check anywhere.
 4. **`energy-psys` is exposed but reads 0 J on both Intel hosts that expose it** (P1 VM, P3 metal): never use it.
 5. Scope rule, as decided (section 0): CPU energy comes from the GCP metal host (or its fallbacks) only. A CPU energy
@@ -325,7 +338,8 @@ prices are in the right-hand columns; billing granularity on Lambda is not state
 | | **Remaining GPU probes G2 + G3** | | **5.30** | | **4.65** |
 | C-AWS | AWS `m7i.metal-24xl`, 60 min incl. boot, only if the GCP shapes cannot be had (EBS gp3 800 GB at 1000 MiB/s, 16000 IOPS adds about 0.23/h) | 4.84 | about 5.1 | 4.84 | about 5.1 |
 
-Probe G2/G3 only when their capacity shows. A probe of the primary host again is only needed after a change to the
+Probe G2/G3 only when their capacity shows. **[Update 2026-11-15: the G2 GPU battery ran on 2026-11-15 (design section 2.1-2.3);
+its P6 is invalid and a rerun against `module.power.draw.instant` is queued; G3 (B200) has not run.]** A probe of the primary host again is only needed after a change to the
 sampler (about $12.9 per hour including disk).
 
 ## 4. Data staging
@@ -504,10 +518,18 @@ the `--enable-rapl-read` rule text and its `%p` expansion are untested; the imme
 1. **CPU energy on the primary host is root-only.** RAPL works on `c3-highmem-192-metal` (P3) but every `energy_uj` is
    mode 0400. Either run the sampler as root or lower the CVE-2020-8694 mitigation with `--enable-rapl-read` on the
    (single-tenant) host; record which. **AWS metal is unprobed**: RAPL there is unverified, so the last-resort fallback
-   may not give a measured CPU baseline at all.
+   may not give a measured CPU baseline at all. **[GCP part resolved 2026-11-15: after `setup_h100.sh --power-only
+   --enable-rapl-read --install-power-tools` on a real `c3-highmem-192-metal` all four `energy_uj` files were readable by the
+   plain user and the sampler ran as the plain user (`docs/paper3-evidence/probes/gcp-c3-highmem-192-metal-20261111-summary.md`). AWS part still open.]**
 2. **Perf and powercap disagree by a factor of two on P3.** `perf stat -a power/energy-pkg/` read about one package
    (176.7 W idle, 350.2 W busy) while powercap gave two (353.5 W, 698.1 W). Use powercap per package until the perf
-   aggregation is understood; never report a `perf stat -a` pkg value as whole-host energy.
+   aggregation is understood; never report a `perf stat -a` pkg value as whole-host energy. **[Resolved 2026-11-15,
+   diagnosis corrected: `perf stat --per-socket -a` matches powercap per socket within 0.05% (idle and under a socket-0 burn);
+   bare `perf stat -a` returns Joules equal to the two-package powercap sum within 0.3% but a `runtime` summed over the
+   sockets (40.0 s for a 20 s window), so the factor of two came from dividing by that runtime column
+   (`tools/paper3_probes/p3_cpu_probes.py` lines 228-229 and the earlier probe's `seconds`), not from perf covering one
+   package. Evidence: `docs/paper3-evidence/probes/gcp-c3-highmem-192-metal-20261111T203231Z-rapl-perf.json`. Rule unchanged:
+   powercap primary, perf cross-check with `--per-socket` and Joules.]**
 3. **Lambda prices change 2026-11-16 00:00 UTC** (+13 to +15 % for H100, GH200, B200, A100 80 GB; A100 40 GB, A10
    and the rest unchanged; the 8x A100 of P4 is unchanged). This document uses the new prices throughout and lists the old
    ones alongside; cost tables must not mix the two sets. Re-query the API on and after 11-16 to confirm it now returns
@@ -529,17 +551,26 @@ the `--enable-rapl-read` rule text and its `%p` expansion are untested; the imme
 8. **Linux tool packages:** `linux-tools-$(uname -r)` may not exist for a freshly booted cloud kernel (observed with
    a linuxkit kernel in the container run: the script warns and continues). On P3 (kernel 7.0.0-1017-gcp) the probe
    found `/usr/bin/perf` and `/usr/bin/turbostat` and ran perf as root; how they got there is not recorded.
-   `turbostat` could not run because the host has no `/dev/cpu/*/msr`.
+   `turbostat` could not run because the host has no `/dev/cpu/*/msr`. **[2026-11-15: on the same shape and image,
+   `--install-power-tools` installed ipmitool and linux-tools without error (`docs/paper3-evidence/probes/gcp-c3-highmem-192-metal-20261111-summary.md`); resolved for GCP, not checked on AWS or
+   Lambda.]**
 9. **`setup_h100.sh` on a real cloud host:** the updated probe has now run on real hosts (H100 re-run, P3, P4), but
    `setup_h100.sh --cpu-only`, `--enable-rapl-read` and `--power-only` have only run on fake trees and in containers.
+   **[Partly resolved 2026-11-15: `--power-only --enable-rapl-read --install-power-tools` ran cleanly on a real
+   `c3-highmem-192-metal` (`docs/paper3-evidence/probes/gcp-c3-highmem-192-metal-20261111-summary.md`), so the immediate `chmod` path is tested on a real host; the udev rule firing under a running
+   `udevd` and `--cpu-only` on a real host are still untested.]**
 10. **Unverified numbers:** GCS and Lambda egress, Lambda billing granularity, whether `--max-run-duration` actually
     deletes at expiry (the flags were accepted, the expiry was not observed), CloudWatch terminate on metal, Lambda
-    launch-time tags, which NUMA nodes belong to which package on P3, Hyperdisk provisioned limits on C3 metal. The GCP
+    launch-time tags, which NUMA nodes belong to which package on P3 (**resolved 2026-11-15**, section 2.1), Hyperdisk
+    provisioned limits on C3 metal. The GCP
     prices are no longer on this list: they come from Google's own pages (S15).
 11. **Shared accounts:** the AWS account and the GCP project `siriusmedai` already run instances that are not ours (the
     team lead says production VMs); a mistake in a cleanup command could hit them. Always filter by our label or tag.
 12. **Leases are not yet recorded by the probes:** neither P3 nor P4 was given `--lease-name`, so their JSON has no
-    lease. Pass it from the next launch on (section 3.2 step 2).
+    lease. Pass it from the next launch on (section 3.2 step 2). **[Partly resolved 2026-11-15: the GCP probe of 2026-11-11
+    20:32 UTC records a valid lease (`gcp-c3-highmem-192-metal-20261111T203231Z-probe-before.json`, `summary.lease`); the Lambda
+    1x batteries (`p3_gpu_probes.py`) do not run `probe_power.py`, but their instance names carry the lease (redacted run logs, timestamped driver lines only:
+    `docs/paper3-evidence/probes/lambda-<class>-<stamp>-run.log` and, for the 2026-11-12 batteries, `-collect.log`).]**
 
 ## 8. Sources (all accessed 2026-11-11)
 

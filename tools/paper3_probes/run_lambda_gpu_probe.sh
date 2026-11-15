@@ -84,7 +84,13 @@ terminate_and_confirm() {
   rm -rf "$STAGING"
   return 1
 }
-trap terminate_and_confirm EXIT
+publish_run_log() {      # redacted copy of this run's log into the evidence dir: only the driver's own timestamped
+  # lines (stages, exit codes, collection, termination); raw API responses (instance IP, tokens) are dropped
+  grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]+Z ' "$RUN_LOG" | sed -E 's/([0-9]{1,3}\.){3}[0-9]{1,3}/<ip>/g' \
+    > "$EVIDENCE_DIR/lambda-${CLASS}-${STAMP}-run.log"
+}
+on_exit() { terminate_and_confirm; publish_run_log; }
+trap on_exit EXIT
 
 "$HERE/lambda.sh" wait "$ID" >>"$RUN_LOG" 2>&1
 WAIT_RC=$?
@@ -150,7 +156,11 @@ collect_stage() {        # STEP  REMOTE_GLOB...
 
 run_step() {             # STEP
   local step=$1
-  remote_ssh "cd ~ && python3 p3_gpu_probes.py $step --out p3out $PROBE_ARGS" >>"$RUN_LOG" 2>&1
+  if [ "$step" = sources ]; then   # P7 CPU-energy source check: powercap, hwmon, perf, IPMI, virtualisation (read-only)
+    remote_ssh "cd ~ && python3 probe_power.py --lease-name '$NAME' --no-load --output p3out/sources.json > /dev/null" >>"$RUN_LOG" 2>&1
+  else
+    remote_ssh "cd ~ && python3 p3_gpu_probes.py $step --out p3out $PROBE_ARGS" >>"$RUN_LOG" 2>&1
+  fi
   local rc=$?
   log "step=$step exit=$rc"
   return $rc
@@ -158,7 +168,7 @@ run_step() {             # STEP
 
 # P3_STEPS selects stages (default: the full battery); P3_PROBE_ARGS is appended to every stage, e.g. a p6-only
 # GH200 rerun: P3_STEPS=p6 P3_PROBE_ARGS="--p6-field module.power.draw.instant".
-STEPS_TO_RUN=${P3_STEPS:-p5-gpu semantics p6 g8}
+STEPS_TO_RUN=${P3_STEPS:-p5-gpu semantics p6 g8 sources}
 PROBE_ARGS=${P3_PROBE_ARGS:-}
 log "stages: [$STEPS_TO_RUN] extra args: [${PROBE_ARGS}]"
 SUMMARY=""
@@ -169,6 +179,7 @@ for step in $STEPS_TO_RUN; do
     semantics) collect_stage semantics "semantics.json" "semantics-50ms.csv" "semantics-scope-20ms.csv" ;;
     p6)        collect_stage p6 "p6.json" "p6-power-20ms.csv" ;;
     g8)        collect_stage g8 "g8.json" "g8-gpu.csv" ;;
+    sources)   collect_stage sources "sources.json" ;;
     *)         log "unknown stage $step (nothing collected)" ;;
   esac
   SUMMARY="$SUMMARY $step=$rc"

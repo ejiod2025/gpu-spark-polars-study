@@ -156,3 +156,11 @@ def test_p6_reference_field_selection():
     assert probes.p6_reference_field("auto", lambda: ["power.draw"]) == "power.draw"
     with pytest.raises(SystemExit):     # the CLI rejects fields outside the documented choices
         probes.main(["p6", "--out", "x", "--p6-field", "memory.power.draw"])
+
+
+def test_perf_watts_use_wall_seconds_not_summed_runtime():
+    # bare `perf stat -a` on a 2-socket host: whole-host Joules, runtime summed over sockets (2 x 20 s)
+    row = cpu_probes.add_perf_watts({"joules": 7138.29, "runtime_ns": 40_006_563_581}, 20)
+    assert abs(row["watts"] - 356.9145) < 1e-3
+    assert cpu_probes.add_perf_watts({"joules": None, "runtime_ns": 1}, 20).get("watts") is None
+
