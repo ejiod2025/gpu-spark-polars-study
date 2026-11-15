@@ -758,3 +758,78 @@ def test_idle_window_power_from_the_counter_reads():
                 {"delta_mj": 5, "start_read_monotonic_ns": [3, 4], "end_read_monotonic_ns": [1, 2]},
                 {"delta_mj": 5, "start_read_monotonic_ns": [1, 2]}):
         assert pt.idle_window_power_w(bad) == (None, None)
+
+
+# ---- session counter reads, power limits, chrony ---------------------------------------------------------------------
+
+def test_the_workers_first_and_last_counter_reads_bracket_everything_it_did(monkeypatch, tmp_path, worker_data, scoped):
+    install_fake_suite(monkeypatch)
+    result = window_run(monkeypatch, tmp_path, worker_data, runs=1, target="0.0000001", extra=IDLE)
+    ready, completed = result["session_counters"]["engine_ready"], result["session_counters"]["completed"]
+    assert ready["monotonic_ns"] < result["idle_windows"][0]["settle"]["start_monotonic_ns"]
+    assert completed["monotonic_ns"] > result["idle_windows"][1]["end_monotonic_ns"]
+    from datetime import datetime
+    assert datetime.fromisoformat(ready["utc"]) < datetime.fromisoformat(completed["utc"]) <= datetime.fromisoformat(result["completed_at_utc"])
+    for reading, tag in ((ready["gpu_energy_read"], "S1-counter"), (completed["gpu_energy_read"], "S1-counter")):
+        assert isinstance(reading["mj"], int) and reading["scope_tag"] == tag and reading["source"] == pt.GPU_ENERGY_NVML
+        assert reading["monotonic_ns"][0] <= reading["monotonic_ns"][1]
+    assert completed["gpu_energy_read"]["mj"] > ready["gpu_energy_read"]["mj"]
+
+
+def test_session_counter_reads_without_a_counter_and_not_at_all_in_paper1(monkeypatch, tmp_path, worker_data):
+    install_fake_suite(monkeypatch)
+    result = run_worker(monkeypatch, tmp_path / "none", worker_data, "polars", 1, "--gpu-energy-scope", "none", *NO_IDLE)
+    assert result["session_counters"]["engine_ready"]["gpu_energy_read"] == {"source": "disabled", "scope_tag": "none"}
+    assert set(result["session_counters"]) == {"engine_ready", "completed"}
+    assert "session_counters" not in run_worker(monkeypatch, tmp_path / "plain", worker_data, "polars", 1)
+
+
+GH200_POWER_TEXT = """==============NVSMI LOG==============
+
+Timestamp                                 : Sun Nov 15 17:30:19 2026
+Driver Version                            : 570.148.08
+CUDA Version                              : 12.8
+
+Attached GPUs                             : 1
+    GPU Power Readings
+        Average Power Draw                : 140.42 W
+        Instantaneous Power Draw          : 140.41 W
+        Current Power Limit               : 700.00 W
+        Requested Power Limit             : 700.00 W
+        Default Power Limit               : 900.00 W
+        Min Power Limit                   : 100.00 W
+        Max Power Limit                   : 900.00 W
+    Power Samples
+        Duration                          : 2.36 sec
+        Max                               : 141.99 W
+    GPU Memory Power Readings
+        Average Power Draw                : 20.86 W
+        Instantaneous Power Draw          : N/A
+    Module Power Readings
+        Average Power Draw                : 214.84 W
+        Current Power Limit               : 1000.00 W
+        Requested Power Limit             : 1000.00 W
+        Default Power Limit               : 1000.00 W
+        Min Power Limit                   : 200.00 W
+        Max Power Limit                   : 1000.00 W
+"""
+
+
+def test_power_limits_are_read_from_the_q_text_of_a_grace_hopper_module():
+    limits = pt.parse_power_limits(GH200_POWER_TEXT)         # text from the 2026-11-15 GH200 probe
+    assert limits == {"gpu": {"current_w": 700.0, "requested_w": 700.0, "default_w": 900.0, "min_w": 100.0, "max_w": 900.0},
+                      "module": {"current_w": 1000.0, "requested_w": 1000.0, "default_w": 1000.0, "min_w": 200.0, "max_w": 1000.0}}
+    assert pt.parse_power_limits("GPU Power Readings\n    Current Power Limit : N/A\n    Default Power Limit : 400.00 W\n") == {
+        "gpu": {"current_w": None, "requested_w": None, "default_w": 400.0, "min_w": None, "max_w": None}}
+    assert pt.parse_power_limits("Current Power Limit : 5 W") == {}                      # outside any section: not a GPU limit
+    assert pt.parse_power_limits(None) == {} and pt.parse_power_limits("") == {} and pt.parse_power_limits("garbage") == {}
+
+
+def test_chrony_tracking_is_parsed_with_a_sign():
+    ahead = pt.parse_chrony_tracking("Stratum : 3\nSystem time     : 0.000500000 seconds fast of NTP time\nLast offset     : +1.5e-06 seconds\nLeap status     : Normal\n")
+    assert ahead == {"system_time_offset_seconds": 0.0005, "last_offset_seconds": 1.5e-06, "stratum": 3, "leap_status": "Normal"}
+    behind = pt.parse_chrony_tracking("System time     : 0.25 seconds slow of NTP time\n")
+    assert behind["system_time_offset_seconds"] == -0.25 and behind["stratum"] is None
+    assert pt.parse_chrony_tracking("506 Cannot talk to daemon") == {"system_time_offset_seconds": None, "last_offset_seconds": None,
+                                                                    "stratum": None, "leap_status": None}
+    assert pt.parse_chrony_tracking(None)["leap_status"] is None

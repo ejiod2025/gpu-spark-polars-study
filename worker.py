@@ -24,8 +24,8 @@ import warnings
 import psutil
 from power_telemetry import (
     ENERGY_WINDOW_FORMAT, ENERGY_WINDOW_MAX_RUNS, GPU_ENERGY_SCOPES, GPU_SCOPE_TAG, SESSION_IDLE_SECONDS, SESSION_IDLE_SETTLE_SECONDS, GpuEnergyReader,
-    aggregate_energy_window, clock_anchor, energy_window_complete, gpu_energy_window, idle_window_power_w, process_affinity,
-    stamp_close, stamp_open, tag_gpu_energy)
+    aggregate_energy_window, clock_anchor, energy_window_complete, gpu_energy_scope_tag, gpu_energy_window, idle_window_power_w,
+    process_affinity, stamp_close, stamp_open, tag_gpu_energy)
 from query_cleanup import CleanupBarrier, CleanupTimeout, discover_blockmgr_dirs
 
 def normalized(value):
@@ -852,6 +852,17 @@ def main():
             if done or not succeeded:
                 break
 
+    def session_counter(label):
+        """The GPU counter and the clocks at the start or end of this worker's work, for the campaign's G6 source-conformance check."""
+        utc, mono = stamp_open()
+        read = gpu_energy.read() if gpu_energy else None
+        if read is None:
+            reading = {"source": "disabled", "scope_tag": "none"}
+        else:
+            reading = {**read, "source": gpu_energy.source,
+                       "scope_tag": gpu_energy_scope_tag(args.gpu_energy_scope, gpu_energy.source, read["mj"] is not None)}
+        metadata["session_counters"][label] = {"utc": utc, "monotonic_ns": mono, "gpu_energy_read": reading}
+
     def run_idle_window(label):
         """An idle window with the engine ready and no query running (design section 2.2).
 
@@ -886,7 +897,10 @@ def main():
         print(json.dumps({"event": "idle_window", **record}), flush=True)
 
     try:
-        if idle_seconds:   # Paper 3 only (None otherwise); engine initialised, nothing has run yet
+        if args.gpu_energy_scope is not None:   # Paper 3 only: first reading of the session, engine initialised, nothing has run yet
+            metadata["session_counters"] = {}
+            session_counter("engine_ready")
+        if idle_seconds:
             run_idle_window("before_warmups")
         for query in args.queries:
             attempt(query, "warmup", 0)
@@ -902,6 +916,8 @@ def main():
                         attempt(query, "measured", trial)
         if idle_seconds:
             run_idle_window("after_last_trial")
+        if args.gpu_energy_scope is not None:
+            session_counter("completed")
         metadata["query_execution_status"] = "partial" if failed_queries else "complete"
         metadata["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
         save(args.output / "results.json", metadata)

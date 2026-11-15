@@ -138,6 +138,8 @@ ENERGY_WINDOW_FORMAT = 2                 # 2: n is set by elapsed time while the
 # Design section 2.2: per session two idle windows with the engine ready and no query running, each preceded by >= 60 s without load.
 SESSION_IDLE_SECONDS = 30.0
 SESSION_IDLE_SETTLE_SECONDS = 60.0
+SESSION_COOLDOWN_SECONDS = 0.0           # design section 3.2: the >= 60 s between sessions is met by the section 2.2 brackets (settle + idle window)
+G8_PULSE_SECONDS = 3.0                   # design section 4, G8: a 3 s load pulse where a session has no GPU-engine window of its own
 CPU_ENERGY_MODES = ("auto", "require", "off")
 MPOL_BIND = 2
 # set_mempolicy and get_mempolicy: Linux syscall numbers per architecture (used only when libnuma cannot be loaded)
@@ -808,6 +810,60 @@ def idle_window_power_w(energy):
     except (TypeError, IndexError):
         return None, None
     return (seconds, delta / 1000.0 / seconds) if seconds > 0 else (None, None)
+
+
+def parse_chrony_tracking(text) -> dict:
+    """The fields of `chronyc tracking` that say how far the system clock is from NTP time (design G8: offset logged).
+
+    system_time_offset_seconds is signed: positive when the clock is ahead of NTP time ("fast"), negative when behind
+    ("slow"). Fields that are absent or unparsable are None."""
+    out = {"system_time_offset_seconds": None, "last_offset_seconds": None, "stratum": None, "leap_status": None}
+    for line in str(text or "").splitlines():
+        label, _, value = (part.strip() for part in line.partition(":"))
+        if label == "System time":
+            match = re.fullmatch(r"(\d+(?:\.\d+)?(?:e[+-]?\d+)?) seconds (fast|slow) of NTP time", value)
+            if match:
+                out["system_time_offset_seconds"] = float(match.group(1)) * (1 if match.group(2) == "fast" else -1)
+        elif label == "Last offset":
+            match = re.fullmatch(r"([+-]?\d+(?:\.\d+)?(?:e[+-]?\d+)?) seconds", value)
+            if match:
+                out["last_offset_seconds"] = float(match.group(1))
+        elif label == "Stratum" and value.isdigit():
+            out["stratum"] = int(value)
+        elif label == "Leap status":
+            out["leap_status"] = value or None
+    return out
+
+
+POWER_SECTIONS = {"gpu": "GPU Power Readings", "gpu_memory": "GPU Memory Power Readings", "module": "Module Power Readings"}
+POWER_LIMIT_LINES = {"current_w": "Current Power Limit", "requested_w": "Requested Power Limit", "default_w": "Default Power Limit",
+                     "min_w": "Min Power Limit", "max_w": "Max Power Limit"}
+
+
+def parse_power_limits(text) -> dict:
+    """The power limits in `nvidia-smi -q -d POWER` text: {"gpu": {"current_w": 700.0, ...}, "module": {...}}.
+
+    One entry per section that has at least one limit (GPU Power Readings; also Module Power Readings on a Grace-Hopper
+    module); a limit that reads N/A or is absent is None. The first block of each section is read, which is the whole host on
+    the 1x hosts of the study. current_w is the limit the driver enforces now: on a GH200 `--query-gpu power.limit` reported
+    900 W (its default and maximum) while the current limit was 700 W."""
+    found, section = {}, None
+    names = {title: key for key, title in POWER_SECTIONS.items()}
+    for line in str(text or "").splitlines():
+        title = line.strip()
+        if ":" not in line:
+            section = names[title] if title in names and names[title] not in found else None     # a header line starts or ends a section
+            if section is not None:
+                found[section] = {key: None for key in POWER_LIMIT_LINES}
+            continue
+        if section is None:
+            continue
+        label, _, value = (part.strip() for part in line.partition(":"))
+        for key, wanted in POWER_LIMIT_LINES.items():
+            if label == wanted and found[section][key] is None:
+                match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*W", value)
+                found[section][key] = float(match.group(1)) if match else None
+    return {key: limits for key, limits in found.items() if any(v is not None for v in limits.values())}
 
 
 def gpu_energy_resolution_verdict(record, update_interval_ms, factor=10):

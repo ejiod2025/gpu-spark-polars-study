@@ -50,7 +50,9 @@ GPU_IDENTIFIER_FIELD = re.compile(
 GPU_HEADER_BUS_ID = re.compile(r"^GPU[ \t]+[0-9A-Fa-f]{4,8}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}\.[0-9A-Fa-f][ \t]*$", re.M)
 REDACTED = "<redacted>"
 GPU_IDLE_POLL_SECONDS = 1.0
-PAPER3_ARGUMENTS = ("gpu_energy_scope", "energy_window_s", "session_idle_seconds", "session_idle_settle_seconds")
+PAPER3_ARGUMENTS = ("gpu_energy_scope", "energy_window_s", "session_idle_seconds", "session_idle_settle_seconds",
+                    "session_cooldown_seconds", "g8_pulse_seconds", "g8_pulse_engines")
+G8_PULSE_ENGINES = ("cpu", "all")
 GPU_STATE_SECTIONS = {"POWER": "gpu_power_state", "PERFORMANCE": "gpu_performance_state"}   # nvidia-smi -q -d <section> -> schedule.json key
 
 # Versions of the Python-level CUDA/RAPIDS stack, probed in a child process so the
@@ -138,6 +140,52 @@ def capture_gpu_state(directory, engine, section, label, redact):
               "bytes": len(text.encode()), "sha256": hashlib.sha256(text.encode()).hexdigest(), "command": command}
     if result.get("error"):
         record["error"] = result["error"]
+    if section == "POWER":
+        record["power_limits_w"] = power_telemetry.parse_power_limits(text)    # {"gpu": {"current_w": ...}, "module": {...}}
+    return record
+
+
+def capture_clock_sync():
+    """`chronyc tracking` right now: the raw text and the parsed offset of the system clock from NTP time (design G8).
+
+    A host without chrony is recorded (returncode None, error), never fatal."""
+    command = ["chronyc", "tracking"]
+    utc, mono = power_telemetry.stamp_open()
+    result = capture(command, timeout=30)
+    record = {"command": command, "returncode": result["returncode"], "captured_utc": utc, "monotonic_ns": mono,
+              "output": result.get("output") or "", **power_telemetry.parse_chrony_tracking(result.get("output"))}
+    if result.get("error"):
+        record["error"] = result["error"]
+    return record
+
+
+def run_gpu_pulse(label, seconds, device=0):
+    """A synthetic GPU load pulse in a child process (gpu_pulse.py), for G8; never fatal.
+
+    Returns the record kept in schedule.json: the child's own launch and done stamps (UTC and CLOCK_MONOTONIC, around the kernel
+    launch and its completion) and the runner's stamps around the whole child. A host that cannot run the pulse is recorded
+    with its error, and the gate then has no onset to compare."""
+    command = [sys.executable, str(HERE / "gpu_pulse.py"), "--seconds", str(seconds), "--device", str(device), "--label", label]
+    utc, mono = power_telemetry.stamp_open()
+    result = capture(command, timeout=seconds + 300)
+    end_utc, end_mono = power_telemetry.stamp_close()
+    record = {"label": label, "requested_seconds": seconds, "command": command, "returncode": result["returncode"],
+              "runner_start_utc": utc, "runner_start_monotonic_ns": mono, "runner_end_utc": end_utc, "runner_end_monotonic_ns": end_mono}
+    output = result.get("output") or ""
+    printed = None
+    for line in reversed(output.splitlines()):   # the child prints one JSON line last; anything before it (warnings) is ignored
+        try:
+            printed = json.loads(line)
+            break
+        except ValueError:
+            continue
+    if isinstance(printed, dict):
+        record.update(printed)
+    else:
+        record.update(ok=False, error=result.get("error") or f"no JSON from gpu_pulse.py (exit {result['returncode']}): {output.strip()[-300:]}")
+    if result.get("error") and "error" not in record:
+        record["error"] = result["error"]
+    record["ok"] = bool(record.get("ok")) and result["returncode"] == 0
     return record
 
 
@@ -359,6 +407,18 @@ def main():
                         help="Paper 3 (needs --gpu-energy-scope): length of each of the two in-session idle windows, engine ready and "
                              f"no query running, one before the warm-ups and one after the last trial (default {power_telemetry.SESSION_IDLE_SECONDS:g}; "
                              "0 disables both). Unrelated to the pre-launch --idle-baseline-seconds, which stays as it is")
+    parser.add_argument("--session-cooldown-seconds", type=float, default=None, metavar="SECONDS",
+                        help="Paper 3 (needs --gpu-energy-scope): rest this long between one session and the next of this invocation "
+                             f"(default {power_telemetry.SESSION_COOLDOWN_SECONDS:g}: the design's 60 s are met by the in-session idle "
+                             "brackets); recorded as cooldown_before in schedule.json, with slept false when it is 0")
+    parser.add_argument("--g8-pulse-seconds", type=float, default=None, metavar="SECONDS",
+                        help="Paper 3 (needs --gpu-energy-scope board or module): a synthetic GPU load pulse of this length in its own "
+                             "process before a session's worker starts and after it has exited, for the G8 clock-alignment check "
+                             f"(default {power_telemetry.G8_PULSE_SECONDS:g}; 0 disables). Recorded as gpu_pulses in schedule.json")
+    parser.add_argument("--g8-pulse-engines", choices=G8_PULSE_ENGINES, default=None,
+                        help="Paper 3: which sessions get the pulse. all (default): every session on a GPU host, because the runner cannot "
+                             "know beforehand whether a GPU-engine session will have a window of at least 5 s (design G8); cpu: only "
+                             "sessions of the CPU engines, which have none")
     parser.add_argument("--session-idle-settle-seconds", type=float, default=None, metavar="SECONDS",
                         help="Paper 3 (needs --gpu-energy-scope): time without load before each in-session idle window "
                              f"(default {power_telemetry.SESSION_IDLE_SETTLE_SECONDS:g})")
@@ -419,11 +479,18 @@ def main():
         parser.error("--energy-window-s needs an explicit --gpu-energy-scope {board,module,none}: the scope is declared, never inferred")
     if args.gpu_energy_scope in ("board", "module") and args.gpu_energy == "off":
         parser.error(f"--gpu-energy-scope {args.gpu_energy_scope} needs the counter: drop --gpu-energy off")
-    for flag, value in (("--session-idle-seconds", args.session_idle_seconds), ("--session-idle-settle-seconds", args.session_idle_settle_seconds)):
+    for flag, value in (("--session-idle-seconds", args.session_idle_seconds), ("--session-idle-settle-seconds", args.session_idle_settle_seconds),
+                        ("--session-cooldown-seconds", args.session_cooldown_seconds), ("--g8-pulse-seconds", args.g8_pulse_seconds)):
         if value is not None and args.gpu_energy_scope is None:
             parser.error(f"{flag} needs an explicit --gpu-energy-scope: the in-session idle windows are part of Paper 3 mode")
         if value is not None and not (math.isfinite(value) and value >= 0):
             parser.error(f"{flag} must be a non-negative number of seconds")
+    if args.g8_pulse_engines is not None and args.gpu_energy_scope is None:
+        parser.error("--g8-pulse-engines needs an explicit --gpu-energy-scope: the pulse is part of Paper 3 mode")
+    if args.g8_pulse_seconds is not None and args.g8_pulse_seconds > 60:
+        parser.error("--g8-pulse-seconds must be at most 60")
+    if args.gpu_energy_scope == "none" and ((args.g8_pulse_seconds or 0) > 0 or args.g8_pulse_engines is not None):
+        parser.error("--g8-pulse-seconds and --g8-pulse-engines need a GPU host: --gpu-energy-scope none declares there is no GPU counter in use")
     if args.gpu_energy_scope == "none" and gpu_selected:
         parser.error(f"--gpu-energy-scope none declares a host with no GPU counter in use, but GPU engine(s) {gpu_selected} are selected")
     if gpu_selected:
@@ -566,8 +633,13 @@ def main():
     else:
         environment["power_telemetry"] = {"enabled": False}
     # Paper 3: the in-session idle windows (design section 2.2) run with the design's lengths unless a flag says otherwise.
-    session_idle = session_settle = None
+    session_idle = session_settle = session_cooldown = g8_seconds = g8_engines = None
     if args.gpu_energy_scope is not None:
+        gpu_host = args.gpu_energy_scope in ("board", "module")
+        g8_seconds = (power_telemetry.G8_PULSE_SECONDS if args.g8_pulse_seconds is None else args.g8_pulse_seconds) if gpu_host else 0.0
+        g8_engines = (args.g8_pulse_engines or "all") if gpu_host else None
+        session_cooldown = (power_telemetry.SESSION_COOLDOWN_SECONDS if args.session_cooldown_seconds is None
+                            else args.session_cooldown_seconds)
         session_idle = power_telemetry.SESSION_IDLE_SECONDS if args.session_idle_seconds is None else args.session_idle_seconds
         session_settle = (power_telemetry.SESSION_IDLE_SETTLE_SECONDS if args.session_idle_settle_seconds is None
                           else args.session_idle_settle_seconds)
@@ -577,6 +649,7 @@ def main():
             "gpu_counter_scope_tag": power_telemetry.GPU_SCOPE_TAG[args.gpu_energy_scope],
             "energy_window_s": args.energy_window_s, "window_max_runs": power_telemetry.ENERGY_WINDOW_MAX_RUNS,
             "session_idle_seconds": session_idle, "session_idle_settle_seconds": session_settle,
+            "session_cooldown_seconds": session_cooldown, "g8_pulse_seconds": g8_seconds, "g8_pulse_engines": g8_engines,
             "scope_tags": list(power_telemetry.SCOPE_TAGS),
             "cpu_energy_scope_tags": power_telemetry.cpu_energy_scope_tags(power_report),
             "gpu_power_state": ("nvidia-smi -q -d POWER at each session's start and end: <engine>-gpu-power-start.txt and "
@@ -608,6 +681,7 @@ def main():
     # A signal to the runner must not leave a session running: turn SIGTERM into KeyboardInterrupt
     # so the worker's process group is stopped below and the telemetry threads are cleaned up.
     signal.signal(signal.SIGTERM, interrupted)
+    sessions_seen = 0
     try:
         for scale_index, scale in enumerate(args.scales):
             data = args.data_root / ("sf" + scale.replace(".", "p"))
@@ -622,6 +696,17 @@ def main():
                 engines = list(args.engines)
                 random.Random(42 + scale_index).shuffle(engines)
             for position, engine in enumerate(engines, start=1):
+                cooldown = None
+                if session_cooldown is not None and sessions_seen:   # Paper 3, every session after the first of this invocation
+                    cooldown = {"requested_seconds": session_cooldown, "slept": False, "actual_seconds": 0.0}
+                    if session_cooldown > 0:   # off by default: the design's 60 s are met by the in-session idle brackets
+                        active["phase"] = "cooldown"
+                        cool_utc, cool_mono = power_telemetry.stamp_open()
+                        time.sleep(session_cooldown)
+                        cool_end_utc, cool_end_mono = power_telemetry.stamp_close()
+                        cooldown.update(slept=True, start_utc=cool_utc, end_utc=cool_end_utc, start_monotonic_ns=cool_mono,
+                                        end_monotonic_ns=cool_end_mono, actual_seconds=(cool_end_mono - cool_mono) / 1e9)
+                sessions_seen += 1
                 active.update(scale=scale, engine=engine, phase="preheat")
                 target = args.output / data.name / engine
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -698,6 +783,8 @@ def main():
                                                  "overridden_parity_confs": spark_gpu_overrides}
                 if args.engine_order is not None:
                     item["engine_order_position"] = position
+                if cooldown is not None:
+                    item["cooldown_before"] = cooldown
                 if baseline is not None:
                     item["idle_baseline"] = baseline
                 if gpu_gate is not None:
@@ -719,6 +806,14 @@ def main():
                 if args.gpu_energy_scope in ("board", "module"):
                     for section, key in GPU_STATE_SECTIONS.items():
                         item[key] = {"start": capture_gpu_state(target.parent, engine, section, "start", args.redact_gpu_identifiers == "on")}
+                if args.gpu_energy_scope is not None:
+                    item["clock_sync"] = {"start": capture_clock_sync()}
+                # G8: a sync pulse for every session of a GPU host by default (a session without a GPU-engine window of at least 5 s
+                # needs one, and it is not known beforehand which those are), before the worker exists, so that it cannot touch
+                # the worker's idle windows (engine init, settle and the window follow it).
+                pulse = bool(g8_seconds) and (g8_engines == "all" or engine not in GPU_ENGINES)
+                if pulse:
+                    item["gpu_pulses"] = {"start": run_gpu_pulse("start", g8_seconds)}
                 started = time.perf_counter()
                 env["BENCHMARK_LAUNCH_UNIX"] = str(time.time())
                 # Environment, not a command-line flag, so spark command lines match the A100 runs.
@@ -728,6 +823,7 @@ def main():
                     env.pop("BENCHMARK_SPARK_GPU_PROFILE", None)
                 active["phase"] = "execute"
                 with (target.parent / (engine + ".log")).open("w") as log:
+                    launch_utc, launch_mono = power_telemetry.stamp_open()
                     process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                     try:
                         returncode = process.wait(timeout=args.engine_timeout_seconds)
@@ -738,13 +834,26 @@ def main():
                     except BaseException:  # interrupted: never leave the session running
                         terminate_session(process)
                         raise
+                    exit_utc, exit_mono = power_telemetry.stamp_close()
                 item["process_wall_seconds"] = time.perf_counter() - started
+                if args.gpu_energy_scope is not None:   # runner-side stamps of the session (design G6); the worker's are in its results.json
+                    item["launch"] = {"utc": launch_utc, "monotonic_ns": launch_mono}
+                    item["process_exit"] = {"utc": exit_utc, "monotonic_ns": exit_mono}
                 item["returncode"] = returncode
                 item["status"] = "complete" if returncode == 0 else "failed"
                 active["phase"] = "idle"
                 for section, key in GPU_STATE_SECTIONS.items():
                     if key in item:
                         item[key]["end"] = capture_gpu_state(target.parent, engine, section, "end", args.redact_gpu_identifiers == "on")
+                if "clock_sync" in item:
+                    item["clock_sync"]["end"] = capture_clock_sync()
+                if args.gpu_energy_scope in ("board", "module"):
+                    # The worker has exited: anything still computing on the GPU is not this session's (design G12).
+                    apps, apps_error = list_compute_apps()
+                    item["gpu_compute_apps_end"] = {"compute_apps": apps or [], "error": apps_error,
+                                                    "checked_at_utc": datetime.now(timezone.utc).isoformat()}
+                if "gpu_pulses" in item:   # last, after every state capture, so the pulse cannot colour them
+                    item["gpu_pulses"]["end"] = run_gpu_pulse("end", g8_seconds)
                 (args.output / "schedule.json").write_text(json.dumps(schedule, indent=2) + "\n")
                 if returncode and not args.keep_going:
                     raise RuntimeError(f"{engine} {data.name} failed; see {target.parent / (engine + '.log')}")

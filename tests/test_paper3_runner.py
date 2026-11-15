@@ -10,6 +10,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import time
 import types
 
 import pytest
@@ -19,6 +20,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 import analyze_campaign as AC  # noqa: E402
+import gpu_pulse  # noqa: E402
 import power_telemetry as pt  # noqa: E402
 import run_campaign as rc  # noqa: E402
 import run_experiment as rx  # noqa: E402
@@ -61,6 +63,17 @@ GPU 00000000:CB:00.0
 """
 
 
+CHRONY_TEXT = """Reference ID    : A9FEA97B (169.254.169.123)
+Stratum         : 4
+Ref time (UTC)  : Sun Nov 15 17:30:19 2026
+System time     : 0.000012345 seconds slow of NTP time
+Last offset     : -0.000000123 seconds
+RMS offset      : 0.000012345 seconds
+Frequency       : 4.123 ppm slow
+Leap status     : Normal
+"""
+
+
 def help_text(*fields):
     return HELP_TEMPLATE.format(extra="".join(FIELD_HELP.format(name=f) for f in fields))
 
@@ -79,10 +92,28 @@ PERFORMANCE_TEXT = """GPU 00000000:CB:00.0
 def smi(host, monkeypatch):
     """The `host` fixture's nvidia-smi plus the Paper 3 queries: field list, driver version, `-q -d POWER` text."""
     state = types.SimpleNamespace(fields=ALL_FIELDS, driver="570.148.08\n", help_returncode=0, power_calls=[], performance_calls=[],
-                                  popen=[])
+                                  chrony_calls=0, chrony=CHRONY_TEXT, popen=[], order=[], pulses=[], pulse_reply=None)
     base = host.capture
 
     def capture(command, timeout=None):
+        if len(command) > 1 and str(command[1]).endswith("gpu_pulse.py"):
+            label = command[command.index("--label") + 1]
+            state.pulses.append((label, float(command[command.index("--seconds") + 1]), len(FakePopen.launched)))
+            state.order.append(f"pulse-{label}")
+            if state.pulse_reply is not None:
+                return state.pulse_reply(command)
+            launch_mono, launch_ns = time.monotonic_ns(), time.time_ns()
+            reply = {"ok": True, "label": label, "device": 0, "requested_seconds": float(command[command.index("--seconds") + 1]),
+                     "nominal_seconds": float(command[command.index("--seconds") + 1]), "init_seconds": 0.01,
+                     "launch_utc": gpu_pulse.utc_from_ns(launch_ns), "launch_monotonic_ns": launch_mono,
+                     "done_utc": gpu_pulse.utc_from_ns(launch_ns + 1000), "done_monotonic_ns": launch_mono + 1000}
+            return {"command": command, "returncode": 0, "output": "some warning\n" + json.dumps(reply) + "\n"}
+        if command == ["nvidia-smi", "-q", "-d", "POWER"] or command == ["nvidia-smi", "-q", "-d", "PERFORMANCE"]:
+            state.order.append("power" if command[-1] == "POWER" else "performance")
+        if command[0] == "chronyc":
+            state.order.append("chrony")
+        if any(str(part).startswith("--query-compute-apps") for part in command):
+            state.order.append("compute-apps")
         if command[:2] == ["nvidia-smi", "--help-query-gpu"]:
             return {"command": command, "returncode": state.help_returncode,
                     "output": help_text(*state.fields) if state.help_returncode == 0 else ""}
@@ -91,6 +122,9 @@ def smi(host, monkeypatch):
         if command == ["nvidia-smi", "-q", "-d", "POWER"]:
             state.power_calls.append(len(FakePopen.launched))        # sessions launched so far: start 0, end 1
             return {"command": command, "returncode": 0, "output": POWER_TEXT}
+        if command == ["chronyc", "tracking"]:
+            state.chrony_calls += 1
+            return {"command": command, "returncode": 0, "output": state.chrony}
         if command == ["nvidia-smi", "-q", "-d", "PERFORMANCE"]:
             state.performance_calls.append(len(FakePopen.launched))
             return {"command": command, "returncode": 0, "output": PERFORMANCE_TEXT}
@@ -100,6 +134,8 @@ def smi(host, monkeypatch):
 
     def popen(command, **kwargs):
         state.popen.append((list(command), kwargs))
+        if command[0] != "nvidia-smi":
+            state.order.append("worker")
         return original(command, **kwargs)
     monkeypatch.setattr(rx.subprocess, "Popen", popen)
     return state
@@ -265,7 +301,8 @@ def test_the_probe_of_the_counter_is_told_the_scope(monkeypatch, layout, smi):
 
 
 def test_nvidia_smi_power_text_is_kept_at_each_sessions_start_and_end(monkeypatch, layout, smi):
-    schedule, _ = run_experiment(monkeypatch, layout, ["polars", "spark_cpu"], *QUIET, "--gpu-energy-scope", "board")
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars", "spark_cpu"], *QUIET, "--gpu-energy-scope", "board",
+                                 "--session-cooldown-seconds", "0")
     assert smi.power_calls == [0, 1, 1, 2]                                           # start, end of session 1; start, end of session 2
     assert smi.performance_calls == [0, 1, 1, 2]
     for item in schedule:
@@ -295,6 +332,159 @@ def test_nvidia_smi_performance_text_is_kept_beside_the_power_text(monkeypatch, 
         assert entry["sha256"] == hashlib.sha256(text.encode()).hexdigest() and entry["returncode"] == 0
     assert "PERFORMANCE" in environment["paper3_energy"]["gpu_performance_state"]
     assert (layout.out / "sf1" / "polars-gpu-power-start.txt").is_file()             # the POWER files keep their names
+
+
+def test_the_power_limit_is_parsed_into_the_power_record_and_not_into_the_performance_one(monkeypatch, layout, smi):
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    power, performance = schedule[0]["gpu_power_state"], schedule[0]["gpu_performance_state"]
+    assert power["start"]["power_limits_w"]["gpu"]["current_w"] == 700.0 and power["end"]["power_limits_w"]["gpu"]["default_w"] == 700.0
+    assert "power_limits_w" not in performance["start"]
+
+
+def test_launch_and_process_exit_stamps_bracket_the_session(monkeypatch, layout, smi):
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    item = schedule[0]
+    assert item["launch"]["monotonic_ns"] < item["process_exit"]["monotonic_ns"]
+    assert item["launch"]["utc"] <= item["process_exit"]["utc"]
+    for key in ("launch", "process_exit"):
+        assert len(item[key]["utc"].split(".")[1]) == len("123456+00:00")                  # UTC with microseconds, as every stamp
+    assert item["start_utc"] <= item["launch"]["utc"]                                      # the item is created just before the launch
+    assert (item["process_exit"]["monotonic_ns"] - item["launch"]["monotonic_ns"]) / 1e9 <= item["process_wall_seconds"]   # the wall clock also covers the log open
+
+
+def test_chrony_tracking_is_logged_at_each_sessions_start_and_end(monkeypatch, layout, smi):
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "none")
+    sync = schedule[0]["clock_sync"]
+    assert smi.chrony_calls == 2 and set(sync) == {"start", "end"}
+    for entry in sync.values():
+        assert entry["command"] == ["chronyc", "tracking"] and entry["returncode"] == 0 and entry["output"] == CHRONY_TEXT
+        assert entry["system_time_offset_seconds"] == pytest.approx(-0.000012345) and entry["last_offset_seconds"] == pytest.approx(-1.23e-7)
+        assert entry["stratum"] == 4 and entry["leap_status"] == "Normal" and entry["monotonic_ns"] > 0
+    assert sync["start"]["monotonic_ns"] < schedule[0]["launch"]["monotonic_ns"] < sync["end"]["monotonic_ns"]
+
+
+def test_a_host_without_chrony_is_recorded_not_fatal(monkeypatch, layout, smi):
+    original = rx.capture
+
+    def capture(command, timeout=None):
+        if command[0] == "chronyc":
+            return {"command": command, "returncode": None, "output": "", "error": "FileNotFoundError: chronyc"}
+        return original(command, timeout)
+    monkeypatch.setattr(rx, "capture", capture)
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    entry = schedule[0]["clock_sync"]["start"]
+    assert entry["returncode"] is None and "FileNotFoundError" in entry["error"] and entry["system_time_offset_seconds"] is None
+    assert schedule[0]["status"] == "complete"
+
+
+def test_compute_apps_are_listed_again_when_the_session_has_ended(monkeypatch, layout, smi, host):
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    assert schedule[0]["gpu_compute_apps_end"]["compute_apps"] == [] and schedule[0]["gpu_compute_apps_end"]["error"] is None
+    layout.out.rename(layout.tmp / "first")
+    host.apps = ["4242, python, 1024"]                  # a process that is on the GPU after the worker is gone
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    assert schedule[0]["gpu_compute_apps_end"]["compute_apps"] == ["4242, python, 1024"]
+    assert schedule[0]["gpu_compute_apps_end"]["checked_at_utc"] >= schedule[0]["process_exit"]["utc"]
+    layout.out.rename(layout.tmp / "second")
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "none")
+    assert "gpu_compute_apps_end" not in schedule[0]                                       # no GPU counter in use on this host class
+
+
+def test_sessions_can_rest_between_each_other_and_the_rest_is_recorded(monkeypatch, layout, smi):
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars", "spark_cpu"], *QUIET, "--gpu-energy-scope", "board",
+                                           "--session-cooldown-seconds", "0.25", "--g8-pulse-seconds", "0")
+    first, second = schedule
+    assert "cooldown_before" not in first                                                  # nothing precedes the first session of the invocation
+    rest = second["cooldown_before"]
+    assert rest["requested_seconds"] == 0.25 and rest["slept"] is True and rest["actual_seconds"] >= 0.25
+    assert first["process_exit"]["monotonic_ns"] <= rest["start_monotonic_ns"] < rest["end_monotonic_ns"] <= second["launch"]["monotonic_ns"]
+    assert environment["paper3_energy"]["session_cooldown_seconds"] == 0.25 and environment["arguments"]["session_cooldown_seconds"] == 0.25
+
+
+def test_the_cooldown_is_off_by_default_and_recorded_as_not_slept(monkeypatch, layout, smi):
+    assert pt.SESSION_COOLDOWN_SECONDS == 0.0                  # the design's 60 s between sessions come from the in-session idle brackets
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars", "spark_cpu"], *QUIET, "--gpu-energy-scope", "board")
+    assert environment["paper3_energy"]["session_cooldown_seconds"] == 0.0 and "session_cooldown_seconds" not in environment["arguments"]
+    assert "cooldown_before" not in schedule[0]
+    assert schedule[1]["cooldown_before"] == {"requested_seconds": 0.0, "slept": False, "actual_seconds": 0.0}
+    layout.out.rename(layout.tmp / "first")
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars", "spark_cpu"], *QUIET, "--gpu-energy-scope", "board",
+                                 "--session-cooldown-seconds", "0")
+    assert schedule[1]["cooldown_before"]["slept"] is False
+    layout.out.rename(layout.tmp / "second")
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars", "spark_cpu"], *QUIET)       # Paper 1: no such record
+    assert not any("cooldown_before" in item for item in schedule)
+
+
+# ---- G8 sync pulse (gpu_pulse.py) ---------------------------------------------------------------------------------------
+
+def test_a_session_gets_a_pulse_before_the_worker_and_after_everything_else(monkeypatch, layout, smi):
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    item = schedule[0]
+    start, end = item["gpu_pulses"]["start"], item["gpu_pulses"]["end"]
+    assert smi.pulses == [("start", 3.0, 0), ("end", 3.0, 1)]                           # before the worker was launched, after it had exited
+    assert smi.order == ["power", "performance", "chrony", "pulse-start", "worker", "power", "performance", "chrony", "compute-apps", "pulse-end"]
+    for pulse, label in ((start, "start"), (end, "end")):
+        assert pulse["ok"] is True and pulse["label"] == label and pulse["returncode"] == 0 and pulse["requested_seconds"] == 3.0
+        assert pulse["command"][1].endswith("gpu_pulse.py") and pulse["command"][-6:-4] == ["--seconds", "3.0"]
+        assert pulse["launch_monotonic_ns"] < pulse["done_monotonic_ns"] and pulse["launch_utc"] < pulse["done_utc"]
+        assert len(pulse["launch_utc"].split(".")[1]) == len("123456+00:00")
+        assert pulse["runner_start_monotonic_ns"] <= pulse["launch_monotonic_ns"] <= pulse["done_monotonic_ns"] <= pulse["runner_end_monotonic_ns"]
+    assert start["done_monotonic_ns"] < item["launch"]["monotonic_ns"] and item["process_exit"]["monotonic_ns"] < end["launch_monotonic_ns"]
+    assert environment["paper3_energy"]["g8_pulse_seconds"] == 3.0 and environment["paper3_energy"]["g8_pulse_engines"] == "all"
+    assert "g8_pulse_seconds" not in environment["arguments"]                              # defaults are not arguments
+
+
+def test_every_session_of_a_gpu_host_gets_a_pulse_by_default_including_gpu_engine_sessions(monkeypatch, layout, smi):
+    schedule, environment = run_experiment(monkeypatch, layout, ["spark_gpu", "polars"], *QUIET, "--gpu-energy-scope", "board",
+                                           "--engine-order", "spark_gpu", "polars")
+    assert [set(item["gpu_pulses"]) for item in schedule] == [{"start", "end"}, {"start", "end"}] and environment["paper3_energy"]["g8_pulse_engines"] == "all"
+    assert smi.pulses == [("start", 3.0, 0), ("end", 3.0, 1), ("start", 3.0, 1), ("end", 3.0, 2)]
+    assert smi.order.index("pulse-start") == smi.order.index("worker") - 1              # the GPU-engine session too: pulse, then the worker
+
+
+def test_the_pulse_can_be_narrowed_to_the_cpu_engine_sessions(monkeypatch, layout, smi):
+    schedule, environment = run_experiment(monkeypatch, layout, ["spark_gpu", "polars"], *QUIET, "--gpu-energy-scope", "board",
+                                           "--g8-pulse-engines", "cpu", "--engine-order", "spark_gpu", "polars")
+    gpu_session, cpu_session = schedule
+    assert gpu_session["engine"] == "spark_gpu" and "gpu_pulses" not in gpu_session
+    assert set(cpu_session["gpu_pulses"]) == {"start", "end"} and len(smi.pulses) == 2
+    assert environment["paper3_energy"]["g8_pulse_engines"] == "cpu" and environment["arguments"]["g8_pulse_engines"] == "cpu"
+
+
+def test_the_pulse_length_is_a_flag_and_zero_switches_it_off(monkeypatch, layout, smi):
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "module", "--g8-pulse-seconds", "1.5")
+    assert schedule[0]["gpu_pulses"]["start"]["requested_seconds"] == 1.5 and environment["arguments"]["g8_pulse_seconds"] == 1.5
+    layout.out.rename(layout.tmp / "first")
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board", "--g8-pulse-seconds", "0")
+    assert "gpu_pulses" not in schedule[0] and environment["paper3_energy"]["g8_pulse_seconds"] == 0.0
+
+
+def test_no_pulse_on_scope_none_or_in_paper1(monkeypatch, layout, smi):
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "none")
+    assert "gpu_pulses" not in schedule[0] and not smi.pulses and environment["paper3_energy"]["g8_pulse_seconds"] == 0.0
+    assert environment["paper3_energy"]["g8_pulse_engines"] is None                          # no GPU host: no pulse policy
+    layout.out.rename(layout.tmp / "first")
+    schedule, environment = run_experiment(monkeypatch, layout, ["polars"], *QUIET)
+    assert "gpu_pulses" not in schedule[0] and not smi.pulses and "paper3_energy" not in environment
+
+
+def test_a_pulse_that_cannot_run_is_recorded_and_the_session_still_completes(monkeypatch, layout, smi):
+    smi.pulse_reply = lambda command: {"command": command, "returncode": 1, "output": json.dumps(
+        {"ok": False, "label": "x", "error": "OSError: libcuda.so.1: cannot open shared object file"}) + "\n"}
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    pulse = schedule[0]["gpu_pulses"]["start"]
+    assert pulse["ok"] is False and pulse["returncode"] == 1 and "libcuda" in pulse["error"] and "launch_monotonic_ns" not in pulse
+    assert schedule[0]["status"] == "complete" and set(schedule[0]["gpu_pulses"]) == {"start", "end"}
+    layout.out.rename(layout.tmp / "first")
+    smi.pulse_reply = lambda command: {"command": command, "returncode": 0, "output": "Segmentation fault\n"}
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    pulse = schedule[0]["gpu_pulses"]["start"]
+    assert pulse["ok"] is False and "no JSON" in pulse["error"] and "Segmentation fault" in pulse["error"]
+    layout.out.rename(layout.tmp / "second")
+    smi.pulse_reply = lambda command: {"command": command, "returncode": None, "output": "", "error": "TimeoutExpired: x"}
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    assert schedule[0]["gpu_pulses"]["start"]["ok"] is False and "TimeoutExpired" in schedule[0]["gpu_pulses"]["start"]["error"]
 
 
 def test_scope_none_and_paper1_capture_no_performance_text(monkeypatch, layout, smi):
@@ -344,6 +534,14 @@ def test_cpu_energy_scope_tags_are_recorded_from_the_sampler(monkeypatch, layout
     (["--gpu-energy-scope", "none"], ["polars", "spark_gpu"], "GPU engine"),
     (["--gpu-energy-scope", "auto"], ["polars"], "invalid choice"),
     (["--session-idle-seconds", "30"], ["polars"], "needs an explicit --gpu-energy-scope"),
+    (["--session-cooldown-seconds", "60"], ["polars"], "needs an explicit --gpu-energy-scope"),
+    (["--g8-pulse-seconds", "3"], ["polars"], "needs an explicit --gpu-energy-scope"),
+    (["--g8-pulse-engines", "all"], ["polars"], "needs an explicit --gpu-energy-scope"),
+    (["--gpu-energy-scope", "board", "--g8-pulse-seconds", "-1"], ["polars"], "non-negative"),
+    (["--gpu-energy-scope", "board", "--g8-pulse-seconds", "61"], ["polars"], "at most 60"),
+    (["--gpu-energy-scope", "none", "--g8-pulse-seconds", "3"], ["polars"], "need a GPU host"),
+    (["--gpu-energy-scope", "none", "--g8-pulse-engines", "cpu"], ["polars"], "need a GPU host"),
+    (["--gpu-energy-scope", "board", "--session-cooldown-seconds", "-5"], ["polars"], "non-negative"),
     (["--session-idle-settle-seconds", "60"], ["polars"], "needs an explicit --gpu-energy-scope"),
     (["--gpu-energy-scope", "board", "--session-idle-seconds", "-1"], ["polars"], "non-negative"),
     (["--gpu-energy-scope", "board", "--session-idle-settle-seconds", "inf"], ["polars"], "non-negative"),
