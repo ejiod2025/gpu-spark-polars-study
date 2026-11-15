@@ -149,13 +149,16 @@ and `gcp-c3-highmem-192-metal-20261111T203231Z-idle{1,2}-*`.
   `power.draw` is GPU-only (88 W against the 162 W counter at bare idle). B200: scope from its own semantics step. Also
   logged: temperature, SM/memory clocks, throttle reasons, power limit. Nothing is tuned: no clock locking, power capping or
   governor change.
-- **GH200 power limit, recorded without interpretation.** In `docs/paper3-evidence/probes/lambda-gh200-20261115T171353Z-semantics.json`
+- **GH200 power limits, recorded.** In `docs/paper3-evidence/probes/lambda-gh200-20261115T171353Z-semantics.json`
   (2026-11-15 17:30:19 UTC) the `nvidia-smi --query-gpu` row in `meta` reports `power.limit` 900.00 W and
-  `power.default_limit` 900.00 W, while the `nvidia-smi -q` text stored in the same file for the same second reports the GPU's
-  Current and Requested Power Limit as 700.00 W (Default and Max 900.00 W; Module Power Readings limit 1000.00 W). On the H100
-  (700 and 700 W) and the A100 (400 and 400 W) the two agree. No claim is made about which value is the enforced limit. So
-  that G11's "power limit logged" is unambiguous, the harness logs the `nvidia-smi -q -d POWER` text at session start and end
-  as well as the `--query-gpu` fields, and the QA table shows both.
+  `power.default_limit` 900.00 W. The `nvidia-smi -q -d POWER` text stored in the same file for the same second, parsed,
+  gives: GPU Current and Requested Power Limit 700.00 W, GPU Default and Max 900.00 W (Min 100.00 W); Module Power Readings
+  Current, Requested, Default and Max limit 1000.00 W (Min 200.00 W). So the `--query-gpu` `power.limit` of 900 W equals the
+  GPU's default and max limit and not its current limit; the team lead reads this as that query field reflecting the
+  default/max view (not verified here), and no claim is made here about which value is enforced. On the H100 (700 and 700 W)
+  and the A100 (400 and 400 W) the two sources agree. So that G11's "power limit logged" is unambiguous, the harness logs
+  the `nvidia-smi -q -d POWER` text at session start and end as well as the `--query-gpu` fields, and the QA table shows
+  both.
 
 ### 2.4 CPU energy (scopes S2, S3)
 Source order, decided per host class by the probe report (fixed at the lock, never at analysis time):
@@ -349,11 +352,13 @@ Source order, decided per host class by the probe report (fixed at the lock, nev
   is used and stated. No round is added or dropped for what its values look like. Sessions: 32 per GPU-host round, 16 per
   CPU-only round.
 - **Controls.** Paper 1 §6 (no other workload, no foreign GPU processes, preheated files, off-host rsync + checksums), plus:
-  >= 60 s cool-down between sessions; C-GCP is single-tenant bare metal (network storage is shared); Lambda hosts are KVM
-  VMs where checked (H100, 1x A100, 8x A100; noise visible via `host.csv`, clock and throttle logs). Measurement processes
-  (`nvidia-smi` with `TZ=UTC`, RAPL sampler) run in every session including idle windows, so their draw is in `P_idle` and
-  `E`; P5 quantified their overhead (§2.2: 0.004-0.72 W for the `nvidia-smi` poller on the 1x GPU hosts, the H100 figure
-  within its window-to-window variation; 0.39-0.48% of one core for the RAPL sampler).
+  >= 60 s cool-down between sessions, met by the §2.2 brackets (>= 150 s without query load between the last query of one
+  session and the first of the next; the harness flag `--session-cooldown-seconds` is set to 0 for the campaign); C-GCP is
+  single-tenant bare metal (network storage is shared); Lambda hosts are KVM VMs where checked (H100, 1x A100, 8x A100;
+  noise visible via `host.csv`, clock and throttle logs). Measurement processes (`nvidia-smi` with `TZ=UTC`, RAPL sampler)
+  run in every session including idle windows, so their draw is in `P_idle` and `E`; P5 quantified their overhead (§2.2:
+  0.004-0.72 W for the `nvidia-smi` poller on the 1x GPU hosts, the H100 figure within its window-to-window variation;
+  0.39-0.48% of one core for the RAPL sampler).
 
 ## 4. Integrity and telemetry gates (pass/fail; never based on engine comparisons)
 Paper 1 §7 and A1 apply unchanged: G1 every session exits, no timeout; G2 output agreement with `polars` (rel 1e-8, abs
@@ -590,6 +595,13 @@ At P-OLD the Lambda subtotal is about $778 and the core about $1,271. Fallback h
 2026-11-11) and 43-54 h of wall time per GPU host over two launches. A +-30% price change moves it by about +-$410.
 Availability and calendar time bind, not cost.
 
+**Clarification, 2026-11-15: no separate between-session cool-down.** The >= 60 s cool-down between sessions (§3.2) is met
+by the §2.2 brackets already costed above: between the last query of one session and the first query of the next there are
+always >= 150 s without query load (that session's 60 s settle and 30 s closing idle window, then the next session's 60 s
+settle before its opening idle window; this lower bound does not count the next engine's start-up or the opening window
+itself). The harness has a `--session-cooldown-seconds` flag; the campaign sets it to 0. The estimate above is therefore
+unchanged (core total ~$1,364).
+
 **Probe spend so far (approximate; not part of the core total above, which is not re-estimated here).** GCP P5, 703 s of
 `c3-highmem-192-metal` at list price: $2.48. Lambda, billed at the API price (the 2026-11-16 prices were not yet in force):
 the first lost H100/A100 attempt about $5.76 (team lead's figure, no logs kept), the H100 and A100 rerun about $8 (the
@@ -699,6 +711,14 @@ definition are unchanged; `t_min` is set per host by the rule stated before the 
 changed:
 - **Status line, RQ table:** the lock now waits for the GH200 P6 rerun; B200 conditional; RQ1 pointer, RQ4/RQ5 wording for
   GH200 and B200, new RQ6 (GH200 module scope, secondary).
+- **§3.2, §9 (cool-down clarification; lead's decision 2026-11-15):** the >= 60 s between-session cool-down of §3.2 is met
+  by the §2.2 brackets (>= 150 s without query load between sessions), so no separate sleep is run
+  (`--session-cooldown-seconds` is 0 in the campaign) and the §9 estimate is unchanged (core ~$1,364). A separate 60 s sleep
+  before every session but the first was costed (about 5.1 h per GPU host and 2.5 h on C-GCP with the 1.2 margin, about $121
+  at P-NEW) and rejected: dropping it avoids that cost with no measurement benefit. The author may object before the lock.
+- **§2.3 (GH200 power limits):** the discrepancy bullet is made factual with the parsed `nvidia-smi -q -d POWER` values: GPU
+  Current 700 W, GPU Default and Max 900 W, Module current 1000 W; `--query-gpu power.limit` of 900 W equals the default and
+  max limit (the team lead reads it as the default/max view; not verified here).
 - **§2.1 (window rule; technical correction by the team lead, 2026-11-15):** `n` is no longer set in advance from the
   warm-up time (`n = clamp(ceil(10 s / t_hat), 1, 50)`); runs continue until the window's summed timed time reaches 10 s or
   50 runs have been made. Reason: the warm-up is the cold first run (JIT, plan compilation, caches), so `t_hat` overstates
