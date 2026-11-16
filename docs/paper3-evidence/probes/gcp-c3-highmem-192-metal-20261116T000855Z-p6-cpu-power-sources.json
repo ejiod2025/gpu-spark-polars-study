@@ -1,0 +1,319 @@
+{
+  "format": 1,
+  "tool": "power_telemetry.py",
+  "status": "available",
+  "cpu_energy_source": "powercap-rapl",
+  "node_power_source": null,
+  "interval_seconds": 0.2,
+  "ipmi_interval_seconds": null,
+  "reasons": [
+    "ipmi-dcmi: 'ipmitool' not found on PATH"
+  ],
+  "sources": [
+    {
+      "status": "active",
+      "kind": "energy_counter",
+      "unit": "uJ",
+      "reasons": [],
+      "domains": [
+        {
+          "zone": "intel-rapl:0",
+          "domain": "package-0",
+          "socket": 0,
+          "kind": "package",
+          "interface": "msr",
+          "path": "/sys/class/powercap/intel-rapl:0/energy_uj",
+          "max_energy_range_uj": 262143328850,
+          "readable": true,
+          "advancing": true,
+          "error": null,
+          "duplicate_of": null,
+          "sampled": true
+        },
+        {
+          "zone": "intel-rapl:0:0",
+          "domain": "package-0/dram",
+          "socket": 0,
+          "kind": "dram",
+          "interface": "msr",
+          "path": "/sys/class/powercap/intel-rapl:0:0/energy_uj",
+          "max_energy_range_uj": 262143328850,
+          "readable": true,
+          "advancing": true,
+          "error": null,
+          "duplicate_of": null,
+          "sampled": true
+        },
+        {
+          "zone": "intel-rapl:1",
+          "domain": "package-1",
+          "socket": 1,
+          "kind": "package",
+          "interface": "msr",
+          "path": "/sys/class/powercap/intel-rapl:1/energy_uj",
+          "max_energy_range_uj": 262143328850,
+          "readable": true,
+          "advancing": true,
+          "error": null,
+          "duplicate_of": null,
+          "sampled": true
+        },
+        {
+          "zone": "intel-rapl:1:0",
+          "domain": "package-1/dram",
+          "socket": 1,
+          "kind": "dram",
+          "interface": "msr",
+          "path": "/sys/class/powercap/intel-rapl:1:0/energy_uj",
+          "max_energy_range_uj": 262143328850,
+          "readable": true,
+          "advancing": true,
+          "error": null,
+          "duplicate_of": null,
+          "sampled": true
+        }
+      ],
+      "source": "powercap-rapl",
+      "setup_hint": null
+    },
+    {
+      "source": "amd-energy",
+      "status": "skipped",
+      "reasons": [
+        "not probed: powercap-rapl is already the CPU energy source"
+      ]
+    },
+    {
+      "source": "perf-stat",
+      "status": "skipped",
+      "reasons": [
+        "not probed: powercap-rapl is already the CPU energy source"
+      ]
+    },
+    {
+      "source": "turbostat",
+      "status": "skipped",
+      "reasons": [
+        "not probed: powercap-rapl is already the CPU energy source"
+      ]
+    },
+    {
+      "status": "unavailable",
+      "reasons": [
+        "'ipmitool' not found on PATH"
+      ],
+      "source": "ipmi-dcmi",
+      "setup_hint": "ipmitool needs a local BMC: apt install ipmitool; sudo modprobe ipmi_si ipmi_devintf; /dev/ipmi0 is root-only, so run as root or point POWER_TELEMETRY_IPMI_COMMAND at 'sudo -n ipmitool' with a NOPASSWD rule. Cloud VMs have no BMC."
+    }
+  ],
+  "sockets": {
+    "per_socket_counters": true,
+    "zones": {
+      "0": {
+        "package": [
+          "intel-rapl:0"
+        ],
+        "dram": [
+          "intel-rapl:0:0"
+        ]
+      },
+      "1": {
+        "package": [
+          "intel-rapl:1"
+        ],
+        "dram": [
+          "intel-rapl:1:0"
+        ]
+      }
+    },
+    "zones_not_sampled": [],
+    "mapping": "socket N is the N of the powercap zone package-N / amd_energy Esocket N, taken to be the physical_package_id of the CPUs listed under topology",
+    "topology": [
+      {
+        "socket": 0,
+        "cpus": "0-47,96-143",
+        "cpu_count": 96,
+        "physical_cores": 48,
+        "numa_nodes": [
+          0,
+          1
+        ]
+      },
+      {
+        "socket": 1,
+        "cpus": "48-95,144-191",
+        "cpu_count": 96,
+        "physical_cores": 48,
+        "numa_nodes": [
+          2,
+          3
+        ]
+      }
+    ],
+    "problems": []
+  },
+  "pinning": {
+    "requested": {
+      "socket": null,
+      "cpu_list": "0-12,96-108"
+    },
+    "cpus": "0-12,96-108",
+    "cpu_count": 26,
+    "sockets": [
+      0
+    ],
+    "whole_sockets": [],
+    "numa_nodes": [
+      0
+    ],
+    "topology_basis": "/sys/devices/system/cpu/cpu*/topology/physical_package_id",
+    "membind": {
+      "enabled": true,
+      "policy": "MPOL_BIND",
+      "nodes": [
+        0
+      ],
+      "reason": "memory of the engine processes is bound to the NUMA nodes of the pinned CPUs",
+      "mechanism": "libnuma (libnuma.so.1) set_mempolicy",
+      "verified": true,
+      "readback": {
+        "source": "get_mempolicy",
+        "mode": 2,
+        "nodes": [
+          0
+        ]
+      }
+    },
+    "applied_affinity": "0-12,96-108",
+    "attribution": {
+      "possible": true,
+      "pinned_sockets": [
+        0
+      ],
+      "pinned_zones": {
+        "0": {
+          "package": [
+            "intel-rapl:0"
+          ],
+          "dram": [
+            "intel-rapl:0:0"
+          ]
+        }
+      },
+      "other_zones": {
+        "1": {
+          "package": [
+            "intel-rapl:1"
+          ],
+          "dram": [
+            "intel-rapl:1:0"
+          ]
+        }
+      },
+      "note": "S2-pinned = the pinned sockets' zones (package + dram); the other sockets are logged, not attributed"
+    }
+  },
+  "setup_hints": [
+    "ipmitool needs a local BMC: apt install ipmitool; sudo modprobe ipmi_si ipmi_devintf; /dev/ipmi0 is root-only, so run as root or point POWER_TELEMETRY_IPMI_COMMAND at 'sudo -n ipmitool' with a NOPASSWD rule. Cloud VMs have no BMC."
+  ],
+  "csv": "p6-cpu-power.csv",
+  "csv_columns": [
+    "timestamp_utc",
+    "monotonic_ns",
+    "source",
+    "zone",
+    "domain",
+    "energy_uj",
+    "power_w",
+    "raw_counter_uj",
+    "flag",
+    "scale",
+    "engine",
+    "phase"
+  ],
+  "notes": [
+    "energy_uj is cumulative and unwrapped; use differences between samples of one (source, zone)",
+    "RAPL package/dram/psys are separate domains; core and uncore are subsets of package",
+    "ipmi-dcmi rows are stamped when ipmitool returns; the BMC value is averaged over its own period",
+    "perf-stat rows are stamped at line arrival and cover the preceding interval"
+  ],
+  "host": {
+    "platform": "Linux-7.0.0-1017-gcp-x86_64-with-glibc2.39",
+    "kernel": "7.0.0-1017-gcp",
+    "euid": 0,
+    "timezone": {
+      "tz_env": null,
+      "tzname": [
+        "UTC",
+        "UTC"
+      ],
+      "utc_offset_seconds": 0,
+      "dst_in_effect": false,
+      "has_dst_rules": false,
+      "etc_localtime": "/usr/share/zoneinfo/Etc/UTC"
+    }
+  },
+  "clock": {
+    "start": {
+      "utc": "2026-11-16T00:11:50.761025+00:00",
+      "monotonic_ns": 98949064909,
+      "uncertainty_ns": 16082
+    },
+    "stop": {
+      "utc": "2026-11-16T00:27:52.835508+00:00",
+      "monotonic_ns": 1061023553488,
+      "uncertainty_ns": 33774
+    }
+  },
+  "state": "finished",
+  "samples": {
+    "rows": {
+      "powercap-rapl": 19248
+    },
+    "total": 19248
+  },
+  "read_errors": {},
+  "liveness": {
+    "powercap-rapl/intel-rapl:0": {
+      "kind": "energy",
+      "verdict": "advancing",
+      "samples": 4812,
+      "changes": 4811,
+      "longest_flat_seconds": 0.211
+    },
+    "powercap-rapl/intel-rapl:0:0": {
+      "kind": "energy",
+      "verdict": "advancing",
+      "samples": 4812,
+      "changes": 4811,
+      "longest_flat_seconds": 0.211
+    },
+    "powercap-rapl/intel-rapl:1": {
+      "kind": "energy",
+      "verdict": "advancing",
+      "samples": 4812,
+      "changes": 4811,
+      "longest_flat_seconds": 0.211
+    },
+    "powercap-rapl/intel-rapl:1:0": {
+      "kind": "energy",
+      "verdict": "advancing",
+      "samples": 4812,
+      "changes": 4811,
+      "longest_flat_seconds": 0.211
+    }
+  },
+  "overhead": {
+    "sampler_thread_cpu_seconds": {
+      "counters": 2.029534
+    },
+    "wall_seconds": 962.074,
+    "cpu_fraction_of_one_core": 0.00211,
+    "counter_polls": 4812,
+    "mean_poll_ms": 0.6776,
+    "max_poll_ms": 23.0002,
+    "max_gap_between_polls_seconds": 0.2113,
+    "overruns": 0,
+    "note": "thread CPU time of the sampler threads; child processes (ipmitool, perf, turbostat) are not included"
+  }
+}
