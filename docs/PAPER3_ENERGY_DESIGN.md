@@ -1,11 +1,12 @@
 # Paper 3 — energy and cost per query, CPU versus GPU dataframe engines — pre-registered design
 
-Status: **DRAFT — ready to lock; awaiting the author's go-ahead (§12 lists the lead's pre-lock changes).** One condition
-follows the lock, before the first session of its host: B200 admission (§3.1). Drafted 2026-11-11 for Daniel Ejiofor (Boston
-University, ejiod@bu.edu), revised after probes P1-P4 (§7.2) and the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2; what
-changed: §12). Until the lock (§7) this text may be edited freely. After it, sections 1-11 are never edited; changes are
-dated, append-only amendments in §12 (rule of `docs/H100_EXPERIMENT_DESIGN.md`, extended in §7.4). All author decisions are
-answered (§11).
+Status: **LOCKED 2026-11-16 (UTC)** — annotated tag `paper3-design-lock` on the lock commit; external timestamp: Zenodo
+DOI [10.5281/zenodo.24284712](https://doi.org/10.5281/zenodo.24284712) (this file). The author approved the lock, including the
+lead's pre-lock changes listed in §12, on 2026-11-16. One condition follows the lock, before the first session of its host:
+B200 admission (§3.1). Drafted 2026-11-11 for Daniel Ejiofor (Boston University, ejiod@bu.edu), revised after probes P1-P4
+(§7.2) and the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2; what changed: §12). From the lock on, sections 1-11 are
+never edited; changes are dated, append-only amendments in §12 (rule of `docs/H100_EXPERIMENT_DESIGN.md`, extended in
+§7.4). All author decisions are answered (§11).
 
 Aim (author's words): rigorous, reproducible evaluation methods and tools that help U.S. organizations choose cost- and
 energy-efficient CPU or GPU engines for analytical data processing. Paper 3 contributes a measurement protocol and
@@ -812,7 +813,7 @@ answers.
       lock.
 
 ## 12. Amendments
-None (draft).
+None.
 
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
