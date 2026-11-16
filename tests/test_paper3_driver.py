@@ -218,7 +218,7 @@ def test_a_formal_campaign_needs_its_instance_type_and_the_hosts_config_values(m
         rc.paper3_startup_checks(b200, resolved_pinning=False)
     c_gcp = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("c-gcp"), "--paper3-lock-commit", "c" * 40, "--paper3-lock-doi", "d",
                                              "--host-label", "c3-highmem-192-metal"]))
-    with pytest.raises(rc.CampaignError, match="unset in paper3_hosts.json: t_min_s, allowed_scheduled"):
+    with pytest.raises(rc.CampaignError, match="unset in paper3_hosts.json: allowed_scheduled"):
         rc.paper3_startup_checks(c_gcp, resolved_pinning=False)
 
 

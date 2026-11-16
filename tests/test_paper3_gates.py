@@ -55,14 +55,16 @@ def test_the_shipped_config_names_exactly_what_is_pending():
     config = REPO / "paper3_hosts.json"
     unset = {h: pg.load_host_config(config, h).unset() for h in ("h100", "a100", "gh200", "b200", "c-gcp", "c-vm")}
     assert unset == {"h100": [], "a100": [], "gh200": [], "b200": ["t_min_s", "gpu_source", "gpu_scope", "cpu_source"],
-                     "c-gcp": ["t_min_s", "allowed_scheduled"], "c-vm": []}
+                     "c-gcp": ["allowed_scheduled"], "c-vm": []}
     assert pg.load_host_config(config, "h100").t_min_s == 1.0 and pg.load_host_config(config, "a100").t_min_s == 2.0
     assert pg.load_host_config(config, "gh200").t_min_s == 1.0, "GH200 P6 rerun against module.power.draw.instant: max(1 s, measured 1.0 s)"
     gh200 = pg.load_host_config(config, "gh200")
     assert (gh200.gpu_source, gh200.gpu_scope, gh200.cpu_source, gh200.cpu_series) == (
         "nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption", "module", "none", None), "CPU energy only inside the S1-module counter"
     assert "lambda-gh200-20261115T213713Z-sources.json" in json.loads(config.read_text())["hosts"]["gh200"]["cpu_energy_basis"]
-    assert pg.load_host_config(config, "b200").t_min_s is None and pg.load_host_config(config, "c-gcp").t_min_s is None
+    assert pg.load_host_config(config, "b200").t_min_s is None
+    assert pg.load_host_config(config, "c-gcp").t_min_s == 2.0, "P6-CPU on the metal host: windows-mode t_min 2.0 s"
+    assert "gcp-c3-highmem-192-metal-20261116T000855Z-p6-cpu.json" in json.loads(config.read_text())["hosts"]["c-gcp"]["t_min_basis"]
     assert pg.load_host_config(config, "gh200").gpu_scope == "module" and pg.load_host_config(config, "h100").gpu_scope == "board"
     assert pg.load_host_config(config, "c-vm").t_min_s == "not_applicable" and pg.load_host_config(config, "c-gcp").cpu_series == 4
 
