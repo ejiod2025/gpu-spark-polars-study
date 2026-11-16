@@ -51,7 +51,7 @@ GPU_HEADER_BUS_ID = re.compile(r"^GPU[ \t]+[0-9A-Fa-f]{4,8}:[0-9A-Fa-f]{2}:[0-9A
 REDACTED = "<redacted>"
 GPU_IDLE_POLL_SECONDS = 1.0
 PAPER3_ARGUMENTS = ("gpu_energy_scope", "energy_window_s", "session_idle_seconds", "session_idle_settle_seconds",
-                    "session_cooldown_seconds", "g8_pulse_seconds", "g8_pulse_engines")
+                    "session_cooldown_seconds", "g8_pulse_seconds", "g8_pulse_engines", "synthetic_smoke")
 G8_PULSE_ENGINES = ("cpu", "all")
 GPU_STATE_SECTIONS = {"POWER": "gpu_power_state", "PERFORMANCE": "gpu_performance_state"}   # nvidia-smi -q -d <section> -> schedule.json key
 
@@ -380,7 +380,11 @@ def main():
     parser.add_argument("--driver-memory", default="96g")
     parser.add_argument("--jar", type=Path, required=True)
     parser.add_argument("--queries", nargs="+")
-    parser.add_argument("--suite", choices=["baseline", "complex"], default="baseline")
+    parser.add_argument("--suite", choices=["baseline", "complex", "smoke"], default="baseline")
+    parser.add_argument("--synthetic-smoke", action="store_const", const=True, default=None,
+                        help="required by, and only valid with, --suite smoke: the synthetic readiness workload (smoke_workloads.py, data "
+                             "from tools/paper3_smoke/generate_smoke_data.py; no study query). Its output is never a study result: "
+                             "run_campaign.py cannot express this flag, and environment.json records it")
     parser.add_argument("--query-cleanup", choices=["none", "verified_gc"], default="none")
     parser.add_argument("--cleanup-timeout-seconds", type=float, default=60)
     parser.add_argument("--keep-going", action="store_true", help="Record engine failures and continue other engines/scales")
@@ -460,6 +464,9 @@ def main():
     args.output = args.output.resolve()
     args.data_root = args.data_root.resolve()
     args.jar = args.jar.resolve()
+    if (args.suite == "smoke") != bool(args.synthetic_smoke):
+        parser.error("--suite smoke and --synthetic-smoke go together: the synthetic readiness workload must be asked for by both, "
+                     "and no other suite accepts the flag")
 
     # Everything that can be known to fail is checked before the output directory exists
     # and before any engine runs, so a misconfigured GPU run costs nothing and leaves nothing.
@@ -751,6 +758,8 @@ def main():
                                "--output", str(target), "--runs", str(args.runs), "--suite", args.suite,
                                "--query-cleanup", args.query_cleanup,
                                "--cleanup-timeout-seconds", str(args.cleanup_timeout_seconds)]
+                if args.synthetic_smoke:
+                    worker_args.append("--synthetic-smoke")
                 if args.queries:
                     worker_args += ["--queries", *args.queries]
                 if args.gpu_energy == "off":  # the default is not passed, so command lines match earlier campaigns

@@ -404,7 +404,10 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--suite", choices=["baseline", "complex"], default="baseline")
+    parser.add_argument("--suite", choices=["baseline", "complex", "smoke"], default="baseline")
+    parser.add_argument("--synthetic-smoke", action="store_true",
+                        help="required by, and only valid with, --suite smoke: the synthetic readiness workload of smoke_workloads.py "
+                             "(generated data, no study query). Never a formal campaign: run_campaign.py cannot pass it")
     parser.add_argument("--queries", nargs="+")
     parser.add_argument("--query-cleanup", choices=["none", "verified_gc"], default="none")
     parser.add_argument("--cleanup-timeout-seconds", type=float, default=60)
@@ -430,6 +433,9 @@ def main():
     parser.add_argument("--session-idle-settle-seconds", type=float, default=None,
                         help=f"Paper 3 (needs --gpu-energy-scope): time without load before each idle window; default {SESSION_IDLE_SETTLE_SECONDS:g}")
     args = parser.parse_args()
+    if (args.suite == "smoke") != args.synthetic_smoke:
+        parser.error("--suite smoke and --synthetic-smoke go together: the synthetic readiness workload must be asked for by both, "
+                     "and no other suite accepts the flag")
     if args.energy_window_s is not None and not (math.isfinite(args.energy_window_s) and args.energy_window_s > 0):
         parser.error("--energy-window-s must be a positive number of seconds")
     if args.energy_window_s is not None and args.gpu_energy_scope is None:
@@ -457,7 +463,7 @@ def main():
     # The complex suite always recorded; polars_gpu records in both suites so a query the
     # GPU cannot run (unsupported op, out of memory) is a visible result, not a lost scale.
     failure_policy = "record_and_continue" if args.suite == "complex" or args.engine == "polars_gpu" else "raise"
-    suite = importlib.import_module("complex_workloads" if args.suite == "complex" else "workloads")
+    suite = importlib.import_module({"complex": "complex_workloads", "smoke": "smoke_workloads"}.get(args.suite, "workloads"))
     args.queries = args.queries or suite.QUERY_IDS
     if any(query not in suite.QUERY_IDS for query in args.queries):
         parser.error("Query IDs must belong to the selected suite")
@@ -481,6 +487,7 @@ def main():
         "timing_scope": "query construction, optimization, parquet read, execution, result collection; excludes session/table setup and plan serialization",
         "pid": os.getpid(),
         "polars_execution_engine": {"polars": "streaming", "polars_gpu": "gpu"}.get(args.engine),
+        **({"synthetic_smoke": True} if args.synthetic_smoke else {}),   # generated data, no study query: never a study result
         "records": [],
         "query_errors": [],
         "query_cleanup_policy": args.query_cleanup,
@@ -701,7 +708,7 @@ def main():
         if args.engine == "polars_gpu":
             record["gpu_engine_warnings"] = sorted(
                 {f"{w.category.__name__}: {str(w.message)[:300]}" for w in caught})[:10]
-        gpu_plan_missing = args.engine == "spark_gpu" and args.suite == "baseline" and not (
+        gpu_plan_missing = args.engine == "spark_gpu" and args.suite in ("baseline", "smoke") and not (
             any("Scan" in op for op in gpu_operators)
             and any("Aggregate" in op for op in gpu_operators)
         )
