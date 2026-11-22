@@ -187,7 +187,7 @@ def everything_the_operator_sees(done):
 
 def test_a_launch_shows_the_operator_the_verdict_and_no_time_while_the_logs_are_archived_whole(blind):
     world = blind.world
-    ctl(world, "sleep", "2")                                  # keep the round running long enough for several progress lines
+    ctl(world, "await-polls", "3")                            # the round stays running until the driver has polled three times: progress lines, with no clock involved
     done = blind(write_record(world), "--no-teardown")
     assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-2000:]
     seen = everything_the_operator_sees(done)
@@ -216,7 +216,7 @@ def test_a_failed_bringup_shows_the_fail_lines_without_their_times_and_holds_the
 
 def test_the_driver_forces_the_quiet_log_even_when_the_environment_says_otherwise(blind):
     world = blind.world
-    ctl(world, "sleep", "2")
+    ctl(world, "await-polls", "3")
     done = blind(write_record(world), "--no-teardown", P3_QUIET_LOG="0")
     assert done.returncode == 0 and "last log line:" not in everything_the_operator_sees(done)
     assert not any(s in everything_the_operator_sees(done) for s in SECRETS)
@@ -287,12 +287,12 @@ def test_a_failed_round_lists_its_log_and_the_logs_of_stages_that_succeeded_stay
 
 def test_a_stage_that_is_only_slow_is_not_a_failure_and_a_clean_launch_lists_nothing(blind):
     world = blind.world
-    ctl(world, "sleep", "5")
+    ctl(world, "gate", "1")                                   # the round cannot finish until it is released
     record = write_record(world)
     slow = blind(record, P3_ROUND_TIMEOUT=1)
     assert slow.returncode == 20 and "still running after its poll budget" in slow.log
     assert not (slow.dest / ".held-logs").exists() and opened(world, record, "campaign-r1-a1.log", dest=slow.dest).returncode == 2
-    ctl(world, "sleep", "0")
+    ctl(world, "release", "1")
     ok = blind(record, "--no-teardown", P3_ROUND_TIMEOUT=60)
     assert ok.returncode == 0 and not (ok.dest / ".held-logs").exists()
     assert opened(world, record, "bringup-a1.log", dest=ok.dest).returncode == 2

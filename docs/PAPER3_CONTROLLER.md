@@ -122,8 +122,8 @@ guarded grant into an unguarded one. If A is chosen, the canary is mandatory: cr
 
 ### 4.2 Option B in detail: what STOP buys and costs
 
-`P3_GCP_TERMINATION_ACTION=STOP` makes the planner's create command carry `--instance-termination-action=STOP`; `p3_launch.sh` arms the Mac
-watchdog in **stop mode** (it must never delete what the provider keeps) and records `termination_action` in the launch record. At the lease the
+The planner's create command carries `--instance-termination-action=STOP` **by default** (the lead's decision of 2026-11-22; `P3_GCP_TERMINATION_ACTION=DELETE` is the
+fallback if a metal host rejects STOP); `p3_launch.sh` arms the Mac watchdog in **stop mode** (it must never delete what the provider keeps) and records `termination_action` in the launch record. At the lease the
 host stops, compute stops billing, the boot disk (which holds the data, `--boot-disk-size=800GB`) stays.
 
 | Item | Cost (list prices in `docs/paper3-evidence/prices-20261111/`) |
@@ -162,7 +162,7 @@ firing; the Mac watchdog in stop mode is the second layer).
  ------------------------------              ------------------------------------         --------------------
  p3_ctl.sh status|logs|pull|start|stop  -->  IAP tunnel, OS Login  -->  p3-controller-...  --> 1x H100, A100, GH200, B200 (each its own
  GCP launches: p3_launch.sh c-gcp|c-vm       (VPC p3-controller-net,    no service account    lease name, no provider limit)
-   P3_GCP_TERMINATION_ACTION=STOP            ingress: IAP range only)   systemd:
+   (default: STOP at the lease)              ingress: IAP range only)   systemd:
  p3_driver.sh for them (caffeinate)                                       p3-driver@<lease>  per launch
  gcloud compute ssh -> campaign hosts                                     p3-reaper.timer    every 5 min
  round data and ledger: pulled/verified                                   ~p3ops/: key, ledger, repo @ CAMPAIGN
@@ -181,13 +181,8 @@ firing; the Mac watchdog in stop mode is the second layer).
 
 ### 5.3 The GCP launches from the Mac
 
-Unchanged from the runbook except for one environment variable of `p3_launch.sh` (a dry run prints the exact `gcloud` command):
-
-```bash
-export P3_GCP_TERMINATION_ACTION=STOP
-```
-
-What every C-GCP and C-VM create command now carries, with no variable (the generated block of the runbook's section 4 shows it): **`--no-service-account --no-scopes`**
+The runbook's section 4, with no variable to set (a dry run prints the exact `gcloud` command). What every C-GCP and C-VM create command now carries (the generated block of the runbook's section 4
+shows it): **`--instance-termination-action=STOP`**, **`--no-service-account --no-scopes`**
 and **`--metadata=block-project-ssh-keys=TRUE`**. The launch record gains `access` (`service_account: null`, `block_project_ssh_keys: true`, `os_login`) so the
 host's identity settings are evidence. Access to the host is then the key `gcloud compute ssh` writes into the instance's own metadata (the guest agent applies it within
 a minute; the driver's ssh-ready loop waits up to 15 minutes); `P3_GCP_OS_LOGIN=1` adds `enable-oslogin=TRUE` instead (**untested on a `c3-highmem-192-metal`**; the metadata-key path is
@@ -323,13 +318,22 @@ The Mac-side reaper pass is report-only on purpose: a lease extended on the cont
 **8.3 After each finished launch.**
 ```bash
 tools/paper3_campaign/p3_ctl.sh pull h100 1            # copies rerun/paper3/h100/launch1 to this repository's rerun/ and checks LAUNCH-SHA256SUMS
+tools/paper3_campaign/p3_ctl.sh pull h100 1 --partial  # while it still runs: the packs the driver has copied so far, each checked against its MANIFEST-*.sha256
 tools/paper3_campaign/p3_ctl.sh ledger                 # the controller's launch records and ledger.jsonl into ~/p3ledger-controller (P-BILLED inputs; they hold hosts' addresses)
 tools/paper3_campaign/p3_ctl.sh snapshots              # the price snapshots taken on the controller (design 2.6)
 ```
-`pull` refuses a launch without its `LAUNCH-SHA256SUMS` (the driver writes it last), never trusts a manifest from an earlier copy, and does not delete anything on the controller.
+`pull` refuses a launch without its `LAUNCH-SHA256SUMS` (the driver writes it last) unless `--partial` is given, never trusts a manifest from an earlier copy, and does not delete anything on the controller.
 
-**8.4 The second copy** (the runbook's section 3 item 6). From the Mac, with the author's own credentials (no key on the controller): `gcloud storage rsync --recursive rerun/paper3 gs://siriusmedai-gpu-benchmark-archive/gpu-spark-polars-study/paper3-campaign/` writes only under a new prefix of the existing private bucket
-(Nearline, soft delete 7 days). This is **outward-facing**: the author approves it first, and the blinding rule applies (copy, do not open).
+**8.4 The second copy** (the runbook's section 3 item 6; the lead decided on 2026-11-22 that launches also go to the bucket Paper 1's results are in, as Paper 1 did). From the Mac, with the
+author's own credentials (no key on the controller or on any host):
+```bash
+tools/paper3_campaign/p3_archive.sh h100 1             # dry run: what would go where, and what it was verified against
+tools/paper3_campaign/p3_archive.sh h100 1 --yes       # uploads to gs://siriusmedai-gpu-benchmark-archive/gpu-spark-polars-study/paper3-campaign/h100/launch1/ and checks the bucket
+```
+It checks the files on disk against `LAUNCH-SHA256SUMS` (or, for a running launch pulled with `--partial`, against the pack manifests, so each round can be archived as it lands), writes only under
+a `paper3-campaign/` prefix (any other `P3_ARCHIVE_URL` is refused; nothing is ever removed from the bucket), and fails unless the bucket holds the same object count and bytes. The bucket is
+Nearline with a 7-day soft delete. This is **outward-facing**: the author's approval of the first `--yes`, and the blinding rule applies (copy, do not open). **Unverified:** the real `gcloud storage ls --long`
+output format the verification reads (the test uses a fake), and `gcloud storage rsync` against this bucket.
 
 ## 9. When something fails
 
@@ -375,12 +379,13 @@ All of it is opt-in or new; with nothing set, every existing command, every gene
 | `tools/paper3_campaign/controller/p3-driver@.service`, `p3-reaper.service`, `p3-reaper.timer` | new: the systemd units |
 | `tools/paper3_campaign/p3_bringup_view.py` | new: the operator-facing view of a bring-up log, by allow-list: step results, `[FAIL]` lines with times redacted, the preflight `VERDICT` (design 7.3) |
 | `tools/paper3_campaign/p3_driver.sh` | forces `P3_QUIET_LOG=1` and shows the bring-up log only through `p3_bringup_view.py`; the full logs are copied and archived unread; a stage that fails and holds the driver lists its log in `.held-logs` |
+| `tools/paper3_campaign/p3_archive.sh` | new: the second copy of a launch to the bucket, under `paper3-campaign/` only, verified against the manifests before and by count and bytes after |
 | `tools/paper3_campaign/p3_open_log.sh` | new: the one sanctioned way to read an archived log, only a held (failed) stage's, each opening written to `log-openings.log` and the ledger (the documented design 7.3 exception) |
 | `tools/paper3_probes/p3_stage_lib.sh` | opt-in `P3_QUIET_LOG`: the progress line says the last log line is withheld instead of echoing it; unset (the probe drivers) it behaves as before |
 | `tests/test_paper3_runbook_blinding.py` | new: 39 tests (the view's allow-list and redactions, a `[PASS]` line with a time never reaching the operator, the stage library's default and quiet progress line, the driver end to end on the fake host with timing lines in the bring-up and round logs, checked by mutation; the held-log path: only a failed stage's log opens, every opening is recorded, path tricks are refused) |
-| `tests/test_paper3_controller.py` | new: 55 tests (planner knobs and the guard rails, launcher pass-through, watchdog stop mode, the reaper including extended leases, failed listings and failed terminations, the Mac helper's refusals and its checksum check, the units against the driver's real exit codes, the bootstrap dry run, and this document's file names, knobs and `gcloud` targets) |
+| `tests/test_paper3_controller.py` | new: 76 tests (planner knobs and the guard rails, launcher pass-through, watchdog stop mode, the reaper including extended leases, failed listings and failed terminations, the Mac helper's refusals and its checksum check, the units against the driver's real exit codes, the bootstrap dry run, and this document's file names, knobs and `gcloud` targets) |
 
-Checked: the 55 + 39 new tests pass, and so do the 127 existing runbook and ops tests (`tests/test_paper3_runbook.py`, `tests/test_paper3_runbook_ops.py`) and the 44 probe-driver and watchdog tests; the units pass `systemd-analyze verify`; in an
+Checked: the 76 + 39 new tests pass, and so do the 127 existing runbook and ops tests (`tests/test_paper3_runbook.py`, `tests/test_paper3_runbook_ops.py`) and the 44 probe-driver and watchdog tests; the units pass `systemd-analyze verify`; in an
 Ubuntu 24.04 container (arm64) the bootstrap ran twice with identical results, built the layout and modes of section 6, moved the checkout between two commits, and
 refused a checkout with local changes; under a **real systemd 255** in that container the reaper timer was enabled by the script, the reaper service ran as `p3ops` and requested the
 termination of a long-expired fake instance, a stub driver was restarted after a crash with its options from `/etc/p3/driver-<lease>.env`, was **not** restarted after
@@ -391,10 +396,10 @@ metal host; OS Login on a metal host; the controller against the Lambda API; the
 
 1. **Option B, or A.** B is recommended; A adds the GCP drivers to the controller and the risks of 4.1.
 2. **Where the controller lives.** In `siriusmedai` every project administrator can read the Lambda key off it; a separate project (section 13) avoids that, bills to the billing account the author already sees, and makes the teardown one command.
-3. **STOP on the campaign hosts** (`P3_GCP_TERMINATION_ACTION=STOP`): accept the disk cost of 4.2 ($2 to $5 per stopped host-day until copied and deleted) for the data of a Mac outage.
+3. **STOP on the campaign hosts** is decided (the lead, 2026-11-22: the default); the disk cost of 4.2 ($2 to $5 per stopped host-day until copied and deleted) is the price of the data of a Mac outage.
 4. **The hardening of the GCP campaign hosts** (`--no-service-account --no-scopes`, `block-project-ssh-keys=TRUE`) is now the planner's default and appears in the runbook's generated block; it changes how the host is created, not anything measured. `P3_GCP_OS_LOGIN=1` is optional and untested on metal.
 5. **The runbook's "Extending a lease" for GCP** (section 9 there): Google's documentation says the limit of a running VM cannot be changed without stopping it. Until that is tried on a metal host, size the lease (the planner's `lease_h`) rather than count on extending it.
-6. **The writes to `gs://siriusmedai-gpu-benchmark-archive`** (8.4) and the Lambda dashboard steps (7.4, 10.3).
+6. **The first write to `gs://siriusmedai-gpu-benchmark-archive`** (8.4; decided in principle by the lead) and the Lambda dashboard steps (7.4, 10.3).
 
 ## 13. The controller in a separate project
 

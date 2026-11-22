@@ -36,7 +36,7 @@ GCP_NAME = "p3-campaign-cgcp-l1-owner-ejiod-expires-20261118t0300z"
 
 def test_the_defaults_are_the_runbooks_request_and_the_environment_cannot_change_the_generated_blocks(monkeypatch):
     spec = P.launch_spec("c-gcp", "1", "us-east4-c", NOW)
-    assert "--instance-termination-action=DELETE" in spec["command"] and spec["termination_action"] == "DELETE"
+    assert "--instance-termination-action=STOP" in spec["command"] and spec["termination_action"] == "STOP"          # the lead's decision: data-safe by default
     assert spec["command"][-3:] == ["--no-service-account", "--no-scopes", "--metadata=block-project-ssh-keys=TRUE"]      # the hardening is the default, not a knob
     assert spec["access"] == {"service_account": None, "scopes": None, "block_project_ssh_keys": True, "os_login": False}
     assert P.launch_spec("h100", "1", "us-south-2", NOW)["body"]["ssh_key_names"] == ["Key22"]
@@ -46,10 +46,12 @@ def test_the_defaults_are_the_runbooks_request_and_the_environment_cannot_change
     assert P.docs(REPO / "docs" / "PAPER3_RUNBOOK.md", write=False) == []
 
 
-def test_stop_keeps_the_disk_and_is_the_only_other_termination_action():
-    stop = P.launch_spec("c-gcp", "1", "us-east4-c", NOW, termination_action="STOP")
+def test_stop_keeps_the_disk_and_delete_is_the_only_other_termination_action():
+    stop = P.launch_spec("c-gcp", "1", "us-east4-c", NOW)
     assert "--instance-termination-action=STOP" in stop["command"] and "--instance-termination-action=DELETE" not in stop["command"]
     assert stop["termination_action"] == "STOP" and f"--max-run-duration={stop['max_run_duration']}" in stop["command"]
+    fallback = P.launch_spec("c-gcp", "1", "us-east4-c", NOW, termination_action="DELETE")                      # if a metal host rejects STOP
+    assert "--instance-termination-action=DELETE" in fallback["command"] and "--instance-termination-action=STOP" not in fallback["command"]
     with pytest.raises(P.PlanError, match="termination action"):
         P.launch_spec("c-gcp", "1", "us-east4-c", NOW, termination_action="SUSPEND")
 
@@ -94,16 +96,16 @@ def test_the_lambda_ssh_key_name_can_be_the_controllers_own_key():
 
 
 def test_the_command_line_reads_the_knobs_from_the_environment(world):
-    env = {"P3_GCP_TERMINATION_ACTION": "STOP", "P3_GCP_EXTRA_FLAGS": "--tags=p3-campaign --network=p3-campaign-net", "P3_GCP_OS_LOGIN": "1"}
+    env = {"P3_GCP_TERMINATION_ACTION": "DELETE", "P3_GCP_EXTRA_FLAGS": "--tags=p3-campaign --network=p3-campaign-net", "P3_GCP_OS_LOGIN": "1"}
     done = subprocess.run([sys.executable, str(TOOLS / "p3_plan.py"), "launch-spec", "c-gcp", "1", "--place", "us-east4-c", "--now", "2026-11-17T06:00:00Z"],
                           capture_output=True, text=True, env={**world.env, **env})
     assert done.returncode == 0, done.stderr
     command = json.loads(done.stdout)["command"]
-    assert "--instance-termination-action=STOP" in command and command[-2:] == ["--tags=p3-campaign", "--network=p3-campaign-net"]
+    assert "--instance-termination-action=DELETE" in command and command[-2:] == ["--tags=p3-campaign", "--network=p3-campaign-net"]
     assert "--metadata=block-project-ssh-keys=TRUE,enable-oslogin=TRUE" in command and "--no-service-account" in command
     plain = subprocess.run([sys.executable, str(TOOLS / "p3_plan.py"), "launch-spec", "c-gcp", "1", "--place", "us-east4-c", "--now", "2026-11-17T06:00:00Z"],
                            capture_output=True, text=True, env={k: v for k, v in world.env.items() if not k.startswith("P3_GCP_")})
-    assert "--metadata=block-project-ssh-keys=TRUE" in json.loads(plain.stdout)["command"] and "--instance-termination-action=DELETE" in json.loads(plain.stdout)["command"]
+    assert "--metadata=block-project-ssh-keys=TRUE" in json.loads(plain.stdout)["command"] and "--instance-termination-action=STOP" in json.loads(plain.stdout)["command"]
     lam = subprocess.run([sys.executable, str(TOOLS / "p3_plan.py"), "launch-spec", "h100", "1", "--place", "us-south-2", "--now", "2026-11-17T06:00:00Z"],
                          capture_output=True, text=True, env={**world.env, "P3_LAMBDA_SSH_KEY_NAME": "p3-controller-key"})
     assert json.loads(lam.stdout)["body"]["ssh_key_names"] == ["p3-controller-key"]
@@ -117,31 +119,32 @@ def test_the_command_line_reads_the_knobs_from_the_environment(world):
 WATCHDOG_STUB = '#!/bin/bash\necho "$P3_GCP_WATCHDOG_ACTION $*" > "$FAKE_NET/watchdog.args"\nexec sleep 30\n'
 
 
-def test_a_stop_launch_creates_with_stop_and_arms_a_watchdog_that_stops_and_records_it(world):
+def test_the_fallback_to_delete_creates_with_delete_arms_a_watchdog_that_deletes_and_records_it(world):
     watchdog = world.tmp / "gwd.sh"
     watchdog.write_text(WATCHDOG_STUB)
     watchdog.chmod(0o755)
     args = ["c-gcp", "1", "--place", "us-east4-c", "--commit", COMMIT, "--price-snapshot", snapshot(world), "--credit-funded", "no", "--yes"]
-    done = launch(world, *args, P3_GCP_WATCHDOG=watchdog, P3_GCP_TERMINATION_ACTION="STOP",
+    done = launch(world, *args, P3_GCP_WATCHDOG=watchdog, P3_GCP_TERMINATION_ACTION="DELETE",
                   P3_GCP_EXTRA_FLAGS="--tags=p3-campaign", P3_GCP_OS_LOGIN="1")
     assert done.returncode == 0, done.stdout + done.stderr
     record = json.loads(next(world.ledger.glob("p3-campaign-cgcp-l1-*.json")).read_text())
-    assert record["termination_action"] == "STOP" and record["access"] == {"service_account": None, "scopes": None, "block_project_ssh_keys": True, "os_login": True}
+    assert record["termination_action"] == "DELETE" and record["access"] == {"service_account": None, "scopes": None, "block_project_ssh_keys": True, "os_login": True}
     create = (world.net / "gcloud.log").read_text().splitlines()[0]
-    assert "--instance-termination-action=STOP" in create and "--no-service-account --no-scopes" in create and create.endswith("--tags=p3-campaign")
+    assert "--instance-termination-action=DELETE" in create and "--no-service-account --no-scopes" in create and create.endswith("--tags=p3-campaign")
     assert "--metadata=block-project-ssh-keys=TRUE,enable-oslogin=TRUE" in create
-    assert wait_for(world.net / "watchdog.args").read_text().split()[0] == "stop"
+    assert wait_for(world.net / "watchdog.args").read_text().split()[0] == "delete"
     subprocess.run(["kill", str(record["watchdog_pid"])], capture_output=True)
 
 
-def test_a_default_launch_still_deletes_and_a_lambda_launch_can_use_the_controllers_key(world):
+def test_a_default_launch_stops_and_a_lambda_launch_can_use_the_controllers_key(world):
     watchdog = world.tmp / "gwd.sh"
     watchdog.write_text(WATCHDOG_STUB)
     watchdog.chmod(0o755)
     done = launch(world, "c-vm", "1", "--place", "us-east4-a", "--commit", COMMIT, "--price-snapshot", snapshot(world), "--credit-funded", "no", "--yes", P3_GCP_WATCHDOG=watchdog)
     assert done.returncode == 0, done.stdout + done.stderr
     record = json.loads(next(world.ledger.glob("p3-campaign-cvm-l1-*.json")).read_text())
-    assert record["termination_action"] == "DELETE" and wait_for(world.net / "watchdog.args").read_text().split()[0] == "delete"
+    assert record["termination_action"] == "STOP" and wait_for(world.net / "watchdog.args").read_text().split()[0] == "stop"
+    assert "--instance-termination-action=STOP" in (world.net / "gcloud.log").read_text().splitlines()[0]
     assert record["access"] == {"service_account": None, "scopes": None, "block_project_ssh_keys": True, "os_login": False}          # the default hardening is on the record
     assert "--no-service-account --no-scopes --metadata=block-project-ssh-keys=TRUE" in (world.net / "gcloud.log").read_text().splitlines()[0]
     subprocess.run(["kill", str(record["watchdog_pid"])], capture_output=True)
@@ -640,3 +643,168 @@ def test_the_runbook_treats_b200_as_admitted_and_its_command_declares_no_scope_o
         assert stale not in runbook, stale
     block = re.search(r"<!-- p3-gen: command b200 1 -->\n```bash\n(.*?)```", runbook, flags=re.S).group(1)
     assert "--paper3-host b200" in block and "--gpu-energy-scope" not in block                                  # HOSTS["b200"].scope is "board" in paper3_campaign.py
+
+
+@pytest.mark.parametrize("host, launch", [(h, l) for h in P.PLANS for l in ("1", "2") if not (l == "2" and P.PLANS[h].launches == 1)])
+def test_no_campaign_command_declares_a_gpu_energy_scope_the_host_class_takes_it_from_the_host_table(host, launch):
+    assert "--gpu-energy-scope" not in P.campaign_args(host, launch)
+    assert (P.pc.HOSTS[host].scope is None) is False                      # every host class declares one ("none" for the CPU hosts), B200's "board" since amendment A2
+
+
+def test_a_host_class_without_a_declared_scope_is_refused_not_given_a_guess(monkeypatch):
+    import dataclasses
+    monkeypatch.setitem(P.pc.HOSTS, "b200", dataclasses.replace(P.pc.HOSTS["b200"], scope=None))
+    with pytest.raises(P.PlanError, match="declares no GPU energy scope"):
+        P.campaign_args("b200", "1")
+
+
+# ---- the second copy in the bucket and the partial pull ----------------------------------------------------------------------------
+
+FAKE_GCLOUD_BUCKET = r'''#!/usr/bin/env python3
+"""fake gcloud storage: `rsync` copies a tree into $FAKE_BUCKET/<path under gs://bucket/> honouring --exclude; `ls --long` lists it like the real one."""
+import os, re, shutil, sys
+from pathlib import Path
+net, bucket = Path(os.environ["FAKE_NET"]), Path(os.environ["FAKE_BUCKET"])
+with open(net / "bucket.log", "a") as log:
+    log.write(os.environ.get("CLOUDSDK_CORE_PROJECT", "unset") + "|" + " ".join(sys.argv[1:]) + "\n")
+args = sys.argv[1:]
+if args[:2] == ["storage", "rsync"]:
+    if os.environ.get("FAKE_RSYNC_RC"):
+        sys.exit(int(os.environ["FAKE_RSYNC_RC"]))
+    exclude = next((a.split("=", 1)[1] for a in args if a.startswith("--exclude=")), None)
+    src, dst = [a for a in args[2:] if not a.startswith("--")][-2:]
+    target = bucket / dst.split("/", 3)[3]
+    drop = os.environ.get("FAKE_BUCKET_DROP")
+    for path in sorted(Path(src).rglob("*")):
+        rel = path.relative_to(src).as_posix()
+        if path.is_dir() or (exclude and re.search(exclude, rel)) or (drop and rel.endswith(drop)):
+            continue
+        (target / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target / rel)
+    sys.exit(0)
+if args[:2] == ["storage", "ls"]:
+    url = [a for a in args if a.startswith("gs://")][0].removesuffix("/**")
+    root = bucket / url.split("/", 3)[3]
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            print(f"{path.stat().st_size:>12}  2026-11-22T22:00:00Z  gs://{url.split('/')[2]}/{path.relative_to(bucket).as_posix()}")
+    print(f"TOTAL: objects, bytes")
+    sys.exit(0)
+sys.exit("fake gcloud storage: unsupported " + " ".join(args))
+'''
+ARCHIVE_PREFIX = "gs://siriusmedai-gpu-benchmark-archive/gpu-spark-polars-study/paper3-campaign"
+
+
+@pytest.fixture
+def archive(world, tmp_path):
+    (world.bin / "gcloud").write_text(FAKE_GCLOUD_BUCKET)
+    (world.bin / "gcloud").chmod(0o755)
+    bucket = tmp_path / "bucket"
+    bucket.mkdir()
+    world.env.update(FAKE_BUCKET=str(bucket))
+    base = tmp_path / "base"
+    launch_dir = base / "rerun" / "paper3" / "h100" / "launch1"
+    (launch_dir / "rerun" / "paper3-h100-l1" / "round-1").mkdir(parents=True)
+    (launch_dir / ".incoming").mkdir()
+    (launch_dir / "rerun" / "paper3-h100-l1" / "round-1" / "gates.json").write_text('{"verdict": "pass"}\n')
+    (launch_dir / "launch-record.json").write_text("{}\n")
+    (launch_dir / ".incoming" / "round-1.tar.gz").write_text("a duplicate archive that must not be uploaded\n")
+    (launch_dir / ".driver.pid").write_text("123\n")
+    (launch_dir / "driver-20261123T060000Z.log").write_text("driver log\n")
+    world.base, world.launch_dir, world.bucket = base, launch_dir, bucket
+    world.finish = lambda: subprocess.run("shasum -a 256 rerun/paper3-h100-l1/round-1/gates.json launch-record.json > LAUNCH-SHA256SUMS", shell=True, cwd=launch_dir, check=True)
+    world.run = lambda *args, **env: sh(world, TOOLS / "p3_archive.sh", "h100", "1", "--dir", base, *args, **env)
+    return world
+
+
+def bucket_files(world):
+    return sorted(p.relative_to(world.bucket).as_posix() for p in world.bucket.rglob("*") if p.is_file())
+
+
+def test_archive_dry_run_says_what_it_would_do_and_uploads_nothing(archive):
+    archive.finish()
+    done = archive.run()
+    assert done.returncode == 0, done.stderr
+    assert "DRY RUN" in done.stdout and f"{ARCHIVE_PREFIX}/h100/launch1" in done.stdout and "verified against LAUNCH-SHA256SUMS (finished launch)" in done.stdout
+    assert "4 file(s)" in done.stdout                                                   # gates.json, launch-record.json, the sums, the driver log; not .incoming, not .driver.pid
+    assert not (archive.net / "bucket.log").exists() and bucket_files(archive) == []
+
+
+def test_archive_uploads_one_launch_under_the_paper3_prefix_and_verifies_the_bucket(archive):
+    archive.finish()
+    done = archive.run("--yes")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "uploaded and verified: 4 object(s)" in done.stdout
+    assert bucket_files(archive) == ["gpu-spark-polars-study/paper3-campaign/h100/launch1/" + n for n in
+                                     ("LAUNCH-SHA256SUMS", "driver-20261123T060000Z.log", "launch-record.json", "rerun/paper3-h100-l1/round-1/gates.json")]
+    calls = (archive.net / "bucket.log").read_text()
+    assert calls.splitlines()[0].startswith("siriusmedai|storage rsync --recursive --exclude=")
+    assert "--delete" not in calls and "rm" not in calls.replace("--recursive", "")          # nothing is ever removed from the bucket
+    assert set(l.split("|")[0] for l in calls.splitlines()) == {"siriusmedai"}                # the study's project, not the operator's default
+
+
+def test_archive_fails_loudly_when_the_bucket_does_not_hold_what_the_disk_holds(archive):
+    archive.finish()
+    done = archive.run("--yes", FAKE_BUCKET_DROP="gates.json")
+    assert done.returncode == 1 and "NOT verified" in done.stderr and "3 object(s)" in done.stderr
+    failed = archive.run("--yes", FAKE_RSYNC_RC="1")
+    assert failed.returncode == 1 and "the upload failed" in failed.stderr and "uploaded and verified" not in failed.stdout
+
+
+def test_archive_refuses_anything_that_does_not_verify_or_is_not_ours_to_write(archive):
+    archive.finish()
+    for prefix in ("gs://siriusmedai-gpu-benchmark-archive/gpu-spark-polars-study/results", "gs://siriusmedai-gpu-benchmark-archive", "s3://elsewhere/paper3-campaign",
+                   "gs://b/paper3-campaign-evil", "gs://b/x;rm -rf /paper3-campaign"):
+        refused = archive.run("--yes", P3_ARCHIVE_URL=prefix)
+        assert refused.returncode == 2 and "paper3-campaign" in refused.stderr, prefix
+    (archive.launch_dir / "rerun" / "paper3-h100-l1" / "round-1" / "gates.json").write_text('{"verdict": "tampered"}\n')
+    damaged = archive.run("--yes")
+    assert damaged.returncode == 2 and "does not match its LAUNCH-SHA256SUMS" in damaged.stderr
+    for args in (("h100",), ("nope", "1"), ("h100", "3")):
+        assert sh(archive, TOOLS / "p3_archive.sh", *args, "--dir", archive.base).returncode == 2
+    assert not (archive.net / "bucket.log").exists() and bucket_files(archive) == []         # nothing reached the bucket in any refused case
+
+
+def test_archive_of_a_running_launch_needs_verified_packs_and_says_so(archive):
+    none = archive.run("--yes")
+    assert none.returncode == 2 and "has not verified anything there yet" in none.stderr
+    subprocess.run("shasum -a 256 rerun/paper3-h100-l1/round-1/gates.json > MANIFEST-round-1.sha256", shell=True, cwd=archive.launch_dir, check=True)
+    done = archive.run("--yes")
+    assert done.returncode == 0, done.stderr
+    assert "verified against 1 pack manifest(s) (launch still running or not finished)" in done.stdout
+    (archive.launch_dir / "rerun" / "paper3-h100-l1" / "round-1" / "gates.json").write_text("changed after the pack was verified\n")
+    assert archive.run("--yes").returncode == 2
+
+
+def make_running_tar(world, tamper=False, manifest=True, dest="dest"):
+    base = world.tmp / "tarbase"
+    shutil.rmtree(base, ignore_errors=True)
+    launch_dir = base / "paper3" / "h100" / "launch1"
+    (launch_dir / "rerun" / "paper3-h100-l1" / "round-1").mkdir(parents=True)
+    (launch_dir / "rerun" / "paper3-h100-l1" / "round-1" / "gates.json").write_text('{"verdict": "pass"}\n')
+    if manifest:
+        subprocess.run("shasum -a 256 rerun/paper3-h100-l1/round-1/gates.json > MANIFEST-round-1.sha256", shell=True, cwd=launch_dir, check=True)
+    if tamper:
+        (launch_dir / "rerun" / "paper3-h100-l1" / "round-1" / "gates.json").write_text('{"verdict": "tampered"}\n')
+    subprocess.run(["tar", "-cf", str(world.net / "launch.tar"), "-C", str(base), "paper3"], check=True)
+    return world.tmp / dest
+
+
+def test_a_partial_pull_takes_the_packs_copied_so_far_and_checks_each_manifest(ctl):
+    dest = make_running_tar(ctl)
+    refused = ctl.run("pull", "h100", "1", dest)
+    assert refused.returncode == 2 and "has not finished" in refused.stderr and "--partial" in refused.stderr
+    done = ctl.run("pull", "h100", "1", dest, "--partial")
+    assert done.returncode == 0, done.stderr
+    assert "verified (partial): every file of the 1 pack(s)" in done.stdout and "the launch is not finished" in done.stdout
+    assert (dest / "rerun" / "paper3" / "h100" / "launch1" / "MANIFEST-round-1.sha256").exists()
+    command = (ctl.net / "ctl.commands").read_text().splitlines()[-1]
+    assert command.endswith("; [ $? -le 1 ]") and "--exclude=.incoming" in command                      # a log that grows while it is read is accepted, a real tar failure is not
+    assert "; [ $? -le 1 ]" not in (ctl.net / "ctl.commands").read_text().splitlines()[0]               # the full pull above does not accept it
+
+
+def test_a_partial_pull_fails_on_a_damaged_pack_and_on_a_launch_without_any(ctl):
+    damaged = ctl.run("pull", "h100", "1", make_running_tar(ctl, tamper=True), "--partial")
+    assert damaged.returncode == 1 and "differs from MANIFEST-round-1.sha256" in damaged.stderr and "verified" not in damaged.stdout
+    empty = ctl.run("pull", "h100", "1", make_running_tar(ctl, manifest=False, dest="dest2"), "--partial")
+    assert empty.returncode == 2 and "has not copied and verified a pack" in empty.stderr

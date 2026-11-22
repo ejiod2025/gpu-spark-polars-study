@@ -9,7 +9,7 @@ the runbook, the launcher, the driver and the tests cannot drift apart. The shel
   p3_plan.py timeline [--json]                        the recommended order and overlap of the launches
   p3_plan.py lease HOST LAUNCH [--now ISO]            lease name, expiry and provider-side limit of one launch
   p3_plan.py launch-spec HOST LAUNCH --place P        the launch request (Lambda API body or gcloud command) as JSON; the environment may set
-                                                      P3_LAMBDA_SSH_KEY_NAME, P3_GCP_TERMINATION_ACTION (DELETE|STOP), P3_GCP_OS_LOGIN (1),
+                                                      P3_LAMBDA_SSH_KEY_NAME, P3_GCP_TERMINATION_ACTION (STOP|DELETE), P3_GCP_OS_LOGIN (1),
                                                       P3_GCP_EXTRA_FLAGS (docs/PAPER3_CONTROLLER.md)
   p3_plan.py command HOST LAUNCH [--stop-after K]     the run_campaign.py command line of one launch (--record FILE for real values)
   p3_plan.py bringup HOST LAUNCH --record FILE        the on-host bring-up script (checkout, lease, setup, inputs, preflight)
@@ -50,7 +50,8 @@ LAMBDA_API = "https://cloud.lambdalabs.com/api/v1"
 LAMBDA_PRICE_URL = f"{LAMBDA_API}/instance-types"
 GCP_PRICE_URL = "https://cloud.google.com/products/compute/pricing/general-purpose"
 LAMBDA_SSH_KEY_NAME = "Key22"        # the key lambda.sh launches with; the private half is ~/.ssh/lambda_key22
-TERMINATION_ACTIONS = ("DELETE", "STOP")   # --instance-termination-action at --max-run-duration: STOP keeps the disk (and the round data) when the operator is gone
+TERMINATION_ACTIONS = ("STOP", "DELETE")   # --instance-termination-action at --max-run-duration. STOP (the default, the lead's decision 2026-11-22) keeps the disk and the round data when the
+                                           # operator is gone; DELETE is the fallback if a metal host rejects STOP (P3_GCP_TERMINATION_ACTION=DELETE)
 # flags the planner sets itself: an operator-supplied extra flag may not repeat or override them (the lease, labels and limits are the guard rails)
 GCP_OWN_FLAGS = ("--zone", "--machine-type", "--image-family", "--image-project", "--image", "--boot-disk-size", "--boot-disk-type",
                  "--boot-disk-provisioned-iops", "--boot-disk-provisioned-throughput", "--maintenance-policy", "--max-run-duration",
@@ -247,7 +248,7 @@ def check_extra_flags(flags) -> list:
 
 
 def launch_spec(host: str, launch: str, place: str, now: datetime, *, instance_type: str | None = None,
-                termination_action: str = "DELETE", extra_flags=(), ssh_key_name: str = LAMBDA_SSH_KEY_NAME, os_login: bool = False) -> dict:
+                termination_action: str = "STOP", extra_flags=(), ssh_key_name: str = LAMBDA_SSH_KEY_NAME, os_login: bool = False) -> dict:
     """The request of one launch. The keyword options default to the runbook's values (so the generated blocks never depend on the
     environment); the command line reads P3_LAMBDA_SSH_KEY_NAME, P3_GCP_TERMINATION_ACTION, P3_GCP_OS_LOGIN and P3_GCP_EXTRA_FLAGS into them."""
     plan = check_launch(host, launch)
@@ -345,9 +346,8 @@ def campaign_args(host: str, launch: str, record: dict | None = None, stop_after
             "--cost-launch-utc", ctx["launch_utc"], "--cost-credit-funded", ctx["credit_funded"]]
     if spec.pinned:
         args += ["--cpu-list", C_GCP_PIN]
-    if spec.scope is None:       # B200: no scope is fixed by the host class; the semantics step declares it (design 3.1: board, S1-counter)
-        entry = json.loads((REPO / "paper3_hosts.json").read_text())["hosts"][host]
-        args += ["--gpu-energy-scope", (entry.get("gpu_counter") or {}).get("scope") or "board"]
+    if spec.scope is None:       # B200 had none until amendment A2 declared it (board) in paper3_campaign.HOSTS; no host is without one now, and none is invented here
+        raise PlanError(f"host {host} declares no GPU energy scope in paper3_campaign.HOSTS: the campaign command takes it from the host class, so it must be declared there")
     if stop_after is not None:
         args += ["--stop-after-round", stop_after]
     return args
@@ -659,7 +659,7 @@ def main(argv=None) -> int:
                 parser.error("launch-spec needs --place (a Lambda region or a GCP zone)")
             env = os.environ
             print(json.dumps(launch_spec(args.host, args.launch, args.place, utc(args.now), instance_type=args.type,
-                                         termination_action=env.get("P3_GCP_TERMINATION_ACTION") or "DELETE",
+                                         termination_action=env.get("P3_GCP_TERMINATION_ACTION") or "STOP",
                                          extra_flags=shlex.split(env.get("P3_GCP_EXTRA_FLAGS", "")),
                                          ssh_key_name=env.get("P3_LAMBDA_SSH_KEY_NAME") or LAMBDA_SSH_KEY_NAME,
                                          os_login=env.get("P3_GCP_OS_LOGIN", "") not in ("", "0")), indent=2))

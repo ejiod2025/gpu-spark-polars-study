@@ -4,8 +4,11 @@
 #   status                 every open launch of the controller (stages and the QA view), the p3-* units, and a report-only reaper pass
 #   logs [N]               the last N (default 60) journal lines of the controller's drivers and reaper
 #   ssh [COMMAND...]       a shell on the controller as the OS Login user, or one command; `sudo -u p3ops -H -i` becomes the campaign user
-#   pull HOST LAUNCH [DIR] copy rerun/paper3/HOST/launchN from the controller into DIR/rerun/paper3/... (default: this repository) and check
-#                          it against its LAUNCH-SHA256SUMS; read-only on the controller, nothing is deleted there
+#   pull HOST LAUNCH [DIR] [--partial]
+#                          copy rerun/paper3/HOST/launchN from the controller into DIR/rerun/paper3/... (default: this repository) and check
+#                          it against its LAUNCH-SHA256SUMS; --partial is for a launch that is still running: it needs no LAUNCH-SHA256SUMS and
+#                          checks every MANIFEST-*.sha256 the driver has written for the packs it copied (a round at a time). Read-only on the
+#                          controller, nothing is deleted there. Then p3_archive.sh puts the copy in the bucket
 #   ledger [DIR]           copy the controller's launch records and ledger.jsonl into DIR (default ~/p3ledger-controller), the P-BILLED inputs
 #   snapshots [DIR]        copy the price snapshots taken on the controller (rerun/paper3/snapshots) into DIR/rerun/paper3 (default: this repository)
 #   open-log LEASE LOGNAME [N]   the one sanctioned way to read an archived log: only a stage that failed and held its driver, every opening logged
@@ -54,17 +57,30 @@ case "$CMD" in
     if [ $# -eq 0 ]; then "${GSSH[@]}"; else remote "$*"; fi
     ;;
   pull)
-    [ $# -ge 2 ] || die "usage: pull HOST LAUNCH [DIR]"
-    host=$1 launch=$2 dir=${3:-$REPO}
+    partial=0 args=()
+    for a in "$@"; do if [ "$a" = --partial ]; then partial=1; else args+=("$a"); fi; done
+    [ ${#args[@]} -ge 2 ] || die "usage: pull HOST LAUNCH [DIR] [--partial]"
+    host=${args[0]} launch=${args[1]} dir=${args[2]:-$REPO}
     [[ "$host" =~ ^(a100|h100|gh200|b200|c-gcp|c-vm)$ ]] && [[ "$launch" =~ ^[12]$ ]] || die "pull: HOST is a100 h100 gh200 b200 c-gcp c-vm, LAUNCH is 1 or 2"
     mkdir -p "$dir/rerun" || die "cannot create $dir/rerun"
     rm -f "$dir/rerun/paper3/$host/launch$launch/LAUNCH-SHA256SUMS"      # only the manifest that arrives now may vouch for what arrives now
-    # stream a tar of the launch directory (without the duplicate archives of .incoming) over the IAP ssh channel
-    remote "sudo tar -C /home/p3ops/study/rerun --exclude=.incoming -cf - paper3/$host/launch$launch" | tar -xf - -C "$dir/rerun" || die "the copy failed (nothing on the controller was changed; run it again)"
-    cd "$dir/rerun/paper3/$host/launch$launch" 2>/dev/null || die "nothing arrived for $host launch $launch (has the driver finished it?)"
-    [ -f LAUNCH-SHA256SUMS ] || die "arrived without LAUNCH-SHA256SUMS: the launch has not finished (the driver writes it last); the copy is partial"
-    shasum -a 256 -c LAUNCH-SHA256SUMS > /dev/null && echo "verified: every file of $host launch $launch matches LAUNCH-SHA256SUMS" \
-      || { echo "p3_ctl.sh: a file of $host launch $launch differs from LAUNCH-SHA256SUMS (the copy is damaged: run pull again)" >&2; exit 1; }
+    # stream a tar of the launch directory (without the duplicate archives of .incoming) over the IAP ssh channel; a running launch may change a log
+    # while it is read, which tar reports with status 1 and which --partial accepts (status 2 and above never)
+    tail_check=""; [ "$partial" = 1 ] && tail_check='; [ $? -le 1 ]'
+    remote "sudo tar -C /home/p3ops/study/rerun --exclude=.incoming -cf - paper3/$host/launch$launch$tail_check" | tar -xf - -C "$dir/rerun" || die "the copy failed (nothing on the controller was changed; run it again)"
+    cd "$dir/rerun/paper3/$host/launch$launch" 2>/dev/null || die "nothing arrived for $host launch $launch (has the driver started it?)"
+    if [ "$partial" = 1 ]; then
+      manifests=$(ls MANIFEST-*.sha256 2>/dev/null)
+      [ -n "$manifests" ] || die "no MANIFEST-*.sha256 arrived: the driver has not copied and verified a pack of this launch yet"
+      for m in $manifests; do
+        shasum -a 256 -c "$m" > /dev/null 2>&1 || { echo "p3_ctl.sh: a file differs from $m (the launch changed while it was read, or the copy is damaged: run pull --partial again)" >&2; exit 1; }
+      done
+      echo "verified (partial): every file of the $(echo "$manifests" | wc -l | tr -d ' ') pack(s) of $host launch $launch that the driver has copied matches its manifest; the launch is not finished"
+    else
+      [ -f LAUNCH-SHA256SUMS ] || die "arrived without LAUNCH-SHA256SUMS: the launch has not finished (the driver writes it last); use --partial to take the packs copied so far"
+      shasum -a 256 -c LAUNCH-SHA256SUMS > /dev/null && echo "verified: every file of $host launch $launch matches LAUNCH-SHA256SUMS" \
+        || { echo "p3_ctl.sh: a file of $host launch $launch differs from LAUNCH-SHA256SUMS (the copy is damaged: run pull again)" >&2; exit 1; }
+    fi
     ;;
   ledger)
     dir=${1:-$HOME/p3ledger-controller}

@@ -157,7 +157,7 @@ def test_gcp_requests_have_the_provider_side_limit_the_labels_and_the_fixed_disk
     spec = P.launch_spec("c-gcp", "1", "us-east4-c", NOW)
     command = spec["command"]
     assert command[:4] == ["gcloud", "compute", "instances", "create"] and command[4] == spec["lease_name"]
-    assert "--instance-termination-action=DELETE" in command and "--maintenance-policy=TERMINATE" in command
+    assert "--instance-termination-action=STOP" in command and "--maintenance-policy=TERMINATE" in command
     assert f"--max-run-duration={spec['max_run_duration']}" in command and spec["max_run_duration"] == "21h"
     assert "--machine-type=c3-highmem-192-metal" in command and "--boot-disk-type=hyperdisk-balanced" in command
     assert "--boot-disk-size=800GB" in command and "--boot-disk-provisioned-iops=16000" in command and "--boot-disk-provisioned-throughput=1000" in command

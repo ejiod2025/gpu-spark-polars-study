@@ -135,8 +135,12 @@ Everything in this section is done once, by a person, and none of it needs a clo
    host runs, the host bills until it wakes. The always-on controller for the Lambda drivers that this risk calls for is specified in `docs/PAPER3_CONTROLLER.md` (a small VM with no GCP identity, a systemd driver per launch, a stateless lease reaper); until it exists the Mac must stay awake.
 5. **Disk on this machine:** the size of a round is not known until the pathfinder's round 1 is copied. Then check `du -sh` and that 8 rounds
    of 4 Lambda hosts, 8 of C-GCP and 2 of C-VM, plus the second copy below, fit.
-6. **A second copy** of every launch directory (`rerun/paper3/<host>/launch<N>/`) on another disk or bucket after the launch, using its
-   `LAUNCH-SHA256SUMS`. `rerun/` is not in git.
+6. **A second copy** of every launch directory (`rerun/paper3/<host>/launch<N>/`): the bucket Paper 1's results are in,
+   `gs://siriusmedai-gpu-benchmark-archive/gpu-spark-polars-study/paper3-campaign/<host>/launch<N>/` (decided by the lead 2026-11-22), written by
+   `tools/paper3_campaign/p3_archive.sh HOST N` (dry run, then `--yes`) with the operator's own credentials: it first checks the files against
+   `LAUNCH-SHA256SUMS` (or, while the launch runs, against the `MANIFEST-*.sha256` of the packs the driver has copied, so each round can be archived as it lands),
+   uploads under that one prefix with `gcloud storage rsync` (never `--delete-unmatched-destination-objects`; any other prefix is refused), and fails unless the bucket
+   holds the same object count and bytes. Lambda launches live on the controller first: `p3_ctl.sh pull HOST N [--partial]`, then archive. `rerun/` is not in git.
 7. **The author's answers** (section 12): whether GCP is credit-funded (`--cost-credit-funded` has no default there); the policy for a launch
    that stops by rule or is lost.
 8. **The ledger:** `~/p3ledger/` (outside the repository) holds one JSON record per lease and `ledger.jsonl`, one line per launch and
@@ -214,7 +218,7 @@ gcloud compute instances create p3-campaign-cgcp-l1-owner-ejiod-expires-20261118
     --boot-disk-provisioned-throughput=1000 \
     --maintenance-policy=TERMINATE \
     --max-run-duration=21h \
-    --instance-termination-action=DELETE \
+    --instance-termination-action=STOP \
     --labels=project=paper3-energy,owner=ejiod,purpose=campaign,host=cgcp,launch=l1,expires=20261118t0300z \
     --no-service-account \
     --no-scopes \
@@ -557,8 +561,11 @@ python run_campaign.py \
   `ubuntu-2404-lts-amd64`; boot disk Hyperdisk Balanced 800 GB with 16,000 IOPS and 1,000 MBps provisioned (the design's ~$0.224/h; whether C3
   metal accepts these values is unverified, and a refusal makes the create fail loudly: the answer is the lead's, not a silent smaller
   disk, because C-GCP and C-VM must have the same storage). No Local SSD exists on C3 metal.
-* **Provider-side limit:** `--max-run-duration` with `--instance-termination-action=DELETE` (the API accepted both on a metal instance; the
-  deletion at expiry itself has not been observed), the label `expires`, and quota `C3_CPUS` 300 per region. The project `siriusmedai` also
+* **Provider-side limit:** `--max-run-duration` with `--instance-termination-action=STOP` (the lead's decision of 2026-11-22: when the operator machine is gone the
+  provider stops the host, compute stops billing and the **disk with the round data stays**; DELETE was what the 2026-11-11 probe verified as accepted on a metal
+  instance, and neither action's firing at expiry has been observed; `P3_GCP_TERMINATION_ACTION=DELETE` is the fallback if the create call rejects STOP on a metal
+  host, and it costs the data), the label `expires`, and quota `C3_CPUS` 300 per region. A stopped metal host costs its Hyperdisk only: $5.37 per day as provisioned
+  (800 GiB, 16,000 IOPS, 1,000 MBps), $2.10 per day after `gcloud compute disks update NAME --zone ZONE --provisioned-iops=3000 --provisioned-throughput=140`. The project `siriusmedai` also
   holds instances that are not ours: every command filters on `labels.project=paper3-energy`.
 * **Setup:** `./setup_h100.sh --cpu-only --enable-rapl-read --install-power-tools` (RAPL is root-only on this host; the flag makes the four
   `energy_uj` files readable for the benchmark user and lowers the CVE-2020-8694 mitigation on a single-tenant host; it is recorded). This
@@ -798,6 +805,7 @@ an amendment made after an aggregate was seen cannot make the changed element co
 | Exit 5 (design refusal: lock, host config unset, wrong label, source drift) | exit 20 | open the stage log with `p3_open_log.sh` (section 8); source drift alone is only recorded as a warning, but restore the checkout from git anyway; never `--accept-design-doc-change` unless the lead reports it | |
 | Exit 4 (the Paper 3 gates cannot be evaluated) | exit 20; the round is **not** counted as failed | fix the host config on the host (it is a configuration error), `--fresh` | |
 | A stage is still running at the end of its poll budget | exit 20 with "nothing was killed" | look with `p3_status.sh`; run the driver again to attach (a started stage is never started twice) | start it by hand |
+| A GCP host reached its `--max-run-duration` (the provider stopped it; the disk is kept) | the polls fail while the provider still lists the host (status `TERMINATED`), so the driver ends with exit 20 after its poll budget; the Mac watchdog finds it stopped and leaves it | `gcloud compute instances describe NAME --zone ZONE --format='value(status)'` says `TERMINATED`; copy what the driver had not (start the host again if the zone has capacity: the limit restarts from zero, so extend the lease name in the record first; or snapshot the disk and mount it on a small VM that takes Hyperdisk), then `p3_teardown.sh RECORD --yes` deletes host and disk | deleting before the rounds are copied (STOP exists to keep them) |
 | Provider no longer lists the host | exit 21; accepted rounds are already copied | check the provider; ledger line; report to the lead (a lost host counts as one square only, design 3.1) | |
 | The Mac slept or was offline | polls fail and are retried without limit while the provider still lists the host; the calls at stage transitions (state, start, copy) retry for about 20 minutes of continuous failure, then the driver holds (exit 20); the log says how long each gap was | nothing, or run the driver again after a long outage (it attaches). If a Lambda host outlived its lease, the watchdog acts at the first wake past its deadline | |
 | A copy or a hash fails | the pack is fetched again (three tries), then exit 20 | check the disk space here and the connection | continue without the verified marker |
@@ -825,7 +833,8 @@ by hand and tell the lead: a longer lease is a longer exposure.
   `jq 'del(.ip, .watchdog_pid)' RECORD > DEST/launch-record.json`.
 * **Confirm independently** after every launch, with the read-only commands of section 4, that the provider shows nothing of ours:
   Lambda `lambda.sh list` empty for our names; GCP `gcloud compute instances list --filter='labels.project=paper3-energy'` empty and
-  `gcloud compute disks list --filter='name~^p3-campaign- AND -users:*'` empty (the boot disk is created with the instance and deleted with it).
+  `gcloud compute disks list --filter='name~^p3-campaign- AND -users:*'` empty (the boot disk is created with the instance and deleted with it; a host the provider
+  stopped keeps its disk, attached to the stopped instance, until `p3_teardown.sh` deletes the instance, which deletes the disk too).
 * **Evidence per launch** (under `rerun/paper3/<host>/launch<N>/`): the campaign root (`rerun/paper3-<host>-l<N>/`), the bring-up reports and
   logs, every stage's log (`bringup-aN.log`, `campaign-rK-aN.log`), `driver-*.log`, `launch-record.json` (with the terminate time), the stage
   scripts (`.stage-scripts/`), `LAUNCH-SHA256SUMS`. The ledger itself stays in `~/p3ledger/`.
@@ -896,6 +905,7 @@ All under `tools/paper3_campaign/`; the shared detach and polling library is `to
 | `p3_gcp_watchdog.sh` | operator | wall-clock backstop that deletes a labelled `p3-` GCP instance (`P3_GCP_WATCHDOG_ACTION=stop`: stops it, keeps the disk) |
 | `p3_driver.sh` | operator | bring-up to teardown of one launch; restartable; options `--dest`, `--config-commit`, `--on-stop terminate|hold`, `--no-teardown`, `--max-resume`, `--fresh`, `--stop-after-bringup` |
 | `p3_status.sh` | operator | a short look: lease, stages, the QA view |
+| `p3_archive.sh` | operator | the second copy of a launch to the bucket, under `paper3-campaign/` only, verified before (manifests) and after (object count and bytes) |
 | `p3_open_log.sh` | operator | opens the archived log of a stage that failed and held the driver, only that, every opening recorded (section 8) |
 | `p3_bringup_view.py` | operator | the allow-list view of a bring-up log the driver shows: step results, `[FAIL]` lines without times, the verdict |
 | `p3_reaper.sh` | controller | stateless Lambda lease reaper: terminates a `p3-` instance more than 30 minutes past the lease in its name (`docs/PAPER3_CONTROLLER.md`) |

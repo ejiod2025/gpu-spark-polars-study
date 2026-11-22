@@ -33,7 +33,31 @@ import p3_plan as P  # noqa: E402
 pytestmark = pytest.mark.skipif(any(shutil.which(t) is None for t in ("bash", "jq", "perl", "shasum", "python3")), reason="bash, jq, perl, shasum and python3 are needed")
 CANARY = "987654.321"
 
+# What both fake transports run on the fake host. A stage START returns only once the stage is visible (running or finished), like a host whose process
+# table answers promptly: without it the driver's "no exit code and nothing running on three consecutive polls" rule can read a stage that is slow to appear as
+# died, which made the interrupted-round test depend on scheduling (FAKE_START_WAIT=0 switches the wait off, to reproduce that). Every completed STATUS poll is
+# counted in polls.log, so a stage can wait for the driver's polls (await-polls) instead of for the clock.
+HOST_RUN = r'''
+run_on_host() {
+  env HOME="$FAKE_HOST_HOME" bash -c "$1"; local rc=$?
+  case "$1" in
+    *' STATUS '*) echo "$1" >> "$FAKE_NET/polls.log" ;;
+    *'p3_detach.sh" START '*)
+      if [ "${FAKE_START_WAIT:-1}" = 1 ]; then
+        local stage; stage=$(printf '%s' "$1" | sed -n 's/.*p3_detach.sh" START \([A-Za-z0-9._-]*\).*/\1/p')
+        for _ in $(seq 1 400); do
+          [ -f "$FAKE_HOST_HOME/p3out/$stage.rc" ] && break
+          HOME="$FAKE_HOST_HOME" pgrep -f "p3_detach.sh RUN $stage( |\$)" >/dev/null 2>&1 && break      # the host's own view of its process table
+          sleep 0.025
+        done
+      fi ;;
+  esac
+  return $rc
+}
+'''
+
 FAKE_SSH = r'''#!/bin/bash
+@HOST_RUN@
 n="$FAKE_NET"
 echo "$(date +%s) ssh" >> "$n/calls.log"
 if [ -f "$n/down_until" ] && [ "$(date +%s)" -lt "$(cat "$n/down_until")" ]; then echo "ssh: connect to host: Connection refused" >&2; exit 255; fi
@@ -41,8 +65,8 @@ if [ -f "$n/fail_calls" ] && [ "$(cat "$n/fail_calls")" -gt 0 ]; then echo $(( $
 while [ $# -gt 0 ]; do case "$1" in -i|-o|-p|-l|-F|-J|-L|-R) shift 2 ;; -*) shift ;; *) break ;; esac; done
 shift
 cmd="$*"
-exec env HOME="$FAKE_HOST_HOME" bash -c "$cmd"
-'''
+run_on_host "$cmd"; exit $?
+'''.replace("@HOST_RUN@", HOST_RUN)
 
 FAKE_SCP = r'''#!/bin/bash
 n="$FAKE_NET"
@@ -66,6 +90,7 @@ fi
 '''
 
 FAKE_GCLOUD = r'''#!/bin/bash
+@HOST_RUN@
 n="$FAKE_NET"
 echo "$*" >> "$n/gcloud.log"
 echo "${CLOUDSDK_CORE_PROJECT:-unset}" >> "$n/gcloud.project"
@@ -85,7 +110,7 @@ if [ "$sub" = ssh ]; then
   echo "$(date +%s) ssh" >> "$n/calls.log"
   cmd=""
   while [ $# -gt 0 ]; do case "$1" in --command) cmd="$2"; shift 2 ;; *) shift ;; esac; done
-  exec env HOME="$FAKE_HOST_HOME" bash -c "$cmd"
+  run_on_host "$cmd"; exit $?
 fi
 echo "$(date +%s) scp" >> "$n/calls.log"
 args=()
@@ -98,7 +123,7 @@ if [[ "$dst" == *:* && "$dst" != /* ]]; then
 else
   for s in "${args[@]}"; do cp -R "$(host_path "$s")" "$dst" || exit 1; done
 fi
-'''
+'''.replace("@HOST_RUN@", HOST_RUN)
 
 FAKE_CURL = r'''#!/bin/bash
 # fake curl for the Lambda API: logs argv, checks that the key arrived through -K (never on argv), answers by path
@@ -303,7 +328,7 @@ def test_a_gcp_launch_needs_the_authors_credit_answer_and_uses_the_labelled_comm
     assert record["boot_disk_actual"] == {"size_gb": 800, "type": "hyperdisk-balanced", "provisioned_iops": "16000", "provisioned_throughput": "1000"}   # what the provider reports
     create = (world.net / "gcloud.log").read_text().splitlines()[0]
     assert create.startswith(f"compute instances create {record['lease_name']} --zone=us-east4-c --machine-type=c3-highmem-192-metal")
-    assert "--max-run-duration=21h" in create and "--instance-termination-action=DELETE" in create and "labels=project=paper3-energy" in create
+    assert "--max-run-duration=21h" in create and "--instance-termination-action=STOP" in create and "labels=project=paper3-energy" in create
     assert wait_for(world.net / "watchdog.args").read_text().split() == [record["lease_name"], "us-east4-c", str(int(record["lease_hours"] * 3600))]
     subprocess.run(["kill", str(record["watchdog_pid"])], capture_output=True)
 
@@ -608,6 +633,17 @@ echo "BRINGUP-OK"; exit $rc
 STAGE_TEMPLATE = r'''#!/usr/bin/env bash
 set -u
 CTL="$HOME/ctl"; ROOT="$HOME/study/@ROOT@"; K=@K@; STOP="@STOP@"
+polls() { wc -l < "$FAKE_NET/polls.log" 2>/dev/null || echo 0; }
+# The round's timing is driven by what the driver does, never by the clock:
+#   outage-calls N   the next N ssh calls fail (an outage that starts with this stage), consumed once
+#   await-polls N    stay running until the driver has completed N status polls since this stage began
+#   gate             stay running until $CTL/release exists
+if [ -f "$CTL/outage-calls" ]; then cp "$CTL/outage-calls" "$FAKE_NET/fail_calls"; rm -f "$CTL/outage-calls"; fi
+if [ -f "$CTL/await-polls" ]; then
+  want=$(cat "$CTL/await-polls"); base=$(polls)
+  for _ in $(seq 1 1200); do [ $(( $(polls) - base )) -ge "$want" ] && break; sleep 0.05; done
+fi
+if [ -f "$CTL/gate" ]; then for _ in $(seq 1 1200); do [ -f "$CTL/release" ] && break; sleep 0.05; done; fi
 [ -f "$CTL/sleep" ] && sleep "$(cat "$CTL/sleep")"
 f="$CTL/rc-round-$K"; rc=0
 if [ -s "$f" ]; then rc=$(head -n 1 "$f"); tail -n +2 "$f" > "$f.new"; mv "$f.new" "$f"; fi
@@ -740,19 +776,13 @@ def test_the_status_view_shows_stages_and_the_qa_view_and_no_study_value(drive):
 
 
 def test_a_network_outage_mid_round_costs_polls_not_the_round(drive):
+    """The outage begins with the round (the next five ssh calls fail) and the round does not end before the driver has polled twice again."""
     world = drive.world
-    ctl(world, "sleep", "4")
-    import threading
-
-    def outage():
-        time.sleep(1.5)
-        (world.net / "down_until").write_text(str(int(time.time()) + 3))
-    thread = threading.Thread(target=outage)
-    thread.start()
-    done = drive(write_record(world), P3_SSH_BOUND=2)
-    thread.join()
+    ctl(world, "outage-calls", "5")
+    ctl(world, "await-polls", "2")
+    done = drive(write_record(world))
     assert done.returncode == 0, done.stdout[-2000:]
-    assert "poll failed" in done.log and "polling works again" in done.log
+    assert done.log.count("poll failed") >= 1 and "polling works again after" in done.log
 
 
 def test_a_corrupted_copy_is_detected_by_the_hash_and_fetched_again(drive):
@@ -789,6 +819,35 @@ def test_an_interrupted_round_is_resumed_and_too_many_interruptions_hold_the_hos
     held = drive(record, "--max-resume", "1")
     assert held.returncode == 20 and "HELD: round 1 was interrupted 2 times" in held.log
     assert "terminate" not in ((world2.net / "lambda.calls").read_text() if (world2.net / "lambda.calls").exists() else "").replace("terminate inst-001", "")
+
+
+PGREP_WITH_LAG = r'''#!/bin/bash
+# a fake host whose process table lags: a stage's wrapper is not shown until FAKE_PGREP_LAG seconds after its .started directory was made
+lag=$(cat "$FAKE_NET/pgrep_lag" 2>/dev/null || echo 0)
+stage=$(printf '%s' "$*" | sed -n 's/.*RUN \([A-Za-z0-9._-]*\).*/\1/p')
+if [ -n "$stage" ] && [ -d "$HOME/p3out/$stage.started" ]; then
+  age=$(perl -e 'print int((time - (stat shift)[9]) * 1000)' "$HOME/p3out/$stage.started")
+  [ "$age" -lt "$(( ${lag%.*} * 1000 + $(printf '%s' "${lag#*.}000" | cut -c1-3) ))" ] && exit 1
+fi
+exec /usr/bin/pgrep "$@"
+'''
+
+
+def test_a_stage_that_is_slow_to_appear_on_the_host_is_never_read_as_died(drive):
+    """A loaded host can take a while to show a detached wrapper in its process table. Here the fake host's `pgrep` shows a stage only 1.5 s after it was
+    started, and the round is slow enough to be caught by that. The fake host's START returns once the stage is visible, so the driver's three-idle-polls rule
+    cannot misfire (the clock only models the lag, it does not decide the outcome). With FAKE_START_WAIT=0 the same run reads the round as died and starts a second one,
+    which is what made the interrupted-round test depend on scheduling."""
+    world = drive.world
+    (world.bin / "pgrep").write_text(PGREP_WITH_LAG)
+    (world.bin / "pgrep").chmod(0o755)
+    (world.net / "pgrep_lag").write_text("1.5")
+    ctl(world, "await-polls", "6")
+    ctl(world, "rc-round-1", "130\n0\n")
+    done = drive(write_record(world), P3_POLL_SECONDS=0.3)
+    assert done.returncode == 0, done.stdout[-2500:]
+    assert "round 1: 130; resuming (attempt 2)" in done.log and "died" not in done.log
+    assert not (world.host / "p3out" / "campaign-r1-a3.rc").exists()
 
 
 @pytest.mark.parametrize("code, fragment", [(4, "gates could not be evaluated"), (5, "design reason"), (6, "lease is not valid"), (9, "ended with exit 9")])
@@ -887,11 +946,12 @@ def test_a_bringup_that_fails_holds_the_host_and_fetches_its_log(drive):
 
 def test_a_stage_still_running_at_the_end_of_its_budget_is_held_not_killed_and_the_next_run_attaches(drive):
     world = drive.world
-    ctl(world, "sleep", "5")
+    ctl(world, "gate", "1")                                   # the round cannot finish until the test releases it: no race with the poll budget
     record = write_record(world)
     first = drive(record, P3_ROUND_TIMEOUT=1)
     assert first.returncode == 20 and "still running after its poll budget" in first.log
-    assert not (world.host / "p3out" / "campaign-r1-a1.rc").exists() or True
+    assert not (world.host / "p3out" / "campaign-r1-a1.rc").exists()
+    ctl(world, "release", "1")
     second = drive(record, P3_ROUND_TIMEOUT=60)
     assert second.returncode == 0, second.stdout[-2000:]
     assert "stage campaign-r1-a1 is already on the host" in second.log
