@@ -10,12 +10,12 @@ The **author** submits and makes every attestation; assistants only prepare this
 | Track | Experiment, Analysis & Benchmark (EA&B) |
 | Title | CPU Dataframes versus GPU Acceleration on a Single Host: A Pre-registered, Randomized Comparison of Polars and Spark on a TPC-H-Derived Workload, Replicated across GPU Generations |
 | Title tag (in the PDF) | [Experiment, Analysis & Benchmark] — already on page 1 |
-| Authors | 1. Daniel Ejiofor, Boston University, Boston, MA, USA, ejiod@bu.edu (corresponding author; submits). 2. Aniefiok Reuben, SiriusMed, Nigeria, Aniefiok@siriusmed.io (added 2026-11-22; must be added in CMT by email and enter his own conflicts). Single-blind: names on page 1. |
+| Author | Daniel Ejiofor, Boston University, Boston, MA, USA, ejiod@bu.edu (single-blind: name on page 1) |
 | PDF | `paper-pvldb/main.pdf` — rebuild with `make -C paper-pvldb final` right before upload; 12 pages + references (refs start p. 11) |
 | Artifact / reproducibility URL | https://github.com/ejiod2025/gpu-spark-polars-study (instructions: `REPRODUCE.md`; raw data DOI 10.5281/zenodo.24125306 — publish the Zenodo record before submitting, or the DOI will not resolve for reviewers) |
 | Keywords | GPU acceleration; dataframes; Polars; Apache Spark; cuDF; RAPIDS; benchmarking methodology; pre-registration; query processing; performance evaluation |
 | Subject areas | choose in CMT; suggested: Experiments & Benchmarks; Query Processing & Optimization; Hardware-aware data management / Modern hardware |
-| Conflicts of interest | AUTHORS (each enters his own): BU advisors, co-authors in the last 2 years, close collaborators, and SiriusMed colleagues |
+| Conflicts of interest | AUTHOR: BU advisors, co-authors in the last 2 years, close collaborators |
 | Reviewer nomination | AUTHOR: PVLDB requires one author as reviewer candidate; with no prior SIGMOD/VLDB/ICDE/EDBT/CIDR papers, nominate yourself as best-qualified. Non-response lowers the yearly submission cap. |
 | Disclosures in the paper | Exploratory pilot (Oct 26–28) and AI-tool use are stated in the paper; TPC-derived disclaimer on page 1 |
 
