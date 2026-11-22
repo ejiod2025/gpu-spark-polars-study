@@ -53,6 +53,16 @@ GPU_IDLE_POLL_SECONDS = 1.0
 PAPER3_ARGUMENTS = ("gpu_energy_scope", "energy_window_s", "session_idle_seconds", "session_idle_settle_seconds",
                     "session_cooldown_seconds", "g8_pulse_seconds", "g8_pulse_engines", "synthetic_smoke")
 G8_PULSE_ENGINES = ("cpu", "all")
+# G8 pulses start from a quiet GPU: before each load pulse the runner waits until utilization.gpu has stayed below G8_QUIET_PERCENT (the
+# gate's own onset threshold, paper3_gates.G8_UTILIZATION_PERCENT) for G8_QUIET_SECONDS in a row, for at most G8_QUIET_BOUND_SECONDS. The
+# gate scores an onset only when the stream shows the second before the pulse as quiet, and the previous session's end pulse, the
+# teardown of a GPU engine or the last query of a session had otherwise just run (the 2026-11-22 H100 smoke test: three start pulses
+# "busy_before"). Paper 3 mode only: the pulses exist only there.
+G8_QUIET_PERCENT = 10.0
+G8_QUIET_SECONDS = 2.0
+G8_QUIET_BOUND_SECONDS = 30.0
+G8_QUIET_POLL_SECONDS = 0.5
+G8_QUIET_UNREADABLE_POLLS = 3      # a GPU whose utilization cannot be read at all is not waited for the whole bound: give up after this many reads
 GPU_STATE_SECTIONS = {"POWER": "gpu_power_state", "PERFORMANCE": "gpu_performance_state"}   # nvidia-smi -q -d <section> -> schedule.json key
 
 # Versions of the Python-level CUDA/RAPIDS stack, probed in a child process so the
@@ -181,17 +191,67 @@ def capture_clock_sync():
     return record
 
 
+def read_gpu_utilization(device=0):
+    """utilization.gpu of one GPU right now, in percent (a short nvidia-smi query), or None when it cannot be read."""
+    result = capture(["nvidia-smi", "-i", str(device), "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"], timeout=10)
+    if result["returncode"] != 0:
+        return None
+    lines = (result["output"] or "").strip().splitlines()
+    try:
+        return float(lines[0].strip().rstrip("%").strip())
+    except (IndexError, ValueError):
+        return None
+
+
+def wait_for_quiet_gpu(device=0, quiet_seconds=G8_QUIET_SECONDS, bound=G8_QUIET_BOUND_SECONDS, poll=G8_QUIET_POLL_SECONDS,
+                       read=read_gpu_utilization, sleep=time.sleep, clock=time.monotonic):
+    """Poll utilization.gpu until it has stayed below G8_QUIET_PERCENT for `quiet_seconds` in a row, for at most `bound` seconds.
+
+    Returns the observation kept in the pulse record; never raises. A reading that cannot be made is never read as quiet and
+    restarts the quiet period; a GPU that cannot be read G8_QUIET_UNREADABLE_POLLS times in a row from the start is given up on
+    (reached False, reason "unreadable") instead of being waited for the whole bound. When the bound passes without the quiet
+    period the pulse runs anyway (reached False) and the gate decides from the stream whether its onset is usable."""
+    started, polls, quiet_since, last, reason = clock(), 0, None, None, None
+    while True:
+        value = read(device)
+        now = clock()
+        polls += 1
+        last = value if value is not None else last
+        if value is not None and value < G8_QUIET_PERCENT:
+            quiet_since = now if quiet_since is None else quiet_since
+            if now - quiet_since >= quiet_seconds:
+                reached = True
+                break
+        else:
+            quiet_since = None
+            if value is None and last is None and polls >= G8_QUIET_UNREADABLE_POLLS:
+                reached, reason = False, "unreadable"
+                break
+        if now - started >= bound:
+            reached, reason = False, "bound"
+            break
+        sleep(poll)
+    record = {"reached": reached, "waited_seconds": round(clock() - started, 3), "polls": polls, "last_utilization_percent": last,
+              "quiet_seconds_required": quiet_seconds, "bound_seconds": bound, "threshold_percent": G8_QUIET_PERCENT}
+    if reason:
+        record["reason"] = reason
+    return record
+
+
 def run_gpu_pulse(label, seconds, device=0):
     """A synthetic GPU load pulse in a child process (gpu_pulse.py), for G8; never fatal.
 
+    The GPU is first waited for until it is quiet (wait_for_quiet_gpu: utilization.gpu below 10% for 2 s in a row, at most 30 s;
+    the observation is kept as quiet_wait), so that the onset the gate looks for is the pulse's and not the tail of earlier work.
     Returns the record kept in schedule.json: the child's own launch and done stamps (UTC and CLOCK_MONOTONIC, around the kernel
     launch and its completion) and the runner's stamps around the whole child. A host that cannot run the pulse is recorded
     with its error, and the gate then has no onset to compare."""
     command = [sys.executable, str(HERE / "gpu_pulse.py"), "--seconds", str(seconds), "--device", str(device), "--label", label]
+    quiet = wait_for_quiet_gpu(device)
     utc, mono = power_telemetry.stamp_open()
     result = capture(command, timeout=seconds + 300)
     end_utc, end_mono = power_telemetry.stamp_close()
-    record = {"label": label, "requested_seconds": seconds, "command": command, "returncode": result["returncode"],
+    record = {"label": label, "requested_seconds": seconds, "command": command, "returncode": result["returncode"], "quiet_wait": quiet,
               "runner_start_utc": utc, "runner_start_monotonic_ns": mono, "runner_end_utc": end_utc, "runner_end_monotonic_ns": end_mono}
     output = result.get("output") or ""
     printed = None

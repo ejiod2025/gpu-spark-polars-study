@@ -559,8 +559,29 @@ def test_g8_reads_a_clock_that_runs_behind_as_a_negative_lag(tmp_path):
     assert one(far.root, host_gates("h100"), "G8", POLARS)["outcome"] == "fail", "the pulses see it too"
 
 
+def test_g8_a_stream_stamped_ahead_fails_through_the_pulses_even_when_every_window_is_busy_before(tmp_path):
+    """Windows follow earlier activity within the second before their start, so an early stream makes every window busy_before; the pulses
+    (the runner waits for a quiet GPU before each) then see the offset as a negative lag and fail the session instead of skipping it."""
+    for skew in (-0.65, -0.9):
+        early = RunBuilder(tmp_path / f"early{skew}", host="h100", engines=("polars_gpu", "polars"), skew=skew, grid_phase=0.0).build()
+        gpu = one(early.root, host_gates("h100"), "G8", GPU)
+        assert gpu["outcome"] == "fail" and gpu["method"] == "pulses" and gpu["windows_skipped"]["busy_before"] == 6, skew
+        assert gpu["median_lag_s"] < -0.4 and any("median onset lag" in p for p in gpu["problems"]), skew
+        assert one(early.root, host_gates("h100"), "G8", POLARS)["outcome"] == "fail", skew
+    report = pg.evaluate_round({"baseline": early.root}, host_gates("h100"), clean_captures())
+    assert report["round_failed"] is False and report["gates"]["G8"]["fail"] == 2 and set(report["ineligible"]) == {GPU, POLARS}
+
+
+def test_g8_an_offset_beyond_the_quiet_range_is_not_scored_and_the_session_is_not_evaluable(tmp_path):
+    """A stream ahead by more than the second the pulse search reaches back puts the onset into the quiet range: busy_before, no lag."""
+    far = RunBuilder(tmp_path / "far", host="h100", engines=("polars_gpu", "polars"), skew=-1.6, grid_phase=0.0).build()
+    for key in (GPU, POLARS):
+        result = one(far.root, host_gates("h100"), "G8", key)
+        assert result["outcome"] == "not_evaluable" and result["pulses_skipped"]["busy_before"] == 2, key
+
+
 def test_g8_fails_on_a_drift_of_the_lag_over_the_session(tmp_path):
-    run = RunBuilder(tmp_path / "run", host="h100", engines=("polars_gpu",), skew=lambda t: 0.006 * (t - T0 - 90.0)).build()   # +-0.3 s across the windows
+    run = RunBuilder(tmp_path / "run", host="h100", engines=("polars_gpu",), skew=lambda t: 0.05 + 0.007 * (t - T0 - 50.0)).build()   # lag grows 0.1 to 0.55 s
     result = one(run.root, host_gates("h100"), "G8", GPU)
     assert result["outcome"] == "fail" and any("drift" in p for p in result["problems"]) and abs(result["drift_s"]) > 0.2
     assert abs(result["median_lag_s"]) < 0.4, "the median alone would have passed: it is the drift that fails"
@@ -603,6 +624,85 @@ def test_g8_skips_windows_that_follow_earlier_activity_and_falls_back_to_the_pul
     assert result["windows_skipped"]["busy_before"] >= 5 and result["outcome"] == "not_evaluable" and result["method"] == "none"
 
 
+def start_pulse_launch(root, engine):
+    item = next(i for i in json.loads((root / "schedule.json").read_text()) if i["engine"] == engine)
+    return pg.epoch(item[pg.G8_PULSES_KEY]["start"]["launch_utc"])
+
+
+def test_g8_a_start_pulse_right_after_the_previous_end_pulse_is_busy_before_and_not_scored(tmp_path):
+    """The 2026-11-22 H100 smoke test: three start pulses were launched while the previous session's end pulse was still in the
+    stream, because the runner did not wait for a quiet GPU. Such a pulse has no onset: no lag is scored, the session is not evaluable.
+    (One session here: the builder's session gaps do not model the runner's wait.)"""
+    run = RunBuilder(tmp_path / "run", host="h100", engines=("polars",)).build()
+    clean = one(run.root, host_gates("h100"), "G8", POLARS)
+    assert clean["outcome"] == "pass" and clean["method"] == "pulses" and clean["usable_onsets"] == 2, "a quiet GPU before the pulse: scored"
+    assert clean["pulses_skipped"] == {"busy_before": 0, "quiet_not_shown": 0, "missed": 0, "no_utilization_column": 0}
+    launch = start_pulse_launch(run.root, "polars")
+    run.busy.append((launch - 2.5, launch - 0.4))                        # the previous end pulse's load reaches back into [launch - 2 s, launch - 1 s)
+    run.write_gpu_csv()
+    result = one(run.root, host_gates("h100"), "G8", POLARS)
+    assert result["outcome"] == "not_evaluable" and result["method"] == "none" and result["pulses"] == 2
+    assert result["pulses_skipped"]["busy_before"] == 1 and "usable_onsets" not in result and "median_lag_s" not in result
+    assert "1 onset(s)" in result["reasons"][0] and "busy_before: 0 window(s), 1 pulse(s)" in result["reasons"][0]
+    report = pg.evaluate_round({"baseline": run.root}, host_gates("h100"), clean_captures())
+    assert report["round_failed"] is False and report["gates"]["G8"]["not_evaluable"] == 1 and report["ineligible"] == {POLARS: ["gpu_csv_enabled"]}
+
+
+def test_g8_load_only_in_the_last_second_before_a_pulse_reads_as_a_clock_ahead_and_fails(tmp_path):
+    """The runner's quiet wait keeps this from happening; without it, load that starts inside the second before the launch is
+    indistinguishable from a stream stamped ahead of the pulse, and is scored as a negative lag (here: a drift of -0.9 s)."""
+    run = RunBuilder(tmp_path / "run", host="h100", engines=("polars",)).build()
+    launch = start_pulse_launch(run.root, "polars")
+    run.busy.append((launch - 0.9, launch - 0.02))
+    run.write_gpu_csv()
+    result = one(run.root, host_gates("h100"), "G8", POLARS)
+    assert result["outcome"] == "fail" and result["usable_onsets"] == 2 and result["pulses_skipped"]["busy_before"] == 0
+    assert any("drift" in p for p in result["problems"])
+
+
+def test_g8_a_pulse_launched_two_seconds_after_the_load_ended_is_scored_and_one_launched_1_3_seconds_after_is_not(tmp_path):
+    run = RunBuilder(tmp_path / "run", host="h100", engines=("polars",)).build()
+    launch = start_pulse_launch(run.root, "polars")
+    run.busy.append((launch - 5.0, launch - 2.3))                        # stamped 0.15 s later: the load is out of the stream 2.15 s before the launch
+    run.write_gpu_csv()
+    result = one(run.root, host_gates("h100"), "G8", POLARS)
+    assert result["outcome"] == "pass" and result["usable_onsets"] == 2 and result["pulses_skipped"]["busy_before"] == 0
+    run.busy.append((launch - 5.0, launch - 1.3))                        # 1.15 s: the load is still in [launch - 2 s, launch - 1 s)
+    run.write_gpu_csv()
+    result = one(run.root, host_gates("h100"), "G8", POLARS)
+    assert result["outcome"] == "not_evaluable" and result["pulses_skipped"]["busy_before"] == 1
+
+
+def test_g8_a_pulse_without_a_sample_in_its_quiet_range_is_not_scored(tmp_path):
+    run = RunBuilder(tmp_path / "run", host="h100", engines=("polars",)).build()
+    launch = start_pulse_launch(run.root, "polars")
+    run.write_gpu_csv(rows=lambda t: not (launch - 2.5 <= t < launch - 1.0))   # nothing shows the GPU quiet in [launch - 2 s, launch - 1 s)
+    result = one(run.root, host_gates("h100"), "G8", POLARS)
+    assert result["outcome"] == "not_evaluable" and result["pulses_skipped"]["quiet_not_shown"] == 1 and result["pulses_skipped"]["busy_before"] == 0
+    assert "quiet_not_shown: 0 window(s), 1 pulse(s)" in result["reasons"][0]
+
+
+def test_g8_a_window_that_follows_a_short_earlier_activity_is_busy_before_not_a_negative_lag(tmp_path):
+    """The 2026-11-22 smoke test, polars_gpu: the first window followed a warm-up run by 0.14 s and was scored as a lag of -0.144 s,
+    which made the drift fail (-0.462 s). A window's quiet range is the second before its start, so that window has no onset."""
+    run = RunBuilder(tmp_path / "run", host="h100", engines=("polars_gpu",)).build()
+    clean = one(run.root, host_gates("h100"), "G8", GPU)
+    assert clean["outcome"] == "pass" and clean["method"] == "windows" and clean["usable_onsets"] == 6
+    first = first_window(run.root)[0]
+    run.busy.append((first - 0.5, first - 0.02))
+    run.write_gpu_csv()
+    result = one(run.root, host_gates("h100"), "G8", GPU)
+    assert result["outcome"] == "pass" and result["method"] == "windows" and result["usable_onsets"] == 5
+    assert result["windows_skipped"]["busy_before"] == 1 and abs(result["drift_s"]) <= 0.2
+
+
+def test_g8_reports_the_quiet_ranges_beside_the_thresholds_and_leaves_them_unchanged(run):
+    report = pg.evaluate_round({"baseline": run.root}, host_gates("h100"), clean_captures())
+    assert report["thresholds"]["g8_median_lag_s"] == 0.4 and report["thresholds"]["g8_drift_s"] == 0.2
+    assert report["thresholds"]["g8_utilization_percent"] == 10.0
+    assert report["thresholds"]["g8_window_quiet"] == [1.0, 0.0, 0.0] and report["thresholds"]["g8_pulse_quiet"] == [2.0, 1.0, 1.0]
+
+
 def test_g8_counts_a_window_without_any_gpu_activity_as_a_missed_onset(run):
     run.busy[:] = [b for b in run.busy if not (first_window(run.root)[0] - 0.1 <= b[0] <= first_window(run.root)[1])]
     run.write_gpu_csv()
@@ -619,15 +719,33 @@ def test_g8_requires_the_chrony_offset_to_be_logged_but_sets_no_threshold(run):
 
 
 def test_onset_and_drift_helpers():
+    W = pg.WINDOW_QUIET
     gpu = {"t": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2], "columns": {"utilization.gpu": [0, 0, 5, 10, 90, 90, 90]}}
-    assert pg.onset_lag(gpu, 0.25) == (pytest.approx(0.35), "ok")
-    assert pg.onset_lag(gpu, 1.1) == (pytest.approx(-0.5), "ok"), "the lag is signed: a row stamped before the window began"
-    assert pg.onset_lag(gpu, 3.0)[1] == "missed" and pg.onset_lag(gpu, 30.0)[1] == "missed"
+    assert pg.onset_lag(gpu, 0.25, W) == (pytest.approx(0.35), "ok")
+    assert pg.onset_lag(gpu, 1.1, W) == (None, "busy_before"), "a window: a sample >= 10% in the second before the start is earlier work"
+    assert pg.onset_lag(gpu, 3.0, W)[1] == "quiet_not_shown" and pg.onset_lag(gpu, 30.0, W)[1] == "quiet_not_shown", "no sample shows it quiet"
     busy = {"t": [0.0, 0.2, 0.4, 0.6, 0.8], "columns": {"utilization.gpu": [95, 95, 0, 0, 95]}}
-    assert pg.onset_lag(busy, 0.9) == (None, "busy_before"), "active already at the start of the search range: earlier activity"
-    assert pg.onset_lag(busy, 1.3) == (pytest.approx(-0.5), "ok"), "a quiet start of the range gives an onset, here before the stamp"
-    assert pg.onset_lag({"t": [0.0, 0.2], "columns": {"utilization.gpu": [None, None]}}, 0.0) == (None, "missed")
-    assert pg.onset_lag({"t": [0.0], "columns": {}}, 0.0) == (None, "no_utilization_column")
+    assert pg.onset_lag(busy, 0.9, W) == (None, "busy_before") and pg.onset_lag(busy, 1.3, W) == (None, "busy_before")
+    assert pg.onset_lag({"t": [0.0, 0.2], "columns": {"utilization.gpu": [None, None]}}, 0.0, W) == (None, "quiet_not_shown")
+    assert pg.onset_lag({"t": [0.0], "columns": {}}, 0.0, W) == (None, "no_utilization_column")
+    quiet = {"t": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6], "columns": {"utilization.gpu": [0, 0, 0, 0, 0, 0, 0, 90, 90]}}
+    assert pg.onset_lag(quiet, 1.2, W) == (pytest.approx(0.2), "ok"), "a quiet second before the stamp, then the onset 0.2 s after it"
+    assert pg.onset_lag(quiet, 3.5, W)[1] == "quiet_not_shown" and pg.onset_lag(quiet, 0.5, W) == (pytest.approx(0.9), "ok")
+    assert pg.onset_lag({"t": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0], "columns": {"utilization.gpu": [0, 0, 0, 0, 0, 0]}}, 1.0, W) == (None, "missed"), \
+        "quiet before but nothing within 3 s after"
+    edge = {"t": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4], "columns": {"utilization.gpu": [90, 0, 0, 0, 0, 0, 90, 90]}}
+    assert pg.onset_lag(edge, 1.0, W) == (None, "busy_before"), "the second is [start - 1 s, start): a sample at exactly start - 1 s is in it"
+    assert pg.onset_lag(edge, 1.0 + 1e-9, W) == (pytest.approx(0.2), "ok"), "a hair later the 90% sample at 0.0 s is out of it"
+    assert pg.onset_lag(edge, 1.2, W) == (pytest.approx(0.0), "ok"), "a sample at exactly the stamp is the onset search's, not the quiet range's"
+    # a pulse (the default): quiet over [stamp - 2 s, stamp - 1 s), the onset searched from stamp - 1 s with a signed lag
+    P = pg.PULSE_QUIET
+    steady = {"t": [i * 0.2 for i in range(40)], "columns": {"utilization.gpu": [0] * 9 + [90] * 31}}      # quiet until 1.8 s, then busy
+    assert pg.onset_lag(steady, 2.5) == (pytest.approx(-0.7), "ok"), "an onset 0.7 s before the stamp is a negative lag, scored"
+    assert pg.onset_lag(steady, 2.0) == (pytest.approx(-0.2), "ok") and pg.onset_lag(steady, 1.8) == (pytest.approx(0.0), "ok")
+    assert pg.onset_lag(steady, 3.0) == (None, "busy_before"), "load already in [stamp - 2 s, stamp - 1 s) = [1.0, 2.0) is earlier work"
+    assert pg.onset_lag(steady, 10.0)[1] == "quiet_not_shown" and pg.onset_lag(steady, 0.5)[1] == "quiet_not_shown"
+    gap = {"t": [0.0, 0.2, 0.4, 3.0, 3.2], "columns": {"utilization.gpu": [0, 0, 0, 0, 90]}}
+    assert pg.onset_lag(gap, 3.0) == (None, "quiet_not_shown"), "no sample in [1.0, 2.0): nothing shows it quiet"
     assert pg.thirds_drift([0.2]) is None and pg.thirds_drift([0.2, 0.5]) == pytest.approx(-0.3)
     assert pg.thirds_drift([0.1, 0.1, 0.2, 0.2, 0.5, 0.5]) == pytest.approx(-0.4)
     assert pg.g8_verdict([0.3], 0)["outcome"] == "fail"

@@ -70,8 +70,16 @@ G8_MIN_WINDOW_S = 5.0
 G8_UTILIZATION_PERCENT = 10.0
 G8_MEDIAN_LAG_S = 0.4
 G8_DRIFT_S = 0.2
-G8_QUIET_BEFORE_S = 1.0          # the onset is searched from this long before the stamped start (the probe tool's window) ...
-G8_SEARCH_AFTER_S = 3.0          # ... to this long after it
+G8_SEARCH_AFTER_S = 3.0          # an onset is searched up to this long after the stamped start ...
+# ... and the GPU must have been quiet before it, per kind of reference (seconds before the stamp: quiet from, quiet until, search from):
+#   window: quiet in [stamp - 1 s, stamp), onset searched from the stamp. Windows follow each other, and a query's warm-up run, within
+#           milliseconds, so any activity in the last second belongs to earlier work and the window has no onset (busy_before).
+#   pulse:  quiet in [stamp - 2 s, stamp - 1 s), onset searched from stamp - 1 s, signed. The runner waits for a quiet GPU (2 s below
+#           10%) before every pulse, so anything in the last second before the launch is the clock, not earlier work: a stream stamped
+#           ahead of the pulse (a negative lag) is scored and fails the median rule instead of being skipped.
+WINDOW_QUIET = (1.0, 0.0, 0.0)
+PULSE_QUIET = (2.0, 1.0, 1.0)
+ONSET_SKIPS = ("busy_before", "quiet_not_shown", "missed", "no_utilization_column")   # why a window or pulse gave no onset
 G10_MAX_REL_DIFF = 0.10
 SAMPLER_GAP_S = 30.0             # section 2.4: a window containing a sample more than 30 s after the previous one is invalid
 SAMPLER_STALL_S = 5.0            # power_telemetry.STALL_SECONDS: an energy counter flat for longer than this is stalled
@@ -106,9 +114,16 @@ INTERPRETATIONS = {
     "G7.scope": "applied to the gpu.csv trapezoid cross-check (measured windows and idle windows >= 10 s); the RAPL series are "
                 "judged by G6 (flags, liveness), not G7",
     "G7.gap": "a gap is the spacing of consecutive samples whose interval overlaps the window, boundary intervals included",
-    "G8.clean_onset": "the onset is the first utilization.gpu >= 10% sample in [start - 1 s, start + 3 s] (the probe tool's search, "
-                      "signed lag); a window whose search range already starts active follows earlier activity and gives no onset "
-                      "(counted, not used); with fewer than two usable window onsets a session falls back to its load pulses",
+    "G8.clean_onset": "an onset is usable only if gpu.csv shows the GPU quiet (utilization.gpu < 10% in every sample) just before the "
+                      "reference stamp (the window start or the pulse's launch stamp). A window: quiet over the 1.0 s before the stamp, then "
+                      "the onset is the first sample >= 10% in [stamp, stamp + 3 s] (windows follow each other and the query's warm-up run "
+                      "within milliseconds: activity in the last second is earlier work, not the window's onset). A pulse: quiet over "
+                      "[stamp - 2 s, stamp - 1 s), then the onset is the first sample >= 10% in [stamp - 1 s, stamp + 3 s] and the lag is "
+                      "signed, so a stream stamped ahead of the worker's clock (a negative lag) is scored and fails the +-0.4 s rule (the "
+                      "runner waits for a quiet GPU before every pulse). A window or pulse with a sample >= 10% in its quiet range "
+                      "(busy_before) or no sample there (quiet_not_shown) has no onset: counted in the QA table (windows_skipped, "
+                      "pulses_skipped), never scored as a lag. With fewer than two usable window onsets a session falls back to its "
+                      "load pulses (implementation clarification of section 4 G8, amendment A3, made before any study data)",
     "G8.drift": "first-third versus last-third = median lag of the first max(1, n // 3) usable onsets minus that of the last max(1, "
                 "n // 3); needs n >= 2 (the probe tool reports no drift below six onsets and passes; the gate evaluates it)",
     "G8.chrony": "the design says the offset is logged, with no threshold: a missing log fails G8, a logged one never does",
@@ -664,21 +679,27 @@ def gate_g7(session: Session, run: RunData) -> dict:
 
 # ---- G8 --------------------------------------------------------------------------------------------------------------------
 
-def onset_lag(gpu: dict, start: float):
-    """(lag s, status) of the first gpu.csv sample with utilization.gpu >= 10% within [start - 1 s, start + 3 s], minus start.
+def onset_lag(gpu: dict, start: float, quiet=PULSE_QUIET):
+    """(lag s, status) of the first gpu.csv sample with utilization.gpu >= 10% after a quiet stretch, minus start.
 
-    The lag is signed, as in the probe tool (a negative lag is a row stamped before the window began). status: ok |
-    busy_before (the GPU was already active at the first sample of the search range, so earlier activity, not this window,
-    is what the stream shows: not a usable onset) | missed (no sample >= 10% in the range) | no_utilization_column."""
+    quiet = (quiet from, quiet until, search from), seconds before the stamp: WINDOW_QUIET for a measured window, PULSE_QUIET (the
+    default: the pulses of the smoke checker and of pulse_lags) for a load pulse. Every sample in [start - from, start - until) must
+    be below 10%; the onset is then the first sample >= 10% in [start - search from, start + 3 s], and the lag is signed (a sample
+    stamped before the start is a negative lag).
+    status: ok | busy_before (a sample of the quiet range is >= 10%: earlier activity, so there is no onset of this window or
+    pulse and no lag is scored) | quiet_not_shown (no sample in the quiet range, so nothing shows the GPU quiet) | missed (quiet,
+    but no sample >= 10% in the search range) | no_utilization_column. A sample with no value (N/A) is skipped as if it did not exist."""
+    quiet_from, quiet_until, search_from = quiet
     util = gpu["columns"].get("utilization.gpu")
     if util is None:
         return None, "no_utilization_column"
-    window = [(t, u) for t, u in zip(gpu["t"], util) if u is not None and start - G8_QUIET_BEFORE_S <= t <= start + G8_SEARCH_AFTER_S]
-    if not window:
-        return None, "missed"
-    if window[0][1] >= G8_UTILIZATION_PERCENT:
+    samples = [(t, u) for t, u in zip(gpu["t"], util) if u is not None]
+    before = [u for t, u in samples if start - quiet_from <= t < start - quiet_until]
+    if not before:
+        return None, "quiet_not_shown"
+    if any(u >= G8_UTILIZATION_PERCENT for u in before):
         return None, "busy_before"
-    hit = next((t for t, u in window if u >= G8_UTILIZATION_PERCENT), None)
+    hit = next((t for t, u in samples if start - search_from <= t <= start + G8_SEARCH_AFTER_S and u >= G8_UTILIZATION_PERCENT), None)
     return (None, "missed") if hit is None else (hit - start, "ok")
 
 
@@ -709,22 +730,24 @@ def g8_verdict(lags, onsets_missed) -> dict:
 
 def pulse_lags(gpu: dict, item: dict):
     """Onset lags (s) of the session's 3 s load pulses against gpu.csv (start pulse, then end pulse), the pulses that left no
-    onset, and the number of pulse records.
+    usable onset counted by reason (ONSET_SKIPS), and the number of pulse records.
 
     A pulse record is gpu_pulse.py's: ok, and the child's own launch_utc stamp, which is the start the first sample >= 10% follows.
-    A record that is not ok (no CUDA, no device) is a pulse without an onset."""
+    A record that is not ok (no CUDA, no device) is a pulse without an onset (missed); a pulse whose launch was not preceded by a
+    quiet stretch in gpu.csv (the previous session's end pulse had just run, say) is busy_before and is never scored; one whose
+    onset lands before the launch stamp (a stream stamped ahead) is scored with a negative lag."""
     pulses = item.get(G8_PULSES_KEY)
     records = [pulses.get(label) for label in ("start", "end")] if isinstance(pulses, dict) else []
     records = [r for r in records if isinstance(r, dict)]
-    lags, missed = [], 0
+    lags, skipped = [], dict.fromkeys(ONSET_SKIPS, 0)
     for record in records:
         launched = epoch(record.get("launch_utc")) if record.get("ok") is True else None
-        lag, status = onset_lag(gpu, launched) if launched is not None else (None, "missed")
+        lag, status = onset_lag(gpu, launched, PULSE_QUIET) if launched is not None else (None, "missed")
         if status == "ok":
             lags.append(lag)
         else:
-            missed += 1
-    return lags, missed, len(records)
+            skipped[status] += 1
+    return lags, skipped, len(records)
 
 
 def chrony_problems(item: dict) -> list:
@@ -740,36 +763,44 @@ def chrony_problems(item: dict) -> list:
 
 def gate_g8(session: Session, run: RunData) -> dict:
     """Clock alignment from onset times only. Evidence, in this order: the session's GPU-engine windows of 5 s or longer with a
-    usable onset (two or more), else its start and end load pulses (two onsets). Outcomes: pass, fail (a misaligned or drifting
-    clock, or no chrony offset logged), not_evaluable (fewer than two onsets from either source: reported, never a pass)."""
+    usable onset (two or more), else its start and end load pulses (two onsets). An onset is usable only if gpu.csv shows the GPU
+    quiet before the window's start or the pulse's launch (onset_lag, WINDOW_QUIET and PULSE_QUIET); a window or pulse that does
+    not is counted (windows_skipped, pulses_skipped) and never scored. Outcomes: pass, fail (a misaligned or drifting clock, or no chrony offset
+    logged), not_evaluable (fewer than two onsets from either source: reported, never a pass)."""
     if run.gpu_csv is None or not run.host.energy_measured or run.host.kind != "gpu":
         return {"outcome": "not_applicable", "reasons": ["no GPU telemetry stream on this host"]}
     if session.results is None or not session.complete:
         return {"outcome": "not_applicable", "reasons": ["session did not complete"]}
     if not utc_stamped(run):
         return {"outcome": "fail", "problems": ["gpu.csv is not stamped in UTC (environment.json gpu_telemetry.monitor_tz_env)"]}
-    skipped = {"busy_before": 0, "missed": 0, "no_utilization_column": 0}
+    skipped = dict.fromkeys(ONSET_SKIPS, 0)
     lags, windows = [], []
     if session.engine in ("polars_gpu", "spark_gpu"):      # a CPU engine leaves no onset in utilization.gpu: it uses the pulses
         windows = [w for w in session_windows(session) if w["kind"] == "measured" and (w.get("window_seconds") or 0) >= G8_MIN_WINDOW_S]
         for w in sorted(windows, key=lambda w: w["start"]):
-            lag, status = onset_lag(run.gpu_csv, w["start"])
+            lag, status = onset_lag(run.gpu_csv, w["start"], WINDOW_QUIET)
             if status == "ok":
                 lags.append(lag)
             else:
                 skipped[status] += 1
-    method, missed, pulses = "windows", skipped["missed"], 0
+    method, missed, pulses, pulses_skipped = "windows", skipped["missed"], 0, dict.fromkeys(ONSET_SKIPS, 0)
     if len(lags) < 2:
         method = "pulses"
-        lags, missed, pulses = pulse_lags(run.gpu_csv, session.item)
+        lags, pulses_skipped, pulses = pulse_lags(run.gpu_csv, session.item)
+        missed = pulses_skipped["missed"]
         if len(lags) < 2:
+            busy = [f"{name}: {count} window(s), {pulses_skipped[name]} pulse(s)" for name, count in skipped.items()
+                    if name in ("busy_before", "quiet_not_shown") and (count or pulses_skipped[name])]
             return {"outcome": "not_evaluable", "method": "none", "windows_considered": len(windows), "windows_skipped": skipped,
-                    "pulses": pulses, "reasons": [f"{len(windows)} window(s) of 5 s or longer without two usable onsets and "
-                                                  f"{pulses} pulse record(s) with {len(lags)} onset(s): the lag and the drift need two"]}
+                    "pulses": pulses, "pulses_skipped": pulses_skipped,
+                    "reasons": [f"{len(windows)} window(s) of 5 s or longer without two usable onsets and "
+                                f"{pulses} pulse record(s) with {len(lags)} onset(s): the lag and the drift need two"
+                                + (f" ({'; '.join(busy)})" if busy else "")]}
     verdict = g8_verdict(lags, missed)
     verdict["problems"] = verdict.get("problems", []) + chrony_problems(session.item)
     verdict["outcome"] = "fail" if verdict["problems"] else "pass"
-    return {**verdict, "method": method, "windows_considered": len(windows), "windows_skipped": skipped, "pulses": pulses}
+    return {**verdict, "method": method, "windows_considered": len(windows), "windows_skipped": skipped, "pulses": pulses,
+            "pulses_skipped": pulses_skipped}
 
 
 # ---- G9 --------------------------------------------------------------------------------------------------------------------
@@ -1140,6 +1171,7 @@ def evaluate_round(runs: dict, host: HostGates, captures: list = ()) -> dict:
     return {"format": FORMAT, "host": host.host, "kind": host.kind, "t_min_s": host.t_min_s,
             "thresholds": {"window_target_s": WINDOW_TARGET_S, "window_max_runs": WINDOW_MAX_RUNS, "g7_min_coverage": G7_MIN_COVERAGE,
                            "g7_max_gap_s": G7_MAX_GAP_S, "g8_median_lag_s": G8_MEDIAN_LAG_S, "g8_drift_s": G8_DRIFT_S,
+                           "g8_utilization_percent": G8_UTILIZATION_PERCENT, "g8_window_quiet": list(WINDOW_QUIET), "g8_pulse_quiet": list(PULSE_QUIET),
                            "g10_max_relative_difference": G10_MAX_REL_DIFF},
             "interpretations": INTERPRETATIONS, **summarize(host, evaluated, list(captures)), "runs": evaluated}
 

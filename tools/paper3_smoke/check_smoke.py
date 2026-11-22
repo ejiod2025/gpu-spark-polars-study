@@ -408,9 +408,19 @@ def c06_performance(ctx, report):
 
 # ---- C07 ------------------------------------------------------------------------------------------------------------------
 
+def quiet_wait_line(where, quiet):
+    """One line about the runner's wait for a quiet GPU before a pulse (the pulse record's quiet_wait)."""
+    reached = quiet.get("reached") is True
+    line = (f"{where}: quiet wait before the pulse: reached {'yes' if reached else 'no'}, {fmt(num(quiet.get('waited_seconds')), 1)} s waited, "
+            f"{quiet.get('polls')} read(s), last utilization.gpu {fmt(num(quiet.get('last_utilization_percent')), 1)}%")
+    return line + (f" ({quiet['reason']})" if quiet.get("reason") else "")
+
+
 def c07_pulses(ctx, report):
     problems, warnings, info, data = [], [], [], {}
     gpu_ok = ctx.gpu is not None
+    onsets = {"scored": 0, "busy_before": 0, "quiet_not_shown": 0, "missed": 0, "other": 0}
+    pulses_seen = 0
     for engine in ENGINES:
         item = ctx.items.get(engine)
         if item is None:
@@ -423,6 +433,14 @@ def c07_pulses(ctx, report):
             if not isinstance(p, dict):
                 problems.append(f"{where}: no pulse record")
                 continue
+            quiet = p.get("quiet_wait")
+            if isinstance(quiet, dict):
+                info.append(quiet_wait_line(where, quiet))
+                if quiet.get("reached") is not True:
+                    warnings.append(f"{where}: the GPU was not shown quiet (utilization.gpu below {quiet.get('threshold_percent')}% for "
+                                    f"{quiet.get('quiet_seconds_required')} s) before the pulse: {quiet.get('reason') or 'not reached'}")
+            else:
+                warnings.append(f"{where}: no quiet_wait in the pulse record (a runner without the wait for a quiet GPU)")
             if p.get("ok") is not True:
                 problems.append(f"{where}: ok is {p.get('ok')!r}: {p.get('error')}")
                 continue
@@ -445,12 +463,19 @@ def c07_pulses(ctx, report):
             if label == "end" and exit_ is not None and l_utc < exit_ - 0.01:
                 problems.append(f"{where}: the end pulse starts {exit_ - l_utc:.2f} s before the worker exited")
             lag, status = pg.onset_lag(ctx.gpu, l_utc) if gpu_ok else (None, "no_gpu_csv")
+            pulses_seen += 1
+            onsets["scored" if status == "ok" else status if status in onsets else "other"] += 1
             if status != "ok" or lag is None or abs(lag) > pg.G8_MEDIAN_LAG_S:
                 warnings.append(f"{where}: onset in gpu.csv: {status}, lag {fmt(lag)} s (G8's median limit is {pg.G8_MEDIAN_LAG_S} s)")
             data.setdefault(engine, {})[label] = {"ok": True, "kernel_seconds": round(dur, 4), "init_seconds": p.get("init_seconds"),
                                                   "onset_lag_s": None if lag is None else round(lag, 4), "onset_status": status,
-                                                  "launch_utc": p.get("launch_utc"), "gap_to_worker_s": None}
+                                                  "launch_utc": p.get("launch_utc"), "gap_to_worker_s": None,
+                                                  "quiet_wait": None if not isinstance(quiet, dict) else
+                                                  {"reached": quiet.get("reached"), "waited_seconds": quiet.get("waited_seconds")}}
     lags = [v["onset_lag_s"] for d in data.values() for v in d.values() if v["onset_lag_s"] is not None]
+    info.append(f"G8 pulse onsets (quiet before the launch, then the first sample >= 10%): scored {onsets['scored']} of {pulses_seen}, "
+                f"busy_before {onsets['busy_before']}, quiet_not_shown {onsets['quiet_not_shown']}, missed {onsets['missed']}"
+                + (f", other {onsets['other']}" if onsets["other"] else ""))
     info.append(f"{sum(len(d) for d in data.values())} pulses ok; onset lags in gpu.csv (s): median {fmt(statistics.median(lags) if lags else None)}, "
                 f"min {fmt(min(lags) if lags else None)}, max {fmt(max(lags) if lags else None)}")
     report.add("C07", "G8 load pulses: gpu_pulse.py ok:true, plausible stamps, onset visible in gpu.csv", problems, warnings, info, data)
@@ -666,6 +691,18 @@ def c11_chrony(ctx, report):
 
 # ---- C12 ------------------------------------------------------------------------------------------------------------------
 
+def g8_onset_line(key, g8):
+    """What G8 scored for one session: onsets scored out of the windows and pulses it looked at, and why the others gave none."""
+    parts = []
+    for kind, considered_key, skipped_key in (("windows", "windows_considered", "windows_skipped"), ("pulses", "pulses", "pulses_skipped")):
+        considered, skipped = g8.get(considered_key), g8.get(skipped_key)
+        if not isinstance(skipped, dict) or not considered:
+            continue
+        parts.append(f"{kind} scored {considered - sum(skipped.values())} of {considered} (busy_before {skipped.get('busy_before', 0)}, "
+                     f"quiet_not_shown {skipped.get('quiet_not_shown', 0)}, missed {skipped.get('missed', 0)})")
+    return f"G8 onsets {key}: {g8.get('outcome')}, method {g8.get('method')}; " + ("; ".join(parts) or "nothing considered")
+
+
 def c12_gates(ctx, report):
     gates, timing = ctx.gates, ctx.timings.get("gates") or {}
     if not isinstance(gates, dict):
@@ -680,6 +717,9 @@ def c12_gates(ctx, report):
             info.append(f"{gate}: pass {totals.get('pass')}, not_applicable {totals.get('not_applicable')}")
     for run in gates.get("runs") or []:
         for session in run.get("sessions") or []:
+            g8 = (session.get("gates") or {}).get("G8")
+            if isinstance(g8, dict) and g8.get("outcome") in ("pass", "fail", "not_evaluable"):
+                info.append(g8_onset_line(session.get("key"), g8))
             for gate, result in (session.get("gates") or {}).items():
                 detail = "; ".join(result.get("problems") or result.get("reasons") or [])[:300]
                 if result.get("outcome") == "fail":

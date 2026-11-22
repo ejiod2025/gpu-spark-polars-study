@@ -962,6 +962,60 @@ no timed Paper 3 study session has run and no Paper 3 energy, power or cost aggr
    log of a failed step to diagnose the failure: it is logged when it happens, and anything seen is stated in the next
    amendment (§7.4, runbook §8). No effect on any estimate. Outcome data seen: none.
 
+### A3 — 2026-11-22
+Third amendment after the lock, the same day as A1 and A2. Item 1 records the first run of the harness smoke test that §7.2
+("Harness readiness") requires to be recorded in a §12 amendment, because it did not precede the lock; item 2 is an
+implementation clarification of §4 G8 that the smoke test made necessary. Sections 1-11 are not edited. Both items are the
+lead's records, not author decisions. **Outcome data seen, for both items: none beyond synthetic load.** The smoke test ran
+generated data and three trivial synthetic queries (`tools/paper3_smoke/`, `smoke_workloads.py`) and no study query; nothing in
+it is a study result. No timed Paper 3 study session has run and no Paper 3 energy, power or cost aggregate has been computed.
+1. **Harness smoke test, first run (§7.2 "Harness readiness"): NOT READY.** Lambda `gpu_1x_h100_sxm5` (H100 80GB HBM3, driver
+   570.148.08) in us-south-3, 2026-11-22: created 21:35:34 UTC, bring-up and data, the run stage 21:47:07-22:05:11 UTC,
+   termination confirmed 22:10:19 UTC (stamp `20261122T213531Z`; evidence in `docs/paper3-evidence/smoke/h100-20261122T213531Z/`,
+   with `checklist.txt`, `checklist.json`, `gates.json` and `SHA256SUMS.txt`). The host received exactly commit
+   `64c9abeb04dd1e1053447a129921785ad19a2716` (a `git archive` of it; the driver log says `source=head`); 13 uncommitted local
+   paths existed on the driving machine and were not shipped. The four engines ran the synthetic workload with the campaign's flags (3 runs per query, 26 threads, the §2.1 window rule, the §2.2 idle
+   windows, the G8 pulses on every session), and the Paper 3 gates were evaluated on the result. Checklist: 13 PASS, 2 WARN, 2
+   INFO, 1 FAIL. The one FAIL is C12, G8: for `spark_gpu` a median onset lag of -0.537 s and a first-third minus last-third drift
+   of +0.411 s, for `polars_gpu` a drift of -0.462 s, and `polars` not evaluable (one usable onset). Warning C07 lists the start
+   pulses of `polars`, `polars_gpu` and `spark_gpu` as "busy_before": at those three session starts the `nvidia-smi -q -d POWER`
+   capture read 325-339 W (C05). The other warnings are the synthetic queries' sizes (C09 window gaps; G9 per-run times below
+   `t_min`), which the synthetic workload does not aim to avoid. The lead's diagnosis is that the onsets of the failing sessions
+   were taken from samples that show earlier work (the previous query or window, engine work before the timed region, the
+   previous session's end pulse having just run), so the lag measured is no onset at all. Cost: about $2.83
+   (34.8 minutes from the create call to the confirmed termination, at $4.89/h; not part of the §9 core total). A second smoke run
+   follows the change of item 2; its result is recorded in a later amendment. Outcome data seen: none beyond synthetic load.
+2. **G8 onset reading and a quiet GPU before the pulses (implementation clarification of §4 G8, made before any study data; the
+   author may object).** *Reason:* item 1. §4 G8 says the first `gpu.csv` sample with `utilization.gpu` >= 10% must follow the
+   worker's window start with a median lag within +-0.4 s and a first-third versus last-third drift <= 0.2 s, and that sessions
+   without such windows use a 3 s load pulse at start and end. The first implementation searched for that sample from 1 s before
+   the stamp and rejected a window or pulse only if the first sample of that range was already busy, so work that belonged to
+   earlier activity (a warm-up run, the previous window, the previous session's end pulse) could be read as an onset with a
+   negative lag. *Reading, in the gate (`paper3_gates.py`, `onset_lag`, `pulse_lags`, `gate_g8`):* an onset is usable only if
+   `gpu.csv` shows the GPU quiet (every sample of `utilization.gpu` below 10%) just before the reference stamp. For a measured
+   window, which follows earlier work within milliseconds, the quiet range is the 1.0 s before the window start and the onset is the
+   first sample >= 10% in [start, start + 3 s]. For a load pulse, which the runner launches only after the GPU has been quiet for
+   2 s, the quiet range is [launch - 2 s, launch - 1 s) and the onset is the first sample >= 10% in [launch - 1 s, launch + 3 s]
+   with a signed lag, so a `gpu.csv` stream stamped ahead of the worker's clock, whose onset precedes the launch, is scored and
+   fails the +-0.4 s rule as before (an offset of more than about 1 s lands in the quiet range and makes the pulse busy_before). A window or
+   pulse with a sample >= 10% in its quiet range ("busy_before") or none there at all ("quiet_not_shown") has no onset: it is
+   counted in the gate's result (`windows_skipped`, `pulses_skipped`) for the QA table and never scored as a lag. The evidence
+   order is unchanged: GPU-engine windows of 5 s or longer with two or more usable onsets, else the start and end pulses, else
+   not evaluable; a GPU-engine session whose windows are all busy_before is therefore judged by its pulses, which still catch an
+   early stream. *Change, in the runner (`run_experiment.py`; Paper 3 mode only, Paper 1 is unchanged):* before each start pulse
+   and each end pulse the runner waits until `utilization.gpu` has stayed below 10% for 2 s in a row (a short `nvidia-smi` query
+   every 0.5 s), for at most 30 s; the pulse then runs whether or not the GPU became quiet, and the wait (reached or not, its
+   length and the number of reads) is stored in the pulse record as `quiet_wait`. A GPU whose utilization cannot be read is not
+   waited for the whole bound: the runner gives up after three failed reads and records it. The wait adds at least 2 s to each
+   pulse, about 4 s per session; §9's estimate is not revised. *Unchanged:* every threshold of §4 (median lag +-0.4 s, drift 0.2 s,
+   the 10% onset level, the 3 s pulse), G8's consequence (`gpu.csv` values disabled), the place of the pulses (before the worker
+   exists, and after everything else), and the pre-lock G8 probe, which has its own onset search
+   (`tools/paper3_probes/p3_gpu_probes.py`): its 20 recorded lags per host were all positive (A100 0.276-0.592 s, B200
+   0.077-0.334 s, GH200 0.100-0.331 s, H100 0.140-0.327 s). Re-scoring the stream of the first smoke run with this reading, the
+   `spark_cpu`, `spark_gpu` and `polars_gpu` sessions pass and `polars` stays not evaluable (its start pulse had no quiet range,
+   which the wait is meant to provide); this is a check of the code on synthetic data, not a result. Both parts apply from the
+   campaign commit on. Outcome data seen: none beyond synthetic load.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,

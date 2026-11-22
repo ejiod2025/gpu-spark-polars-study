@@ -397,6 +397,57 @@ def test_a_pulse_that_did_not_run_or_has_implausible_stamps_fails(clean, tmp_pat
     assert "kernel span 40.000 s" in problems and "disagree" in problems
 
 
+def item_of(report, check_id):
+    return next(i for i in report.items if i["id"] == check_id)
+
+
+def test_the_pulse_check_reports_each_quiet_wait_and_the_g8_onset_counts(clean, tmp_path):
+    report = cs.check(copy_evidence(clean, tmp_path))
+    c07 = item_of(report, "C07")
+    assert c07["status"] == "PASS" and not c07["warnings"]
+    waits = [line for line in c07["info"] if "quiet wait before the pulse" in line]
+    assert len(waits) == 8 and "polars/start: quiet wait before the pulse: reached yes, 2.0 s waited, 5 read(s), last utilization.gpu 0.0%" in waits
+    assert any(line.startswith("G8 pulse onsets") and "scored 8 of 8, busy_before 0, quiet_not_shown 0, missed 0" in line for line in c07["info"])
+    assert c07["data"]["polars"]["start"]["quiet_wait"] == {"reached": True, "waited_seconds": 2.0}
+    c12 = item_of(report, "C12")
+    lines = [line for line in c12["info"] if line.startswith("G8 onsets ")]
+    assert len(lines) == 4 and "G8 onsets smoke/sf1/polars: pass, method pulses; pulses scored 2 of 2 (busy_before 0, quiet_not_shown 0, missed 0)" in lines
+    assert any(line.startswith("G8 onsets smoke/sf1/spark_gpu: pass, method windows; windows scored 6 of 6 (busy_before 0") for line in lines)
+
+
+def test_a_pulse_that_ran_without_a_quiet_gpu_or_without_a_record_of_the_wait_is_a_warning_not_a_failure(clean, tmp_path):
+    ev = copy_evidence(clean, tmp_path)
+    edit_schedule_item(ev / "run", "1", "polars", lambda item: item["gpu_pulses"]["start"]["quiet_wait"].update(
+        reached=False, waited_seconds=30.0, polls=61, reason="bound", last_utilization_percent=95.0))
+    edit_schedule_item(ev / "run", "1", "spark_cpu", lambda item: item["gpu_pulses"]["end"].pop("quiet_wait"))
+    report = cs.check(ev)
+    c07 = item_of(report, "C07")
+    assert c07["status"] == "WARN" and "C07" not in only_failures(report)
+    assert any("polars/start: the GPU was not shown quiet" in w and "bound" in w for w in c07["warnings"])
+    assert any("spark_cpu/end: no quiet_wait in the pulse record" in w for w in c07["warnings"])
+    assert any("polars/start: quiet wait before the pulse: reached no, 30.0 s waited, 61 read(s), last utilization.gpu 95.0% (bound)" in i for i in c07["info"])
+
+
+def test_the_g8_onset_counts_name_busy_before_and_quiet_not_shown(clean, tmp_path, monkeypatch):
+    replies = iter([(None, "busy_before"), (None, "quiet_not_shown"), *[(0.2, "ok")] * 6])
+    monkeypatch.setattr(pg, "onset_lag", lambda gpu, start, *quiet: next(replies))
+    c07 = item_of(cs.check(copy_evidence(clean, tmp_path)), "C07")
+    assert any("scored 6 of 8, busy_before 1, quiet_not_shown 1, missed 0" in line for line in c07["info"])
+    assert any("polars/start: onset in gpu.csv: busy_before" in w for w in c07["warnings"])
+    assert any("polars/end: onset in gpu.csv: quiet_not_shown" in w for w in c07["warnings"])
+
+
+def test_the_g8_onset_line_counts_what_the_gate_scored_and_skipped():
+    not_evaluable = {"outcome": "not_evaluable", "method": "none", "windows_considered": 9,
+                     "windows_skipped": {"busy_before": 8, "quiet_not_shown": 0, "missed": 0, "no_utilization_column": 0},
+                     "pulses": 2, "pulses_skipped": {"busy_before": 1, "quiet_not_shown": 1, "missed": 0, "no_utilization_column": 0}}
+    assert cs.g8_onset_line("smoke/sf1/spark_gpu", not_evaluable) == (
+        "G8 onsets smoke/sf1/spark_gpu: not_evaluable, method none; windows scored 1 of 9 (busy_before 8, quiet_not_shown 0, missed 0); "
+        "pulses scored 0 of 2 (busy_before 1, quiet_not_shown 1, missed 0)")
+    assert cs.g8_onset_line("k", {"outcome": "pass", "method": "windows", "windows_considered": 0, "windows_skipped": {}, "pulses": 0}) == \
+        "G8 onsets k: pass, method windows; nothing considered"
+
+
 def test_a_missing_idle_window_or_a_untagged_energy_value_fails(clean, tmp_path):
     ev = copy_evidence(clean, tmp_path)
     edit_results(ev / "run", "1", "spark_gpu", lambda r: r["idle_windows"].pop())

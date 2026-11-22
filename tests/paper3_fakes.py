@@ -193,7 +193,10 @@ class RunBuilder:
         self.clock = exit_t + 1.0
         self.decorate(item, launch, exit_t, engine, pulse_start)
         if pulses:
-            self.clock = exit_t + 5.0
+            # the next session's start pulse launches after the previous end pulse (exit + 0.5 .. + 3.02) and after the runner's wait for a
+            # GPU that has been quiet for 2 s plus the pulse child's start-up: a gap the gate's pulse quiet range [launch - 2 s, launch - 1 s)
+            # can rely on, also for a stream stamped up to a second late
+            self.clock = exit_t + 8.0
         return item, results
 
     def session_read(self, t):
@@ -263,6 +266,8 @@ class RunBuilder:
                     self.busy.append((at + 0.02, at + 3.02))          # the kernel starts a few ms after the launch stamp
                     self.segments.append((at + 0.02, at + 3.02, 250.0))
                     item[pg.G8_PULSES_KEY][label] = {"ok": True, "label": label, "device": 0, "requested_seconds": 3.0, "launch_utc": utc(at),
+                                                     "quiet_wait": {"reached": True, "waited_seconds": 2.0, "polls": 5, "last_utilization_percent": 0.0,
+                                                                    "quiet_seconds_required": 2.0, "bound_seconds": 30.0, "threshold_percent": 10.0},
                                                      "launch_monotonic_ns": mono(at), "done_utc": utc(at + 3.0), "done_monotonic_ns": mono(at + 3.0)}
 
     def state_file(self, item, engine, name, label, text):

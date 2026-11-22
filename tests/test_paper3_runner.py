@@ -91,12 +91,25 @@ PERFORMANCE_TEXT = """GPU 00000000:CB:00.0
 """
 
 
+class FakeClock:
+    """A clock that only moves when the code under test sleeps."""
+    def __init__(self):
+        self.t = 1000.0
+
+    def now(self):
+        return self.t
+
+    def sleep(self, seconds):
+        self.t += seconds
+
+
 @pytest.fixture
 def smi(host, monkeypatch):
     """The `host` fixture's nvidia-smi plus the Paper 3 queries: field list, driver version, `-q -d POWER` text."""
     state = types.SimpleNamespace(fields=(*ALL_FIELDS, *LIMIT_FIELDS), driver="570.148.08\n", help_returncode=0, power_calls=[], performance_calls=[],
                                   chrony_calls=0, chrony=CHRONY_TEXT, popen=[], order=[], pulses=[], pulse_reply=None,
-                                  limit_calls=[], limit_values=dict(GH200_LIMITS), limit_reply=None)
+                                  limit_calls=[], limit_values=dict(GH200_LIMITS), limit_reply=None,
+                                  util=[], util_default=0.0, util_calls=[], clock=FakeClock())
     base = host.capture
 
     def capture(command, timeout=None):
@@ -121,6 +134,12 @@ def smi(host, monkeypatch):
         if command[:2] == ["nvidia-smi", "--help-query-gpu"]:
             return {"command": command, "returncode": state.help_returncode,
                     "output": help_text(*state.fields) if state.help_returncode == 0 else ""}
+        if len(command) > 3 and command[1:3] == ["-i", "0"] and command[3] == "--query-gpu=utilization.gpu":
+            value = state.util.pop(0) if state.util else state.util_default
+            state.util_calls.append(value)
+            if value is None:
+                return {"command": command, "returncode": 1, "output": "", "error": "nvidia-smi: unable to read utilization"}
+            return {"command": command, "returncode": 0, "output": f"{value:g}\n"}
         if len(command) > 3 and command[1:3] == ["-i", "0"] and command[3].startswith("--query-gpu=power."):
             state.limit_calls.append(command)
             if state.limit_reply is not None:
@@ -148,6 +167,12 @@ def smi(host, monkeypatch):
             state.order.append("worker")
         return original(command, **kwargs)
     monkeypatch.setattr(rx.subprocess, "Popen", popen)
+    real_wait = rx.wait_for_quiet_gpu
+
+    def wait(device=0, **kwargs):
+        state.order.append("quiet")
+        return real_wait(device, sleep=state.clock.sleep, clock=state.clock.now, **kwargs)     # the waiting takes no real time
+    monkeypatch.setattr(rx, "wait_for_quiet_gpu", wait)
     return state
 
 
@@ -486,7 +511,8 @@ def test_a_session_gets_a_pulse_before_the_worker_and_after_everything_else(monk
     item = schedule[0]
     start, end = item["gpu_pulses"]["start"], item["gpu_pulses"]["end"]
     assert smi.pulses == [("start", 3.0, 0), ("end", 3.0, 1)]                           # before the worker was launched, after it had exited
-    assert smi.order == ["power", "performance", "chrony", "pulse-start", "worker", "power", "performance", "chrony", "compute-apps", "pulse-end"]
+    assert smi.order == ["power", "performance", "chrony", "quiet", "pulse-start", "worker", "power", "performance", "chrony", "compute-apps",
+                         "quiet", "pulse-end"]                                        # each pulse waits for a quiet GPU first
     for pulse, label in ((start, "start"), (end, "end")):
         assert pulse["ok"] is True and pulse["label"] == label and pulse["returncode"] == 0 and pulse["requested_seconds"] == 3.0
         assert pulse["command"][1].endswith("gpu_pulse.py") and pulse["command"][-6:-4] == ["--seconds", "3.0"]
@@ -496,6 +522,98 @@ def test_a_session_gets_a_pulse_before_the_worker_and_after_everything_else(monk
     assert start["done_monotonic_ns"] < item["launch"]["monotonic_ns"] and item["process_exit"]["monotonic_ns"] < end["launch_monotonic_ns"]
     assert environment["paper3_energy"]["g8_pulse_seconds"] == 3.0 and environment["paper3_energy"]["g8_pulse_engines"] == "all"
     assert "g8_pulse_seconds" not in environment["arguments"]                              # defaults are not arguments
+
+
+# ---- a quiet GPU before every pulse ---------------------------------------------------------------------------------------
+
+def quiet_wait(values, **kwargs):
+    """wait_for_quiet_gpu on a fake clock, reading `values` in order (the last one repeats): (record, clock)."""
+    clock, queue = FakeClock(), list(values)
+    record = rx.wait_for_quiet_gpu(0, read=lambda device: queue.pop(0) if len(queue) > 1 else queue[0], sleep=clock.sleep, clock=clock.now, **kwargs)
+    return record, clock
+
+
+def test_the_quiet_threshold_is_the_gates_onset_threshold():
+    import paper3_gates as pg
+    assert rx.G8_QUIET_PERCENT == pg.G8_UTILIZATION_PERCENT == 10.0 and rx.G8_QUIET_SECONDS == 2.0 and rx.G8_QUIET_BOUND_SECONDS == 30.0
+
+
+def test_the_wait_ends_after_two_quiet_seconds_in_a_row():
+    record, clock = quiet_wait([0.0])
+    assert record["reached"] is True and record["polls"] == 5 and record["waited_seconds"] == 2.0 and clock.t == 1002.0   # reads at 0, 0.5 .. 2.0 s
+    assert record["quiet_seconds_required"] == 2.0 and record["bound_seconds"] == 30.0 and record["threshold_percent"] == 10.0
+    assert record["last_utilization_percent"] == 0.0 and "reason" not in record
+    record, _ = quiet_wait([9.9])
+    assert record["reached"] is True, "below 10% is quiet"
+
+
+def test_a_busy_reading_restarts_the_quiet_period_and_10_percent_is_busy():
+    record, _ = quiet_wait([0.0, 0.0, 0.0, 50.0, 0.0])             # quiet to 1.0 s, busy at 1.5 s, quiet again from 2.0 s: done at 4.0 s
+    assert record["reached"] is True and record["polls"] == 9 and record["waited_seconds"] == 4.0
+    record, _ = quiet_wait([10.0], bound=3.0)
+    assert record["reached"] is False and record["reason"] == "bound" and record["waited_seconds"] == 3.0 and record["last_utilization_percent"] == 10.0
+
+
+def test_a_gpu_that_never_gets_quiet_is_waited_for_30_seconds_at_most():
+    record, clock = quiet_wait([95.0])
+    assert record["reached"] is False and record["reason"] == "bound" and record["waited_seconds"] == 30.0 and record["polls"] == 61 and clock.t == 1030.0
+
+
+def test_an_unreadable_gpu_is_never_read_as_quiet_and_is_not_waited_for_the_whole_bound():
+    record, _ = quiet_wait([None])
+    assert record["reached"] is False and record["reason"] == "unreadable" and record["polls"] == 3 and record["waited_seconds"] == 1.0
+    assert record["last_utilization_percent"] is None
+    record, _ = quiet_wait([0.0, None, 0.0, 0.0, 0.0, 0.0, 0.0])      # one failed read in the middle restarts the quiet period
+    assert record["reached"] is True and record["polls"] == 7 and record["waited_seconds"] == 3.0 and "reason" not in record
+
+
+def test_the_utilization_is_read_with_a_short_nvidia_smi_query(monkeypatch):
+    seen = []
+
+    def capture(command, timeout=None):
+        seen.append((command, timeout))
+        return {"command": command, "returncode": 0, "output": "37\n"}
+    monkeypatch.setattr(rx, "capture", capture)
+    assert rx.read_gpu_utilization() == 37.0
+    assert seen == [(["nvidia-smi", "-i", "0", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"], 10)]
+    for output, code in (("[N/A]\n", 0), ("", 0), ("not a number\n", 0), ("12\n", 9)):
+        monkeypatch.setattr(rx, "capture", lambda command, timeout=None, o=output, c=code: {"command": command, "returncode": c, "output": o})
+        assert rx.read_gpu_utilization() is None, (output, code)
+    monkeypatch.setattr(rx, "capture", lambda command, timeout=None: {"command": command, "returncode": None, "output": "", "error": "OSError"})
+    assert rx.read_gpu_utilization() is None
+
+
+def test_each_pulse_waits_for_a_quiet_gpu_first_and_the_wait_is_in_its_record(monkeypatch, layout, smi):
+    smi.util = [95.0, 95.0, 95.0, 95.0, 5.0]        # the previous session's end pulse is still showing for 2 s, then the GPU is quiet
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    start, end = schedule[0]["gpu_pulses"]["start"], schedule[0]["gpu_pulses"]["end"]
+    assert start["quiet_wait"]["reached"] is True and start["quiet_wait"]["waited_seconds"] == 4.0 and start["quiet_wait"]["polls"] == 9
+    assert end["quiet_wait"]["reached"] is True and end["quiet_wait"]["waited_seconds"] == 2.0 and end["quiet_wait"]["polls"] == 5
+    assert len(smi.util_calls) == 14 and smi.util_calls[:5] == [95.0, 95.0, 95.0, 95.0, 5.0]
+    assert smi.order[smi.order.index("quiet") + 1] == "pulse-start" and smi.order[-2:] == ["quiet", "pulse-end"]      # the wait is right before the pulse
+    assert start["ok"] is True and end["ok"] is True
+
+
+def test_a_gpu_that_never_gets_quiet_does_not_stop_the_pulse_or_the_session(monkeypatch, layout, smi):
+    smi.util_default = 95.0
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    start = schedule[0]["gpu_pulses"]["start"]
+    assert start["quiet_wait"]["reached"] is False and start["quiet_wait"]["reason"] == "bound" and start["quiet_wait"]["waited_seconds"] == 30.0
+    assert start["ok"] is True and schedule[0]["status"] == "complete", "the pulse runs anyway; the gate decides from the stream whether its onset counts"
+    layout.out.rename(layout.tmp / "first")
+    smi.util_default = None
+    schedule, _ = run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board")
+    quiet = schedule[0]["gpu_pulses"]["start"]["quiet_wait"]
+    assert quiet["reached"] is False and quiet["reason"] == "unreadable" and quiet["polls"] == 3 and schedule[0]["gpu_pulses"]["start"]["ok"] is True
+
+
+def test_no_quiet_wait_without_a_pulse(monkeypatch, layout, smi):
+    run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "board", "--g8-pulse-seconds", "0")
+    layout.out.rename(layout.tmp / "first")
+    run_experiment(monkeypatch, layout, ["polars"], *QUIET, "--gpu-energy-scope", "none")
+    layout.out.rename(layout.tmp / "second")
+    run_experiment(monkeypatch, layout, ["polars"], *QUIET)                                  # Paper 1: no flags, no pulses, no wait
+    assert not smi.util_calls and "quiet" not in smi.order
 
 
 def test_every_session_of_a_gpu_host_gets_a_pulse_by_default_including_gpu_engine_sessions(monkeypatch, layout, smi):
