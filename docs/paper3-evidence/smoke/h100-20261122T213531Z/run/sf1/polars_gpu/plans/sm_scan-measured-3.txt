@@ -1,0 +1,18 @@
+== Polars optimized plan (CPU optimizer; executed by cudf-polars, executor=streaming) ==
+SORT BY [col("f_grp")]
+  AGGREGATE[maintain_order: false]
+    [col("f_x").sum().alias("sum_x"), col("f_y").mean().alias("avg_y"), col("f_x").max().alias("max_x"), len().cast(Int64).alias("n")] BY [col("f_grp")]
+    FROM
+     WITH_COLUMNS:
+     [col("f_x"), col("f_y")] 
+      Parquet SCAN [/home/ubuntu/p3smoke/data/sf1/facts/part-0000.parquet, ... 7 other sources]
+      PROJECT 3/4 COLUMNS
+      SELECTION: col("f_y") > 0.5
+      ESTIMATED ROWS: 80000000
+== cudf-polars physical plan ==
+SORT ('f_grp',) ('f_grp', 'sum_x', 'avg_y', 'max_x', 'n') [2]
+  SELECT ('f_grp', 'sum_x', 'avg_y', 'max_x', 'n') [2]
+    GROUPBY ('f_grp',) ('f_grp', 'sum_x', 'avg_y', 'max_x', '_____4') [2]
+      HSTACK ('f_grp', 'f_x', 'f_y') [2]
+        STREAMINGSCAN ('f_grp', 'f_x', 'f_y') [2]
+

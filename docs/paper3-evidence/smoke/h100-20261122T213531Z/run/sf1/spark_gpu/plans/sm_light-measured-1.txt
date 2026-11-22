@@ -1,0 +1,26 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=46]
+   +- GpuSort [s_grp#31 ASC NULLS FIRST], true, com.nvidia.spark.rapids.OutOfCoreSort$@578111be, [loreId=45]
+      +- GpuShuffleCoalesce 1073741824, [loreId=44]
+         +- GpuCustomShuffleReader coalesced
+            +- ShuffleQueryStage 1
+               +- GpuColumnarExchange gpurangepartitioning(s_grp#31 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=6587], [loreId=39]
+                  +- GpuHashAggregate (keys=[s_grp#31], functions=[gpubasicsum(s_v#32, DoubleType, false), avg(s_v#32, DoubleType, false), gpucount(1, false)], output=[s_grp#31, sum_v#3048, avg_v#3049, n#3050L]) [loreId=38]
+                     +- GpuShuffleCoalesce 1073741824, [loreId=37]
+                        +- GpuCustomShuffleReader coalesced
+                           +- ShuffleQueryStage 0
+                              +- GpuColumnarExchange gpuhashpartitioning(s_grp#31, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=6524], [loreId=29]
+                                 +- GpuHashAggregate (keys=[s_grp#31], functions=[partial_gpubasicsum(s_v#32, DoubleType, false), partial_avg(s_v#32, DoubleType, false), partial_gpucount(1, false)], output=[s_grp#31, sum#3062, sum#3063, count#3064L, count#3065L]) [loreId=28]
+                                    +- GpuCoalesceBatches targetsize(1073741824), [loreId=27]
+                                       +- GpuFilter (gpuisnotnull(s_v#32) AND (s_v#32 > 0.25)), [loreId=26]
+                                          +- GpuFileGpuScan parquet [s_grp#31,s_v#32] Batched: true, DataFilters: [isnotnull(s_v#32), (s_v#32 > 0.25)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/p3smoke/data/sf1/small], PartitionFilters: [], PushedFilters: [IsNotNull(s_v), GreaterThan(s_v,0.25)], ReadSchema: struct<s_grp:int,s_v:double>
++- == Initial Plan ==
+   Sort [s_grp#31 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(s_grp#31 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=6412]
+      +- HashAggregate(keys=[s_grp#31], functions=[sum(s_v#32), avg(s_v#32), count(1)], output=[s_grp#31, sum_v#3048, avg_v#3049, n#3050L])
+         +- Exchange hashpartitioning(s_grp#31, 120), ENSURE_REQUIREMENTS, [plan_id=6409]
+            +- HashAggregate(keys=[s_grp#31], functions=[partial_sum(s_v#32), partial_avg(s_v#32), partial_count(1)], output=[s_grp#31, sum#3062, sum#3063, count#3064L, count#3065L])
+               +- Filter (isnotnull(s_v#32) AND (s_v#32 > 0.25))
+                  +- FileScan parquet [s_grp#31,s_v#32] Batched: true, DataFilters: [isnotnull(s_v#32), (s_v#32 > 0.25)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/small], PartitionFilters: [], PushedFilters: [IsNotNull(s_v), GreaterThan(s_v,0.25)], ReadSchema: struct<s_grp:int,s_v:double>
+

@@ -1,0 +1,1374 @@
+{
+ "counts": {
+  "PASS": 13,
+  "WARN": 2,
+  "INFO": 2,
+  "FAIL": 1
+ },
+ "failed": true,
+ "items": [
+  {
+   "id": "C01",
+   "title": "provenance: synthetic workload, the campaign's flags, an H100",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "GPU: NVIDIA H100 80GB HBM3, 570.148.08, 81559 MiB",
+    "runs per query 3, cpus 26, engine order ['spark_cpu', 'spark_gpu', 'polars_gpu', 'polars']"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C02",
+   "title": "sessions: four engines, each complete with exit 0 and no query error",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "polars: 230 s wall, 9 measured windows",
+    "polars_gpu: 248 s wall, 9 measured windows",
+    "spark_cpu: 277 s wall, 9 measured windows",
+    "spark_gpu: 296 s wall, 9 measured windows"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C03",
+   "title": "nvidia-smi fields listed and queried; the final field list",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "final field list (the query): timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active",
+    "throttle field used: clocks_event_reasons.active",
+    "driver version(s): ['570.148.08']",
+    "179 fields listed by `nvidia-smi --help-query-gpu`"
+   ],
+   "data": {
+    "query": "timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active",
+    "extra_fields": [
+     "power.draw.average",
+     "power.draw.instant",
+     "clocks_event_reasons.active"
+    ],
+    "missing_fields": [],
+    "driver_versions": [
+     "570.148.08"
+    ]
+   }
+  },
+  {
+   "id": "C04",
+   "title": "gpu.csv: real header names, [N/A] handling, the throttle column",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "header as written: timestamp, index, utilization.gpu [%], utilization.memory [%], memory.used [MiB], power.draw [W], temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw.average [W], power.draw.instant [W], clocks_event_reasons.active",
+    "throttle reasons seen (bit mask: rows, names): 0x0: 2808 (none); 0x1: 2594 (GpuIdle)",
+    "5402 rows parsed by paper3_gates.read_gpu_csv (5402 stamped), 0 malformed"
+   ],
+   "data": {
+    "header": [
+     "timestamp",
+     "index",
+     "utilization.gpu [%]",
+     "utilization.memory [%]",
+     "memory.used [MiB]",
+     "power.draw [W]",
+     "temperature.gpu",
+     "clocks.current.sm [MHz]",
+     "clocks.current.memory [MHz]",
+     "power.draw.average [W]",
+     "power.draw.instant [W]",
+     "clocks_event_reasons.active"
+    ],
+    "columns": {
+     "index": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "utilization.gpu": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "utilization.memory": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "memory.used": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "power.draw": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "temperature.gpu": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "clocks.current.sm": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "clocks.current.memory": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "power.draw.average": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "power.draw.instant": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "clocks_event_reasons.active": {
+      "cells": 5402,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     }
+    },
+    "throttle_masks": {
+     "0x1": 2594,
+     "0x0": 2808
+    },
+    "rows": 5402
+   }
+  },
+  {
+   "id": "C05",
+   "title": "POWER captures and power_limits_query: enforced 700 W at every session start and end",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "power limits at the first session's start: -q Current 700.0 W; --query-gpu {'power.limit': 700.0, 'enforced.power.limit': 700.0, 'power.default_limit': 700.0, 'power.min_limit': 200.0, 'power.max_limit': 700.0}",
+    "`-q -d POWER` Average Power Draw line at session starts: ['325.73 W', '338.08 W', '338.87 W', '74.96 W']"
+   ],
+   "data": {
+    "polars": {
+     "current_w": 700.0,
+     "query_values_w": {
+      "power.limit": 700.0,
+      "enforced.power.limit": 700.0,
+      "power.default_limit": 700.0,
+      "power.min_limit": 200.0,
+      "power.max_limit": 700.0
+     },
+     "query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+     ],
+     "average_power_draw": "338.87 W"
+    },
+    "polars_gpu": {
+     "current_w": 700.0,
+     "query_values_w": {
+      "power.limit": 700.0,
+      "enforced.power.limit": 700.0,
+      "power.default_limit": 700.0,
+      "power.min_limit": 200.0,
+      "power.max_limit": 700.0
+     },
+     "query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+     ],
+     "average_power_draw": "325.73 W"
+    },
+    "spark_cpu": {
+     "current_w": 700.0,
+     "query_values_w": {
+      "power.limit": 700.0,
+      "enforced.power.limit": 700.0,
+      "power.default_limit": 700.0,
+      "power.min_limit": 200.0,
+      "power.max_limit": 700.0
+     },
+     "query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+     ],
+     "average_power_draw": "74.96 W"
+    },
+    "spark_gpu": {
+     "current_w": 700.0,
+     "query_values_w": {
+      "power.limit": 700.0,
+      "enforced.power.limit": 700.0,
+      "power.default_limit": 700.0,
+      "power.min_limit": 200.0,
+      "power.max_limit": 700.0
+     },
+     "query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+     ],
+     "average_power_draw": "338.08 W"
+    }
+   }
+  },
+  {
+   "id": "C06",
+   "title": "PERFORMANCE captures (clock event reasons) at every session's start and end",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "polars: reasons Active at start [], at end ['Idle']",
+    "polars_gpu: reasons Active at start [], at end []",
+    "spark_cpu: reasons Active at start ['Idle'], at end ['Idle']",
+    "spark_gpu: reasons Active at start [], at end []"
+   ],
+   "data": {
+    "polars": {
+     "start": [],
+     "end": [
+      "Idle"
+     ]
+    },
+    "polars_gpu": {
+     "start": [],
+     "end": []
+    },
+    "spark_cpu": {
+     "start": [
+      "Idle"
+     ],
+     "end": [
+      "Idle"
+     ]
+    },
+    "spark_gpu": {
+     "start": [],
+     "end": []
+    }
+   }
+  },
+  {
+   "id": "C07",
+   "title": "G8 load pulses: gpu_pulse.py ok:true, plausible stamps, onset visible in gpu.csv",
+   "status": "WARN",
+   "problems": [],
+   "warnings": [
+    "polars/start: onset in gpu.csv: busy_before, lag n/a s (G8's median limit is 0.4 s)",
+    "polars_gpu/start: onset in gpu.csv: busy_before, lag n/a s (G8's median limit is 0.4 s)",
+    "spark_gpu/start: onset in gpu.csv: busy_before, lag n/a s (G8's median limit is 0.4 s)"
+   ],
+   "info": [
+    "8 pulses ok; onset lags in gpu.csv (s): median 0.233, min -0.102, max 0.253"
+   ],
+   "data": {
+    "polars": {
+     "start": {
+      "ok": true,
+      "kernel_seconds": 3.0,
+      "init_seconds": 0.220964658,
+      "onset_lag_s": null,
+      "onset_status": "busy_before",
+      "launch_utc": "2026-11-22T22:01:14.151084+00:00",
+      "gap_to_worker_s": null
+     },
+     "end": {
+      "ok": true,
+      "kernel_seconds": 3.0,
+      "init_seconds": 0.29325367,
+      "onset_lag_s": 0.2327,
+      "onset_status": "ok",
+      "launch_utc": "2026-11-22T22:05:07.694319+00:00",
+      "gap_to_worker_s": null
+     }
+    },
+    "polars_gpu": {
+     "start": {
+      "ok": true,
+      "kernel_seconds": 3.0,
+      "init_seconds": 0.228961821,
+      "onset_lag_s": null,
+      "onset_status": "busy_before",
+      "launch_utc": "2026-11-22T21:56:59.214844+00:00",
+      "gap_to_worker_s": null
+     },
+     "end": {
+      "ok": true,
+      "kernel_seconds": 3.0,
+      "init_seconds": 0.218817814,
+      "onset_lag_s": -0.1024,
+      "onset_status": "ok",
+      "launch_utc": "2026-11-22T22:01:10.320433+00:00",
+      "gap_to_worker_s": null
+     }
+    },
+    "spark_cpu": {
+     "start": {
+      "ok": true,
+      "kernel_seconds": 3.0001,
+      "init_seconds": 0.332265697,
+      "onset_lag_s": 0.195,
+      "onset_status": "ok",
+      "launch_utc": "2026-11-22T21:47:11.109952+00:00",
+      "gap_to_worker_s": null
+     },
+     "end": {
+      "ok": true,
+      "kernel_seconds": 3.0,
+      "init_seconds": 0.292523972,
+      "onset_lag_s": 0.2368,
+      "onset_status": "ok",
+      "launch_utc": "2026-11-22T21:51:51.519157+00:00",
+      "gap_to_worker_s": null
+     }
+    },
+    "spark_gpu": {
+     "start": {
+      "ok": true,
+      "kernel_seconds": 3.0,
+      "init_seconds": 0.215581443,
+      "onset_lag_s": null,
+      "onset_status": "busy_before",
+      "launch_utc": "2026-11-22T21:51:55.347529+00:00",
+      "gap_to_worker_s": null
+     },
+     "end": {
+      "ok": true,
+      "kernel_seconds": 3.0,
+      "init_seconds": 0.21919716,
+      "onset_lag_s": 0.2532,
+      "onset_status": "ok",
+      "launch_utc": "2026-11-22T21:56:55.362822+00:00",
+      "gap_to_worker_s": null
+     }
+    }
+   }
+  },
+  {
+   "id": "C08",
+   "title": "idle windows: both per session with S1-counter energy; CUDA context in the first (clocks, memory)",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "polars first window: 71.1 W counter, board 71.2 W, 0 MiB, SM clock 345 MHz, idle flag in 1.000 of rows -> CUDA context held: False",
+    "polars last window: 70.9 W, 0 MiB, SM clock 345 MHz",
+    "polars_gpu first window: 119.6 W counter, board 119.7 W, 571 MiB, SM clock 1980 MHz, idle flag in 0.000 of rows -> CUDA context held: True",
+    "polars_gpu last window: 119.5 W, 7789 MiB, SM clock 1980 MHz",
+    "spark_cpu first window: 71.2 W counter, board 71.3 W, 0 MiB, SM clock 345 MHz, idle flag in 1.000 of rows -> CUDA context held: False",
+    "spark_cpu last window: 71.2 W, 0 MiB, SM clock 345 MHz",
+    "spark_gpu first window: 119.2 W counter, board 119.3 W, 80459 MiB, SM clock 1980 MHz, idle flag in 0.000 of rows -> CUDA context held: True",
+    "spark_gpu last window: 119.4 W, 80465 MiB, SM clock 1980 MHz",
+    "resting memory.used (5th percentile of the whole run): 0 MiB; a context is called held above +100 MiB"
+   ],
+   "data": {
+    "polars": {
+     "before_warmups": {
+      "mean_power_w": 71.12497983083084,
+      "delta_mj": 2134007,
+      "actual_seconds": 30.000100069,
+      "energy_interval_seconds": 30.003621865,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 0.0,
+      "clocks_sm_mhz_median": 345.0,
+      "board_power_w_median": 71.19,
+      "idle_flag_share": 1.0,
+      "context_held": false
+     },
+     "after_last_trial": {
+      "mean_power_w": 70.90614033375458,
+      "delta_mj": 2127544,
+      "actual_seconds": 30.000080175,
+      "energy_interval_seconds": 30.0050741725,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 0.0,
+      "clocks_sm_mhz_median": 345.0,
+      "board_power_w_median": 70.98,
+      "idle_flag_share": 1.0,
+      "context_held": false
+     },
+     "pair_relative_difference": 0.0031
+    },
+    "polars_gpu": {
+     "before_warmups": {
+      "mean_power_w": 119.59974007404217,
+      "delta_mj": 3588430,
+      "actual_seconds": 30.000080105,
+      "energy_interval_seconds": 30.0036605245,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 571.0,
+      "clocks_sm_mhz_median": 1980.0,
+      "board_power_w_median": 119.68,
+      "idle_flag_share": 0.0,
+      "context_held": true
+     },
+     "after_last_trial": {
+      "mean_power_w": 119.53335586678644,
+      "delta_mj": 3586351,
+      "actual_seconds": 30.000107323,
+      "energy_interval_seconds": 30.0029307635,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 7789.0,
+      "clocks_sm_mhz_median": 1980.0,
+      "board_power_w_median": 119.61,
+      "idle_flag_share": 0.0,
+      "context_held": true
+     },
+     "pair_relative_difference": 0.0006
+    },
+    "spark_cpu": {
+     "before_warmups": {
+      "mean_power_w": 71.19289674048336,
+      "delta_mj": 2136123,
+      "actual_seconds": 30.000093112,
+      "energy_interval_seconds": 30.0047209455,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 0.0,
+      "clocks_sm_mhz_median": 345.0,
+      "board_power_w_median": 71.26,
+      "idle_flag_share": 1.0,
+      "context_held": false
+     },
+     "after_last_trial": {
+      "mean_power_w": 71.23750062031783,
+      "delta_mj": 2137378,
+      "actual_seconds": 30.000075175,
+      "energy_interval_seconds": 30.003551239,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 0.0,
+      "clocks_sm_mhz_median": 345.0,
+      "board_power_w_median": 71.3,
+      "idle_flag_share": 1.0,
+      "context_held": false
+     },
+     "pair_relative_difference": 0.0006
+    },
+    "spark_gpu": {
+     "before_warmups": {
+      "mean_power_w": 119.2470585653145,
+      "delta_mj": 3577803,
+      "actual_seconds": 30.000077016,
+      "energy_interval_seconds": 30.003280945,
+      "gpu_csv_samples": 149,
+      "memory_used_mib_median": 80459.0,
+      "clocks_sm_mhz_median": 1980.0,
+      "board_power_w_median": 119.32,
+      "idle_flag_share": 0.0,
+      "context_held": true
+     },
+     "after_last_trial": {
+      "mean_power_w": 119.44179736803144,
+      "delta_mj": 3583803,
+      "actual_seconds": 30.000077851,
+      "energy_interval_seconds": 30.004597042,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 80465.0,
+      "clocks_sm_mhz_median": 1980.0,
+      "board_power_w_median": 119.52,
+      "idle_flag_share": 0.0,
+      "context_held": true
+     },
+     "pair_relative_difference": 0.0016
+    }
+   }
+  },
+  {
+   "id": "C09",
+   "title": "adaptive windows: stop reasons, n, gaps; the cap and a target-reached window both seen",
+   "status": "WARN",
+   "problems": [],
+   "warnings": [
+    "polars_gpu/sm_light#1: gaps are 53% of the window span (1.31 s of 2.47 s)",
+    "polars_gpu/sm_light#2: gaps are 53% of the window span (1.30 s of 2.47 s)",
+    "polars_gpu/sm_light#3: gaps are 53% of the window span (1.33 s of 2.52 s)"
+   ],
+   "info": [
+    "polars sm_join: per run 0.4405-0.4420 s; windows n=23:target_reached x3",
+    "polars sm_light: per run 0.0044-0.0045 s; windows n=50:max_runs x3",
+    "polars sm_scan: per run 0.0823-0.0850 s; windows n=50:max_runs x3",
+    "polars_gpu sm_join: per run 0.1720-0.1721 s; windows n=50:max_runs x3",
+    "polars_gpu sm_light: per run 0.0233-0.0239 s; windows n=50:max_runs x3",
+    "polars_gpu sm_scan: per run 0.1394-0.1410 s; windows n=50:max_runs x3",
+    "spark_cpu sm_join: per run 3.8488-4.0684 s; windows n=3:target_reached x3",
+    "spark_cpu sm_light: per run 0.0757-0.0958 s; windows n=50:max_runs x3",
+    "spark_cpu sm_scan: per run 0.3892-0.4107 s; windows n=25:target_reached, n=26:target_reached x2",
+    "spark_gpu sm_join: per run 1.0352-1.1953 s; windows n=9:target_reached, n=10:target_reached x2",
+    "spark_gpu sm_light: per run 0.1025-0.1263 s; windows n=50:max_runs x3",
+    "spark_gpu sm_scan: per run 0.3788-0.3957 s; windows n=27:target_reached x2, n=26:target_reached",
+    "windows: 36; stopped at the cap 21; target reached with n>1 15; n=1 0",
+    "gap between runs: median 21.49 ms per run, max 39.82 ms per run"
+   ],
+   "data": {
+    "windows": [
+     {
+      "engine": "polars",
+      "query": "sm_join",
+      "trial": 1,
+      "n": 23,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.150802533000615,
+      "per_run_seconds": 0.44133924056524415,
+      "span_seconds": 10.380193346,
+      "gap_seconds": 0.22939081299938557,
+      "gap_ms_per_run": 9.973513608668938,
+      "t_hat_seconds": 0.4868264540000382,
+      "window_delta_mj": 739223
+     },
+     {
+      "engine": "polars",
+      "query": "sm_light",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 0.2186976190000678,
+      "per_run_seconds": 0.004373952380001355,
+      "span_seconds": 0.728763375,
+      "gap_seconds": 0.5100657559999322,
+      "gap_ms_per_run": 10.201315119998643,
+      "t_hat_seconds": 0.012724538999918877,
+      "window_delta_mj": 14194
+     },
+     {
+      "engine": "polars",
+      "query": "sm_scan",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 4.250812828999642,
+      "per_run_seconds": 0.08501625657999284,
+      "span_seconds": 4.998782472,
+      "gap_seconds": 0.7479696430003582,
+      "gap_ms_per_run": 14.959392860007164,
+      "t_hat_seconds": 0.08113111900001968,
+      "window_delta_mj": 355238
+     },
+     {
+      "engine": "polars",
+      "query": "sm_scan",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 4.118826593000676,
+      "per_run_seconds": 0.08237653186001354,
+      "span_seconds": 4.938768972,
+      "gap_seconds": 0.8199423789993237,
+      "gap_ms_per_run": 16.398847579986473,
+      "t_hat_seconds": 0.08113111900001968,
+      "window_delta_mj": 354983
+     },
+     {
+      "engine": "polars",
+      "query": "sm_join",
+      "trial": 2,
+      "n": 23,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.16492127000015,
+      "per_run_seconds": 0.4419530986956587,
+      "span_seconds": 10.392660837,
+      "gap_seconds": 0.22773956699984943,
+      "gap_ms_per_run": 9.901720304341278,
+      "t_hat_seconds": 0.4868264540000382,
+      "window_delta_mj": 724098
+     },
+     {
+      "engine": "polars",
+      "query": "sm_light",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 0.22267796799997086,
+      "per_run_seconds": 0.004453559359999418,
+      "span_seconds": 0.72974698,
+      "gap_seconds": 0.5070690120000292,
+      "gap_ms_per_run": 10.141380240000585,
+      "t_hat_seconds": 0.012724538999918877,
+      "window_delta_mj": 7083
+     },
+     {
+      "engine": "polars",
+      "query": "sm_join",
+      "trial": 3,
+      "n": 23,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.13131605400008,
+      "per_run_seconds": 0.4404920023478296,
+      "span_seconds": 10.390016318,
+      "gap_seconds": 0.25870026399991985,
+      "gap_ms_per_run": 11.247837565213906,
+      "t_hat_seconds": 0.4868264540000382,
+      "window_delta_mj": 738246
+     },
+     {
+      "engine": "polars",
+      "query": "sm_scan",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 4.114383367999835,
+      "per_run_seconds": 0.08228766735999671,
+      "span_seconds": 4.992276464,
+      "gap_seconds": 0.8778930960001645,
+      "gap_ms_per_run": 17.55786192000329,
+      "t_hat_seconds": 0.08113111900001968,
+      "window_delta_mj": 354823
+     },
+     {
+      "engine": "polars",
+      "query": "sm_light",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 0.2247250880006959,
+      "per_run_seconds": 0.004494501760013918,
+      "span_seconds": 0.745200806,
+      "gap_seconds": 0.5204757179993041,
+      "gap_ms_per_run": 10.409514359986083,
+      "t_hat_seconds": 0.012724538999918877,
+      "window_delta_mj": 21340
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_join",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 8.601489228000446,
+      "per_run_seconds": 0.17202978456000892,
+      "span_seconds": 9.973618054,
+      "gap_seconds": 1.3721288259995532,
+      "gap_ms_per_run": 27.442576519991064,
+      "t_hat_seconds": 0.18812981599990053,
+      "window_delta_mj": 1714723
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_light",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 1.164376530000368,
+      "per_run_seconds": 0.023287530600007357,
+      "span_seconds": 2.470420692,
+      "gap_seconds": 1.306044161999632,
+      "gap_ms_per_run": 26.120883239992637,
+      "t_hat_seconds": 0.1371533519999275,
+      "window_delta_mj": 0
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_scan",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 6.967639806000079,
+      "per_run_seconds": 0.1393527961200016,
+      "span_seconds": 8.869603756,
+      "gap_seconds": 1.9019639499999208,
+      "gap_ms_per_run": 38.039278999998416,
+      "t_hat_seconds": 0.1516940540000178,
+      "window_delta_mj": 1014736
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_scan",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 7.050512502000288,
+      "per_run_seconds": 0.14101025004000575,
+      "span_seconds": 8.96353676,
+      "gap_seconds": 1.9130242579997123,
+      "gap_ms_per_run": 38.260485159994246,
+      "t_hat_seconds": 0.1516940540000178,
+      "window_delta_mj": 999139
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_join",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 8.607071099999985,
+      "per_run_seconds": 0.17214142199999968,
+      "span_seconds": 9.969484902,
+      "gap_seconds": 1.362413802000015,
+      "gap_ms_per_run": 27.2482760400003,
+      "t_hat_seconds": 0.18812981599990053,
+      "window_delta_mj": 674992
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_light",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 1.1721633329996166,
+      "per_run_seconds": 0.023443266659992332,
+      "span_seconds": 2.467840022,
+      "gap_seconds": 1.2956766890003832,
+      "gap_ms_per_run": 25.913533780007665,
+      "t_hat_seconds": 0.1371533519999275,
+      "window_delta_mj": 96787
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_join",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 8.607498373000908,
+      "per_run_seconds": 0.17214996746001815,
+      "span_seconds": 9.974163329,
+      "gap_seconds": 1.3666649559990915,
+      "gap_ms_per_run": 27.33329911998183,
+      "t_hat_seconds": 0.18812981599990053,
+      "window_delta_mj": 1694771
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_scan",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 6.995985719999908,
+      "per_run_seconds": 0.13991971439999815,
+      "span_seconds": 8.898129457,
+      "gap_seconds": 1.9021437370000918,
+      "gap_ms_per_run": 38.042874740001835,
+      "t_hat_seconds": 0.1516940540000178,
+      "window_delta_mj": 1006303
+     },
+     {
+      "engine": "polars_gpu",
+      "query": "sm_light",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 1.1972870929996589,
+      "per_run_seconds": 0.023945741859993177,
+      "span_seconds": 2.524315842,
+      "gap_seconds": 1.3270287490003412,
+      "gap_ms_per_run": 26.540574980006824,
+      "t_hat_seconds": 0.1371533519999275,
+      "window_delta_mj": 216861
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_join",
+      "trial": 1,
+      "n": 3,
+      "stop_reason": "target_reached",
+      "window_seconds": 12.20526283700002,
+      "per_run_seconds": 4.068420945666674,
+      "span_seconds": 12.228167567,
+      "gap_seconds": 0.022904729999979168,
+      "gap_ms_per_run": 7.634909999993056,
+      "t_hat_seconds": 5.971081706999996,
+      "window_delta_mj": 875210
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_light",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 4.7885308839997265,
+      "per_run_seconds": 0.09577061767999454,
+      "span_seconds": 5.285221474,
+      "gap_seconds": 0.4966905900002736,
+      "gap_ms_per_run": 9.933811800005472,
+      "t_hat_seconds": 1.332137567000018,
+      "window_delta_mj": 370027
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_scan",
+      "trial": 1,
+      "n": 25,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.268550320000145,
+      "per_run_seconds": 0.4107420128000058,
+      "span_seconds": 10.691949251,
+      "gap_seconds": 0.4233989309998556,
+      "gap_ms_per_run": 16.935957239994224,
+      "t_hat_seconds": 0.9011481970000546,
+      "window_delta_mj": 725870
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_scan",
+      "trial": 2,
+      "n": 26,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.19958605399978,
+      "per_run_seconds": 0.3922917713076839,
+      "span_seconds": 10.631821217,
+      "gap_seconds": 0.4322351630002199,
+      "gap_ms_per_run": 16.6244293461623,
+      "t_hat_seconds": 0.9011481970000546,
+      "window_delta_mj": 733409
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_join",
+      "trial": 2,
+      "n": 3,
+      "stop_reason": "target_reached",
+      "window_seconds": 11.54632207200001,
+      "per_run_seconds": 3.848774024000003,
+      "span_seconds": 11.567638922,
+      "gap_seconds": 0.02131684999999095,
+      "gap_ms_per_run": 7.10561666666365,
+      "t_hat_seconds": 5.971081706999996,
+      "window_delta_mj": 818794
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_light",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 3.968361098000173,
+      "per_run_seconds": 0.07936722196000347,
+      "span_seconds": 4.728189761,
+      "gap_seconds": 0.7598286629998272,
+      "gap_ms_per_run": 15.196573259996544,
+      "t_hat_seconds": 1.332137567000018,
+      "window_delta_mj": 305836
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_join",
+      "trial": 3,
+      "n": 3,
+      "stop_reason": "target_reached",
+      "window_seconds": 11.676942825999959,
+      "per_run_seconds": 3.8923142753333195,
+      "span_seconds": 11.696266487,
+      "gap_seconds": 0.019323661000042236,
+      "gap_ms_per_run": 6.441220333347412,
+      "t_hat_seconds": 5.971081706999996,
+      "window_delta_mj": 832646
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_scan",
+      "trial": 3,
+      "n": 26,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.117957180999895,
+      "per_run_seconds": 0.38915219926922673,
+      "span_seconds": 10.513551683,
+      "gap_seconds": 0.3955945020001046,
+      "gap_ms_per_run": 15.215173153850177,
+      "t_hat_seconds": 0.9011481970000546,
+      "window_delta_mj": 740106
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_light",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 3.782672371999979,
+      "per_run_seconds": 0.07565344743999958,
+      "span_seconds": 4.373705638,
+      "gap_seconds": 0.5910332660000206,
+      "gap_ms_per_run": 11.820665320000412,
+      "t_hat_seconds": 1.332137567000018,
+      "window_delta_mj": 255964
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_join",
+      "trial": 1,
+      "n": 9,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.757838499000059,
+      "per_run_seconds": 1.1953153887777843,
+      "span_seconds": 11.010979743,
+      "gap_seconds": 0.2531412439999414,
+      "gap_ms_per_run": 28.12680488888238,
+      "t_hat_seconds": 1.9701539719999346,
+      "window_delta_mj": 1439000
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_light",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 6.315991791000215,
+      "per_run_seconds": 0.1263198358200043,
+      "span_seconds": 7.796150581,
+      "gap_seconds": 1.480158789999785,
+      "gap_ms_per_run": 29.6031757999957,
+      "t_hat_seconds": 1.6493894270000737,
+      "window_delta_mj": 731047
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_scan",
+      "trial": 1,
+      "n": 27,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.25549044000013,
+      "per_run_seconds": 0.37983297925926407,
+      "span_seconds": 11.207282893,
+      "gap_seconds": 0.9517924529998698,
+      "gap_ms_per_run": 35.25157233332851,
+      "t_hat_seconds": 0.6153137400000332,
+      "window_delta_mj": 1439365
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_scan",
+      "trial": 2,
+      "n": 27,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.226814292999961,
+      "per_run_seconds": 0.3787708997407393,
+      "span_seconds": 11.170819182,
+      "gap_seconds": 0.9440048890000394,
+      "gap_ms_per_run": 34.9631440370385,
+      "t_hat_seconds": 0.6153137400000332,
+      "window_delta_mj": 1438646
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_join",
+      "trial": 2,
+      "n": 10,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.351693022000063,
+      "per_run_seconds": 1.0351693022000064,
+      "span_seconds": 10.650761259,
+      "gap_seconds": 0.29906823699993623,
+      "gap_ms_per_run": 29.906823699993623,
+      "t_hat_seconds": 1.9701539719999346,
+      "window_delta_mj": 1436818
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_light",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 5.241175600999668,
+      "per_run_seconds": 0.10482351201999336,
+      "span_seconds": 6.833936314,
+      "gap_seconds": 1.5927607130003318,
+      "gap_ms_per_run": 31.855214260006633,
+      "t_hat_seconds": 1.6493894270000737,
+      "window_delta_mj": 659444
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_join",
+      "trial": 3,
+      "n": 10,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.48243699999989,
+      "per_run_seconds": 1.0482436999999891,
+      "span_seconds": 10.73658336,
+      "gap_seconds": 0.2541463600001084,
+      "gap_ms_per_run": 25.414636000010837,
+      "t_hat_seconds": 1.9701539719999346,
+      "window_delta_mj": 1418146
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_scan",
+      "trial": 3,
+      "n": 26,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.28842918999976,
+      "per_run_seconds": 0.3957088149999908,
+      "span_seconds": 11.32380576,
+      "gap_seconds": 1.0353765700002402,
+      "gap_ms_per_run": 39.822175769240005,
+      "t_hat_seconds": 0.6153137400000332,
+      "window_delta_mj": 1445457
+     },
+     {
+      "engine": "spark_gpu",
+      "query": "sm_light",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 5.124580268999921,
+      "per_run_seconds": 0.10249160537999842,
+      "span_seconds": 6.830342647,
+      "gap_seconds": 1.7057623780000792,
+      "gap_ms_per_run": 34.115247560001585,
+      "t_hat_seconds": 1.6493894270000737,
+      "window_delta_mj": 623337
+     }
+    ]
+   }
+  },
+  {
+   "id": "C10",
+   "title": "scope tags: every GPU energy value is S1-counter",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "1378 energy values checked; scope_tag values seen: {'S1-counter': 1382}"
+   ],
+   "data": {
+    "tags": {
+     "S1-counter": 1382
+    },
+    "values": 1378
+   }
+  },
+  {
+   "id": "C11",
+   "title": "chrony: the clock offset is logged at every session's start and end",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "offsets of the system clock from NTP time (s): min +0.000018, max +0.000067, stratum [3]"
+   ],
+   "data": {
+    "polars": {
+     "start": {
+      "offset_s": 5.392e-05,
+      "last_offset_s": 9.625e-06,
+      "stratum": 3,
+      "leap_status": "Normal"
+     },
+     "end": {
+      "offset_s": 6.6674e-05,
+      "last_offset_s": 2.6461e-05,
+      "stratum": 3,
+      "leap_status": "Normal"
+     }
+    },
+    "polars_gpu": {
+     "start": {
+      "offset_s": 2.6859e-05,
+      "last_offset_s": -3.592e-06,
+      "stratum": 3,
+      "leap_status": "Normal"
+     },
+     "end": {
+      "offset_s": 5.4166e-05,
+      "last_offset_s": 9.625e-06,
+      "stratum": 3,
+      "leap_status": "Normal"
+     }
+    },
+    "spark_cpu": {
+     "start": {
+      "offset_s": 4.7732e-05,
+      "last_offset_s": -3.392e-06,
+      "stratum": 3,
+      "leap_status": "Normal"
+     },
+     "end": {
+      "offset_s": 1.7793e-05,
+      "last_offset_s": -1.4226e-05,
+      "stratum": 3,
+      "leap_status": "Normal"
+     }
+    },
+    "spark_gpu": {
+     "start": {
+      "offset_s": 1.777e-05,
+      "last_offset_s": -1.4226e-05,
+      "stratum": 3,
+      "leap_status": "Normal"
+     },
+     "end": {
+      "offset_s": 2.6919e-05,
+      "last_offset_s": -3.592e-06,
+      "stratum": 3,
+      "leap_status": "Normal"
+     }
+    }
+   }
+  },
+  {
+   "id": "C12",
+   "title": "paper3_gates.py with the h100 host config: no FAIL for a clean run",
+   "status": "FAIL",
+   "problems": [
+    "G8 smoke/sf1/spark_gpu: median onset lag -0.537 s outside +-0.4 s; first-third minus last-third drift +0.411 s above 0.2 s",
+    "G8 smoke/sf1/polars_gpu: first-third minus last-third drift -0.462 s above 0.2 s"
+   ],
+   "warnings": [
+    "G8 smoke/sf1/polars not evaluable: 0 window(s) of 5 s or longer without two usable onsets and 2 pulse record(s) with 1 onset(s): the lag and the drift need two",
+    "G9 spark_cpu/sm_scan: ['per_run_below_t_min'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)",
+    "G9 spark_gpu/sm_scan: ['per_run_below_t_min'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)",
+    "G9 polars_gpu/sm_join: ['per_run_below_t_min', 'window_below_10s'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)",
+    "G9 polars_gpu/sm_scan: ['per_run_below_t_min', 'window_below_10s'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)",
+    "G9 polars/sm_join: ['per_run_below_t_min'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)",
+    "G9 polars/sm_scan: ['per_run_below_t_min', 'window_below_10s'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)"
+   ],
+   "info": [
+    "G6: pass 4, not_applicable 0",
+    "G7: pass 4, not_applicable 0",
+    "G8: pass 1, fail 2, not_evaluable 1, not_applicable 0",
+    "G9: pass 2, fail 10, not_evaluable 0, not_applicable 0",
+    "G10: pass 4, not_applicable 0",
+    "G11: pass 4, not_applicable 0",
+    "G12: pass 5, not_applicable 0",
+    "G9 spark_cpu/sm_light: ['per_run_below_t_min', 'window_below_10s'] (expected: the light query is meant to hit the cap, below the resolution)",
+    "G9 spark_gpu/sm_light: ['per_run_below_t_min', 'window_below_10s'] (expected: the light query is meant to hit the cap, below the resolution)",
+    "G9 polars_gpu/sm_light: ['per_run_below_t_min', 'window_below_10s'] (expected: the light query is meant to hit the cap, below the resolution)",
+    "G9 polars/sm_light: ['per_run_below_t_min', 'window_below_10s'] (expected: the light query is meant to hit the cap, below the resolution)",
+    "gates stage exit 0 (0 = clean, 1 = a round-failing gate, 2 = host config error); host h100, t_min 1.0 s"
+   ],
+   "data": {
+    "gates": {
+     "G6": {
+      "pass": 4,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "session energy invalid; round fails (repeated once, then stop); no substitution"
+     },
+     "G7": {
+      "pass": 4,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "cross-check flagged; counter value unaffected"
+     },
+     "G8": {
+      "pass": 1,
+      "fail": 2,
+      "not_evaluable": 1,
+      "not_applicable": 0,
+      "consequence": "gpu.csv values disabled for the session"
+     },
+     "G9": {
+      "pass": 2,
+      "fail": 10,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "cell is below measurement resolution"
+     },
+     "G10": {
+      "pass": 4,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "above-idle flagged unreliable; total unaffected"
+     },
+     "G11": {
+      "pass": 4,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "flagged, not excluded"
+     },
+     "G12": {
+      "pass": 5,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "integrity failure; round fails"
+     }
+    },
+    "round_failed": false,
+    "ineligible": {
+     "smoke/sf1/polars": [
+      "gpu_csv_enabled"
+     ],
+     "smoke/sf1/polars/sm_join": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/polars/sm_light": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/polars/sm_scan": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/polars_gpu": [
+      "gpu_csv_enabled"
+     ],
+     "smoke/sf1/polars_gpu/sm_join": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/polars_gpu/sm_light": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/polars_gpu/sm_scan": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/spark_cpu/sm_light": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/spark_cpu/sm_scan": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/spark_gpu": [
+      "gpu_csv_enabled"
+     ],
+     "smoke/sf1/spark_gpu/sm_light": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/spark_gpu/sm_scan": [
+      "resolution_ok"
+     ]
+    }
+   }
+  },
+  {
+   "id": "C13",
+   "title": "poller cadence and coverage of sessions and windows (G7's 0.80 / 1 s rule)",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "5402 rows over 1082 s; spacing median 200 ms, p99 203 ms, max 344 ms; query: timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active",
+    "coverage of 48 sessions and windows: min 0.805, median 1.000"
+   ],
+   "data": {
+    "rows": 5402,
+    "spacing_ms": {
+     "median": 200.00004768371582,
+     "p99": 203.00006866455078,
+     "max": 343.99986267089844
+    }
+   }
+  },
+  {
+   "id": "C14",
+   "title": "outputs: every engine returns the polars rows (ints exact, floats rel 1e-8 / abs 1e-6)",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "sm_light: 100 result rows",
+    "sm_join: 100 result rows",
+    "sm_scan: 1000 result rows"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C15",
+   "title": "no foreign GPU process at the host captures, the idle gates and the session ends",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "polars: idle gate passed after 0.01877621099993121 s (1 poll(s))",
+    "polars_gpu: idle gate passed after 0.018867462999992313 s (1 poll(s))",
+    "spark_cpu: idle gate passed after 0.019262247999961346 s (1 poll(s))",
+    "spark_gpu: idle gate passed after 0.01812738800003899 s (1 poll(s))"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C16",
+   "title": "CPU / node power sampler on this host (the h100 config declares cpu_energy none)",
+   "status": "INFO",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "power_telemetry: enabled True, started True, status unavailable, cpu_energy_source None, node_power_source None, interval 0.2",
+    "reasons: ['powercap-rapl: /sys/class/powercap has no intel-rapl*/energy_uj zone (driver not loaded, or RAPL not exposed to this host)', 'amd-energy: no hwmon device named amd_energy under /sys/class/hwmon', \"perf-stat: no power/energy-*/ event counted (perf exit 129):     -e, --event <event>   event selector. use 'perf list' to list available events\", 'turbostat: no PkgWatt/RAMWatt values (turbostat exit 251): turbostat: no /dev/cpu/0/msr, Try \"# modprobe msr\" : No such file or directory', \"ipmi-dcmi: 'ipmitool' not found on PATH\"]",
+    "power.csv present: True (103 bytes)"
+   ],
+   "data": {
+    "power_telemetry": {
+     "enabled": true,
+     "started": true,
+     "status": "unavailable",
+     "csv": "power.csv",
+     "sidecar": "power_sources.json",
+     "cpu_energy_source": null,
+     "node_power_source": null,
+     "interval_seconds": 0.2,
+     "reasons": [
+      "powercap-rapl: /sys/class/powercap has no intel-rapl*/energy_uj zone (driver not loaded, or RAPL not exposed to this host)",
+      "amd-energy: no hwmon device named amd_energy under /sys/class/hwmon",
+      "perf-stat: no power/energy-*/ event counted (perf exit 129):     -e, --event <event>   event selector. use 'perf list' to list available events",
+      "turbostat: no PkgWatt/RAMWatt values (turbostat exit 251): turbostat: no /dev/cpu/0/msr, Try \"# modprobe msr\" : No such file or directory",
+      "ipmi-dcmi: 'ipmitool' not found on PATH"
+     ]
+    }
+   }
+  },
+  {
+   "id": "C17",
+   "title": "redaction: no GPU UUID, serial number, bus id or IP address in the evidence",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "publish removed: {'ip address': 13, 'mask': 1}"
+   ],
+   "data": {
+    "leaks": 0
+   }
+  },
+  {
+   "id": "C18",
+   "title": "time and cost: every stage, the whole run",
+   "status": "INFO",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "stage setup: 84 s (1.4 min), exit 0, 2026-11-22T21:45:00Z -> 2026-11-22T21:46:24Z",
+    "stage data: 5 s (0.1 min), exit 0, 2026-11-22T21:46:34Z -> 2026-11-22T21:46:39Z",
+    "stage run: 1084 s (18.1 min), exit 0, 2026-11-22T21:47:07Z -> 2026-11-22T22:05:11Z",
+    "stage gates: 0 s (0.0 min), exit 0, 2026-11-22T22:05:38Z -> 2026-11-22T22:05:38Z",
+    "launch to SSH ready: 9.2 min",
+    "create call to confirmed termination: 34.8 min -> about $2.83 at $4.89/h (Lambda bills per minute from boot; the boot is part of the create-to-ready time)",
+    "driver view of the stages (start call to exit code seen, polling included): setup 1.6 min, data 0.5 min, run 18.5 min, gates 0.0 min, bundle 0.0 min",
+    "polars: session 230 s (worker launch to exit)",
+    "polars_gpu: session 248 s (worker launch to exit)",
+    "spark_cpu: session 277 s (worker launch to exit)",
+    "spark_gpu: session 296 s (worker launch to exit)",
+    "first launch to last exit: 17.9 min (four sessions, pulses and idle windows included)"
+   ],
+   "data": {
+    "setup": 84,
+    "data": 5,
+    "run": 1084,
+    "gates": 0,
+    "billed_seconds_estimate": 2087,
+    "sessions_span_seconds": 1072.9246480464935
+   }
+  }
+ ]
+}

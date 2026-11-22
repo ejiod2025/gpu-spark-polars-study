@@ -1,0 +1,45 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   GpuColumnarToRow false, [loreId=95]
+   +- GpuSort [d_grp#1 ASC NULLS FIRST], true, com.nvidia.spark.rapids.OutOfCoreSort$@578111be, [loreId=94]
+      +- GpuShuffleCoalesce 1073741824, [loreId=93]
+         +- GpuCustomShuffleReader coalesced
+            +- ShuffleQueryStage 3
+               +- GpuColumnarExchange gpurangepartitioning(d_grp#1 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=805], [loreId=88]
+                  +- GpuHashAggregate (keys=[d_grp#1], functions=[gpubasicsum((f_x#13 * d_w#2), DoubleType, false), avg(f_y#14, DoubleType, false), gpucount(1, false)], output=[d_grp#1, revenue#150, avg_y#151, n#152L]) [loreId=87]
+                     +- GpuShuffleCoalesce 1073741824, [loreId=86]
+                        +- GpuCustomShuffleReader coalesced
+                           +- ShuffleQueryStage 2
+                              +- GpuColumnarExchange gpuhashpartitioning(d_grp#1, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=745], [loreId=78]
+                                 +- GpuHashAggregate (keys=[d_grp#1], functions=[partial_gpubasicsum((f_x#13 * d_w#2), DoubleType, false), partial_avg(f_y#14, DoubleType, false), partial_gpucount(1, false)], output=[d_grp#1, sum#164, sum#165, count#166L, count#167L]) [loreId=77]
+                                    +- GpuProject [f_x#13, f_y#14, d_grp#1, d_w#2], true, [loreId=76]
+                                       +- GpuShuffledSymmetricHashJoin Inner, [f_key#11L], [d_key#0L], false, 1073741824, 1.0, CoalesceReadOption(true,GPU,Never,None,false), false, [loreId=75]
+                                          :- GpuCustomShuffleReader coalesced
+                                          :  +- ShuffleQueryStage 0
+                                          :     +- GpuColumnarExchange gpuhashpartitioning(f_key#11L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=514], [loreId=45]
+                                          :        +- GpuCoalesceBatches targetsize(1073741824), [loreId=44]
+                                          :           +- GpuFilter ((gpuisnotnull(f_y#14) AND (f_y#14 < 0.9)) AND gpuisnotnull(f_key#11L)), [loreId=43]
+                                          :              +- GpuFileGpuScan parquet [f_key#11L,f_x#13,f_y#14] Batched: true, DataFilters: [isnotnull(f_y#14), (f_y#14 < 0.9), isnotnull(f_key#11L)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/p3smoke/data/sf1/facts], PartitionFilters: [], PushedFilters: [IsNotNull(f_y), LessThan(f_y,0.9), IsNotNull(f_key)], ReadSchema: struct<f_key:bigint,f_x:double,f_y:double>
+                                          +- GpuCustomShuffleReader coalesced
+                                             +- ShuffleQueryStage 1
+                                                +- GpuColumnarExchange gpuhashpartitioning(d_key#0L, 120, Murmur3Mode), ENSURE_REQUIREMENTS, [plan_id=542], [loreId=52]
+                                                   +- GpuCoalesceBatches targetsize(1073741824), [loreId=51]
+                                                      +- GpuFilter gpuisnotnull(d_key#0L), [loreId=50]
+                                                         +- GpuFileGpuScan parquet [d_key#0L,d_grp#1,d_w#2] Batched: true, DataFilters: [isnotnull(d_key#0L)], Eager_IO_Prefetch: false, Format: Parquet, Location: InMemoryFileIndex[file:/home/ubuntu/p3smoke/data/sf1/dims], PartitionFilters: [], PushedFilters: [IsNotNull(d_key)], ReadSchema: struct<d_key:bigint,d_grp:int,d_w:double>
++- == Initial Plan ==
+   Sort [d_grp#1 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(d_grp#1 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=303]
+      +- HashAggregate(keys=[d_grp#1], functions=[sum((f_x#13 * d_w#2)), avg(f_y#14), count(1)], output=[d_grp#1, revenue#150, avg_y#151, n#152L])
+         +- Exchange hashpartitioning(d_grp#1, 120), ENSURE_REQUIREMENTS, [plan_id=300]
+            +- HashAggregate(keys=[d_grp#1], functions=[partial_sum((f_x#13 * d_w#2)), partial_avg(f_y#14), partial_count(1)], output=[d_grp#1, sum#164, sum#165, count#166L, count#167L])
+               +- Project [f_x#13, f_y#14, d_grp#1, d_w#2]
+                  +- SortMergeJoin [f_key#11L], [d_key#0L], Inner
+                     :- Sort [f_key#11L ASC NULLS FIRST], false, 0
+                     :  +- Exchange hashpartitioning(f_key#11L, 120), ENSURE_REQUIREMENTS, [plan_id=292]
+                     :     +- Filter ((isnotnull(f_y#14) AND (f_y#14 < 0.9)) AND isnotnull(f_key#11L))
+                     :        +- FileScan parquet [f_key#11L,f_x#13,f_y#14] Batched: true, DataFilters: [isnotnull(f_y#14), (f_y#14 < 0.9), isnotnull(f_key#11L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/facts], PartitionFilters: [], PushedFilters: [IsNotNull(f_y), LessThan(f_y,0.9), IsNotNull(f_key)], ReadSchema: struct<f_key:bigint,f_x:double,f_y:double>
+                     +- Sort [d_key#0L ASC NULLS FIRST], false, 0
+                        +- Exchange hashpartitioning(d_key#0L, 120), ENSURE_REQUIREMENTS, [plan_id=293]
+                           +- Filter isnotnull(d_key#0L)
+                              +- FileScan parquet [d_key#0L,d_grp#1,d_w#2] Batched: true, DataFilters: [isnotnull(d_key#0L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/dims], PartitionFilters: [], PushedFilters: [IsNotNull(d_key)], ReadSchema: struct<d_key:bigint,d_grp:int,d_w:double>
+
