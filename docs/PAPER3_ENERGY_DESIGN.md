@@ -813,7 +813,104 @@ answers.
       lock.
 
 ## 12. Amendments
-None.
+### A1 — 2026-11-22
+First amendment after the lock of 2026-11-16 (commit `bd42401dd725d63bde3fbce2a1c7dcf81469b0b5`, annotated tag
+`paper3-design-lock`, Zenodo 10.5281/zenodo.24284712). Sections 1-11 are not edited: each item adds to the locked text or says
+how it reads against it. Items 2, 6 and 7 record author decisions of 2026-11-22; items 1, 3, 4, 5 and 8 are the lead's records of
+facts and operating details. **Outcome data seen, for every item: none.** No timed Paper 3 study session has run, no campaign
+round exists and no Paper 3 energy, power or cost aggregate has been computed; the only data involved in this amendment are the
+price lists of item 1. No aggregate has been seen, so the limit of §7.4 on making a changed element confirmatory does not apply
+to any item.
+1. **Price snapshot at the lock (§2.6; the response "archived at the lock" of §3.1).** §2.6 requires a price snapshot "at the
+   lock"; none was taken when the tag was made (tagger date 2026-11-16 15:37:31 UTC). The gap was found on 2026-11-16, while the
+   campaign runbook was written, and the snapshot followed within the hour. A snapshot was taken the same UTC day, 2026-11-16 at 17:14:38 UTC, about 1 h 37 min after the tag, with
+   `tools/paper3_campaign/p3_price_snapshot.sh`; it is archived in `docs/paper3-evidence/prices-20261116-lockday/` (raw
+   responses, UTC times and sha256 in `SNAPSHOT.md` and `SHA256SUMS`). It serves as the lock snapshot. The gap is disclosed here
+   and will be in the paper; the snapshot cannot show what the providers returned at 15:37:31 itself. The Lambda API response
+   (`GET /instance-types`) gives `price_cents_per_hour` 489 (`gpu_1x_h100_sxm5`), 259 (`gpu_1x_gh200`), 799
+   (`gpu_1x_b200_sxm6`) and 199 (`gpu_1x_a100_sxm4`), i.e. 4.89, 2.59, 7.99 and 1.99 USD/h, equal to the Lambda rows of P-NEW
+   (§2.6, §3.1). The Lambda pricing-page capture of the same time lists $4.89 (H100 SXM), $2.59 (GH200), $7.99 (B200 SXM6) and
+   $1.99 (A100 40 GB) per GPU-hour and none of the P-OLD values (4.29, 2.29, 6.99), so the API and the page agree (they differed
+   on 2026-11-11, §2.6); the P-NEW prices were in force from 2026-11-16 00:00 UTC, before the tag and the snapshot. The same
+   API response serves as the §3.1 "response archived at the lock": it lists the four study types and no H200, GB200 or B300;
+   three of them (H100, GH200, B200) listed no region with capacity at that time, which does not bear on the rule that only
+   types returned by the API at the lock are used. The two Google price pages captured with it are the lock-day record for the
+   GCP rows of P-NEW. No price of P-NEW, P-OLD or any other table changes. Outcome data seen: none.
+2. **Lost-launch policy (§3.1 host loss, §3.2 squares, §4 round failure; author's decision 2026-11-22).** *Reason:* §3.2 leaves
+   the square of a lost launch incomplete, §3.1 says host loss counts as "one square only" and §4 stops after a round and its
+   repeat both fail; none says whether a lost launch may be replaced. Losing an instance is an infrastructure event, not a result,
+   and a round that fails an integrity gate twice is a technical failure of the run, not an observed speed, energy or cost.
+   *Policy:* (a) a launch lost to a technical failure, meaning the instance is lost or
+   a round fails the §4 repeat-once rule (the round and its repeat both fail on G1-G6 or G12), is relaunched once on a fresh
+   instance of the same type; (b) the relaunch restarts that launch's square from its first round (round 1 or round 5; on C-GCP
+   the first of that square's four orders); (c) the rounds of the lost launch are reported (counts, gate outcomes) and never
+   pooled with the relaunch's rounds, and as rounds of an incomplete square they enter no confirmatory estimate (§3.2); (d) a
+   second loss ends that square, and the complete-squares rule of §3.2 then applies unchanged; (e) the decision to relaunch
+   depends only on the technical failure, never on any speed, energy, cost or other value (§7.3). *Consequences:* if a relaunch cannot be made
+   because no capacity appears before the campaign ends, the square stays incomplete (§3.2); a relaunch's cost may exceed §9's
+   1.2 margin for that host, and spending stays within the ~$10k cap (§9, §11 item 6). *Reading against the locked
+   text:* for a first loss this supersedes the reading of §3.1's "host loss mid-campaign counts as one square only" and of §4's
+   "repeat once, then stop" as final; the repeat of a round within a launch and the stop of that launch are unchanged, and the
+   §3.1 sentence still gives the result when the relaunch is also lost. The seed, the orders, the gates, the complete-squares
+   rule and "no round is added or dropped for what its values look like" (§3.2) are unchanged: the relaunched square uses the
+   same rows in the same order as the lost one. Outcome data seen: none.
+3. **SF1 functional preflight at bring-up (as in Paper 1).** *Reason:* Paper 1 ran `preflight.py` on each host before its
+   campaign (`docs/H100_EXPERIMENT_DESIGN.md`); a host whose engines cannot run is found there in minutes, not hours into a
+   round. *Change:* after set-up and the input gate, the bring-up of every campaign host (generated by `tools/paper3_campaign/
+   p3_plan.py bringup`) runs `preflight.py` once. It checks the environment (GPU and driver, Java, package pins, RAPIDS jar, free
+   disk and, on C-GCP, the 26-vCPU pin with its memory binding and the RAPL counters), then runs the workload once at SF1: the
+   baseline suite and the complex suite (`verified_gc` cleanup; SF1 is outside that suite's §3.2 grid of SF30-SF300), every
+   engine of the host (four on a GPU host; `polars` and `spark_cpu` on C-GCP and C-VM), one run per query, with the campaign's
+   26 threads and 96 g Spark driver heap, without the §2.1 window rule or the §2.2 idle windows. It validates every engine's
+   output against `polars` (G2 tolerances), the strict-GPU and Spark plan checks and the pre-declared Polars GPU gaps. *Sealed:*
+   its output directory (`rerun/preflight-bringup/`, outside the campaign root) is copied off the host with the launch and
+   archived, but its outputs are not analysed and not pooled with campaign data. The preflight's verdict is read from its final
+   `VERDICT` line and its `[FAIL]` lines only; the full bring-up log and the preflight report, which contain per-suite wall
+   times, are archived unread with the launch. The preflight is disclosed in the paper. It is a functional check of the
+   campaign host before round 1, not a pilot of the study, and §7.2 (what may precede the lock) does not apply to it because it
+   follows the lock. §7.2's "no study queries" applied to the pre-lock probes and to the synthetic smoke test; this item does
+   not change that. Outcome data seen: none.
+4. **C-GCP G12 allow-list (a pending configuration value).** *Reason:* G12 (§4) requires that nothing else is scheduled on
+   C-GCP. The gate compares the systemd timers, `/etc/cron.*` files, crontab entries and `at` jobs seen at the start and end of
+   each round with `paper3_hosts.json` → `hosts.c-gcp.exclusive_use.allowed_scheduled`, a list of item names. That value is
+   `null` (pending) in the locked file, as it is in every host entry; only C-GCP's is required (the gates refuse a C-GCP
+   campaign while it is null; on the GPU hosts G12 is the foreign-GPU-process check, on C-VM it is not applicable). What the
+   host schedules cannot be known before it boots. *Change:* the value is filled once, at the first C-GCP boot, after a person
+   reviews the scheduled items that remain once the bring-up has masked the runbook's maintenance timers and `cron.service`
+   (`docs/PAPER3_RUNBOOK.md` §6): an item is masked as well (preferred) or allowed with its reason. The filled value and its
+   review are recorded in a later dated amendment before the first C-GCP session; the same value applies to both C-GCP launches
+   and is not changed afterwards. The commit that fills it changes no other value of `paper3_hosts.json`;
+   `python3 tools/paper3_campaign/p3_plan.py check-allowlist --old CAMPAIGN --new CONFIG` (`check_allowlist_change` in that
+   file) enforces this and refuses: any file other than `paper3_hosts.json`, the design file, the runbook, `tools/paper3_campaign/`
+   and the runbook tests differing between the two commits; any change to `paper3_hosts.json` other than
+   `c-gcp.exclusive_use.allowed_scheduled` (the host set, the top-level fields, every other host's entry, every other C-GCP
+   field); a change to a value that is already set; and a value that is not a list of strings. It does not check that sections
+   1-11 of the design file are unchanged; `run_campaign.py` does, through `verify_lock`, on every invocation. The pending values
+   of the B200 entry (`t_min_s`, counter, CPU source) are not touched by this item; they are filled under §3.1 by B200's own
+   amendment. Outcome data seen: none.
+5. **Campaign record completeness (§3.1).** §3.1 says `campaign.json` records "instance type, CPU model, hypervisor, kernel,
+   driver, RAM, storage type, probe-declared energy sources and the design commit". At the lock `run_campaign.py` recorded
+   neither the hypervisor nor the storage type. Since commit c1a84a7 (2026-11-22), in Paper 3 mode the `host` block of
+   `campaign.json` also holds `hypervisor` (the first line of `systemd-detect-virt`, null if it cannot be asked) and `storage`
+   (for the device under the data root, from `findmnt` and `lsblk`: mount source, file-system type, parent disk, rotational
+   flag, type, transport and model; no serial numbers; null where the host cannot answer). Paper 1 campaigns are unchanged
+   (`tests/test_paper3_host_identity.py`). The provisioned Hyperdisk IOPS and throughput are not visible from inside a host; the
+   launch record holds the request (`boot_disk_requested`) and what the provider reports back (`boot_disk_actual`). No effect on
+   any estimate. Outcome data seen: none.
+6. **Start order (operational; author's choice 2026-11-22).** A pathfinder start: the H100 and C-GCP (launch 1 of each) start
+   first; the A100, GH200 and C-VM (launch 1 of each) start after the H100's round 1 has been accepted and copied (its gates
+   passed and its copy verified). Reason: a systematic fault of the tooling is then found on one host-round before the others
+   start. This is operational: it changes no round, square, order, seed, gate or analysis, and no estimate uses the order in
+   which hosts ran. Outcome data seen: none.
+7. **Funding (§8; author, 2026-11-22).** §8 names Lambda ($10,000) and AWS ($6,000) compute credits only. GCP compute for Paper 3
+   is paid by credits or a grant (author, 2026-11-22). The source will be named in a later dated amendment before the first
+   C-GCP session; no source, sponsor or amount is stated here. §8's statement that the sponsors had no role in design, analysis,
+   interpretation, review or the decision to publish covers the two sponsors named there and is not extended by this item. Cost
+   still uses list prices (P-NEW) whatever funds the bill (§2.6, §8). Outcome data seen: none.
+8. **Synthetic-data guard in `run_campaign.py` (lead's record).** Since commit c1a84a7, in Paper 3 mode `run_campaign.py`
+   refuses, on every invocation and before anything runs (exit 5), a data root whose manifest is marked `synthetic_smoke` for
+   any scale the campaign would use (`synthetic_smoke_manifests`; test in `tests/test_paper3_driver.py`), so the data of the
+   harness smoke test (`tools/paper3_smoke/`) can never enter a campaign. No effect on any estimate. Outcome data seen: none.
 
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
