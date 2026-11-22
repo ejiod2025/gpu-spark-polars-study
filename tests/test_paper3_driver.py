@@ -315,6 +315,41 @@ def h100rig(tmp_path, monkeypatch):
     r.restore()
 
 
+# ---- the synthetic readiness data never feeds a campaign ------------------------------------------------------------------------
+
+SYNTHETIC_MANIFEST = json.dumps({"format_version": 1, "scale_factor": 1, "synthetic_smoke": True,
+                                 "dataset": "synthetic readiness data for the Paper 3 smoke test; not TPC-H, not a study dataset"})
+
+
+def test_a_paper_3_campaign_refuses_a_data_root_marked_synthetic_smoke_before_anything_runs(p3rig, capsys):
+    (p3rig.tmp / "data" / "sf1" / "manifest.json").write_text(SYNTHETIC_MANIFEST)
+    assert p3rig.run() == rc.EXIT_DESIGN
+    err = capsys.readouterr().err
+    assert "synthetic readiness data" in err and "synthetic_smoke" in err and "sf1" in err
+    assert not p3rig.calls() and not (p3rig.root / "campaign.json").exists() and not p3rig.round_dirs()      # nothing ran, nothing was written
+
+
+def test_the_marker_is_checked_on_every_invocation_not_only_the_first(p3rig, capsys):
+    assert p3rig.run() == 0
+    (p3rig.tmp / "data" / "sf1" / "manifest.json").write_text(SYNTHETIC_MANIFEST)      # the data root is swapped between two invocations
+    capsys.readouterr()
+    assert p3rig.run() == rc.EXIT_DESIGN
+    assert "synthetic readiness data" in capsys.readouterr().err
+
+
+def test_only_a_true_marker_refuses_and_paper_1_is_not_touched(p3rig, tmp_path, monkeypatch):
+    for manifest in ('{"synthetic_smoke": false}', "{}", "not json", "[1, 2]", '{"synthetic_smoke": null}'):
+        (p3rig.tmp / "data" / "sf1" / "manifest.json").write_text(manifest)
+        assert rc.synthetic_smoke_manifests(p3rig.tmp / "data", ["sf1"]) == [], manifest
+    (p3rig.tmp / "data" / "sf1" / "manifest.json").write_text(SYNTHETIC_MANIFEST)
+    assert rc.synthetic_smoke_manifests(p3rig.tmp / "data", ["sf1", "sf10"]) == ["sf1"]          # a scale with no manifest is the missing-manifest check's business
+    (tmp_path / "p1").mkdir()
+    paper1 = Rig(tmp_path / "p1", monkeypatch)
+    (paper1.tmp / "data" / "sf1" / "manifest.json").write_text(SYNTHETIC_MANIFEST)
+    assert paper1.run() == 0                                                              # Paper 1 mode has no such check (its campaigns are byte for byte unchanged)
+    paper1.restore()
+
+
 def test_a_launch_runs_its_rounds_and_records_the_paper3_design(p3rig):
     assert p3rig.run() == 0
     assert p3rig.round_dirs() == ["round-1", "round-2"]

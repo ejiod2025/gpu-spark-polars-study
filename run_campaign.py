@@ -47,6 +47,7 @@ import os
 from pathlib import Path
 import platform
 import random
+import re
 import secrets
 import signal
 import statistics
@@ -582,6 +583,34 @@ def host_id(salt: bytes) -> str:
     return hashlib.sha256(salt + b"\0" + platform.node().encode() + b"\0" + machine_id.encode()).hexdigest()
 
 
+def detect_virt() -> str | None:
+    """What systemd-detect-virt says (kvm, google, none ...), also when it exits 1 to say "none"; None when it cannot be asked."""
+    _code, out = run_text(["systemd-detect-virt"], timeout=30)
+    lines = [line.strip() for line in (out or "").splitlines() if line.strip()]
+    return lines[0] if lines and " " not in lines[0] and "Error" not in lines[0] else None
+
+
+def storage_identity(data_root) -> dict:
+    """The device under the data root, as lsblk and findmnt report it (no serial numbers): the storage type of design 3.1.
+    Best effort; a field the host cannot answer is None."""
+    out = {"data_root_source": None, "data_root_fstype": None, "device": None, "rotational": None, "type": None, "model": None, "transport": None}
+    if data_root is None:
+        return out
+    code, text = run_text(["findmnt", "-n", "-T", str(data_root), "-o", "SOURCE,FSTYPE"], timeout=30)
+    parts = text.split() if code == 0 and text else []
+    if len(parts) >= 2:
+        out["data_root_source"], out["data_root_fstype"] = parts[0], parts[1]
+        code, parent = run_text(["lsblk", "-n", "-o", "PKNAME", parts[0]], timeout=30)
+        device = (parent.split() or [None])[0] if code == 0 and parent else None
+        device = f"/dev/{device}" if device else parts[0]
+        code, text = run_text(["lsblk", "-d", "-n", "-P", "-o", "NAME,ROTA,TYPE,TRAN,MODEL", device], timeout=30)
+        fields = dict(re.findall(r'(\w+)="([^"]*)"', text or "")) if code == 0 else {}
+        if fields.get("NAME"):
+            out.update(device=fields["NAME"], rotational={"1": True, "0": False}.get(fields.get("ROTA")), type=fields.get("TYPE") or None,
+                       transport=fields.get("TRAN") or None, model=fields.get("MODEL", "").strip() or None)
+    return out
+
+
 def host_identity(cfg: Config) -> dict:
     """Amendment A2: each host's campaign records which host it ran on (by salted hash; raw hostname only on request)."""
     def probe(command, field=None):
@@ -596,6 +625,9 @@ def host_identity(cfg: Config) -> dict:
     identity = {"instance_type": cfg.host_label, "platform": platform.platform(),
                 "cpus": os.cpu_count(), "cpu_model": probe(["lscpu"], "Model name"), "memory_total_bytes": memory,
                 "gpu": probe(["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"])}
+    if cfg.paper3 is not None:   # design 3.1 records the hypervisor and the storage type with the host; Paper 1's campaign.json is unchanged
+        identity["hypervisor"] = detect_virt()
+        identity["storage"] = storage_identity(cfg.data_root)
     if cfg.host_salt is not None:
         identity["host_id_sha256"] = host_id(cfg.host_salt)
         identity["host_id_basis"] = ("sha256(per-campaign secret salt, hostname, /etc/machine-id); the salt stays on the host "
@@ -748,6 +780,18 @@ def paper3_startup_checks(cfg: Config, resolved_pinning: bool) -> None:
                                 f"{pinning.get('sockets')}", EXIT_DESIGN)
 
 
+def synthetic_smoke_manifests(data_root, scale_dirs) -> list:
+    """Scale directories of the data root whose manifest.json is marked synthetic_smoke (tools/paper3_smoke/generate_smoke_data.py): the
+    Paper 3 readiness test's invented data, which must never feed a study campaign. An unreadable manifest is not judged here (the input
+    gate does that)."""
+    found = []
+    for name in scale_dirs:
+        manifest = read_json(Path(data_root) / name / "manifest.json")
+        if isinstance(manifest, dict) and manifest.get("synthetic_smoke"):
+            found.append(name)
+    return found
+
+
 def startup_checks(cfg: Config, units: list, prov: dict) -> None:
     """Fail in seconds, not hours into the campaign."""
     if cfg.paper3 is not None:
@@ -764,6 +808,11 @@ def startup_checks(cfg: Config, units: list, prov: dict) -> None:
     missing = [scale_dir_name(s) for s, h in prov["inputs"]["manifest_sha256"].items() if h is None]
     if missing:
         raise CampaignError(f"no manifest.json under {cfg.data_root} for {missing}; generate and verify inputs first", EXIT_DESIGN)
+    if cfg.paper3 is not None:
+        synthetic = synthetic_smoke_manifests(cfg.data_root, prov["inputs"]["manifest_sha256"])
+        if synthetic:
+            raise CampaignError(f"the data root {cfg.data_root} holds synthetic readiness data (manifest marked synthetic_smoke: {synthetic}); "
+                                "a Paper 3 campaign runs only on the TPC-H-derived inputs that passed verify_generated_inputs.py", EXIT_DESIGN)
     if "spark_gpu" in cfg.engines and not cfg.jar.is_file():
         raise CampaignError(f"spark_gpu selected but --jar {cfg.jar} does not exist", EXIT_DESIGN)
     if cfg.telemetry.get("gpu_energy_scope") == "none" and [e for e in cfg.engines if e in GPU_ENGINES]:
