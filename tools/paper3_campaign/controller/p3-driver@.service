@@ -1,0 +1,34 @@
+# One campaign driver (p3_driver.sh) per launch record on the controller; the instance name is the lease name:
+#   systemctl enable --now 'p3-driver@p3-campaign-h100-l1-owner-ejiod-expires-20261124T1400Z.service'
+# Extra driver options go in /etc/p3/driver-<lease>.env as P3_DRIVER_ARGS="--fresh" (see docs/PAPER3_CONTROLLER.md).
+#
+# Restart policy: the driver exits by itself with 0 (done and torn down) or with a code that means "a person decides" (2 usage, 10 allow-list
+# review, 11 stopped after bring-up on request, 20 held, 21 host gone, 30 stopped by the campaign's own rule). None of those is restarted: the
+# unit stays failed so that `systemctl --failed` and p3_ctl.sh status show it. A crash, a kill (OOM) or a reboot of the controller is restarted,
+# and the driver is restartable by construction (a started stage is attached to, a verified copy is skipped).
+[Unit]
+Description=Paper 3 campaign driver for %i
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/home/p3ops/p3ledger/%i.json
+StartLimitIntervalSec=900
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=p3ops
+Group=p3ops
+WorkingDirectory=/home/p3ops/study
+Environment=P3_LEDGER_DIR=/home/p3ops/p3ledger
+EnvironmentFile=-/etc/p3/driver.env
+EnvironmentFile=-/etc/p3/driver-%i.env
+ExecStart=/home/p3ops/study/tools/paper3_campaign/p3_driver.sh /home/p3ops/p3ledger/%i.json $P3_DRIVER_ARGS
+Restart=on-failure
+RestartSec=60
+RestartPreventExitStatus=2 10 11 20 21 30
+TimeoutStopSec=60
+NoNewPrivileges=yes
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

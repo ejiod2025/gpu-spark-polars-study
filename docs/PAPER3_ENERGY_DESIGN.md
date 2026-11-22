@@ -912,6 +912,56 @@ to any item.
    any scale the campaign would use (`synthetic_smoke_manifests`; test in `tests/test_paper3_driver.py`), so the data of the
    harness smoke test (`tools/paper3_smoke/`) can never enter a campaign. No effect on any estimate. Outcome data seen: none.
 
+### A2 — 2026-11-22
+Second amendment after the lock, after A1 of the same day. Item 1 is the amendment that §3.1 and §7.1 require before B200's first
+session; it applies the admission rule stated there and changes no rule. Item 2 is the lead's record of a tooling change that
+makes A1 item 3 mechanical. Sections 1-11 are not edited. **Outcome data seen, for both items: none beyond synthetic probe
+load.** The P6 rerun of item 1 ran a synthetic CUDA spin kernel and `nvidia-smi` pollers on a B200 instance and no study query;
+no timed Paper 3 study session has run and no Paper 3 energy, power or cost aggregate has been computed.
+1. **B200 admission (§3.1, §7.1, §11 item 8.2).** B200 is admitted as a host. *The rule (§3.1):* its sessions may run after its
+   semantics step (counter, `power.draw` semantics, counter scope), P5, P6 and G8 have been run on a B200 instance and pass
+   under the same rules as the other hosts. *Where each condition is met* (Lambda `gpu_1x_b200_sxm6`, driver 570.148.08,
+   synthetic load only; the results of 2026-11-16 are reused, as §3.1 and the pre-lock change log allow, lead's decision
+   2026-11-16): (a) the counter advances and counter / integral of the matching field `power.draw.instant` lies within
+   0.98-1.02 on the 10 s idle and the 20 s steady-load windows: 0.9986 and 1.0049 (semantics step, 2026-11-16,
+   `docs/paper3-evidence/probes/lambda-b200-20261116T052750Z-semantics.json`); there are no `module.*` fields, so the counter is
+   board scope and its tag is S1-counter; (b) idle pair differences within G10's 10%: 0.066% (bare) and 0.013% (poller) (P5,
+   2026-11-16, `-p5-gpu.json`); (c) G8 passes at the §4 thresholds: median lag 0.195 s (limit 0.4 s), p90 0.305 s, maximum
+   0.334 s, first-third minus last-third drift -0.039 s (limit 0.2 s), 20 pulses, no onset missed (2026-11-16, `-g8.json`); (d)
+   P6 is valid and yields a `t_min` on the tested grid (rerun below). *P6 rerun, 2026-11-22:* Lambda `gpu_1x_b200_sxm6` in
+   australia-east-1, launched 21:01:47 UTC, P6 21:08:17-21:24:27 UTC, termination confirmed 21:26:38 UTC (24.9 minutes, about
+   $3.3 at $7.99/h; not part of the §9 core total); reference field `power.draw.instant` (the counter's scope); the 20 ms stream
+   has 48,411 rows with a median spacing of 20.0 ms and a largest spacing of 23 ms; 5 windows per length and 8 isolated pulses
+   per length. Windows-mode median absolute error 2.77 / 5.27 / 2.93 / 0.52 / 0.25 / 0.17% at 0.1 / 0.25 / 0.5 / 1 / 2 / 5 s;
+   isolated 14.6 / 20.1 / 5.2 / 1.8 / 1.1 / 0.25 / 0.29% at 0.1 / 0.25 / 0.5 / 1 / 2 / 5 / 10 s. The measured `t_min` is 1.0 s in
+   both modes (the smallest length whose median |error| is <= 2% and every longer length also is), so `t_min(B200) = max(1 s,
+   1.0 s) = 1 s`. Files: `docs/paper3-evidence/probes/lambda-b200-20261122T210145Z-{p6.json,p6-power-20ms.csv,run.log,
+   SHA256SUMS.txt}`. The errors were recomputed independently from the raw counter reads and the 20 ms CSV (a separate
+   implementation of the trapezoid integral): every record's error equals the recorded value exactly. Recorded as measured, no
+   limit moved: the windows-mode errors are positive in all 5 windows at 0.1, 0.25 and 0.5 s (one-sided below 1 s, as on the
+   A100) and of mixed sign from 1 s (4, 4 and 2 of 5 positive at 1, 2 and 5 s); the isolated median at 1 s, 1.80%, is close to the
+   2% limit, and the isolated `t_min` is never binding (§2.1). *CPU energy:* no source (source check of 2026-11-16, `-sources.json`:
+   KVM guest, `best_source` none); not an admission condition (§3.1). *Effect:* the §2.1 table row and the §4 G9 entry that read
+   "pending" for B200 read `t_min(B200)` = 1 s from this amendment. The `paper3_hosts.json` entry of `b200` is filled
+   accordingly (`t_min_s` 1.0 with its basis, GPU counter `nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption` with scope `board`,
+   CPU energy source `none` with its basis) and no other host's entry changes; `p3_plan.py` and `run_campaign.py` refuse a B200
+   launch while that `t_min_s` is null. Since this amendment the campaign code fixes B200's scope to `board` by host class
+   (`paper3_campaign.HOSTS["b200"]`), so a mismatching `--gpu-energy-scope` is refused at startup, as for the other hosts.
+   Rounds, squares, the seed rule, gates and analysis are those of the other GPU hosts
+   (§3.1), and RQ4 covers four GPU generations (A100, H100, GH200, B200) instead of three. Outcome data seen: none beyond
+   synthetic probe load.
+2. **Bring-up output seen by the operator (follow-up to A1 item 3; lead's record).** A1 item 3 says the preflight's verdict is
+   read from its final `VERDICT` line and its `[FAIL]` lines only, and that the full bring-up log and the preflight report are
+   archived unread. From the campaign commit on the driver (`tools/paper3_campaign/p3_driver.sh`) enforces this instead of
+   relying on the operator. Of the bring-up log it shows only what `tools/paper3_campaign/p3_bringup_view.py` allows, by an
+   allow-list: the result of each step (`STEP <name> ok` or `STEP <name> FAILED rc=N`, without the log's timestamp), each
+   `[FAIL]` line of the preflight with times and measured values redacted, and the last `VERDICT` line; every other line is
+   dropped. The driver also forces `P3_QUIET_LOG=1`, so the stage library's progress line, for the bring-up and for every round,
+   states that a stage is running and never echoes the stage's last log line. The full logs (`bringup-aN.log`,
+   `campaign-rK-aN.log`) and the preflight report are copied off the host and archived unread. The one exception is reading the
+   log of a failed step to diagnose the failure: it is logged when it happens, and anything seen is stated in the next
+   amendment (§7.4, runbook §8). No effect on any estimate. Outcome data seen: none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,

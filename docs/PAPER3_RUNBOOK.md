@@ -17,13 +17,13 @@ Contents: 1 Short version - 2 Hosts, order, time and cost - 3 Before the first l
 ## 1. Short version
 
 1. **Once:** one campaign commit that every host checks out, pushed; the harness smoke test (design 7.2) recorded; the operator machine
-   set up (section 3). B200 only after its admission amendment.
-2. **Per launch** (9 launches: A100, H100, GH200 and C-GCP twice each, C-VM once; 11 with B200):
+   set up (section 3). B200 is admitted (design amendment A2, section 3 item 3).
+2. **Per launch** (11 launches: A100, H100, GH200, B200 and C-GCP twice each, C-VM once; 9 if B200 never finds capacity):
    `p3_price_snapshot.sh` -> `p3_launch.sh` (dry run, then `--yes`) -> `p3_driver.sh RECORD` in the background -> short looks with
    `p3_status.sh` -> the driver copies every round off the host with checksums, tears the host down and confirms it.
 3. **Order:** H100 launch 1 and C-GCP launch 1 first (the pathfinders); the other hosts start once the H100's round 1 has passed its
    gates and its copy is verified; launch 2 of a host after its launch 1; C-GCP launch 2 after the metal host is deleted (quota).
-   About 2.7 days of wall time (without B200) and the design's ~$1,364 core estimate plus about $22 to $30 of round pauses the design did not count.
+   About 2.7 days of wall time (B200 included: its two launches end inside the A100's) and the design's ~$1,364 core estimate plus about $22 to $30 of round pauses the design did not count.
 4. **C-GCP** stops once, after bring-up, for a person to review what is scheduled on the host (section 6).
 5. **Nobody looks at a timing, energy, power or cost aggregate until every round is done or stopped** (design 7.3). The tools print only
    states, counts and gate outcomes, and the QA view cannot open anything else (section 8).
@@ -35,7 +35,7 @@ Contents: 1 Short version - 2 Hosts, order, time and cost - 3 Before the first l
 | G-H100 (reference) | `gpu_1x_h100_sxm5` | Lambda: `us-south-2` (probe region), then any region the API lists with capacity | 2 | `h100` |
 | G-A100 | `gpu_1x_a100_sxm4` | Lambda: `us-east-1` (probe region), `us-west-2`, `asia-south-1` | 2 | `a100` |
 | G-GH200 | `gpu_1x_gh200` (aarch64) | Lambda: `us-east-3` (probe region), then any | 2 | `gh200` |
-| G-B200 (conditional) | `gpu_1x_b200_sxm6` | Lambda: `australia-east-1` (the only region with capacity at the pre-lock battery) | 2 | `b200` |
+| G-B200 (admitted, amendment A2) | `gpu_1x_b200_sxm6` | Lambda: `australia-east-1` (the only region with capacity at the pre-lock battery and at the 2026-11-22 P6 rerun) | 2 | `b200` |
 | C-GCP | `c3-highmem-192-metal`, then `c3-standard-192-metal`, then `c3-highcpu-192-metal` | GCP project `siriusmedai`: `us-east4-a`, `us-east4-c`, `us-central1-a` (the two regions of the frozen price table) | 2 | `cgcp` |
 | C-VM | `c3-highmem-44` | GCP, same region as C-GCP | 1 | `cvm` |
 
@@ -76,9 +76,10 @@ prices; what is billed is recorded per instance for P-BILLED (section 4).
 | c-gcp | 0.0 | 16.23 | 17.23 | 33.46 |
 | a100 | 7.57 | 35.05 | 36.05 | 63.53 |
 | gh200 | 7.57 | 29.5 | 30.5 | 52.43 |
+| b200 | 7.57 | 32.3 | 33.3 | 58.03 |
 | c-vm | 7.57 | 13.81 | - | - |
 
-Pathfinder gate at 7.57 h (H100 bring-up plus round 1 plus its copy); everything done at 63.53 h (2.65 days); peak spend rate $25.08/h.
+Pathfinder gate at 7.57 h (H100 bring-up plus round 1 plus its copy); everything done at 63.53 h (2.65 days); peak spend rate $33.07/h.
 <!-- /p3-gen -->
 
 * Hosts of different classes run in parallel. Lambda's limits on concurrent instances are not documented in the repository (unverified):
@@ -89,11 +90,12 @@ Pathfinder gate at 7.57 h (H100 bring-up plus round 1 plus its copy); everything
 * **Pathfinders first:** the H100 is the reference host and the cheapest place to find a harness or runbook fault; C-GCP is the most
   expensive host per hour and has the one human step. A systematic fault found in H100 round 1 costs one host-round, not the whole campaign. The lead may
   start everything at once and save about 7.6 hours at the price of that risk.
-* B200 launches join whenever its admission amendment exists and capacity appears (about 24 h per launch, $7.99/h). It does not wait for
-  the pathfinder gate once admitted.
+* B200 (admitted by amendment A2) starts at the pathfinder gate with the A100 and the GH200: about 24 h per launch, $7.99/h, two launches, in the timeline
+  above. Capacity decides in practice (one region at the last two looks), and the lead may start a B200 launch earlier when capacity appears: the
+  gate is a recommendation about where to find a harness fault, not a design rule.
 * **The pathfinder gate, exactly:** H100 launch 1 has bring-up verified, the harness smoke test recorded, and round 1 accepted by the driver
   (its copy verified), and the QA view of `round-1` shows gate verdict `pass` with no G6 or G12 failure. Then A100, GH200 and C-VM launch 1 start
-  (and B200 if admitted). If round 1 fails twice (driver exit 30), nothing else starts until the lead has decided.
+  (and B200). If round 1 fails twice (driver exit 30), nothing else starts until the lead has decided.
 * **Launch 2 of a host** starts after its launch 1 ended with exit 0 (copied, verified, torn down) and the lead has seen the QA view of all its
   rounds (gates only). It uses the same CAMPAIGN commit (C-GCP: the same CONFIG commit) and the same instance type; a different region or
   zone is fine and is recorded (between-instance variation is the point of two launches, design 3.2).
@@ -120,17 +122,17 @@ Everything in this section is done once, by a person, and none of it needs a clo
 2. **The harness smoke test** of design 7.2 ("Harness readiness", synthetic load, no study queries) has run on one GPU host and is recorded
    in a probe report or a section 12 amendment. The plan: run it on the H100 pathfinder between bring-up and round 1
    (`p3_driver.sh --stop-after-bringup` leaves the host up for exactly this), then continue.
-3. **B200** is launched only after its admission is in the repository: a valid P6 rerun on a B200 instance, then the section 12
-   amendment with `t_min(B200)`, and `paper3_hosts.json` has `t_min_s`, `gpu_counter` and `cpu_energy` filled (design 3.1).
-   `p3_plan.py` refuses a B200 launch while `t_min_s` is null, and `run_campaign.py` refuses to start a formal campaign on it. The
-   campaign command declares `--gpu-energy-scope board`, which is what the pre-lock battery found (counter / `power.draw.instant`
-   integral 0.9986 and 1.0049, no `module.*` fields); the host config's own scope wins if it is set.
+3. **B200 is admitted** (design amendment A2, 2026-11-22, uncommitted until the lead commits it before the campaign commit): the semantics step, P5 and G8 of
+   2026-11-16 and the P6 rerun of 2026-11-22 (`t_min(B200)` = 1 s, counter at board scope, no CPU-energy source) are recorded there, and `paper3_hosts.json` has
+   `t_min_s`, `gpu_counter` and `cpu_energy` filled (design 3.1). `HOSTS["b200"]` in `paper3_campaign.py` declares the scope (`board`), so the campaign
+   command no longer needs `--gpu-energy-scope`. `p3_plan.py` still refuses a B200 launch in a checkout whose `t_min_s` is null, and `run_campaign.py`
+   refuses a formal campaign on one: a stale checkout cannot launch it. What stays open is capacity.
 4. **The operator machine** (a Mac, bash 3.2 is fine): `jq`, `perl`, `shasum`, `python3` (3.9 or later), `curl`, `caffeinate`, `gcloud`
    authenticated for `siriusmedai` (every gcloud call of the tools runs with `CLOUDSDK_CORE_PROJECT=siriusmedai`, whatever the default is; `P3_GCP_PROJECT` overrides); the Lambda API key in `~/.config/lambda/api_key` (read by `curl -K`, never put on a command line);
    the SSH key `~/.ssh/lambda_key22` that Lambda knows as `Key22`. It must stay awake and online for the whole of a launch: the drivers
    survive a sleep (they poll, they do not hold a connection) but the Lambda watchdog is a process on this machine, and **Lambda has no
    provider-side time limit, no stop state and no spend limit** (docs/PAPER3_INFRA.md section 5). If the machine is off while a Lambda
-   host runs, the host bills until it wakes. A small always-on machine for the drivers is worth considering (section 12).
+   host runs, the host bills until it wakes. The always-on controller for the Lambda drivers that this risk calls for is specified in `docs/PAPER3_CONTROLLER.md` (a small VM with no GCP identity, a systemd driver per launch, a stateless lease reaper); until it exists the Mac must stay awake.
 5. **Disk on this machine:** the size of a round is not known until the pathfinder's round 1 is copied. Then check `du -sh` and that 8 rounds
    of 4 Lambda hosts, 8 of C-GCP and 2 of C-VM, plus the second copy below, fit.
 6. **A second copy** of every launch directory (`rerun/paper3/<host>/launch<N>/`) on another disk or bucket after the launch, using its
@@ -181,7 +183,7 @@ be archived.
 
 **Step 2, launch.** The lease name is `p3-campaign-<token>-l<N>-owner-ejiod-expires-<UTC>`; the expiry is "now + lease hours" of
 the table in section 2 (the estimate, the pauses, one more round and an hour). It is the instance name on Lambda and the instance name and
-the `expires` label on GCP (lower case there). Example requests, as the planner prints them for 2026-11-17T06:00Z (Lambda: the API call; GCP: the `gcloud` command, with the provider-side limit
+the `expires` label on GCP (lower case there). A GCP host is created with no service account and without trusting the project-wide ssh keys (`--no-service-account --no-scopes`, `block-project-ssh-keys=TRUE`; the bring-up pulls only from apt, PyPI, Maven Central, the DuckDB extension repository and public GitHub); access is the key `gcloud compute ssh` puts in the instance's own metadata (`P3_GCP_OS_LOGIN=1` for OS Login instead, untested on metal). Example requests, as the planner prints them for 2026-11-17T06:00Z (Lambda: the API call; GCP: the `gcloud` command, with the provider-side limit
 `--max-run-duration` and the labels):
 
 <!-- p3-gen: launch h100 1 us-south-2 -->
@@ -213,7 +215,10 @@ gcloud compute instances create p3-campaign-cgcp-l1-owner-ejiod-expires-20261118
     --maintenance-policy=TERMINATE \
     --max-run-duration=21h \
     --instance-termination-action=DELETE \
-    --labels=project=paper3-energy,owner=ejiod,purpose=campaign,host=cgcp,launch=l1,expires=20261118t0300z
+    --labels=project=paper3-energy,owner=ejiod,purpose=campaign,host=cgcp,launch=l1,expires=20261118t0300z \
+    --no-service-account \
+    --no-scopes \
+    --metadata=block-project-ssh-keys=TRUE
 ```
 <!-- /p3-gen -->
 
@@ -482,14 +487,14 @@ python run_campaign.py \
 ```
 <!-- /p3-gen -->
 
-### 5.4 G-B200 (conditional; only after admission)
+### 5.4 G-B200 (admitted by amendment A2)
 
 * **Launch:** Lambda `gpu_1x_b200_sxm6` (26 vCPU Xeon 8592+, 360 GiB, 2816 GiB disk), `australia-east-1` at the pre-lock battery (far from this
   machine: copies are slower; the per-round pause may be longer than 7 minutes). $7.99/h; about 24 h per launch; lease about 32 h; the
   most expensive Lambda host per launch (about $200).
 * **Setup:** `./setup_h100.sh --envs gpu --expect-gpu B200`; preflight with `--allow-any-gpu`. Blackwell has a known CUDA 12.9 compiler defect
   (Paper 1 amendment A4, NVIDIA/cccl#11167): the guard is the output-agreement gate; a disagreement fails the round and is not re-classified.
-* **Admission** (section 3, item 3) before the first launch; the P6 rerun is a probe, not a campaign launch (it is not driven by this runbook).
+* **Admission:** amendment A2 (section 3, item 3); the P6 rerun it rests on was a probe, not a campaign launch (it is not driven by this runbook). `t_min` 1 s, counter scope board, no CPU energy.
 
 <!-- p3-gen: command b200 1 -->
 ```bash
@@ -514,8 +519,7 @@ python run_campaign.py \
     --cost-price-snapshot-utc '<PRICE_SNAPSHOT_UTC>' \
     --cost-instance-id '<INSTANCE_ID>' \
     --cost-launch-utc '<LAUNCH_UTC>' \
-    --cost-credit-funded yes \
-    --gpu-energy-scope board
+    --cost-credit-funded yes
 ```
 <!-- /p3-gen -->
 <!-- p3-gen: command b200 2 -->
@@ -541,8 +545,7 @@ python run_campaign.py \
     --cost-price-snapshot-utc '<PRICE_SNAPSHOT_UTC>' \
     --cost-instance-id '<INSTANCE_ID>' \
     --cost-launch-utc '<LAUNCH_UTC>' \
-    --cost-credit-funded yes \
-    --gpu-energy-scope board
+    --cost-credit-funded yes
 ```
 <!-- /p3-gen -->
 
@@ -761,7 +764,14 @@ counts, the pooled ETA over all engines together, which round is current). The t
   `power.csv`, `host.csv`, `schedule.json`, path tricks). It prints G1 to G5 verdicts, G6 to G12 counts (pass, fail, not evaluable), which gate
   failed on which session key, and the number of scheduled items seen.
 * `p3_status.sh` runs the same view on the host plus stage states. The driver logs the view after each round and prints no other values.
-* The driver's progress line shows the last line of the stage log, which is `run_campaign.py`'s own (states and round names, no timings).
+* The driver never echoes a stage's log line (`P3_QUIET_LOG=1`, forced): its progress line says only that the stage runs. Of the bring-up log it shows step
+  results (`STEP setup ok`, no timestamps), the `[FAIL]` lines of the preflight with every time redacted, and the preflight's `VERDICT` line
+  (`tools/paper3_campaign/p3_bringup_view.py`, an allow-list). The full bring-up and round logs are copied off the host and archived unread.
+* **The one exception: the log of a stage that failed.** When a stage fails and the driver holds (exit 20) it names the log (`bringup-aN.log`, `campaign-rK-aN.log`)
+  and lists it in `.held-logs` in the launch directory. Reading that log to diagnose the failure is permitted, and only through
+  `tools/paper3_campaign/p3_open_log.sh RECORD LOGNAME [--tail N]` (from the controller's Mac: `p3_ctl.sh open-log LEASE LOGNAME [N]`), which opens exactly the listed logs,
+  refuses every other file (a log that succeeded stays closed), and writes each opening to `log-openings.log` in the launch directory and to the ledger (`held-log-opened`).
+  What was seen is "outcome data seen" for the next section 12 amendment (design 7.4). A log opened by hand (`cat`) leaves no record: do not.
 
 **Not allowed, and not opened by anything here:** `results.json` and everything under `round-*/<suite>/` (per-query times, energy windows,
 counter readings, outputs), `gpu.csv`, `power.csv`, `host.csv`, `schedule.json` (session durations), the `run` block of `gates.json`
@@ -779,13 +789,13 @@ an amendment made after an aggregate was seen cannot make the changed element co
 |---|---|---|---|
 | Lambda or GCP capacity error at launch | `p3_launch.sh` exits 1; nothing exists, no record | retry later, next region or zone | another instance type or a zone outside the table (design 3.1, 2.6) |
 | SSH never ready (60 tries) | driver exit 20; the instance bills | check the provider console; `p3_teardown.sh RECORD --yes` if it is dead | |
-| A bring-up step fails | the stage stops at the step with its code, the log is fetched, exit 20 | read `bringup-aN.log`, fix the cause (disk, network, a package), run the driver again with `--fresh` (steps are idempotent; verify and preflight outputs are recreated while no `campaign.json` exists) | edit files in the checkout (a changed source file is recorded as drift in `invocations.jsonl` and weakens the claim that every round ran the same code) |
+| A bring-up step fails | the stage stops at the step with its code, the log is fetched, exit 20; the driver shows the `STEP ... FAILED` line, the `[FAIL]` lines and the verdict | diagnose with `p3_open_log.sh RECORD bringup-aN.log` (logged, section 8), fix the cause (disk, network, a package), run the driver again with `--fresh` (steps are idempotent; verify and preflight outputs are recreated while no `campaign.json` exists) | edit files in the checkout (a changed source file is recorded as drift in `invocations.jsonl` and weakens the claim that every round ran the same code) |
 | Bring-up refuses to run again (`campaign.json` exists) | exit 90 | it means the campaign has started: use the driver, not bring-up | |
 | A round fails its gates | `run_campaign.py` repeats the round once into `round-K-repeat-1/` | nothing; the QA view shows both attempts | judge the round by its values |
 | A round and its repeat fail | driver exit 30: everything is copied and verified, the host is terminated (`--on-stop hold` keeps it for diagnosis) | report to the lead. The campaign stops for that launch by the design's rule; rounds already accepted stay as they are. Whether the square is redone is the lead's decision, recorded in the design's section 12 first (see section 12 of this runbook) | rerun "just once more" |
 | Run interrupted (exit 130, host reboot, the process died) | the half-written suite is kept as evidence and the round is redone in a new directory; the driver resumes up to twice (`--max-resume`) | after that exit 20: look at the host | |
 | Exit 6 (lease invalid for the invocation) | exit 20, host kept | extend the lease ("Extending a lease" below), then `--fresh` | pass `--no-lease-check` (it marks the campaign informal) |
-| Exit 5 (design refusal: lock, host config unset, wrong label, source drift) | exit 20 | read the stage log; source drift alone is only recorded as a warning, but restore the checkout from git anyway; never `--accept-design-doc-change` unless the lead reports it | |
+| Exit 5 (design refusal: lock, host config unset, wrong label, source drift) | exit 20 | open the stage log with `p3_open_log.sh` (section 8); source drift alone is only recorded as a warning, but restore the checkout from git anyway; never `--accept-design-doc-change` unless the lead reports it | |
 | Exit 4 (the Paper 3 gates cannot be evaluated) | exit 20; the round is **not** counted as failed | fix the host config on the host (it is a configuration error), `--fresh` | |
 | A stage is still running at the end of its poll budget | exit 20 with "nothing was killed" | look with `p3_status.sh`; run the driver again to attach (a started stage is never started twice) | start it by hand |
 | Provider no longer lists the host | exit 21; accepted rounds are already copied | check the provider; ledger line; report to the lead (a lost host counts as one square only, design 3.1) | |
@@ -798,7 +808,8 @@ the name. Write the new name to `/etc/paper3-lease` on the host, update `lease_n
 watchdog (`watchdog_pid`) and start `tools/paper3_probes/lambda_watchdog.sh ID SECONDS` for the new deadline, then run the driver with
 `--fresh`. Renaming the instance itself through the API is not verified. *GCP:* `gcloud compute instances set-scheduling NAME --zone ZONE
 --max-run-duration=TOTAL` (measured from the VM's last start) and `gcloud compute instances update NAME --zone ZONE --update-labels=expires=...`
-exist in the installed gcloud (local help read; not tried on a metal host), the same record and watchdog changes apply, and the instance name
+exist in the installed gcloud (local help read; not tried on a metal host), **but Google's documentation says the limit of a VM can be changed only after
+stopping it and then restarts the clock, so on a running metal host it cannot be extended without ending the round: size the lease at launch** (the planner's `lease_h`), the same record and watchdog changes apply, and the instance name
 cannot change, so the new lease name lives only in the record, `/etc/paper3-lease` and the stage scripts. Record each extension in the ledger
 by hand and tell the lead: a longer lease is a longer exposure.
 
@@ -832,8 +843,8 @@ by hand and tell the lead: a longer lease is a longer exposure.
 Cannot be satisfied by tooling, or not yet:
 
 1. **Harness readiness before round 1 (design 7.2).** The smoke test must have run and be recorded; the runbook only provides the pause for it.
-2. **B200 admission (design 3.1)**: a valid P6 rerun on a B200 instance and its section 12 amendment do not exist yet. The runbook cannot launch
-   B200 sessions before that; its launches are refused by the planner.
+2. **B200 admission (design 3.1)** was open when this runbook was written and is closed by amendment A2 (a valid P6 rerun, `t_min` 1 s, counter at board
+   scope). The planner refuses a B200 launch from a checkout without it. What the tools cannot give is capacity: Lambda showed it in `australia-east-1` only.
 3. **The G12 allow-list is not in the locked design or in the locked `paper3_hosts.json`** (a `null`). Filling it is a pending value, handled by the
    amendment of section 6 with the guard; the lead should confirm that reading ("a pending value filled before the first formal session, with the
    outcome data seen stated as none") rather than treat it as a design change.
@@ -869,7 +880,8 @@ The author (or the lead) must decide before the first launch:
   launches "where capacity allows"). The tools here handle launches 1 and 2 only; supporting `both` means a third root name and a longer lease in the
   planner. Not done; the lead decides when a second launch has been impossible for too long.
 * Whether to run the Lambda drivers from an always-on machine instead of the Mac (the watchdog and the polling live on the operator machine;
-  a 27-hour A100 launch on a laptop is a risk that GCP's provider-side limit does not share).
+  a 27-hour A100 launch on a laptop is a risk that GCP's provider-side limit does not share): `docs/PAPER3_CONTROLLER.md` recommends it, with the GCP launches
+  staying on the Mac under `P3_GCP_TERMINATION_ACTION=STOP`; the author decides.
 * Whether the harness smoke test and the lock-date price snapshot are done before the pathfinders start (they are prerequisites in this runbook).
 
 ## 13. Tool reference
@@ -881,9 +893,14 @@ All under `tools/paper3_campaign/`; the shared detach and polling library is `to
 | `p3_plan.py` | operator | the planner: tables, leases, launch requests, the `run_campaign.py` command, the bring-up and stage scripts, the allow-list guard, the lock check, the generated blocks of this file |
 | `p3_price_snapshot.sh` | operator | raw price responses with UTC time and sha256; `prices.json` |
 | `p3_launch.sh` | operator | one launch (dry run unless `--yes`): request, record, watchdog, ledger |
-| `p3_gcp_watchdog.sh` | operator | wall-clock backstop that deletes a labelled `p3-` GCP instance |
+| `p3_gcp_watchdog.sh` | operator | wall-clock backstop that deletes a labelled `p3-` GCP instance (`P3_GCP_WATCHDOG_ACTION=stop`: stops it, keeps the disk) |
 | `p3_driver.sh` | operator | bring-up to teardown of one launch; restartable; options `--dest`, `--config-commit`, `--on-stop terminate|hold`, `--no-teardown`, `--max-resume`, `--fresh`, `--stop-after-bringup` |
 | `p3_status.sh` | operator | a short look: lease, stages, the QA view |
+| `p3_open_log.sh` | operator | opens the archived log of a stage that failed and held the driver, only that, every opening recorded (section 8) |
+| `p3_bringup_view.py` | operator | the allow-list view of a bring-up log the driver shows: step results, `[FAIL]` lines without times, the verdict |
+| `p3_reaper.sh` | controller | stateless Lambda lease reaper: terminates a `p3-` instance more than 30 minutes past the lease in its name (`docs/PAPER3_CONTROLLER.md`) |
+| `p3_ctl.sh` | operator | the Mac-side helper for the controller: status, logs, pull, ledger, snapshots, start and stop of a driver unit, open-log |
+| `p3_controller_setup.sh`, `controller/` | controller | the bootstrap and the systemd units of the controller |
 | `p3_teardown.sh` | operator | terminate and confirm the recorded instance |
 | `p3_ops_lib.sh` | operator | record, ledger, Lambda call, transport, terminate-and-confirm |
 | `p3_host_pack.sh` | host | pack paths with a per-file manifest and a last, atomic archive hash |

@@ -59,7 +59,7 @@ class HostSpec:
     host: str
     kind: str                       # "gpu" | "cpu-metal" | "cpu-vm"
     instance_types: tuple           # what --host-label may say
-    scope: str | None               # declared GPU energy scope of the host class; None: the operator declares it (B200)
+    scope: str | None               # declared GPU energy scope of the host class; None: the operator declares it (no host at present: B200 had none until amendment A2)
     engines: tuple
     suites: dict                    # suite -> scales
     pinned: bool                    # engines pinned to 26 vCPUs on one socket (--socket / --cpu-list required)
@@ -92,8 +92,8 @@ HOSTS = {
     "a100": _gpu("a100", "gpu_1x_a100_sxm4", "board"),
     "h100": _gpu("h100", "gpu_1x_h100_sxm5", "board"),
     "gh200": _gpu("gh200", "gpu_1x_gh200", "module"),          # the counter covers the whole Grace-Hopper module (S1-module)
-    # B200 is conditional (section 3.1): its scope comes from its own semantics step, so the operator declares it.
-    "b200": _gpu("b200", "gpu_1x_b200_sxm6", None),
+    # B200: admitted by amendment A2 (design 3.1); its semantics step found the counter at board scope (S1-counter, no module.* fields).
+    "b200": _gpu("b200", "gpu_1x_b200_sxm6", "board"),
     "c-gcp": _spec(host="c-gcp", kind="cpu-metal",
                    instance_types=("c3-highmem-192-metal", "c3-standard-192-metal", "c3-highcpu-192-metal", "m7i.metal-24xl"),
                    scope="none", engines=CPU_ENGINES, suites=SUITE_SCALES, pinned=True, energy=True,

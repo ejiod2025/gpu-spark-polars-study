@@ -124,7 +124,7 @@ def test_the_vm_time_check_is_two_baseline_rounds_with_no_power_telemetry():
 
 
 def test_gpu_job_commands_carry_the_declared_scope_and_the_window():
-    for host, scope in (("a100", "board"), ("h100", "board"), ("gh200", "module")):
+    for host, scope in (("a100", "board"), ("h100", "board"), ("gh200", "module"), ("b200", "board")):
         cfg, units = plan_of(*argv_for(host))
         command = rc.job_command(units[0].jobs[0], Path("/o"), cfg)
         assert command[command.index("--gpu-energy-scope") + 1] == scope and command[command.index("--energy-window-s") + 1] == "10.0"
@@ -133,8 +133,6 @@ def test_gpu_job_commands_carry_the_declared_scope_and_the_window():
         assert command[command.index("--g8-pulse-seconds") + 1] == "3.0" and command[command.index("--g8-pulse-engines") + 1] == "all", \
             "every session on a GPU host gets the G8 pulse, CPU and GPU engines"
         assert command[command.index("--session-cooldown-seconds") + 1] == "0.0", "the idle brackets of section 2.2 are the cool-down (design 3.2)"
-    cfg, _ = plan_of(*argv_for("b200", "1", "--gpu-energy-scope", "module"))
-    assert cfg.telemetry["gpu_energy_scope"] == "module"
 
 
 def test_the_gate_command_of_a_paper3_round_is_paper3_strict_with_its_own_order():
@@ -156,8 +154,11 @@ def test_dry_run_prints_the_paper3_schedule_and_writes_nothing(capsys, tmp_path)
     assert "t_min: 1.0" in out and "cool-down: 0 s" in out and "--gpu-energy-scope board --energy-window-s 10.0" in out
     assert rc.main([*argv_for("gh200", "1"), "--dry-run"]) == 0
     assert "t_min: 1.0   host config unset: nothing" in capsys.readouterr().out, "GH200: P6 rerun and source check are in"
-    assert rc.main([*argv_for("b200", "1", "--gpu-energy-scope", "board"), "--dry-run"]) == 0
-    assert "host config unset: ['t_min_s', 'gpu_source', 'gpu_scope', 'cpu_source']" in capsys.readouterr().out
+    assert rc.main([*argv_for("b200", "1"), "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "t_min: 1.0   host config unset: nothing" in out and "--gpu-energy-scope board" in out, "B200: admitted by amendment A2, board scope fixed by the host class"
+    assert rc.main([*argv_for("c-gcp", "1"), "--dry-run"]) == 0
+    assert "host config unset: ['allowed_scheduled']" in capsys.readouterr().out, "the C-GCP allow-list is the one pending value"
 
 
 # ---- usage errors ---------------------------------------------------------------------------------------------------------
@@ -173,8 +174,8 @@ def test_dry_run_prints_the_paper3_schedule_and_writes_nothing(capsys, tmp_path)
     (["--paper3-host", "h100", "--paper3-launch", "1", *LOCK, "--gpu-energy-scope", "module"], "conflicts"),
     (["--paper3-host", "h100", "--paper3-launch", "1", *LOCK, "--energy-window-s", "5"], "conflicts"),
     (["--paper3-host", "gh200", "--paper3-launch", "1", *LOCK, "--gpu-energy-scope", "board"], "conflicts"),
-    (["--paper3-host", "b200", "--paper3-launch", "1", *LOCK], "declare it with --gpu-energy-scope"),
-    (["--paper3-host", "b200", "--paper3-launch", "1", *LOCK, "--gpu-energy-scope", "none"], "declare it with --gpu-energy-scope"),
+    (["--paper3-host", "b200", "--paper3-launch", "1", *LOCK, "--gpu-energy-scope", "module"], "conflicts"),
+    (["--paper3-host", "b200", "--paper3-launch", "1", *LOCK, "--gpu-energy-scope", "none"], "conflicts"),
     (["--paper3-host", "c-vm", "--paper3-launch", "1", *LOCK, "--power-telemetry", "auto"], "conflicts"),
     (["--paper3-host", "h100", "--paper3-launch", "1", *LOCK, "--idle-baseline-seconds", "30"], "conflicts"),
     (["--paper3-host", "h100", "--paper3-launch", "1", *LOCK, "--engines-override", "polars", "nonsense"], "invalid choice"),
@@ -213,9 +214,7 @@ def test_a_formal_campaign_needs_its_instance_type_and_the_hosts_config_values(m
     cfg.host_label = "gpu_1x_h100_sxm5"
     rc.paper3_startup_checks(cfg, resolved_pinning=False)
     rc.paper3_startup_checks(formal_cfg("gh200", "--host-label", "gpu_1x_gh200"), resolved_pinning=False)       # complete since the P6 rerun and the source check
-    b200 = formal_cfg("b200", "--host-label", "gpu_1x_b200_sxm6", "--gpu-energy-scope", "board")
-    with pytest.raises(rc.CampaignError, match="unset in paper3_hosts.json: t_min_s, gpu_source, gpu_scope, cpu_source"):
-        rc.paper3_startup_checks(b200, resolved_pinning=False)
+    rc.paper3_startup_checks(formal_cfg("b200", "--host-label", "gpu_1x_b200_sxm6"), resolved_pinning=False)       # admitted (A2), board scope from the host class
     c_gcp = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("c-gcp"), "--paper3-lock-commit", "c" * 40, "--paper3-lock-doi", "d",
                                              "--host-label", "c3-highmem-192-metal"]))
     with pytest.raises(rc.CampaignError, match="unset in paper3_hosts.json: allowed_scheduled"):
@@ -223,7 +222,7 @@ def test_a_formal_campaign_needs_its_instance_type_and_the_hosts_config_values(m
 
 
 def test_a_test_campaign_only_warns_about_unset_values(capsys):
-    cfg = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("b200", "1", "--gpu-energy-scope", "module"), "--rounds", "1"]))
+    cfg = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("c-gcp", "1"), "--rounds", "1"]))      # C-GCP: the allow-list is still pending
     assert not cfg.formal
     rc.paper3_startup_checks(cfg, resolved_pinning=False)
     assert "gates will not be evaluated" in capsys.readouterr().out
@@ -455,7 +454,8 @@ def test_a_second_invocation_runs_nothing_and_a_changed_design_is_refused(p3rig,
 def test_another_hosts_pending_values_do_not_change_this_hosts_design(p3rig):
     assert p3rig.run() == 0
     config = json.loads(p3rig.config.read_text())
-    config["hosts"]["b200"]["t_min_s"] = 1.0
+    assert config["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"] is None, "the one pending value of the shipped config"
+    config["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"] = []
     p3rig.config.write_text(json.dumps(config))
     assert p3rig.run() == 0
 

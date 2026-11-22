@@ -1,0 +1,19 @@
+# One pass of the stateless Lambda lease reaper (p3_reaper.sh --terminate): terminates a p3- Lambda instance that is more than the grace
+# past the lease in its name. Started by p3-reaper.timer; it does nothing until the Lambda API key exists.
+[Unit]
+Description=Paper 3: terminate p3- Lambda instances that are past their lease
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/home/p3ops/.config/lambda/api_key
+
+[Service]
+Type=oneshot
+User=p3ops
+Group=p3ops
+WorkingDirectory=/home/p3ops/study
+Environment=P3_LEDGER_DIR=/home/p3ops/p3ledger
+EnvironmentFile=-/etc/p3/reaper.env
+ExecStart=/home/p3ops/study/tools/paper3_campaign/p3_reaper.sh --terminate
+TimeoutStartSec=240
+NoNewPrivileges=yes
+ProtectSystem=full

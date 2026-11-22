@@ -15,6 +15,8 @@
 #   p3_host_alive (optional)           returns 1 when the host is known to be gone (API says so); anything else means "unknown"
 # Tunables (environment): P3_POLL_SECONDS (30), P3_STAGE_TIMEOUT (5400: counted in polls, so it is awake time), P3_SSH_BOUND (60),
 # P3_SCP_BOUND (300), P3_RETRIES (10), P3_START_RETRIES (20), P3_RETRY_PAUSE (15), P3_MAX_FAILED_POLLS (60), P3_SLEEP (the sleep command, for tests).
+# P3_QUIET_LOG (unset): when set and not 0, the progress line does not echo the stage's last log line (the campaign driver sets it: a log line of a
+# bring-up or a round can carry a wall time, which the operator must not see before the campaign ends, design 7.3). Probe drivers leave it unset.
 
 P3_POLL_SECONDS=${P3_POLL_SECONDS:-30}
 P3_STAGE_TIMEOUT=${P3_STAGE_TIMEOUT:-5400}
@@ -155,7 +157,10 @@ p3_stage_wait() {     # STAGE: 0 with P3_STAGE_RC set once the host has written 
       else
         idle=0
       fi
-      [ $(( polls % ${P3_PROGRESS_EVERY:-10} )) -eq 1 ] && p3_log "stage $stage running (poll $polls/$max); last log line: $(printf '%s\n' "$out" | sed -n 's/^LOG=//p' | head -n 1)"
+      if [ $(( polls % ${P3_PROGRESS_EVERY:-10} )) -eq 1 ]; then
+        if [ -n "${P3_QUIET_LOG:-}" ] && [ "$P3_QUIET_LOG" != 0 ]; then p3_log "stage $stage running (poll $polls/$max); last log line withheld (P3_QUIET_LOG)"
+        else p3_log "stage $stage running (poll $polls/$max); last log line: $(printf '%s\n' "$out" | sed -n 's/^LOG=//p' | head -n 1)"; fi
+      fi
     else
       failures=$((failures + 1)); consecutive=$((consecutive + 1))
       if [ "$consecutive" -eq 1 ] || [ $(( consecutive % 10 )) -eq 0 ] || [ "$rc" != "$last_failed_rc" ]; then

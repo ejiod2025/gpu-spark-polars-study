@@ -186,16 +186,15 @@ def test_only_the_designs_instance_types_can_be_launched_and_c_vm_has_one_launch
         P.check_launch("c-vm", "2")
 
 
-def test_b200_is_refused_until_its_t_min_is_in_the_host_config(tmp_path):
-    with pytest.raises(P.PlanError, match="not admitted"):
-        P.launch_spec("b200", "1", "australia-east-1", NOW)
+def test_b200_is_admitted_by_its_t_min_in_the_host_config_and_refused_without_it(tmp_path):
+    P.check_admitted("b200")                                                              # amendment A2: t_min_s 1.0 is in the shipped config
+    assert P.launch_spec("b200", "1", "australia-east-1", NOW)["instance_type"] == "gpu_1x_b200_sxm6"
     config = json.loads((REPO / "paper3_hosts.json").read_text())
-    config["hosts"]["b200"]["t_min_s"] = 1.0
+    config["hosts"]["b200"]["t_min_s"] = None
     path = tmp_path / "hosts.json"
     path.write_text(json.dumps(config))
-    P.check_admitted("b200", path)                                                        # admitted: no error
-    with pytest.raises(P.PlanError):
-        P.check_admitted("b200")
+    with pytest.raises(P.PlanError, match="not admitted"):
+        P.check_admitted("b200", path)                                                    # the refusal still works for a config without a t_min
 
 
 # ---- the campaign command, parsed and dry-run by the real CLI -------------------------------------------------------------------
@@ -227,7 +226,7 @@ def test_the_campaign_command_is_accepted_by_run_campaign_and_runs_the_launchs_r
     assert f"host {host} " in done.stdout and "formal: True" in done.stdout
     assert ("host config unset: ['allowed_scheduled']" in done.stdout) == (host == "c-gcp")      # filled by the reviewed allow-list, nothing else is pending
     if host == "b200":
-        assert "t_min: None" in done.stdout or "t_min: null" in done.stdout
+        assert "t_min: 1.0" in done.stdout                                                # admitted by amendment A2
 
 
 def test_the_campaign_command_has_the_lock_cost_and_lease_flags_the_runbook_promises():

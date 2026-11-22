@@ -104,17 +104,21 @@ jq -n --arg host "$HOST" --argjson launch "$LAUNCH" --arg provider "$PROVIDER" -
   --arg id "$ID" --arg lease "$LEASE" --arg launch_utc "$LAUNCH_UTC" --arg created "$CREATED" --arg expires "$(echo "$SPEC" | jq -r .expires_utc)" \
   --arg price "$PRICE" --arg snap "$SNAP_UTC" --arg credit "$CREDIT" --arg commit "$COMMIT" --argjson hours "$(echo "$SPEC" | jq .lease_hours)" \
   --argjson disk_requested "$(echo "$SPEC" | jq -c '.boot_disk // null')" --argjson disk_actual "${DISK_ACTUAL:-null}" \
+  --arg termination_action "$(echo "$SPEC" | jq -r '.termination_action // empty')" \
+  --argjson access "$(echo "$SPEC" | jq -c '.access // null')" \
   '{format:1, host:$host, launch:$launch, provider:$provider, instance_type:$type, region:(if $region=="" then null else $region end),
     zone:(if $zone=="" then null else $zone end), instance_id:$id, lease_name:$lease, launch_utc:$launch_utc,
     launch_utc_basis:"operator clock when the provider call returned", provider_created:(if $created=="" then null else $created end),
     expires_utc:$expires, lease_hours:$hours, price_usd_h:($price|tonumber), price_snapshot_utc:$snap, credit_funded:$credit,
-    boot_disk_requested:$disk_requested, boot_disk_actual:$disk_actual, campaign_commit:$commit, ip:null, watchdog_pid:null, terminate_requested_utc:null, terminate_confirmed_utc:null}' > "$RECORD" \
+    boot_disk_requested:$disk_requested, boot_disk_actual:$disk_actual, termination_action:(if $termination_action=="" then null else $termination_action end), access:$access, campaign_commit:$commit, ip:null, watchdog_pid:null, terminate_requested_utc:null, terminate_confirmed_utc:null}' > "$RECORD" \
   || { echo "INSTANCE $ID IS RUNNING but the record could not be written; terminate it by hand (p3_teardown.sh needs the record)" >&2; exit 1; }
 echo "launched $LEASE (id $ID); record $RECORD"
 
 if [ "$PROVIDER" = lambda ]; then WATCHDOG=${P3_LAMBDA_WATCHDOG:-$P3_PROBES/lambda_watchdog.sh}; WARGS=("$ID" "$SECONDS_TO_EXPIRY")
 else WATCHDOG=${P3_GCP_WATCHDOG:-$HERE/p3_gcp_watchdog.sh}; WARGS=("$LEASE" "$ZONE" "$SECONDS_TO_EXPIRY"); fi
-nohup "$WATCHDOG" "${WARGS[@]}" >> "$P3_LEDGER_DIR/watchdog-$LEASE.log" 2>&1 &
+# a host that the provider STOPs at its limit (P3_GCP_TERMINATION_ACTION=STOP, docs/PAPER3_CONTROLLER.md) keeps its disk: the watchdog stops it too and never deletes it
+WD_ACTION=$(echo "$SPEC" | jq -r '(.termination_action // "DELETE") | ascii_downcase')
+P3_GCP_WATCHDOG_ACTION=$WD_ACTION nohup "$WATCHDOG" "${WARGS[@]}" >> "$P3_LEDGER_DIR/watchdog-$LEASE.log" 2>&1 &
 WPID=$!
 disown
 record_set "$RECORD" watchdog_pid "$WPID" number

@@ -25,6 +25,12 @@
 # attempt name instead of attaching to the finished failure. Without it a re-run of the driver attaches to what is on the host, so it never
 # starts a second copy of a stage and never repeats a failure by accident.
 #
+# Blinding (design 7.3): a log line of the bring-up or of a round can carry a wall time (the preflight prints `[PASS] run.baseline: ... in 123s`), and the
+# operator must not see one before the campaign ends. So P3_QUIET_LOG=1 holds the stage library's progress line to states (it never echoes a stage's last log
+# line), and of the bring-up log the driver shows only what p3_bringup_view.py allows: step results, [FAIL] lines with times redacted, the preflight VERDICT.
+# The full logs are copied off the host (bringup-aN.log, campaign-rK-aN.log) and archived unread. The one exception is the log of a stage that FAILED and held the driver
+# (exit 20): the driver names it in .held-logs, and p3_open_log.sh opens it, only it, writing every opening to log-openings.log and the ledger.
+#
 # --stop-after-bringup: stop (exit 11, host running) once the bring-up is copied and verified, for a step a person must do before round 1
 # (the harness smoke test on the pathfinder host); run the driver again without it to continue.
 #
@@ -81,6 +87,7 @@ p3_log() { log "$@"; }
 P3_RETRIES=${P3_RETRIES:-40}; P3_RETRY_PAUSE=${P3_RETRY_PAUSE:-30}; P3_START_RETRIES=${P3_START_RETRIES:-40}
 # gcloud ssh calls take seconds each, so GCP polls every minute; Lambda every 30 s (the library's default)
 if [ "$PROVIDER" != lambda ]; then P3_POLL_SECONDS=${P3_POLL_SECONDS:-60}; fi
+export P3_QUIET_LOG=1      # forced, not defaulted: see the header (design 7.3)
 # shellcheck source=../paper3_probes/p3_stage_lib.sh
 . "$P3_PROBES/p3_stage_lib.sh"
 
@@ -113,7 +120,15 @@ for f in "$P3_PROBES/p3_detach.sh" "$HERE/p3_host_pack.sh"; do
 done
 
 # ---- stages ------------------------------------------------------------------------------------------------------------
-hold() { log "HELD: $*. The host keeps running; the watchdog is the backstop (lease expires $(record_get "$RECORD" expires_utc)); p3_teardown.sh $RECORD --yes ends it"; exit 20; }
+# HOLD_LOG=NAME hold ...: the held stage's archived log (a stage that FAILED; never one that is merely slow) may be opened to diagnose it, but only through
+# p3_open_log.sh, which refuses every other log and writes each opening to DEST/log-openings.log and the ledger (design 7.3: the one documented exception).
+hold() {
+  if [ -n "${HOLD_LOG:-}" ]; then
+    echo "$HOLD_LOG" >> "$DEST/.held-logs"
+    log "the log $HOLD_LOG of the failed stage is archived unread; to diagnose the failure it may be opened with: p3_open_log.sh $RECORD $HOLD_LOG (each opening is logged, design 7.3)"
+  fi
+  log "HELD: $*. The host keeps running; the watchdog is the backstop (lease expires $(record_get "$RECORD" expires_utc)); p3_teardown.sh $RECORD --yes ends it"; exit 20
+}
 gone() { log "the provider no longer lists the host ($*); nothing more to copy"; exit 21; }
 
 stage_state() {      # STAGE: none | running | died | done:RC | unknown
@@ -195,6 +210,10 @@ fetch_log() {        # REMOTE_FILE: best effort, for diagnosis
   p3_fetch "p3out/$1" "$DEST/" || log "could not fetch p3out/$1"
 }
 
+bringup_view() {     # BASENAME: of the fetched bring-up log, only what p3_bringup_view.py allows (steps, [FAIL] lines without times, the VERDICT)
+  python3 "$HERE/p3_bringup_view.py" "$DEST/$1" 2>&1 | while IFS= read -r line; do log "BRING-UP $line"; done
+}
+
 qa() {               # prints the allowed view of the fetched root
   python3 "$HERE/p3_qa_view.py" "$DEST/$ROOT_REL" 2>&1 | while IFS= read -r line; do log "QA $line"; done
 }
@@ -205,10 +224,11 @@ if [ ! -f "$DEST/.verified/bringup" ]; then
   attempt=$(pick_attempt bringup)
   run_stage "bringup-a$attempt" "$DEST/.stage-scripts/bringup.sh" "$BRINGUP_TIMEOUT"
   fetch_log "bringup-a$attempt.log"
+  bringup_view "bringup-a$attempt.log"
   case "$RESULT" in
     0) ;;
     timeout) hold "bring-up is still running after its poll budget" ;;
-    *) hold "bring-up ended with $RESULT (see $DEST/bringup-a$attempt.log; after the cause is fixed, run the driver again with --fresh)" ;;
+    *) HOLD_LOG="bringup-a$attempt.log" hold "bring-up ended with $RESULT (after the cause is fixed, run the driver again with --fresh)" ;;
   esac
   collect bringup rerun/setup-logs 'rerun/verify-*.json' rerun/preflight-bringup rerun/bringup-artifacts
 fi
@@ -260,12 +280,12 @@ for K in $ROUNDS; do
       3) STOPPED=1; break ;;
       130|died)
         if [ "$attempt" -le "$MAX_RESUME" ]; then attempt=$((attempt + 1)); log "round $K: $RESULT; resuming (attempt $attempt)"; continue; fi
-        hold "round $K was interrupted $attempt times" ;;
+        HOLD_LOG="$stage.log" hold "round $K was interrupted $attempt times" ;;
       timeout) hold "round $K is still running after its poll budget; run the driver again to attach, nothing was killed" ;;
-      4) hold "round $K: the gates could not be evaluated (exit 4, not counted as a failed round): fix the host config on the host, then run the driver again with --fresh" ;;
-      5) hold "round $K: the campaign refused to start for a design reason (exit 5; see $DEST/$stage.log); after the cause is fixed, run the driver again with --fresh" ;;
-      6) hold "round $K: the lease is not valid for this invocation (exit 6; see $DEST/$stage.log); extend it (docs/PAPER3_RUNBOOK.md) and run the driver again with --fresh" ;;
-      *) hold "round $K ended with exit $RESULT (see $DEST/$stage.log); after the cause is fixed, run the driver again with --fresh" ;;
+      4) HOLD_LOG="$stage.log" hold "round $K: the gates could not be evaluated (exit 4, not counted as a failed round): fix the host config on the host, then run the driver again with --fresh" ;;
+      5) HOLD_LOG="$stage.log" hold "round $K: the campaign refused to start for a design reason (exit 5); after the cause is fixed, run the driver again with --fresh" ;;
+      6) HOLD_LOG="$stage.log" hold "round $K: the lease is not valid for this invocation (exit 6); extend it (docs/PAPER3_RUNBOOK.md) and run the driver again with --fresh" ;;
+      *) HOLD_LOG="$stage.log" hold "round $K ended with exit $RESULT; after the cause is fixed, run the driver again with --fresh" ;;
     esac
   done
   collect "round-$K" "$ROOT_REL/round-$K" "$ROOT_REL/round-$K-repeat-*" "$ROOT_REL/campaign.json" "$ROOT_REL/invocations.jsonl" "$ROOT_REL/status.json"

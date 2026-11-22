@@ -117,12 +117,12 @@ def test_gpu_hosts_have_four_engines_the_full_grid_and_32_sessions_per_round():
 
 def test_declared_scopes_per_host_class():
     assert [pc.HOSTS[h].scope for h in ("a100", "h100", "gh200", "b200", "c-gcp", "c-vm")] == \
-        ["board", "board", "module", None, "none", "none"]
+        ["board", "board", "module", "board", "none", "none"]
     assert pc.HOSTS["h100"].telemetry == {"gpu_energy_scope": "board", "energy_window_s": 10.0, "idle_baseline_seconds": 0,
                                           "g8_pulse_seconds": 3.0, "g8_pulse_engines": "all"}
     assert "g8_pulse_seconds" not in pc.HOSTS["c-gcp"].telemetry and "g8_pulse_seconds" not in pc.HOSTS["c-vm"].telemetry, "no GPU, no pulse"
     assert pc.HOSTS["gh200"].telemetry["gpu_energy_scope"] == "module"
-    assert pc.HOSTS["b200"].telemetry["gpu_energy_scope"] is None            # the operator declares it after the B200 semantics step
+    assert pc.HOSTS["b200"].telemetry["gpu_energy_scope"] == "board"         # B200 semantics step: board scope, S1-counter (amendment A2)
 
 
 def test_the_cpu_only_host_runs_two_engines_in_the_written_orders():

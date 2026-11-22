@@ -8,7 +8,9 @@ the runbook, the launcher, the driver and the tests cannot drift apart. The shel
   p3_plan.py table [--json]                           wall time and cost per host class at P-NEW against the ~$1,364 core estimate
   p3_plan.py timeline [--json]                        the recommended order and overlap of the launches
   p3_plan.py lease HOST LAUNCH [--now ISO]            lease name, expiry and provider-side limit of one launch
-  p3_plan.py launch-spec HOST LAUNCH --place P        the launch request (Lambda API body or gcloud command) as JSON
+  p3_plan.py launch-spec HOST LAUNCH --place P        the launch request (Lambda API body or gcloud command) as JSON; the environment may set
+                                                      P3_LAMBDA_SSH_KEY_NAME, P3_GCP_TERMINATION_ACTION (DELETE|STOP), P3_GCP_OS_LOGIN (1),
+                                                      P3_GCP_EXTRA_FLAGS (docs/PAPER3_CONTROLLER.md)
   p3_plan.py command HOST LAUNCH [--stop-after K]     the run_campaign.py command line of one launch (--record FILE for real values)
   p3_plan.py bringup HOST LAUNCH --record FILE        the on-host bring-up script (checkout, lease, setup, inputs, preflight)
   p3_plan.py stage-script HOST LAUNCH --stop-after K  the on-host script of one campaign stage
@@ -25,6 +27,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import math
+import os
 from pathlib import Path
 import re
 import shlex
@@ -47,6 +50,16 @@ LAMBDA_API = "https://cloud.lambdalabs.com/api/v1"
 LAMBDA_PRICE_URL = f"{LAMBDA_API}/instance-types"
 GCP_PRICE_URL = "https://cloud.google.com/products/compute/pricing/general-purpose"
 LAMBDA_SSH_KEY_NAME = "Key22"        # the key lambda.sh launches with; the private half is ~/.ssh/lambda_key22
+TERMINATION_ACTIONS = ("DELETE", "STOP")   # --instance-termination-action at --max-run-duration: STOP keeps the disk (and the round data) when the operator is gone
+# flags the planner sets itself: an operator-supplied extra flag may not repeat or override them (the lease, labels and limits are the guard rails)
+GCP_OWN_FLAGS = ("--zone", "--machine-type", "--image-family", "--image-project", "--image", "--boot-disk-size", "--boot-disk-type",
+                 "--boot-disk-provisioned-iops", "--boot-disk-provisioned-throughput", "--maintenance-policy", "--max-run-duration",
+                 "--termination-time", "--instance-termination-action", "--labels", "--project", "--provisioning-model",
+                 "--no-service-account", "--service-account", "--no-scopes", "--scopes", "--metadata", "--metadata-from-file")
+# A campaign host runs as NO service account (the project's default one holds Editor on a shared project; the bring-up pulls from apt, PyPI, Maven
+# Central, the DuckDB extension repository and public GitHub, never from GCS or a Google API) and trusts none of the project-wide ssh-keys entries:
+# access is the key gcloud puts in the instance's own metadata (or OS Login, P3_GCP_OS_LOGIN=1). docs/PAPER3_CONTROLLER.md section 3.
+GCP_NO_IDENTITY = ("--no-service-account", "--no-scopes")
 GCP_IMAGE = ("ubuntu-2404-lts-amd64", "ubuntu-os-cloud")
 GCP_DISK = {"size": "800GB", "type": "hyperdisk-balanced", "iops": 16000, "throughput": 1000}   # design 2.6: 800 GiB, 16k IOPS, 1,000 MBps
 ENGINE_TIMEOUT_S = 7200              # Paper 1 passed it on every host (REPRODUCE.md); the Paper 3 design only says "no timeout"
@@ -141,10 +154,11 @@ def cost_rows() -> dict:
 def timeline(gate_h: float | None = None, turnaround_h: float = 1.0) -> dict:
     """The recommended order: pathfinders (H100 and C-GCP launch 1) first, everything else once the pathfinder H100 has passed round 1
     and its copy is verified, launch 2 of a host after its launch 1 (and, on C-GCP, after the metal host is deleted: C3_CPUS 300 per
-    region holds one 192-vCPU host). Hours from the start of the pathfinders; pauses included, B200 left out until admitted."""
+    region holds one 192-vCPU host). Hours from the start of the pathfinders; pauses included. B200 (admitted by amendment A2) starts at the gate with
+    A100 and GH200; capacity decides in practice, and the lead may start it earlier."""
     h = PLANS["h100"]
     gate = gate_h if gate_h is not None else h.bringup_h + h.round_h + PAUSE_H
-    start1 = {"h100": 0.0, "c-gcp": 0.0, "a100": gate, "gh200": gate, "c-vm": gate}
+    start1 = {"h100": 0.0, "c-gcp": 0.0, "a100": gate, "gh200": gate, "b200": gate, "c-vm": gate}
     out, peak_events = [], []
     for host, s1 in start1.items():
         p = PLANS[host]
@@ -163,8 +177,7 @@ def timeline(gate_h: float | None = None, turnaround_h: float = 1.0) -> dict:
         peak = max(peak, rate)
     end = max(e.get("launch2_end_h", e["launch1_end_h"]) for e in out)
     return {"pathfinder_gate_hours": round(gate, 2), "rows": out, "all_done_hours": round(end, 2),
-            "all_done_days": round(end / 24, 2), "peak_usd_per_hour": round(peak, 2),
-            "b200": "adds a launch pair of about %.1f h each when admitted (design 3.1); it can overlap with the others" % PLANS["b200"].launch_h}
+            "all_done_days": round(end / 24, 2), "peak_usd_per_hour": round(peak, 2)}
 
 
 def input_table() -> dict:
@@ -222,8 +235,27 @@ def check_admitted(host: str, config: Path | None = None) -> None:
                         "amendment before the first session)")
 
 
-def launch_spec(host: str, launch: str, place: str, now: datetime, *, instance_type: str | None = None) -> dict:
+def check_extra_flags(flags) -> list:
+    """Operator-supplied extra `gcloud compute instances create` flags: long options only, none that the planner sets itself."""
+    flags = list(flags)
+    for flag in flags:
+        if not flag.startswith("--") or flag == "--":
+            raise PlanError(f"extra flag {flag!r}: only --long-options are accepted, no positional words")
+        if flag.split("=", 1)[0] in GCP_OWN_FLAGS:
+            raise PlanError(f"extra flag {flag!r} would override a flag the planner sets (lease, limits, labels, disk, identity, ssh access): not allowed")
+    return flags
+
+
+def launch_spec(host: str, launch: str, place: str, now: datetime, *, instance_type: str | None = None,
+                termination_action: str = "DELETE", extra_flags=(), ssh_key_name: str = LAMBDA_SSH_KEY_NAME, os_login: bool = False) -> dict:
+    """The request of one launch. The keyword options default to the runbook's values (so the generated blocks never depend on the
+    environment); the command line reads P3_LAMBDA_SSH_KEY_NAME, P3_GCP_TERMINATION_ACTION, P3_GCP_OS_LOGIN and P3_GCP_EXTRA_FLAGS into them."""
     plan = check_launch(host, launch)
+    if termination_action not in TERMINATION_ACTIONS:
+        raise PlanError(f"termination action {termination_action!r}: expected one of {TERMINATION_ACTIONS}")
+    extra_flags = check_extra_flags(extra_flags)
+    if plan.provider == "lambda" and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", ssh_key_name):
+        raise PlanError(f"{ssh_key_name!r} does not look like a Lambda SSH key name")
     if host == "b200":
         check_admitted(host)
     spec = lease_spec(host, launch, now)
@@ -235,7 +267,7 @@ def launch_spec(host: str, launch: str, place: str, now: datetime, *, instance_t
         if place not in plan.places and not re.fullmatch(r"[a-z]+-[a-z]+-\d+", place):
             raise PlanError(f"{place!r} does not look like a Lambda region name")
         spec.update(region=place, api_path="/instance-operations/launch",
-                    body={"region_name": place, "instance_type_name": itype, "ssh_key_names": [LAMBDA_SSH_KEY_NAME],
+                    body={"region_name": place, "instance_type_name": itype, "ssh_key_names": [ssh_key_name],
                           "file_system_names": [], "quantity": 1, "name": spec["lease_name"]})
         return spec
     if not re.fullmatch(r"(us-east4|us-central1)-[a-f]", place):
@@ -247,9 +279,11 @@ def launch_spec(host: str, launch: str, place: str, now: datetime, *, instance_t
                f"--image-family={GCP_IMAGE[0]}", f"--image-project={GCP_IMAGE[1]}", f"--boot-disk-size={GCP_DISK['size']}",
                f"--boot-disk-type={GCP_DISK['type']}", f"--boot-disk-provisioned-iops={GCP_DISK['iops']}",
                f"--boot-disk-provisioned-throughput={GCP_DISK['throughput']}", "--maintenance-policy=TERMINATE",
-               f"--max-run-duration={spec['max_run_duration']}", "--instance-termination-action=DELETE",
-               "--labels=" + ",".join(f"{k}={v}" for k, v in labels.items())]
-    spec.update(zone=place, labels=labels, command=command, boot_disk=GCP_DISK)
+               f"--max-run-duration={spec['max_run_duration']}", f"--instance-termination-action={termination_action}",
+               "--labels=" + ",".join(f"{k}={v}" for k, v in labels.items()), *GCP_NO_IDENTITY,
+               "--metadata=block-project-ssh-keys=TRUE" + (",enable-oslogin=TRUE" if os_login else ""), *extra_flags]
+    spec.update(zone=place, labels=labels, command=command, boot_disk=GCP_DISK, termination_action=termination_action,
+                access={"service_account": None, "scopes": None, "block_project_ssh_keys": True, "os_login": bool(os_login)})
     return spec
 
 
@@ -623,7 +657,12 @@ def main(argv=None) -> int:
         elif args.cmd == "launch-spec":
             if not args.place:
                 parser.error("launch-spec needs --place (a Lambda region or a GCP zone)")
-            print(json.dumps(launch_spec(args.host, args.launch, args.place, utc(args.now), instance_type=args.type), indent=2))
+            env = os.environ
+            print(json.dumps(launch_spec(args.host, args.launch, args.place, utc(args.now), instance_type=args.type,
+                                         termination_action=env.get("P3_GCP_TERMINATION_ACTION") or "DELETE",
+                                         extra_flags=shlex.split(env.get("P3_GCP_EXTRA_FLAGS", "")),
+                                         ssh_key_name=env.get("P3_LAMBDA_SSH_KEY_NAME") or LAMBDA_SSH_KEY_NAME,
+                                         os_login=env.get("P3_GCP_OS_LOGIN", "") not in ("", "0")), indent=2))
         elif args.cmd == "command":
             print(words(campaign_args(args.host, args.launch, read_record(args.record), args.stop_after)))
         elif args.cmd == "bringup":
