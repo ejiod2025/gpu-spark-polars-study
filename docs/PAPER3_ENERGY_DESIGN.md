@@ -1082,6 +1082,37 @@ aggregate has been computed.
    evidence order and G8's consequence are as in §4 and A3 item 2, and no G8 flag stops, repeats or drops a round (§4, §7.3). The
    paper reports the number of G8 flags per host and engine. Outcome data seen: none.
 
+### A5 — 2026-11-23
+Fifth amendment after the lock. Items 1 and 2 record author decisions of 2026-11-23; item 3 is the lead's operational record and
+supersedes A1 item 6. Sections 1-11 are not edited. **Outcome data seen, for every item: none.** The campaign started on
+2026-11-23 (the first two launches at 15:23 and 15:25 UTC, from commit `e613e4070130d50c47ef9e13b2a2e407f7fd3f6f`); no round has
+completed and no campaign output has been viewed (§7.3). The only campaign records read for this amendment are the launch records
+and the price snapshots taken before the launches (times, places, prices, capacity).
+1. **GH200 and B200 are not run in Paper 3 (author's decision, 2026-11-23; §1 RQ4 and RQ6, §3.1, §5.1, §5.4, §11 item 8).**
+   *Reason:* time and capacity. The author wants the paper concluded this week, and capacity for both hosts is scarce. The
+   decision depends on time and capacity only, never on any value. *Change:* no GH200 and no B200 session is run. RQ4 (GPU
+   generation) covers two generations, A100 and H100, not the four of §1 (A2 item 1 had said four after B200's admission); X4 is
+   A100 against H100. The GH200 module-scope comparison (X7, RQ6; §2.5, §5.1) is not run. Both hosts are reported as "not
+   measured", with this reason, as §3.1 words it for B200. Their pre-lock probe results (§2.1 to §2.4, §3.1,
+   §4 G8, §7.2) stay as published evidence, A2 item 1's record of B200's admission stays on record, and their entries in
+   `paper3_hosts.json` are not changed; they are simply not launched. Nothing else changes: the confirmatory set is X1-X3 on the
+   A100 and the H100 (§5.4), and the estimators, gates, thresholds, scale grid, rounds, squares and seed rule are those of §2-§5 and
+   A1-A4. The §9 estimate is not revised; it counted the two hosts, which are not run. Outcome data seen: none.
+2. **Funding of the GCP compute (author, 2026-11-23; closes A1 item 7).** GCP compute for Paper 3 (C-GCP and C-VM) is paid by Google
+   Cloud ecosystem credits (2024) (author, 2026-11-23), beside the Lambda ($10,000) and AWS ($6,000) credits of §8. The C-GCP launch
+   record marks the host credit-funded (§2.6, P-BILLED); cost still uses the list prices of P-NEW whatever funds the bill (§2.6, §8).
+   Outcome data seen: none.
+3. **Start order (operational; the lead's record, made on the author's instruction to launch now; supersedes A1 item 6).** A1 item 6
+   started the H100 and C-GCP first and the other hosts after the H100's round 1. The price snapshot taken before the H100 launch
+   (`docs/paper3-evidence/campaign-snapshots/20261123T1516Z-h100-l1/prices.json`, 2026-11-23 15:16:29 UTC; the snapshots taken
+   before each launch are archived in `docs/paper3-evidence/campaign-snapshots/`) lists `gpu_1x_h100_sxm5` with no region with
+   capacity (the snapshots of 15:17:02 and 15:24:33 UTC agree). So the A100 (launch 1, Lambda us-east-1, created 15:23:18 UTC) and
+   C-GCP (launch 1, `c3-highmem-192-metal` in us-central1-a, created 15:25:50 UTC) started first. us-central1-a is a §3.1 fallback
+   zone of the same shape (fallback 1, another US zone; the price table of §2.6 holds us-central1 at the same price). The H100 starts
+   as soon as capacity appears, without waiting for the A100's round 1, because the three smoke runs of A3 and A4 have exercised the
+   harness on a real H100; C-VM may run in parallel with C-GCP. This is operational: it changes no round, square, order, seed, gate or
+   analysis, and no estimate uses the order in which hosts ran. Outcome data seen: none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,
