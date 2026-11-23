@@ -260,7 +260,8 @@ time-bounded SSH calls and a failed poll is retried, never fatal, so a sleeping 
    `infrastructure-failure` line into the ledger, and exits 31.** No round has run, so such a launch is not a lost launch (amendment A1 item 2, the lead's decision of
    2026-11-22) and may simply be launched again, in another region if the first one has none left; the cost is the host's time to that point. The gate's log may be opened to diagnose it
    (`.held-logs`, `p3_open_log.sh`, section 8). CPU hosts have no gate.
-2. **C-GCP only:** exit 10 until the reviewed allow-list is committed (section 6); then the host is moved to exactly that commit.
+2. **C-GCP only:** exit 10 until the reviewed allow-list is committed (section 6; for launch 2 or a relaunch the list is already committed, and the review is the comparison at the end of that
+   section); then the host is moved to exactly that commit (`--config-commit`).
 3. **Each round K of the launch:** one `run_campaign.py` invocation with `--stop-after-round K` (the last round of the launch runs to the
    end), detached. `run_campaign.py` itself repeats a round that fails its gates once and stops after the second failure.
 4. **After each round, while nothing runs on the host:** `p3_host_pack.sh` packs the round's directories (and `campaign.json`,
@@ -686,10 +687,12 @@ python run_campaign.py \
 
 G12 on C-GCP is "nothing else scheduled on the host" (design 4). `paper3_gates.py` implements it as: the systemd timers, `/etc/cron.*` files,
 the user's crontab entries and `at` jobs seen at the start and end of every round must all be in `paper3_hosts.json`
-`hosts.c-gcp.exclusive_use.allowed_scheduled`, a list of item names. At the lock it is `null` (pending), so `run_campaign.py` refuses a formal
-C-GCP campaign (`host config unset: ['allowed_scheduled']`). It is filled once, from what the first boot shows, **before the first formal
-C-GCP session**, and then it is fixed for both launches: the host entry's sha256 is part of the campaign's design hash, a resume compares it, and
-the second launch's `campaign.json` must carry the same one.
+`hosts.c-gcp.exclusive_use.allowed_scheduled`, a list of item names. At the lock it was `null` (pending), and `run_campaign.py` refuses a formal
+C-GCP campaign while it is (`host config unset: ['allowed_scheduled']`). **It was filled once, on 2026-11-23, by amendment A6 (commit 9a8b07b), from what the
+bring-up of C-GCP launch 1 captured, before any C-GCP session: 25 items (18 systemd timers and 7 files under `/etc/cron.*`; the capture lists unit and file names whatever
+their state, so masked timers are on it too).** It is now fixed for both launches: the host entry's sha256 is part of the campaign's design hash, a resume compares it, and
+the second launch's `campaign.json` must carry the same one. **Do not edit it.** The procedure below (steps 1 to 5) is what was followed for launch 1 and is what a **fresh host with no
+list yet** would need; for **launch 2 or a relaunch** the list exists, and the review is the short one at the end of this section.
 
 1. **Bring-up produces the evidence.** After setup, inputs and preflight the generated script captures what is scheduled
    (`~/p3out/exclusivity-before.json`), masks the timers in the list below and `cron.service` (a unit that does not exist on the image is
@@ -708,6 +711,7 @@ the second launch's `campaign.json` must carry the same one.
    Append the **section 12 amendment** to the design document in the same commit (append-only; sections 1 to 11 must stay byte for byte,
    which `run_campaign.py` verifies on every invocation). Draft:
 
+   > (Template. The amendment that did this for launch 1 is A6, 2026-11-23.)
    > ### 12.N Amendment, DATE UTC: C-GCP G12 allow-list (a pending value filled)
    > **Reason.** Section 4 G12 requires that nothing else is scheduled on C-GCP. `paper3_hosts.json` `c-gcp.exclusive_use.allowed_scheduled`
    > was `null` (pending) at the lock, so the gate could not be evaluated on that host.
@@ -727,6 +731,18 @@ the second launch's `campaign.json` must carry the same one.
    then the campaign stops); the fix is to mask the item on the host before round 1, never to edit the list.
 5. **Host idle time:** the metal host bills while it waits for the review. The review is the one human step in the campaign; do it promptly
    (about $3 to $6 for 15 to 30 minutes).
+
+**Launch 2 of C-GCP, or a relaunch (the list is already in the campaign commit).** The bring-up masks the same 19 timers and `cron.service` as launch 1 did (`C_GCP_MASK_UNITS`), captures,
+and the driver still stops with exit 10: the host must not start a formal round on a capture nobody has looked at. The review is whether the new capture holds anything the list does not:
+```bash
+D=rerun/paper3/c-gcp/launchN/rerun/bringup-artifacts
+jq -r '.allow_list_items[]' $D/exclusivity-after.json | sort > /tmp/capture.txt
+jq -r '.hosts["c-gcp"].exclusive_use.allowed_scheduled[]' paper3_hosts.json | sort > /tmp/allowed.txt
+comm -23 /tmp/capture.txt /tmp/allowed.txt          # must print nothing
+```
+Nothing printed: continue with `p3_driver.sh ~/p3ledger/<lease>.json --config-commit <the launch's own campaign commit>` (the guard accepts an unchanged filled list, `filled_now: false`; the host is
+checked out at that same commit, which is a no-op). An item printed: mask it on the host before round 1 (and add its unit to `C_GCP_MASK_UNITS` for the launches after), **never add it to the list** (the
+guard refuses a changed value; G12 would fail the round). The rest of the section does not apply.
 
 ## 7. Inputs (the TPC-H-derived data)
 
@@ -838,7 +854,7 @@ by hand and tell the lead: a longer lease is a longer exposure.
 
 * **The driver does it** at the end (and after a stop by rule): Lambda `lambda.sh terminate ID` (refuses any instance not named `p3-*`), GCP
   `gcloud compute instances delete NAME --zone ZONE --quiet` only while the instance is listed with our label; then it polls the provider
-  until the instance is no longer listed (up to ten minutes; a failed listing is never read as "gone"), writes `terminate_requested_utc` and
+  until the instance is no longer listed, or is listed with status `terminated` (up to twenty minutes, `P3_TERMINATE_WAIT`: Lambda shows a terminated host as `terminating` for a long while; a failed listing is never read as "gone"), writes `terminate_requested_utc` and
   `terminate_confirmed_utc` into the record and two lines into the ledger, and stops the watchdog. A termination that cannot be confirmed holds
   the driver (exit 20) with the watchdog still armed.
 * **By hand:** `tools/paper3_campaign/p3_teardown.sh ~/p3ledger/<lease>.json --yes` does the same for a launch whose driver died or that
@@ -867,9 +883,8 @@ Cannot be satisfied by tooling, or not yet:
 1. **Harness readiness before round 1 (design 7.2).** The smoke test must have run and be recorded; the runbook only provides the pause for it.
 2. **B200 admission (design 3.1)** was open when this runbook was written and is closed by amendment A2 (a valid P6 rerun, `t_min` 1 s, counter at board
    scope). The planner refuses a B200 launch from a checkout without it. What the tools cannot give is capacity: Lambda showed it in `australia-east-1` only.
-3. **The G12 allow-list is not in the locked design or in the locked `paper3_hosts.json`** (a `null`). Filling it is a pending value, handled by the
-   amendment of section 6 with the guard; the lead should confirm that reading ("a pending value filled before the first formal session, with the
-   outcome data seen stated as none") rather than treat it as a design change.
+3. **The G12 allow-list was not in the locked design or in the locked `paper3_hosts.json`** (a `null`). It was filled as a pending value by amendment A6 on 2026-11-23 (commit 9a8b07b),
+   with the guard of section 6 and the outcome data seen stated as none (A1 item 4 had said it would be recorded before the first C-GCP session): resolved, and not to be changed.
 4. **`campaign.json` cannot hold the terminate time** that design 2.6 lists (it is written once, at the start). The operator's record
    (`launch-record.json`, copied beside the data) holds it; the analysis must read it from there.
 5. **Price snapshots (design 2.6)**: "at the lock and at the start and end of each host's campaign". The repository's evidence holds only the

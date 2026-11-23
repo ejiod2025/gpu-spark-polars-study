@@ -147,7 +147,7 @@ case "$1" in
   list) if [ -f "$n/instance" ]; then
           if [ -f "$n/terminated" ] && [ "$(cat "$n/terminated")" -le 0 ]; then rm -f "$n/instance"; exit 0; fi
           [ -f "$n/terminated" ] && echo $(( $(cat "$n/terminated") - 1 )) > "$n/terminated"
-          printf '%s\tp3-campaign-x\tactive\tgpu\tregion\n' "$FAKE_INSTANCE_ID"
+          printf '%s\tp3-campaign-x\t%s\tgpu\tregion\n' "$FAKE_INSTANCE_ID" "${FAKE_LIST_STATUS:-active}"
         fi ;;
   terminate) echo "${LISTS_AFTER_TERMINATE:-1}" > "$n/terminated"; echo '[]' ;;
   wait) mkdir -p "${P3_STATE_DIR}"; echo 10.0.0.1 > "${P3_STATE_DIR}/$2.ip"; echo "ssh ready" ;;
@@ -399,6 +399,23 @@ def test_teardown_that_cannot_confirm_says_so_and_keeps_the_watchdog(world):
     assert done.returncode == 1 and "NOT CONFIRMED" in done.stderr and json.loads(record.read_text())["terminate_confirmed_utc"] is None
     assert sleeper.poll() is None                                                          # still armed
     sleeper.kill()
+
+
+def test_a_terminated_row_in_the_listing_counts_as_gone_and_a_terminating_one_does_not(world):
+    """2026-11-23: Lambda kept an H100 whose GPU never came up listed as terminating for over ten minutes and the driver held on an unconfirmed teardown that had in fact worked."""
+    record = write_record(world)
+    done = sh(world, TOOLS / "p3_teardown.sh", record, "--yes", LISTS_AFTER_TERMINATE=1000, FAKE_LIST_STATUS="terminated", P3_TERMINATE_WAIT=5)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert json.loads(record.read_text())["terminate_confirmed_utc"] is not None
+    pending = write_record(world, lease_name="p3-campaign-h100-l1-owner-ejiod-expires-20261120T0000Z")
+    held = sh(world, TOOLS / "p3_teardown.sh", pending, "--yes", LISTS_AFTER_TERMINATE=1000, FAKE_LIST_STATUS="terminating", P3_TERMINATE_WAIT=1)
+    assert held.returncode == 1 and "NOT CONFIRMED" in held.stderr and json.loads(pending.read_text())["terminate_confirmed_utc"] is None
+    (world.net / "terminated").unlink()
+
+
+def test_the_default_wait_for_a_termination_to_show_is_twenty_minutes():
+    text = (TOOLS / "p3_ops_lib.sh").read_text()
+    assert text.count("${P3_TERMINATE_WAIT:-1200}") == 2 and "${P3_TERMINATE_WAIT:-600}" not in text
 
 
 def test_gcp_teardown_deletes_by_exact_name_only_while_the_instance_carries_our_label(world):

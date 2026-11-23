@@ -72,11 +72,13 @@ p3_terminate_and_confirm() {   # RECORD: terminate the recorded instance (and on
       gcloud compute instances delete "$name" --zone="$zone" --quiet || echo "delete call returned a failure; polling anyway" >&2
     fi
   fi
-  deadline=$(( $(date +%s) + ${P3_TERMINATE_WAIT:-600} ))
+  # Lambda lists a terminated instance as "terminating" for many minutes (2026-11-23: over ten, for an H100 whose GPU never came up), and as "terminated" once it is done: a row with
+  # status terminated is a host that no longer bills. 20 minutes by default (P3_TERMINATE_WAIT); a failed listing is still never read as "gone".
+  deadline=$(( $(date +%s) + ${P3_TERMINATE_WAIT:-1200} ))
   while [ "$(date +%s)" -lt "$deadline" ]; do
     if [ "$provider" = lambda ]; then
       listing=$("$P3_LAMBDA_SH" list 2>/dev/null); rc=$?
-      if [ $rc -eq 0 ] && ! printf '%s\n' "$listing" | cut -f1 | grep -qx "$id"; then gone=1; else gone=0; fi
+      if [ $rc -eq 0 ] && ! printf '%s\n' "$listing" | awk -F'\t' -v id="$id" '$1 == id && $3 != "terminated" { found = 1 } END { exit !found }'; then gone=1; else gone=0; fi
     else
       gcp_instance_listed "$name"; rc=$?
       if [ $rc -eq 1 ]; then gone=1; else gone=0; fi
@@ -88,7 +90,7 @@ p3_terminate_and_confirm() {   # RECORD: terminate the recorded instance (and on
     fi
     sleep "${P3_TERMINATE_POLL:-15}"
   done
-  echo "WARNING: $name still listed after ${P3_TERMINATE_WAIT:-600} s; manual check required" >&2
+  echo "WARNING: $name still listed after ${P3_TERMINATE_WAIT:-1200} s; manual check required" >&2
   return 1
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # p3_teardown.sh RECORD [--yes]
 #
-# Terminates the instance of a launch record and confirms the provider no longer lists it (up to 10 minutes). Only the instance in the
+# Terminates the instance of a launch record and confirms the provider no longer lists it, or lists it as terminated (up to 20 minutes). Only the instance in the
 # record is touched: Lambda by its id (lambda.sh refuses any instance not named p3-*), GCP by its exact lease name and only while it is
 # listed with the label project=paper3-energy. Without --yes it says what it would do. The driver does this itself at the end of a
 # launch; this is for the other cases (a driver that died, a launch that never got a driver, a stopped campaign held for diagnosis).
