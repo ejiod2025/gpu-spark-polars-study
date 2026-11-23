@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p3_driver.sh RECORD.json [--dest DIR] [--config-commit SHA] [--on-stop terminate|hold] [--no-teardown] [--max-resume N] [--fresh] [--stop-after-bringup]
+# p3_driver.sh RECORD.json [--dest DIR] [--config-commit SHA] [--on-stop terminate|hold] [--no-teardown] [--max-resume N] [--fresh] [--resume-bringup] [--stop-after-bringup]
 #
 # Drives ONE launched campaign instance (the record p3_launch.sh wrote) from bring-up to teardown with no dependence on an operator
 # or on one long SSH session. Start it with Bash run_in_background: completion, success or failure, arrives as one notification.
@@ -35,6 +35,10 @@
 # host's GPU is not usable, and nothing else in the launch can be: the driver collects the gate's records, tears the host down, writes infrastructure_failure into the
 # launch record and an infrastructure-failure line into the ledger, and exits 31. No round has run, so nothing is lost but the host's time.
 #
+# --resume-bringup: like --fresh for a failed bring-up, but the steps that finished ok in the previous attempt (read from its fetched log) are not run again: only
+# checkout and lease always run (so a changed campaign_commit in the record takes effect), then the failed step and the ones after it. Use it when a late step failed for a
+# cause that is fixed (2026-11-23: verify, on a prefix bug) and rerunning setup and generate would cost time, or fail (an A100's data fills the disk setup wants free).
+#
 # --stop-after-bringup: stop (exit 11, host running) once the bring-up is copied and verified, for a step a person must do before round 1
 # (the harness smoke test on the pathfinder host); run the driver again without it to continue.
 #
@@ -52,7 +56,7 @@ die() { echo "p3_driver.sh: $*" >&2; exit 2; }
 
 RECORD=${1:-}; shift || true
 [ -f "$RECORD" ] || { sed -n '2,/^set -uo pipefail/p' "$0" | sed '$d'; exit 2; }
-DEST="" CONFIG_COMMIT="" ON_STOP=terminate TEARDOWN=1 MAX_RESUME=2 FRESH=0 STOP_AFTER_BRINGUP=0
+DEST="" CONFIG_COMMIT="" ON_STOP=terminate TEARDOWN=1 MAX_RESUME=2 FRESH=0 STOP_AFTER_BRINGUP=0 RESUME_BRINGUP=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dest) DEST=$2; shift 2 ;;
@@ -61,6 +65,7 @@ while [ $# -gt 0 ]; do
     --no-teardown) TEARDOWN=0; shift ;;
     --max-resume) MAX_RESUME=$2; shift 2 ;;
     --fresh) FRESH=1; shift ;;
+    --resume-bringup) RESUME_BRINGUP=1; FRESH=1; shift ;;
     --stop-after-bringup) STOP_AFTER_BRINGUP=1; shift ;;
     *) die "unknown option $1" ;;
   esac
@@ -267,8 +272,15 @@ infra_fail() {       # BRINGUP_LOG_NAME: the host's GPU is not ready (the CUDA g
 
 # ---- 1. bring-up -------------------------------------------------------------------------------------------------------
 if [ ! -f "$DEST/.verified/bringup" ]; then
-  plan bringup "$HOST" "$LAUNCH" --record "$RECORD" > "$DEST/.stage-scripts/bringup.sh" || die "cannot generate the bring-up script"
   attempt=$(pick_attempt bringup)
+  skip_args=()
+  if [ "$RESUME_BRINGUP" = 1 ]; then
+    prev="$DEST/bringup-a$((attempt - 1)).log"
+    { [ "$attempt" -gt 1 ] && [ -f "$prev" ]; } || die "--resume-bringup needs the fetched log of the previous attempt ($prev) to know which steps finished; there is none"
+    skip=$(sed -nE 's/^[^ ]+ STEP ([a-z_]+) (ok|skipped)([ :].*)?$/\1/p' "$prev" | grep -vxE 'checkout|lease' | paste -sd, -)
+    if [ -n "$skip" ]; then skip_args=(--skip "$skip"); log "resuming the bring-up as attempt $attempt: not repeating the steps that finished ok in attempt $((attempt - 1)): $skip"; fi
+  fi
+  plan bringup "$HOST" "$LAUNCH" --record "$RECORD" ${skip_args[@]+"${skip_args[@]}"} > "$DEST/.stage-scripts/bringup.sh" || die "cannot generate the bring-up script"
   run_stage "bringup-a$attempt" "$DEST/.stage-scripts/bringup.sh" "$BRINGUP_TIMEOUT"
   fetch_log "bringup-a$attempt.log"
   bringup_view "bringup-a$attempt.log"

@@ -443,7 +443,13 @@ def indented(lines, pad="  "):
     return "\n".join(pad + line for line in lines)
 
 
-def bringup_script(host: str, launch: str, record: dict) -> str:
+ALWAYS_RERUN_STEPS = ("checkout", "lease")     # a resumed bring-up still moves the host to the record's commit and writes the lease
+
+
+def bringup_script(host: str, launch: str, record: dict, skip=()) -> str:
+    """The on-host bring-up. `skip` names steps that finished ok in an earlier attempt of THIS launch (the driver's --resume-bringup reads them from that attempt's log): they are
+    not run again, only noted as skipped. checkout and lease always run. 2026-11-23: a step that fails late (verify) should not cost the earlier ones again, and a rerun of
+    setup can itself fail on an A100 whose data already fills the disk (--min-free-gib 450)."""
     check_launch(host, launch)
     if host == "b200":
         check_admitted(host)
@@ -496,7 +502,10 @@ def bringup_script(host: str, launch: str, record: dict) -> str:
         steps += ["preflight"]
     parts.append('s_artifacts() { mkdir -p rerun/bringup-artifacts; cp "$HOME"/p3out/exclusivity-*.json rerun/bringup-artifacts/ 2>/dev/null || true; }\n')
     steps.append("artifacts")
-    parts += [f"run_step {name} s_{name}" for name in steps]
+    unknown = [s for s in skip if s not in steps]
+    if unknown or any(s in ALWAYS_RERUN_STEPS for s in skip):
+        raise PlanError(f"--skip names {sorted(set(skip) - set(steps)) or sorted(set(skip) & set(ALWAYS_RERUN_STEPS))}: only steps of this host's bring-up other than {ALWAYS_RERUN_STEPS} can be skipped ({', '.join(steps)})")
+    parts += [(f'note "STEP {name} skipped: it finished ok in an earlier attempt of this launch (resume)"' if name in skip else f"run_step {name} s_{name}") for name in steps]
     note = "REVIEW-REQUIRED exclusivity-after.json" if spec.pinned else "no review step on this host class"
     parts.append(f'note "BRINGUP-OK {host} launch {launch}: {note}"\n')
     return "\n".join(parts)
@@ -519,8 +528,11 @@ def git_show(commit: str, path: str) -> str:
 
 # what may differ between the campaign commit and the commit that fills the allow-list: the host config and the design file (section 12 only;
 # run_campaign.py verifies that), this runbook, its planner and tests. Nothing that runs during a measurement (harness, run_campaign, gates).
-ALLOWLIST_COMMIT_FILES = ("paper3_hosts.json", pc.DESIGN_DOC_REL, "docs/PAPER3_RUNBOOK.md")
-ALLOWLIST_COMMIT_PREFIXES = ("tools/paper3_campaign/", "tests/test_paper3_runbook")
+# verify_generated_inputs.py and its test are the bring-up's input checker: it runs once per host before round 1 and never during a measurement (its 2026-11-23 prefix fix may travel)
+ALLOWLIST_COMMIT_FILES = ("paper3_hosts.json", pc.DESIGN_DOC_REL, "docs/PAPER3_RUNBOOK.md", "verify_generated_inputs.py", "tests/test_inputs_verify.py")
+# docs/paper3-evidence/ is archived evidence (price snapshots, probe and smoke runs): the campaign's own snapshots are committed while launches run, and nothing in it is read by a host
+# paper3/ is the manuscript (LaTeX): it is written while the campaign runs and no host reads it
+ALLOWLIST_COMMIT_PREFIXES = ("tools/paper3_campaign/", "tests/test_paper3_runbook", "docs/paper3-evidence/", "paper3/")
 
 
 def check_allowlist_change(old: str, new: str) -> dict:
@@ -642,6 +654,7 @@ def main(argv=None) -> int:
         p.add_argument("--record")
         p.add_argument("--stop-after", type=int)
         p.add_argument("--type")
+        p.add_argument("--skip", default="")
     sub.add_parser("check-lock")
     p = sub.add_parser("check-allowlist")
     p.add_argument("--old", required=True)
@@ -674,7 +687,7 @@ def main(argv=None) -> int:
             record = read_record(args.record)
             if record is None:
                 parser.error("bringup needs --record")
-            print(bringup_script(args.host, args.launch, record), end="")
+            print(bringup_script(args.host, args.launch, record, skip=tuple(s for s in args.skip.split(",") if s)), end="")
         elif args.cmd == "stage-script":
             print(stage_script(args.host, args.launch, args.stop_after, read_record(args.record)), end="")
         elif args.cmd == "rounds":

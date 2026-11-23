@@ -5,7 +5,7 @@ The bring-up stage prints whatever its steps print: the SF1 smoke preflight writ
 (the wall time of a whole suite), the input generators print their own seconds, pip and apt print theirs. The full log is copied off the host and
 archived unread. The driver shows the operator only what this module lets through, by an allow-list, never a block-list:
 
-  * the result of every bring-up step: `STEP <name> ok` or `STEP <name> FAILED rc=N` (the log's timestamp is dropped, so step durations
+  * the result of every bring-up step: `STEP <name> ok`, `STEP <name> skipped` (a resumed bring-up) or `STEP <name> FAILED rc=N` (the log's timestamp is dropped, so step durations
     cannot be read off the driver's output);
   * every `[FAIL ...]` line of the preflight, with any time or timing value redacted (`<time>`, `<value>`, `<number>`);
   * the last `VERDICT:` line (the preflight's own verdict, `pass` or `fail`).
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 MAX_FAIL_LINES = 40
-STEP = re.compile(r"^\S+\s+STEP (?P<name>[A-Za-z0-9_.-]+) (?P<what>ok|FAILED rc=\d+)\s*$")
+STEP = re.compile(r"^\S+\s+STEP (?P<name>[A-Za-z0-9_.-]+) (?P<what>ok|skipped|FAILED rc=\d+)\b.*$")
 FAIL = re.compile(r"^\[FAIL\s*\]\s")
 VERDICT = re.compile(r"^VERDICT: (?P<verdict>pass|fail)\s*$")
 

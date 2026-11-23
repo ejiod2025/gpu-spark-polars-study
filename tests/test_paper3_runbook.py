@@ -408,6 +408,22 @@ def test_the_guard_lets_the_runbook_and_its_tools_travel_with_the_allow_list_but
         P.check_allowlist_change(old, harness)
 
 
+def test_the_guard_lets_archived_evidence_and_the_bringup_verifier_travel_but_not_the_harness(tmp_path, monkeypatch):
+    """The campaign commits its price snapshots (docs/paper3-evidence/campaign-snapshots/) while launches run, and the bring-up's input verifier was fixed on 2026-11-23
+    (a prefix collision made every bring-up fail): neither runs during a measurement, so neither may block the allow-list commit."""
+    items = ["cron:e2scrub_all"]
+    repo, (old, travelling, harness) = make_repo(tmp_path, [
+        {"paper3_hosts.json": hosts_file(), "verify_generated_inputs.py": "# v1\n", "worker.py": "# v1\n"},
+        {"paper3_hosts.json": hosts_file(items), "verify_generated_inputs.py": "# v2\n", "tests/test_inputs_verify.py": "# t\n",
+         "docs/paper3-evidence/campaign-snapshots/20261123T1516Z-h100-l1/prices.json": "{}\n", "paper3/main.tex": "\\documentclass{acmart}\n"},
+        {"paper3_hosts.json": hosts_file(items), "worker.py": "# v2\n"}])
+    monkeypatch.setattr(P, "REPO", repo)
+    assert P.check_allowlist_change(old, travelling)["changed_files"] == ["docs/paper3-evidence/campaign-snapshots/20261123T1516Z-h100-l1/prices.json", "paper3/main.tex",
+                                                                         "paper3_hosts.json", "tests/test_inputs_verify.py", "verify_generated_inputs.py"]
+    with pytest.raises(P.PlanError, match="files other than"):
+        P.check_allowlist_change(old, harness)                                    # code that runs during a measurement is still refused
+
+
 def test_the_guard_rejects_a_change_of_any_other_field_of_c_gcp(tmp_path, monkeypatch):
     repo, (old, new) = make_repo(tmp_path, [{"paper3_hosts.json": hosts_file()}, {"paper3_hosts.json": hosts_file([], **{"c-gcp__t_min_s": 3.0})}])
     monkeypatch.setattr(P, "REPO", repo)
