@@ -914,6 +914,7 @@ All under `tools/paper3_campaign/`; the shared detach and polling library is `to
 | `p3_plan.py` | operator | the planner: tables, leases, launch requests, the `run_campaign.py` command, the bring-up and stage scripts, the allow-list guard, the lock check, the generated blocks of this file |
 | `p3_price_snapshot.sh` | operator | raw price responses with UTC time and sha256; `prices.json` |
 | `p3_launch.sh` | operator | one launch (dry run unless `--yes`): request, record, watchdog, ledger |
+| `p3_launch_on_capacity.sh` | operator | waits (polls `/instance-types` every 30 s) for capacity of a Lambda host's type, then takes a fresh price snapshot, launches that host's launch ONCE with `p3_launch.sh` and starts `p3_driver.sh` with nohup; refuses if a record of that launch exists (unless it was an infrastructure failure before round 1); log in `rerun/paper3/watch-HOST-lN.log`; `touch ~/p3ledger/watch-HOST-lN/stop` ends it |
 | `p3_gcp_watchdog.sh` | operator | wall-clock backstop that deletes a labelled `p3-` GCP instance (`P3_GCP_WATCHDOG_ACTION=stop`: stops it, keeps the disk) |
 | `p3_driver.sh` | operator | bring-up to teardown of one launch; restartable; options `--dest`, `--config-commit`, `--on-stop terminate|hold`, `--no-teardown`, `--max-resume`, `--fresh`, `--stop-after-bringup` |
 | `p3_status.sh` | operator | a short look: lease, stages, the QA view |
