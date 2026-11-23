@@ -275,6 +275,20 @@ def disk_files(dataset: Path, table: str) -> set[str]:
     return {p.relative_to(dataset).as_posix() for p in (dataset / table).glob("*.parquet")}
 
 
+def partial_write_leftovers(dataset: Path) -> list[str]:
+    """What a generator left behind that belongs to THIS dataset: its own staging directory or temp files next to it (`.sf30.parallel-building`, `.sf30.building`),
+    and files inside it that only a running or interrupted write leaves. Its own advisory lock `.sf30.generation.lock` is expected and is not a leftover.
+
+    A hidden file next to the dataset belongs to it only when its name continues the dataset's name after a dot: the match is on "." + name + ".", never on "." + name.
+    Matching the bare prefix made `.sf300.generation.lock` a leftover of `sf30` (and `.sf100...` of `sf1` and `sf10`): every host that generated SF300 beside SF30 failed its
+    bring-up verification on 2026-11-23 although nothing was wrong with any dataset."""
+    own = "." + dataset.name + "."
+    leftovers = sorted(p.name for p in dataset.parent.iterdir() if p.name.startswith(own) and p.name != own + "generation.lock")
+    leftovers += sorted(str(p.relative_to(dataset)) for p in dataset.rglob("*")
+                        if p.name.endswith((".tmp", ".wal", ".duckdb")) or p.name == ".steps" or p.name == ".work")
+    return leftovers
+
+
 def check_disk(ds: Dataset, new: dict, rehash: bool, workers: int) -> None:
     dataset = ds.path
     problems, files = [], []
@@ -295,10 +309,7 @@ def check_disk(ds: Dataset, new: dict, rehash: bool, workers: int) -> None:
         listed_bytes = sum(f["bytes"] for f in listed.values())
         if listed_bytes != new["tables"][table]["parquet_bytes"]:
             problems.append(f"{table}: parquet_bytes {new['tables'][table]['parquet_bytes']} != sum(files) {listed_bytes}")
-    leftovers = sorted(p.name for p in dataset.parent.iterdir()
-                       if p.name.startswith("." + dataset.name) and p.name != "." + dataset.name + ".generation.lock")
-    leftovers += sorted(str(p.relative_to(dataset)) for p in dataset.rglob("*")
-                        if p.name.endswith((".tmp", ".wal", ".duckdb")) or p.name == ".steps" or p.name == ".work")
+    leftovers = partial_write_leftovers(dataset)
     if leftovers:
         problems.append("partial-write leftovers: " + ", ".join(leftovers))
     if rehash:

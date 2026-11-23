@@ -158,6 +158,46 @@ def test_partial_write_leftovers_are_detected(dataset, tmp_path):
     assert code == 1 and statuses(report)["disk_vs_new_manifest"] == "FAIL"
 
 
+@pytest.mark.parametrize("name, others", [
+    ("sf1", [".sf10.generation.lock", ".sf100.generation.lock"]),
+    ("sf10", [".sf100.generation.lock"]),
+    ("sf30", [".sf300.generation.lock"]),
+])
+def test_another_scales_lock_file_is_not_a_leftover_of_this_scale(tmp_path, name, others):
+    """2026-11-23: `.sf300.generation.lock` was reported as a partial-write leftover of sf30 (a bare "." + name prefix match), so every bring-up that generated SF300
+    beside SF30 failed its verify step."""
+    for scale in ("sf1", "sf10", "sf30", "sf100", "sf300"):
+        (tmp_path / scale).mkdir()
+    for other in others:
+        (tmp_path / other).write_text("")
+        assert other.startswith("." + name)                                   # the collision is real: the old prefix test would have flagged it
+    (tmp_path / ("." + name + ".generation.lock")).write_text("")            # the scale's own lock is expected
+    assert vgi.partial_write_leftovers(tmp_path / name) == []
+
+
+def test_a_scales_own_staging_and_temp_files_are_still_leftovers(tmp_path):
+    for scale in ("sf30", "sf300"):
+        (tmp_path / scale).mkdir()
+    (tmp_path / ".sf30.parallel-building").mkdir()
+    (tmp_path / ".sf30.building").mkdir()
+    (tmp_path / ".sf30.generation.lock.old").write_text("")
+    (tmp_path / ".sf300.generation.lock").write_text("")
+    (tmp_path / "sf30" / "x.tmp").write_text("")
+    (tmp_path / "sf30" / ".steps").mkdir()
+    assert vgi.partial_write_leftovers(tmp_path / "sf30") == [".sf30.building", ".sf30.generation.lock.old", ".sf30.parallel-building", ".steps", "x.tmp"]
+    assert vgi.partial_write_leftovers(tmp_path / "sf300") == []
+
+
+def test_a_neighbouring_scales_lock_does_not_fail_a_real_verification(dataset, tmp_path):
+    (dataset / ".sf0p011.generation.lock").write_text("")                     # another scale whose name continues this one's (sf0p01 + 1)
+    (dataset / ".sf0p01.generation.lock").write_text("")
+    code, report = run(dataset, tmp_path)
+    assert code == 0 and statuses(report)["disk_vs_new_manifest"] in ("PASS", "WARN")
+    (dataset / ".sf0p01.parallel-building").mkdir()                          # its own staging directory still fails it
+    again, report = run(dataset, tmp_path)
+    assert again == 1 and statuses(report)["disk_vs_new_manifest"] == "FAIL"
+
+
 def test_wrong_content_with_consistent_manifest_is_caught_by_fingerprint(dataset, tmp_path):
     """Silently wrong data: files and manifest agree, but a value changed. Only the fingerprint sees it."""
     folder = dataset_dir(dataset)
