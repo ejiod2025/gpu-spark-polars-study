@@ -1,0 +1,1269 @@
+[
+  {
+    "scale": "1",
+    "engine": "spark_cpu",
+    "command": [
+      "/home/ubuntu/gpu-spark-polars-study/.venv/bin/spark-submit",
+      "--master",
+      "local[26]",
+      "--driver-memory",
+      "96g",
+      "--conf",
+      "spark.sql.shuffle.partitions=120",
+      "--conf",
+      "spark.sql.adaptive.enabled=true",
+      "--conf",
+      "spark.sql.files.maxPartitionBytes=134217728",
+      "--conf",
+      "spark.sql.session.timeZone=UTC",
+      "--conf",
+      "spark.eventLog.enabled=true",
+      "--conf",
+      "spark.eventLog.dir=file:///home/ubuntu/p3smoke/run/sf1/spark_cpu-events",
+      "--conf",
+      "spark.ui.enabled=false",
+      "--conf",
+      "spark.driver.maxResultSize=1g",
+      "/home/ubuntu/gpu-spark-polars-study/worker.py",
+      "--engine",
+      "spark_cpu",
+      "--data",
+      "/home/ubuntu/p3smoke/data/sf1",
+      "--output",
+      "/home/ubuntu/p3smoke/run/sf1/spark_cpu",
+      "--runs",
+      "3",
+      "--suite",
+      "smoke",
+      "--query-cleanup",
+      "none",
+      "--cleanup-timeout-seconds",
+      "60",
+      "--synthetic-smoke",
+      "--gpu-energy-scope",
+      "board",
+      "--energy-window-s",
+      "10.0",
+      "--session-idle-seconds",
+      "30.0",
+      "--session-idle-settle-seconds",
+      "60.0"
+    ],
+    "preheat": {
+      "bytes": 1793757438,
+      "seconds": 0.3179682180000043
+    },
+    "start_utc": "2026-11-23T03:24:58.588896+00:00",
+    "engine_order_position": 1,
+    "gpu_idle_gate": {
+      "idle": true,
+      "waited_seconds": 0.018363575999984505,
+      "polls": 1,
+      "timeout_seconds": 60,
+      "compute_apps": [],
+      "error": null,
+      "checked_at_utc": "2026-11-23T03:24:58.588758+00:00"
+    },
+    "gpu_power_state": {
+      "start": {
+        "file": "spark_cpu-gpu-power-start.txt",
+        "captured_utc": "2026-11-23T03:24:58.609124+00:00",
+        "returncode": 0,
+        "bytes": 1436,
+        "sha256": "835925a65571d1ffd12765133ebf55b338686b983a5be91b51b644dc39752a47",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "POWER"
+        ],
+        "power_limits_w": {
+          "gpu": {
+            "current_w": 700.0,
+            "requested_w": 700.0,
+            "default_w": 700.0,
+            "min_w": 200.0,
+            "max_w": 700.0
+          }
+        },
+        "power_limits_query": {
+          "command": [
+            "nvidia-smi",
+            "-i",
+            "0",
+            "--query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit",
+            "--format=csv,noheader,nounits"
+          ],
+          "returncode": 0,
+          "fields": [
+            "power.limit",
+            "enforced.power.limit",
+            "power.default_limit",
+            "power.min_limit",
+            "power.max_limit"
+          ],
+          "raw": "700.00, 700.00, 700.00, 200.00, 700.00",
+          "values_w": {
+            "power.limit": 700.0,
+            "enforced.power.limit": 700.0,
+            "power.default_limit": 700.0,
+            "power.min_limit": 200.0,
+            "power.max_limit": 700.0
+          }
+        }
+      },
+      "end": {
+        "file": "spark_cpu-gpu-power-end.txt",
+        "captured_utc": "2026-11-23T03:29:42.071493+00:00",
+        "returncode": 0,
+        "bytes": 1436,
+        "sha256": "c7b0ffd5c6f420dafba98c0810fe96cf4d4ba71a2bdfa2ac67d13fd6be902c5c",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "POWER"
+        ],
+        "power_limits_w": {
+          "gpu": {
+            "current_w": 700.0,
+            "requested_w": 700.0,
+            "default_w": 700.0,
+            "min_w": 200.0,
+            "max_w": 700.0
+          }
+        },
+        "power_limits_query": {
+          "command": [
+            "nvidia-smi",
+            "-i",
+            "0",
+            "--query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit",
+            "--format=csv,noheader,nounits"
+          ],
+          "returncode": 0,
+          "fields": [
+            "power.limit",
+            "enforced.power.limit",
+            "power.default_limit",
+            "power.min_limit",
+            "power.max_limit"
+          ],
+          "raw": "700.00, 700.00, 700.00, 200.00, 700.00",
+          "values_w": {
+            "power.limit": 700.0,
+            "enforced.power.limit": 700.0,
+            "power.default_limit": 700.0,
+            "power.min_limit": 200.0,
+            "power.max_limit": 700.0
+          }
+        }
+      }
+    },
+    "gpu_performance_state": {
+      "start": {
+        "file": "spark_cpu-gpu-performance-start.txt",
+        "captured_utc": "2026-11-23T03:24:58.646650+00:00",
+        "returncode": 0,
+        "bytes": 892,
+        "sha256": "44680d47c89b73a0a92aa5c7a114945db475e156310d5eeb6361a98b46c26618",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "PERFORMANCE"
+        ]
+      },
+      "end": {
+        "file": "spark_cpu-gpu-performance-end.txt",
+        "captured_utc": "2026-11-23T03:29:42.109889+00:00",
+        "returncode": 0,
+        "bytes": 892,
+        "sha256": "ab3fd2b2bbc26e235d5e45ab78c3086006810aac604251bed328703e450c2a9b",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "PERFORMANCE"
+        ]
+      }
+    },
+    "clock_sync": {
+      "start": {
+        "command": [
+          "chronyc",
+          "tracking"
+        ],
+        "returncode": 0,
+        "captured_utc": "2026-11-23T03:24:58.646672+00:00",
+        "monotonic_ns": 247938115437,
+        "output": "Reference ID    : D890E4B3 (216-144-228-179-host.colocrossing.com)\nStratum         : 3\nRef time (UTC)  : Mon Nov 23 03:24:35 2026\nSystem time     : 0.000654288 seconds fast of NTP time\nLast offset     : -0.000374114 seconds\nRMS offset      : 0.001178697 seconds\nFrequency       : 7.631 ppm fast\nResidual freq   : +0.006 ppm\nSkew            : 1.580 ppm\nRoot delay      : 0.048837438 seconds\nRoot dispersion : 0.000880497 seconds\nUpdate interval : 64.6 seconds\nLeap status     : Normal\n",
+        "system_time_offset_seconds": 0.000654288,
+        "last_offset_seconds": -0.000374114,
+        "stratum": 3,
+        "leap_status": "Normal"
+      },
+      "end": {
+        "command": [
+          "chronyc",
+          "tracking"
+        ],
+        "returncode": 0,
+        "captured_utc": "2026-11-23T03:29:42.109912+00:00",
+        "monotonic_ns": 531401354897,
+        "output": "Reference ID    : 4559CF63 (ntp1.wiktel.com)\nStratum         : 2\nRef time (UTC)  : Mon Nov 23 03:28:56 2026\nSystem time     : 0.000193692 seconds fast of NTP time\nLast offset     : +0.000029581 seconds\nRMS offset      : 0.000917235 seconds\nFrequency       : 7.647 ppm fast\nResidual freq   : -0.002 ppm\nSkew            : 0.220 ppm\nRoot delay      : 0.038035844 seconds\nRoot dispersion : 0.001126653 seconds\nUpdate interval : 64.2 seconds\nLeap status     : Normal\n",
+        "system_time_offset_seconds": 0.000193692,
+        "last_offset_seconds": 2.9581e-05,
+        "stratum": 2,
+        "leap_status": "Normal"
+      }
+    },
+    "gpu_pulses": {
+      "start": {
+        "label": "start",
+        "requested_seconds": 3.0,
+        "command": [
+          "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+          "/home/ubuntu/gpu-spark-polars-study/gpu_pulse.py",
+          "--seconds",
+          "3.0",
+          "--device",
+          "0",
+          "--label",
+          "start"
+        ],
+        "returncode": 0,
+        "quiet_wait": {
+          "reached": true,
+          "waited_seconds": 2.094,
+          "polls": 5,
+          "last_utilization_percent": 0.0,
+          "quiet_seconds_required": 2.0,
+          "bound_seconds": 30.0,
+          "threshold_percent": 10.0
+        },
+        "runner_start_utc": "2026-11-23T03:25:00.752021+00:00",
+        "runner_start_monotonic_ns": 250043475781,
+        "runner_end_utc": "2026-11-23T03:25:04.256189+00:00",
+        "runner_end_monotonic_ns": 253547619939,
+        "ok": true,
+        "device": 0,
+        "process_start_utc": "2026-11-23T03:25:00.777466+00:00",
+        "process_start_monotonic_ns": 250068918541,
+        "init_seconds": 0.285684915,
+        "nominal_seconds": 3.0,
+        "host_seconds": 3.000030577,
+        "launch_utc": "2026-11-23T03:25:01.063174+00:00",
+        "launch_monotonic_ns": 250354610934,
+        "done_utc": "2026-11-23T03:25:04.063202+00:00",
+        "done_monotonic_ns": 253354641122
+      },
+      "end": {
+        "label": "end",
+        "requested_seconds": 3.0,
+        "command": [
+          "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+          "/home/ubuntu/gpu-spark-polars-study/gpu_pulse.py",
+          "--seconds",
+          "3.0",
+          "--device",
+          "0",
+          "--label",
+          "end"
+        ],
+        "returncode": 0,
+        "quiet_wait": {
+          "reached": true,
+          "waited_seconds": 2.097,
+          "polls": 5,
+          "last_utilization_percent": 0.0,
+          "quiet_seconds_required": 2.0,
+          "bound_seconds": 30.0,
+          "threshold_percent": 10.0
+        },
+        "runner_start_utc": "2026-11-23T03:29:44.234655+00:00",
+        "runner_start_monotonic_ns": 533526108088,
+        "runner_end_utc": "2026-11-23T03:29:47.740968+00:00",
+        "runner_end_monotonic_ns": 537032401680,
+        "ok": true,
+        "device": 0,
+        "process_start_utc": "2026-11-23T03:29:44.260407+00:00",
+        "process_start_monotonic_ns": 533551859820,
+        "init_seconds": 0.287869889,
+        "nominal_seconds": 3.0,
+        "host_seconds": 3.000029237,
+        "launch_utc": "2026-11-23T03:29:44.548300+00:00",
+        "launch_monotonic_ns": 533839737408,
+        "done_utc": "2026-11-23T03:29:47.548328+00:00",
+        "done_monotonic_ns": 536839766324
+      }
+    },
+    "process_wall_seconds": 277.7933948289999,
+    "launch": {
+      "utc": "2026-11-23T03:25:04.256425+00:00",
+      "monotonic_ns": 253547867374
+    },
+    "process_exit": {
+      "utc": "2026-11-23T03:29:42.049625+00:00",
+      "monotonic_ns": 531341056012
+    },
+    "returncode": 0,
+    "status": "complete",
+    "gpu_compute_apps_end": {
+      "compute_apps": [],
+      "error": null,
+      "checked_at_utc": "2026-11-23T03:29:42.137164+00:00"
+    }
+  },
+  {
+    "scale": "1",
+    "engine": "spark_gpu",
+    "command": [
+      "/home/ubuntu/gpu-spark-polars-study/.venv/bin/spark-submit",
+      "--master",
+      "local[26]",
+      "--driver-memory",
+      "96g",
+      "--conf",
+      "spark.sql.shuffle.partitions=120",
+      "--conf",
+      "spark.sql.adaptive.enabled=true",
+      "--conf",
+      "spark.sql.files.maxPartitionBytes=134217728",
+      "--conf",
+      "spark.sql.session.timeZone=UTC",
+      "--conf",
+      "spark.eventLog.enabled=true",
+      "--conf",
+      "spark.eventLog.dir=file:///home/ubuntu/p3smoke/run/sf1/spark_gpu-events",
+      "--conf",
+      "spark.ui.enabled=false",
+      "--conf",
+      "spark.driver.maxResultSize=1g",
+      "--jars",
+      "/home/ubuntu/gpu-spark-polars-study/jars/rapids-4-spark_2.12-26.08.1.jar",
+      "--conf",
+      "spark.plugins=com.nvidia.spark.SQLPlugin",
+      "--conf",
+      "spark.rapids.sql.enabled=true",
+      "--conf",
+      "spark.rapids.sql.explain=NOT_ON_GPU",
+      "--conf",
+      "spark.rapids.sql.concurrentGpuTasks=2",
+      "--conf",
+      "spark.rapids.memory.pinnedPool.size=2G",
+      "--conf",
+      "spark.rapids.sql.variableFloatAgg.enabled=true",
+      "/home/ubuntu/gpu-spark-polars-study/worker.py",
+      "--engine",
+      "spark_gpu",
+      "--data",
+      "/home/ubuntu/p3smoke/data/sf1",
+      "--output",
+      "/home/ubuntu/p3smoke/run/sf1/spark_gpu",
+      "--runs",
+      "3",
+      "--suite",
+      "smoke",
+      "--query-cleanup",
+      "none",
+      "--cleanup-timeout-seconds",
+      "60",
+      "--synthetic-smoke",
+      "--gpu-energy-scope",
+      "board",
+      "--energy-window-s",
+      "10.0",
+      "--session-idle-seconds",
+      "30.0",
+      "--session-idle-settle-seconds",
+      "60.0"
+    ],
+    "preheat": {
+      "bytes": 1793757438,
+      "seconds": 0.307517573000041
+    },
+    "start_utc": "2026-11-23T03:29:48.067012+00:00",
+    "spark_gpu_options": {
+      "profile": "a100-parity",
+      "conf_file_sha256": null,
+      "extra_conf": {},
+      "overridden_parity_confs": []
+    },
+    "engine_order_position": 2,
+    "cooldown_before": {
+      "requested_seconds": 0.0,
+      "slept": false,
+      "actual_seconds": 0.0
+    },
+    "gpu_idle_gate": {
+      "idle": true,
+      "waited_seconds": 0.01758670499998516,
+      "polls": 1,
+      "timeout_seconds": 60,
+      "compute_apps": [],
+      "error": null,
+      "checked_at_utc": "2026-11-23T03:29:48.066849+00:00"
+    },
+    "gpu_power_state": {
+      "start": {
+        "file": "spark_gpu-gpu-power-start.txt",
+        "captured_utc": "2026-11-23T03:29:48.085943+00:00",
+        "returncode": 0,
+        "bytes": 1441,
+        "sha256": "1b479062ec33d8d27ba202e92af22d0bcbf2d31ab206f152d6d9e8da6f33c7b8",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "POWER"
+        ],
+        "power_limits_w": {
+          "gpu": {
+            "current_w": 700.0,
+            "requested_w": 700.0,
+            "default_w": 700.0,
+            "min_w": 200.0,
+            "max_w": 700.0
+          }
+        },
+        "power_limits_query": {
+          "command": [
+            "nvidia-smi",
+            "-i",
+            "0",
+            "--query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit",
+            "--format=csv,noheader,nounits"
+          ],
+          "returncode": 0,
+          "fields": [
+            "power.limit",
+            "enforced.power.limit",
+            "power.default_limit",
+            "power.min_limit",
+            "power.max_limit"
+          ],
+          "raw": "700.00, 700.00, 700.00, 200.00, 700.00",
+          "values_w": {
+            "power.limit": 700.0,
+            "enforced.power.limit": 700.0,
+            "power.default_limit": 700.0,
+            "power.min_limit": 200.0,
+            "power.max_limit": 700.0
+          }
+        }
+      },
+      "end": {
+        "file": "spark_gpu-gpu-power-end.txt",
+        "captured_utc": "2026-11-23T03:34:50.548684+00:00",
+        "returncode": 0,
+        "bytes": 1441,
+        "sha256": "b34fbe9dd4432ec428b62471566319702d9b47f0bd215029f1ae8005248aeb13",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "POWER"
+        ],
+        "power_limits_w": {
+          "gpu": {
+            "current_w": 700.0,
+            "requested_w": 700.0,
+            "default_w": 700.0,
+            "min_w": 200.0,
+            "max_w": 700.0
+          }
+        },
+        "power_limits_query": {
+          "command": [
+            "nvidia-smi",
+            "-i",
+            "0",
+            "--query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit",
+            "--format=csv,noheader,nounits"
+          ],
+          "returncode": 0,
+          "fields": [
+            "power.limit",
+            "enforced.power.limit",
+            "power.default_limit",
+            "power.min_limit",
+            "power.max_limit"
+          ],
+          "raw": "700.00, 700.00, 700.00, 200.00, 700.00",
+          "values_w": {
+            "power.limit": 700.0,
+            "enforced.power.limit": 700.0,
+            "power.default_limit": 700.0,
+            "power.min_limit": 200.0,
+            "power.max_limit": 700.0
+          }
+        }
+      }
+    },
+    "gpu_performance_state": {
+      "start": {
+        "file": "spark_gpu-gpu-performance-start.txt",
+        "captured_utc": "2026-11-23T03:29:48.121759+00:00",
+        "returncode": 0,
+        "bytes": 896,
+        "sha256": "4725a5b67b42daf1945253c8c9582f3eac5bd22933d020f5c2141489b82d55ae",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "PERFORMANCE"
+        ]
+      },
+      "end": {
+        "file": "spark_gpu-gpu-performance-end.txt",
+        "captured_utc": "2026-11-23T03:34:50.584774+00:00",
+        "returncode": 0,
+        "bytes": 896,
+        "sha256": "53ef6c93f2b6cce66c5a39d7753bf132a8b8087caa475a7e32235560c7902c2c",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "PERFORMANCE"
+        ]
+      }
+    },
+    "clock_sync": {
+      "start": {
+        "command": [
+          "chronyc",
+          "tracking"
+        ],
+        "returncode": 0,
+        "captured_utc": "2026-11-23T03:29:48.121781+00:00",
+        "monotonic_ns": 537413223890,
+        "output": "Reference ID    : 4559CF63 (ntp1.wiktel.com)\nStratum         : 2\nRef time (UTC)  : Mon Nov 23 03:28:56 2026\nSystem time     : 0.000192178 seconds fast of NTP time\nLast offset     : +0.000029581 seconds\nRMS offset      : 0.000917235 seconds\nFrequency       : 7.647 ppm fast\nResidual freq   : -0.002 ppm\nSkew            : 0.220 ppm\nRoot delay      : 0.038035844 seconds\nRoot dispersion : 0.001133997 seconds\nUpdate interval : 64.2 seconds\nLeap status     : Normal\n",
+        "system_time_offset_seconds": 0.000192178,
+        "last_offset_seconds": 2.9581e-05,
+        "stratum": 2,
+        "leap_status": "Normal"
+      },
+      "end": {
+        "command": [
+          "chronyc",
+          "tracking"
+        ],
+        "returncode": 0,
+        "captured_utc": "2026-11-23T03:34:50.584795+00:00",
+        "monotonic_ns": 839876238353,
+        "output": "Reference ID    : 4559CF63 (ntp1.wiktel.com)\nStratum         : 2\nRef time (UTC)  : Mon Nov 23 03:34:20 2026\nSystem time     : 0.000218412 seconds slow of NTP time\nLast offset     : +0.000012560 seconds\nRMS offset      : 0.000712134 seconds\nFrequency       : 7.580 ppm fast\nResidual freq   : +0.004 ppm\nSkew            : 0.093 ppm\nRoot delay      : 0.037753943 seconds\nRoot dispersion : 0.001127707 seconds\nUpdate interval : 64.3 seconds\nLeap status     : Normal\n",
+        "system_time_offset_seconds": -0.000218412,
+        "last_offset_seconds": 1.256e-05,
+        "stratum": 2,
+        "leap_status": "Normal"
+      }
+    },
+    "gpu_pulses": {
+      "start": {
+        "label": "start",
+        "requested_seconds": 3.0,
+        "command": [
+          "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+          "/home/ubuntu/gpu-spark-polars-study/gpu_pulse.py",
+          "--seconds",
+          "3.0",
+          "--device",
+          "0",
+          "--label",
+          "start"
+        ],
+        "returncode": 0,
+        "quiet_wait": {
+          "reached": true,
+          "waited_seconds": 2.09,
+          "polls": 5,
+          "last_utilization_percent": 0.0,
+          "quiet_seconds_required": 2.0,
+          "bound_seconds": 30.0,
+          "threshold_percent": 10.0
+        },
+        "runner_start_utc": "2026-11-23T03:29:50.212949+00:00",
+        "runner_start_monotonic_ns": 539504405322,
+        "runner_end_utc": "2026-11-23T03:29:53.719490+00:00",
+        "runner_end_monotonic_ns": 543010922074,
+        "ok": true,
+        "device": 0,
+        "process_start_utc": "2026-11-23T03:29:50.238511+00:00",
+        "process_start_monotonic_ns": 539529968759,
+        "init_seconds": 0.287726803,
+        "nominal_seconds": 3.0,
+        "host_seconds": 3.000033826,
+        "launch_utc": "2026-11-23T03:29:50.526266+00:00",
+        "launch_monotonic_ns": 539817703508,
+        "done_utc": "2026-11-23T03:29:53.526298+00:00",
+        "done_monotonic_ns": 542817736788
+      },
+      "end": {
+        "label": "end",
+        "requested_seconds": 3.0,
+        "command": [
+          "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+          "/home/ubuntu/gpu-spark-polars-study/gpu_pulse.py",
+          "--seconds",
+          "3.0",
+          "--device",
+          "0",
+          "--label",
+          "end"
+        ],
+        "returncode": 0,
+        "quiet_wait": {
+          "reached": true,
+          "waited_seconds": 2.087,
+          "polls": 5,
+          "last_utilization_percent": 0.0,
+          "quiet_seconds_required": 2.0,
+          "bound_seconds": 30.0,
+          "threshold_percent": 10.0
+        },
+        "runner_start_utc": "2026-11-23T03:34:52.691040+00:00",
+        "runner_start_monotonic_ns": 841982497401,
+        "runner_end_utc": "2026-11-23T03:34:56.210977+00:00",
+        "runner_end_monotonic_ns": 845502408936,
+        "ok": true,
+        "device": 0,
+        "process_start_utc": "2026-11-23T03:34:52.716847+00:00",
+        "process_start_monotonic_ns": 842008301484,
+        "init_seconds": 0.301136891,
+        "nominal_seconds": 3.0,
+        "host_seconds": 3.000054085,
+        "launch_utc": "2026-11-23T03:34:53.018009+00:00",
+        "launch_monotonic_ns": 842309446912,
+        "done_utc": "2026-11-23T03:34:56.018061+00:00",
+        "done_monotonic_ns": 845309500594
+      }
+    },
+    "process_wall_seconds": 296.741679966,
+    "launch": {
+      "utc": "2026-11-23T03:29:53.719755+00:00",
+      "monotonic_ns": 543011197806
+    },
+    "process_exit": {
+      "utc": "2026-11-23T03:34:50.461231+00:00",
+      "monotonic_ns": 839752662137
+    },
+    "returncode": 0,
+    "status": "complete",
+    "gpu_compute_apps_end": {
+      "compute_apps": [],
+      "error": null,
+      "checked_at_utc": "2026-11-23T03:34:50.603731+00:00"
+    }
+  },
+  {
+    "scale": "1",
+    "engine": "polars_gpu",
+    "command": [
+      "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+      "/home/ubuntu/gpu-spark-polars-study/worker.py",
+      "--engine",
+      "polars_gpu",
+      "--data",
+      "/home/ubuntu/p3smoke/data/sf1",
+      "--output",
+      "/home/ubuntu/p3smoke/run/sf1/polars_gpu",
+      "--runs",
+      "3",
+      "--suite",
+      "smoke",
+      "--query-cleanup",
+      "none",
+      "--cleanup-timeout-seconds",
+      "60",
+      "--synthetic-smoke",
+      "--gpu-energy-scope",
+      "board",
+      "--energy-window-s",
+      "10.0",
+      "--session-idle-seconds",
+      "30.0",
+      "--session-idle-settle-seconds",
+      "60.0",
+      "--polars-gpu-executor",
+      "streaming",
+      "--polars-gpu-executor-options",
+      "{}"
+    ],
+    "preheat": {
+      "bytes": 1793757438,
+      "seconds": 0.32103943399999935
+    },
+    "start_utc": "2026-11-23T03:34:56.550805+00:00",
+    "polars_gpu_options": {
+      "executor": "streaming",
+      "executor_options": {}
+    },
+    "engine_order_position": 3,
+    "cooldown_before": {
+      "requested_seconds": 0.0,
+      "slept": false,
+      "actual_seconds": 0.0
+    },
+    "gpu_idle_gate": {
+      "idle": true,
+      "waited_seconds": 0.017639895999991495,
+      "polls": 1,
+      "timeout_seconds": 60,
+      "compute_apps": [],
+      "error": null,
+      "checked_at_utc": "2026-11-23T03:34:56.550733+00:00"
+    },
+    "gpu_power_state": {
+      "start": {
+        "file": "polars_gpu-gpu-power-start.txt",
+        "captured_utc": "2026-11-23T03:34:56.570495+00:00",
+        "returncode": 0,
+        "bytes": 1441,
+        "sha256": "98a4e19c0f6452f5c9c8b74dc100217ba31d0b0441805f096d990891da8aa479",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "POWER"
+        ],
+        "power_limits_w": {
+          "gpu": {
+            "current_w": 700.0,
+            "requested_w": 700.0,
+            "default_w": 700.0,
+            "min_w": 200.0,
+            "max_w": 700.0
+          }
+        },
+        "power_limits_query": {
+          "command": [
+            "nvidia-smi",
+            "-i",
+            "0",
+            "--query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit",
+            "--format=csv,noheader,nounits"
+          ],
+          "returncode": 0,
+          "fields": [
+            "power.limit",
+            "enforced.power.limit",
+            "power.default_limit",
+            "power.min_limit",
+            "power.max_limit"
+          ],
+          "raw": "700.00, 700.00, 700.00, 200.00, 700.00",
+          "values_w": {
+            "power.limit": 700.0,
+            "enforced.power.limit": 700.0,
+            "power.default_limit": 700.0,
+            "power.min_limit": 200.0,
+            "power.max_limit": 700.0
+          }
+        }
+      },
+      "end": {
+        "file": "polars_gpu-gpu-power-end.txt",
+        "captured_utc": "2026-11-23T03:39:10.645207+00:00",
+        "returncode": 0,
+        "bytes": 1441,
+        "sha256": "11c60f4ed7212d21d1cf410a737d4de5a0dd1272f60a9f05d1a7a2620bcc1c3d",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "POWER"
+        ],
+        "power_limits_w": {
+          "gpu": {
+            "current_w": 700.0,
+            "requested_w": 700.0,
+            "default_w": 700.0,
+            "min_w": 200.0,
+            "max_w": 700.0
+          }
+        },
+        "power_limits_query": {
+          "command": [
+            "nvidia-smi",
+            "-i",
+            "0",
+            "--query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit",
+            "--format=csv,noheader,nounits"
+          ],
+          "returncode": 0,
+          "fields": [
+            "power.limit",
+            "enforced.power.limit",
+            "power.default_limit",
+            "power.min_limit",
+            "power.max_limit"
+          ],
+          "raw": "700.00, 700.00, 700.00, 200.00, 700.00",
+          "values_w": {
+            "power.limit": 700.0,
+            "enforced.power.limit": 700.0,
+            "power.default_limit": 700.0,
+            "power.min_limit": 200.0,
+            "power.max_limit": 700.0
+          }
+        }
+      }
+    },
+    "gpu_performance_state": {
+      "start": {
+        "file": "polars_gpu-gpu-performance-start.txt",
+        "captured_utc": "2026-11-23T03:34:56.605018+00:00",
+        "returncode": 0,
+        "bytes": 896,
+        "sha256": "28fed269462d249e1426fd3b0b7c52f6b49de2e6568c7da1f20f5a2306da0d9d",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "PERFORMANCE"
+        ]
+      },
+      "end": {
+        "file": "polars_gpu-gpu-performance-end.txt",
+        "captured_utc": "2026-11-23T03:39:10.681202+00:00",
+        "returncode": 0,
+        "bytes": 896,
+        "sha256": "d05e5b2f5181edc711f6698f22438f8594a3a966708ce25a616698ecfbaa70f0",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "PERFORMANCE"
+        ]
+      }
+    },
+    "clock_sync": {
+      "start": {
+        "command": [
+          "chronyc",
+          "tracking"
+        ],
+        "returncode": 0,
+        "captured_utc": "2026-11-23T03:34:56.605035+00:00",
+        "monotonic_ns": 845896477439,
+        "output": "Reference ID    : 4559CF63 (ntp1.wiktel.com)\nStratum         : 2\nRef time (UTC)  : Mon Nov 23 03:34:20 2026\nSystem time     : 0.000216276 seconds slow of NTP time\nLast offset     : +0.000012560 seconds\nRMS offset      : 0.000712134 seconds\nFrequency       : 7.580 ppm fast\nResidual freq   : +0.004 ppm\nSkew            : 0.093 ppm\nRoot delay      : 0.037753943 seconds\nRoot dispersion : 0.001134311 seconds\nUpdate interval : 64.3 seconds\nLeap status     : Normal\n",
+        "system_time_offset_seconds": -0.000216276,
+        "last_offset_seconds": 1.256e-05,
+        "stratum": 2,
+        "leap_status": "Normal"
+      },
+      "end": {
+        "command": [
+          "chronyc",
+          "tracking"
+        ],
+        "returncode": 0,
+        "captured_utc": "2026-11-23T03:39:10.681219+00:00",
+        "monotonic_ns": 1099972661190,
+        "output": "Reference ID    : 4559CF63 (ntp1.wiktel.com)\nStratum         : 2\nRef time (UTC)  : Mon Nov 23 03:38:38 2026\nSystem time     : 0.000042823 seconds fast of NTP time\nLast offset     : +0.000061970 seconds\nRMS offset      : 0.000577913 seconds\nFrequency       : 7.928 ppm fast\nResidual freq   : +0.031 ppm\nSkew            : 0.223 ppm\nRoot delay      : 0.037935834 seconds\nRoot dispersion : 0.001190740 seconds\nUpdate interval : 64.2 seconds\nLeap status     : Normal\n",
+        "system_time_offset_seconds": 4.2823e-05,
+        "last_offset_seconds": 6.197e-05,
+        "stratum": 2,
+        "leap_status": "Normal"
+      }
+    },
+    "gpu_pulses": {
+      "start": {
+        "label": "start",
+        "requested_seconds": 3.0,
+        "command": [
+          "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+          "/home/ubuntu/gpu-spark-polars-study/gpu_pulse.py",
+          "--seconds",
+          "3.0",
+          "--device",
+          "0",
+          "--label",
+          "start"
+        ],
+        "returncode": 0,
+        "quiet_wait": {
+          "reached": true,
+          "waited_seconds": 2.09,
+          "polls": 5,
+          "last_utilization_percent": 0.0,
+          "quiet_seconds_required": 2.0,
+          "bound_seconds": 30.0,
+          "threshold_percent": 10.0
+        },
+        "runner_start_utc": "2026-11-23T03:34:58.696509+00:00",
+        "runner_start_monotonic_ns": 847987967876,
+        "runner_end_utc": "2026-11-23T03:35:02.204379+00:00",
+        "runner_end_monotonic_ns": 851495811449,
+        "ok": true,
+        "device": 0,
+        "process_start_utc": "2026-11-23T03:34:58.722339+00:00",
+        "process_start_monotonic_ns": 848013790927,
+        "init_seconds": 0.287671668,
+        "nominal_seconds": 3.0,
+        "host_seconds": 3.000041932,
+        "launch_utc": "2026-11-23T03:34:59.010032+00:00",
+        "launch_monotonic_ns": 848301469196,
+        "done_utc": "2026-11-23T03:35:02.010073+00:00",
+        "done_monotonic_ns": 851301510891
+      },
+      "end": {
+        "label": "end",
+        "requested_seconds": 3.0,
+        "command": [
+          "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+          "/home/ubuntu/gpu-spark-polars-study/gpu_pulse.py",
+          "--seconds",
+          "3.0",
+          "--device",
+          "0",
+          "--label",
+          "end"
+        ],
+        "returncode": 0,
+        "quiet_wait": {
+          "reached": true,
+          "waited_seconds": 2.089,
+          "polls": 5,
+          "last_utilization_percent": 0.0,
+          "quiet_seconds_required": 2.0,
+          "bound_seconds": 30.0,
+          "threshold_percent": 10.0
+        },
+        "runner_start_utc": "2026-11-23T03:39:12.789171+00:00",
+        "runner_start_monotonic_ns": 1102080624431,
+        "runner_end_utc": "2026-11-23T03:39:16.306317+00:00",
+        "runner_end_monotonic_ns": 1105597749966,
+        "ok": true,
+        "device": 0,
+        "process_start_utc": "2026-11-23T03:39:12.814836+00:00",
+        "process_start_monotonic_ns": 1102106287527,
+        "init_seconds": 0.298546712,
+        "nominal_seconds": 3.0,
+        "host_seconds": 3.000043376,
+        "launch_utc": "2026-11-23T03:39:13.113404+00:00",
+        "launch_monotonic_ns": 1102404841274,
+        "done_utc": "2026-11-23T03:39:16.113446+00:00",
+        "done_monotonic_ns": 1105404884156
+      }
+    },
+    "process_wall_seconds": 248.4213715389999,
+    "launch": {
+      "utc": "2026-11-23T03:35:02.204611+00:00",
+      "monotonic_ns": 851496054070
+    },
+    "process_exit": {
+      "utc": "2026-11-23T03:39:10.625774+00:00",
+      "monotonic_ns": 1099917205034
+    },
+    "returncode": 0,
+    "status": "complete",
+    "gpu_compute_apps_end": {
+      "compute_apps": [],
+      "error": null,
+      "checked_at_utc": "2026-11-23T03:39:10.700225+00:00"
+    }
+  },
+  {
+    "scale": "1",
+    "engine": "polars",
+    "command": [
+      "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+      "/home/ubuntu/gpu-spark-polars-study/worker.py",
+      "--engine",
+      "polars",
+      "--data",
+      "/home/ubuntu/p3smoke/data/sf1",
+      "--output",
+      "/home/ubuntu/p3smoke/run/sf1/polars",
+      "--runs",
+      "3",
+      "--suite",
+      "smoke",
+      "--query-cleanup",
+      "none",
+      "--cleanup-timeout-seconds",
+      "60",
+      "--synthetic-smoke",
+      "--gpu-energy-scope",
+      "board",
+      "--energy-window-s",
+      "10.0",
+      "--session-idle-seconds",
+      "30.0",
+      "--session-idle-settle-seconds",
+      "60.0"
+    ],
+    "preheat": {
+      "bytes": 1793757438,
+      "seconds": 0.3117083869999533
+    },
+    "start_utc": "2026-11-23T03:39:16.637223+00:00",
+    "engine_order_position": 4,
+    "cooldown_before": {
+      "requested_seconds": 0.0,
+      "slept": false,
+      "actual_seconds": 0.0
+    },
+    "gpu_idle_gate": {
+      "idle": true,
+      "waited_seconds": 0.01792468300004657,
+      "polls": 1,
+      "timeout_seconds": 60,
+      "compute_apps": [],
+      "error": null,
+      "checked_at_utc": "2026-11-23T03:39:16.637173+00:00"
+    },
+    "gpu_power_state": {
+      "start": {
+        "file": "polars-gpu-power-start.txt",
+        "captured_utc": "2026-11-23T03:39:16.655024+00:00",
+        "returncode": 0,
+        "bytes": 1441,
+        "sha256": "37fa366abbdfdf15174d595bddf1aad8c7b970ac0fca0c41779a7461da4739ce",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "POWER"
+        ],
+        "power_limits_w": {
+          "gpu": {
+            "current_w": 700.0,
+            "requested_w": 700.0,
+            "default_w": 700.0,
+            "min_w": 200.0,
+            "max_w": 700.0
+          }
+        },
+        "power_limits_query": {
+          "command": [
+            "nvidia-smi",
+            "-i",
+            "0",
+            "--query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit",
+            "--format=csv,noheader,nounits"
+          ],
+          "returncode": 0,
+          "fields": [
+            "power.limit",
+            "enforced.power.limit",
+            "power.default_limit",
+            "power.min_limit",
+            "power.max_limit"
+          ],
+          "raw": "700.00, 700.00, 700.00, 200.00, 700.00",
+          "values_w": {
+            "power.limit": 700.0,
+            "enforced.power.limit": 700.0,
+            "power.default_limit": 700.0,
+            "power.min_limit": 200.0,
+            "power.max_limit": 700.0
+          }
+        }
+      },
+      "end": {
+        "file": "polars-gpu-power-end.txt",
+        "captured_utc": "2026-11-23T03:43:12.185123+00:00",
+        "returncode": 0,
+        "bytes": 1436,
+        "sha256": "c88cf83fa2a60935eeccaf9cd02b85657d97473dce2aca5773196a453e05bd61",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "POWER"
+        ],
+        "power_limits_w": {
+          "gpu": {
+            "current_w": 700.0,
+            "requested_w": 700.0,
+            "default_w": 700.0,
+            "min_w": 200.0,
+            "max_w": 700.0
+          }
+        },
+        "power_limits_query": {
+          "command": [
+            "nvidia-smi",
+            "-i",
+            "0",
+            "--query-gpu=power.limit,enforced.power.limit,power.default_limit,power.min_limit,power.max_limit",
+            "--format=csv,noheader,nounits"
+          ],
+          "returncode": 0,
+          "fields": [
+            "power.limit",
+            "enforced.power.limit",
+            "power.default_limit",
+            "power.min_limit",
+            "power.max_limit"
+          ],
+          "raw": "700.00, 700.00, 700.00, 200.00, 700.00",
+          "values_w": {
+            "power.limit": 700.0,
+            "enforced.power.limit": 700.0,
+            "power.default_limit": 700.0,
+            "power.min_limit": 200.0,
+            "power.max_limit": 700.0
+          }
+        }
+      }
+    },
+    "gpu_performance_state": {
+      "start": {
+        "file": "polars-gpu-performance-start.txt",
+        "captured_utc": "2026-11-23T03:39:16.690941+00:00",
+        "returncode": 0,
+        "bytes": 896,
+        "sha256": "a8dae45fc19bc9fc18653c5a5a7b824dfb44d1590e5ddf2f90aa24df7393a4fb",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "PERFORMANCE"
+        ]
+      },
+      "end": {
+        "file": "polars-gpu-performance-end.txt",
+        "captured_utc": "2026-11-23T03:43:12.225267+00:00",
+        "returncode": 0,
+        "bytes": 892,
+        "sha256": "be580db492d7d5b7d3bdfb8e45f2c68cc43451cb5b6e9d77984ce4e14d040fef",
+        "command": [
+          "nvidia-smi",
+          "-q",
+          "-d",
+          "PERFORMANCE"
+        ]
+      }
+    },
+    "clock_sync": {
+      "start": {
+        "command": [
+          "chronyc",
+          "tracking"
+        ],
+        "returncode": 0,
+        "captured_utc": "2026-11-23T03:39:16.690958+00:00",
+        "monotonic_ns": 1105982400374,
+        "output": "Reference ID    : 4559CF63 (ntp1.wiktel.com)\nStratum         : 2\nRef time (UTC)  : Mon Nov 23 03:38:38 2026\nSystem time     : 0.000042754 seconds fast of NTP time\nLast offset     : +0.000061970 seconds\nRMS offset      : 0.000577913 seconds\nFrequency       : 7.928 ppm fast\nResidual freq   : +0.031 ppm\nSkew            : 0.223 ppm\nRoot delay      : 0.037935834 seconds\nRoot dispersion : 0.001198280 seconds\nUpdate interval : 64.2 seconds\nLeap status     : Normal\n",
+        "system_time_offset_seconds": 4.2754e-05,
+        "last_offset_seconds": 6.197e-05,
+        "stratum": 2,
+        "leap_status": "Normal"
+      },
+      "end": {
+        "command": [
+          "chronyc",
+          "tracking"
+        ],
+        "returncode": 0,
+        "captured_utc": "2026-11-23T03:43:12.225293+00:00",
+        "monotonic_ns": 1341516735822,
+        "output": "Reference ID    : 4559CF63 (ntp1.wiktel.com)\nStratum         : 2\nRef time (UTC)  : Mon Nov 23 03:41:51 2026\nSystem time     : 0.000312927 seconds fast of NTP time\nLast offset     : +0.000247691 seconds\nRMS offset      : 0.000500160 seconds\nFrequency       : 8.602 ppm fast\nResidual freq   : +0.162 ppm\nSkew            : 0.494 ppm\nRoot delay      : 0.038025789 seconds\nRoot dispersion : 0.001167889 seconds\nUpdate interval : 64.8 seconds\nLeap status     : Normal\n",
+        "system_time_offset_seconds": 0.000312927,
+        "last_offset_seconds": 0.000247691,
+        "stratum": 2,
+        "leap_status": "Normal"
+      }
+    },
+    "gpu_pulses": {
+      "start": {
+        "label": "start",
+        "requested_seconds": 3.0,
+        "command": [
+          "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+          "/home/ubuntu/gpu-spark-polars-study/gpu_pulse.py",
+          "--seconds",
+          "3.0",
+          "--device",
+          "0",
+          "--label",
+          "start"
+        ],
+        "returncode": 0,
+        "quiet_wait": {
+          "reached": true,
+          "waited_seconds": 2.091,
+          "polls": 5,
+          "last_utilization_percent": 0.0,
+          "quiet_seconds_required": 2.0,
+          "bound_seconds": 30.0,
+          "threshold_percent": 10.0
+        },
+        "runner_start_utc": "2026-11-23T03:39:18.783179+00:00",
+        "runner_start_monotonic_ns": 1108074636930,
+        "runner_end_utc": "2026-11-23T03:39:22.305733+00:00",
+        "runner_end_monotonic_ns": 1111597165789,
+        "ok": true,
+        "device": 0,
+        "process_start_utc": "2026-11-23T03:39:18.809828+00:00",
+        "process_start_monotonic_ns": 1108101279567,
+        "init_seconds": 0.301545054,
+        "nominal_seconds": 3.0,
+        "host_seconds": 3.000048447,
+        "launch_utc": "2026-11-23T03:39:19.111395+00:00",
+        "launch_monotonic_ns": 1108402832703,
+        "done_utc": "2026-11-23T03:39:22.111442+00:00",
+        "done_monotonic_ns": 1111402880845
+      },
+      "end": {
+        "label": "end",
+        "requested_seconds": 3.0,
+        "command": [
+          "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+          "/home/ubuntu/gpu-spark-polars-study/gpu_pulse.py",
+          "--seconds",
+          "3.0",
+          "--device",
+          "0",
+          "--label",
+          "end"
+        ],
+        "returncode": 0,
+        "quiet_wait": {
+          "reached": true,
+          "waited_seconds": 2.097,
+          "polls": 5,
+          "last_utilization_percent": 0.0,
+          "quiet_seconds_required": 2.0,
+          "bound_seconds": 30.0,
+          "threshold_percent": 10.0
+        },
+        "runner_start_utc": "2026-11-23T03:43:14.342468+00:00",
+        "runner_start_monotonic_ns": 1343633925638,
+        "runner_end_utc": "2026-11-23T03:43:17.852521+00:00",
+        "runner_end_monotonic_ns": 1347143953731,
+        "ok": true,
+        "device": 0,
+        "process_start_utc": "2026-11-23T03:43:14.368328+00:00",
+        "process_start_monotonic_ns": 1343659783311,
+        "init_seconds": 0.29133008,
+        "nominal_seconds": 3.0,
+        "host_seconds": 3.000026028,
+        "launch_utc": "2026-11-23T03:43:14.659683+00:00",
+        "launch_monotonic_ns": 1343951120079,
+        "done_utc": "2026-11-23T03:43:17.659707+00:00",
+        "done_monotonic_ns": 1346951145811
+      }
+    },
+    "process_wall_seconds": 229.857683447,
+    "launch": {
+      "utc": "2026-11-23T03:39:22.305938+00:00",
+      "monotonic_ns": 1111597380459
+    },
+    "process_exit": {
+      "utc": "2026-11-23T03:43:12.163456+00:00",
+      "monotonic_ns": 1341454888539
+    },
+    "returncode": 0,
+    "status": "complete",
+    "gpu_compute_apps_end": {
+      "compute_apps": [],
+      "error": null,
+      "checked_at_utc": "2026-11-23T03:43:12.245162+00:00"
+    }
+  }
+]

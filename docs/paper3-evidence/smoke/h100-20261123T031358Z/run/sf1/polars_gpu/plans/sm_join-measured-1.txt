@@ -1,0 +1,34 @@
+== Polars optimized plan (CPU optimizer; executed by cudf-polars, executor=streaming) ==
+SORT BY [col("d_grp")]
+  AGGREGATE[maintain_order: false]
+    [(col("f_x") * col("d_w")).sum().alias("revenue"), col("f_y").mean().alias("avg_y"), len().cast(Int64).alias("n")] BY [col("d_grp")]
+    FROM
+    simple π 4/4 ["d_grp", "f_x", "d_w", "f_y"]
+      INNER JOIN:
+      LEFT PLAN ON: [col("f_key")]
+        simple π 3/3 ["f_x", "f_y", "f_key"]
+           WITH_COLUMNS:
+           [col("f_x"), col("f_y")] 
+            Parquet SCAN [/home/ubuntu/p3smoke/data/sf1/facts/part-0000.parquet, ... 7 other sources]
+            PROJECT 3/4 COLUMNS
+            SELECTION: col("f_y") < 0.9
+            ESTIMATED ROWS: 80000000
+      RIGHT PLAN ON: [col("d_key")]
+         WITH_COLUMNS:
+         [col("d_w")] 
+          Parquet SCAN [/home/ubuntu/p3smoke/data/sf1/dims/part-0000.parquet]
+          PROJECT */3 COLUMNS
+          ESTIMATED ROWS: 1000000
+      END INNER JOIN
+== cudf-polars physical plan ==
+SORT ('d_grp',) ('d_grp', 'revenue', 'avg_y', 'n') [2]
+  SELECT ('d_grp', 'revenue', 'avg_y', 'n') [2]
+    GROUPBY ('d_grp',) ('d_grp', 'revenue', 'avg_y', '_______5') [2]
+      PROJECTION ('d_grp', 'f_x', 'd_w', 'f_y') [2]
+        JOIN Inner ('f_key',) ('d_key',) ('f_x', 'f_y', 'f_key', 'd_grp', 'd_w') [2]
+          SELECT ('f_x', 'f_y', 'f_key') [2]
+            HSTACK ('f_key', 'f_x', 'f_y') [2]
+              STREAMINGSCAN ('f_key', 'f_x', 'f_y') [2]
+          HSTACK ('d_key', 'd_grp', 'd_w') [1]
+            STREAMINGSCAN ('d_key', 'd_grp', 'd_w') [1]
+

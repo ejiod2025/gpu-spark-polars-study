@@ -1,0 +1,23 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(3) Sort [f_grp#12 ASC NULLS FIRST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 1
+         +- Exchange rangepartitioning(f_grp#12 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=17630]
+            +- *(2) HashAggregate(keys=[f_grp#12], functions=[sum(f_x#13), avg(f_y#14), max(f_x#13), count(1)], output=[f_grp#12, sum_x#5468, avg_y#5469, max_x#5470, n#5471L])
+               +- AQEShuffleRead coalesced
+                  +- ShuffleQueryStage 0
+                     +- Exchange hashpartitioning(f_grp#12, 120), ENSURE_REQUIREMENTS, [plan_id=17600]
+                        +- *(1) HashAggregate(keys=[f_grp#12], functions=[partial_sum(f_x#13), partial_avg(f_y#14), partial_max(f_x#13), partial_count(1)], output=[f_grp#12, sum#5486, sum#5487, count#5488L, max#5489, count#5490L])
+                           +- *(1) Filter (isnotnull(f_y#14) AND (f_y#14 > 0.5))
+                              +- *(1) ColumnarToRow
+                                 +- FileScan parquet [f_grp#12,f_x#13,f_y#14] Batched: true, DataFilters: [isnotnull(f_y#14), (f_y#14 > 0.5)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/facts], PartitionFilters: [], PushedFilters: [IsNotNull(f_y), GreaterThan(f_y,0.5)], ReadSchema: struct<f_grp:int,f_x:double,f_y:double>
++- == Initial Plan ==
+   Sort [f_grp#12 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(f_grp#12 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=17578]
+      +- HashAggregate(keys=[f_grp#12], functions=[sum(f_x#13), avg(f_y#14), max(f_x#13), count(1)], output=[f_grp#12, sum_x#5468, avg_y#5469, max_x#5470, n#5471L])
+         +- Exchange hashpartitioning(f_grp#12, 120), ENSURE_REQUIREMENTS, [plan_id=17575]
+            +- HashAggregate(keys=[f_grp#12], functions=[partial_sum(f_x#13), partial_avg(f_y#14), partial_max(f_x#13), partial_count(1)], output=[f_grp#12, sum#5486, sum#5487, count#5488L, max#5489, count#5490L])
+               +- Filter (isnotnull(f_y#14) AND (f_y#14 > 0.5))
+                  +- FileScan parquet [f_grp#12,f_x#13,f_y#14] Batched: true, DataFilters: [isnotnull(f_y#14), (f_y#14 > 0.5)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/facts], PartitionFilters: [], PushedFilters: [IsNotNull(f_y), GreaterThan(f_y,0.5)], ReadSchema: struct<f_grp:int,f_x:double,f_y:double>
+

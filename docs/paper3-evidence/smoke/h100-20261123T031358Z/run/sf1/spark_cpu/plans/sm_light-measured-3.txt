@@ -1,0 +1,23 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(3) Sort [s_grp#31 ASC NULLS FIRST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 1
+         +- Exchange rangepartitioning(s_grp#31 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=20222]
+            +- *(2) HashAggregate(keys=[s_grp#31], functions=[sum(s_v#32), avg(s_v#32), count(1)], output=[s_grp#31, sum_v#6521, avg_v#6522, n#6523L])
+               +- AQEShuffleRead coalesced
+                  +- ShuffleQueryStage 0
+                     +- Exchange hashpartitioning(s_grp#31, 120), ENSURE_REQUIREMENTS, [plan_id=20192]
+                        +- *(1) HashAggregate(keys=[s_grp#31], functions=[partial_sum(s_v#32), partial_avg(s_v#32), partial_count(1)], output=[s_grp#31, sum#6535, sum#6536, count#6537L, count#6538L])
+                           +- *(1) Filter (isnotnull(s_v#32) AND (s_v#32 > 0.25))
+                              +- *(1) ColumnarToRow
+                                 +- FileScan parquet [s_grp#31,s_v#32] Batched: true, DataFilters: [isnotnull(s_v#32), (s_v#32 > 0.25)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/small], PartitionFilters: [], PushedFilters: [IsNotNull(s_v), GreaterThan(s_v,0.25)], ReadSchema: struct<s_grp:int,s_v:double>
++- == Initial Plan ==
+   Sort [s_grp#31 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(s_grp#31 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=20170]
+      +- HashAggregate(keys=[s_grp#31], functions=[sum(s_v#32), avg(s_v#32), count(1)], output=[s_grp#31, sum_v#6521, avg_v#6522, n#6523L])
+         +- Exchange hashpartitioning(s_grp#31, 120), ENSURE_REQUIREMENTS, [plan_id=20167]
+            +- HashAggregate(keys=[s_grp#31], functions=[partial_sum(s_v#32), partial_avg(s_v#32), partial_count(1)], output=[s_grp#31, sum#6535, sum#6536, count#6537L, count#6538L])
+               +- Filter (isnotnull(s_v#32) AND (s_v#32 > 0.25))
+                  +- FileScan parquet [s_grp#31,s_v#32] Batched: true, DataFilters: [isnotnull(s_v#32), (s_v#32 > 0.25)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/small], PartitionFilters: [], PushedFilters: [IsNotNull(s_v), GreaterThan(s_v,0.25)], ReadSchema: struct<s_grp:int,s_v:double>
+

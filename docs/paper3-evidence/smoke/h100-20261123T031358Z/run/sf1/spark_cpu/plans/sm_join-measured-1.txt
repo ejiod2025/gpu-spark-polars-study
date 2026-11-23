@@ -1,0 +1,44 @@
+AdaptiveSparkPlan isFinalPlan=true
++- == Final Plan ==
+   *(7) Sort [d_grp#1 ASC NULLS FIRST], true, 0
+   +- AQEShuffleRead coalesced
+      +- ShuffleQueryStage 3
+         +- Exchange rangepartitioning(d_grp#1 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=734]
+            +- *(6) HashAggregate(keys=[d_grp#1], functions=[sum((f_x#13 * d_w#2)), avg(f_y#14), count(1)], output=[d_grp#1, revenue#143, avg_y#144, n#145L])
+               +- AQEShuffleRead coalesced
+                  +- ShuffleQueryStage 2
+                     +- Exchange hashpartitioning(d_grp#1, 120), ENSURE_REQUIREMENTS, [plan_id=692]
+                        +- *(5) HashAggregate(keys=[d_grp#1], functions=[partial_sum((f_x#13 * d_w#2)), partial_avg(f_y#14), partial_count(1)], output=[d_grp#1, sum#157, sum#158, count#159L, count#160L])
+                           +- *(5) Project [f_x#13, f_y#14, d_grp#1, d_w#2]
+                              +- *(5) SortMergeJoin [f_key#11L], [d_key#0L], Inner
+                                 :- *(3) Sort [f_key#11L ASC NULLS FIRST], false, 0
+                                 :  +- AQEShuffleRead coalesced
+                                 :     +- ShuffleQueryStage 0
+                                 :        +- Exchange hashpartitioning(f_key#11L, 120), ENSURE_REQUIREMENTS, [plan_id=564]
+                                 :           +- *(1) Filter ((isnotnull(f_y#14) AND (f_y#14 < 0.9)) AND isnotnull(f_key#11L))
+                                 :              +- *(1) ColumnarToRow
+                                 :                 +- FileScan parquet [f_key#11L,f_x#13,f_y#14] Batched: true, DataFilters: [isnotnull(f_y#14), (f_y#14 < 0.9), isnotnull(f_key#11L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/facts], PartitionFilters: [], PushedFilters: [IsNotNull(f_y), LessThan(f_y,0.9), IsNotNull(f_key)], ReadSchema: struct<f_key:bigint,f_x:double,f_y:double>
+                                 +- *(4) Sort [d_key#0L ASC NULLS FIRST], false, 0
+                                    +- AQEShuffleRead coalesced
+                                       +- ShuffleQueryStage 1
+                                          +- Exchange hashpartitioning(d_key#0L, 120), ENSURE_REQUIREMENTS, [plan_id=581]
+                                             +- *(2) Filter isnotnull(d_key#0L)
+                                                +- *(2) ColumnarToRow
+                                                   +- FileScan parquet [d_key#0L,d_grp#1,d_w#2] Batched: true, DataFilters: [isnotnull(d_key#0L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/dims], PartitionFilters: [], PushedFilters: [IsNotNull(d_key)], ReadSchema: struct<d_key:bigint,d_grp:int,d_w:double>
++- == Initial Plan ==
+   Sort [d_grp#1 ASC NULLS FIRST], true, 0
+   +- Exchange rangepartitioning(d_grp#1 ASC NULLS FIRST, 120), ENSURE_REQUIREMENTS, [plan_id=529]
+      +- HashAggregate(keys=[d_grp#1], functions=[sum((f_x#13 * d_w#2)), avg(f_y#14), count(1)], output=[d_grp#1, revenue#143, avg_y#144, n#145L])
+         +- Exchange hashpartitioning(d_grp#1, 120), ENSURE_REQUIREMENTS, [plan_id=526]
+            +- HashAggregate(keys=[d_grp#1], functions=[partial_sum((f_x#13 * d_w#2)), partial_avg(f_y#14), partial_count(1)], output=[d_grp#1, sum#157, sum#158, count#159L, count#160L])
+               +- Project [f_x#13, f_y#14, d_grp#1, d_w#2]
+                  +- SortMergeJoin [f_key#11L], [d_key#0L], Inner
+                     :- Sort [f_key#11L ASC NULLS FIRST], false, 0
+                     :  +- Exchange hashpartitioning(f_key#11L, 120), ENSURE_REQUIREMENTS, [plan_id=518]
+                     :     +- Filter ((isnotnull(f_y#14) AND (f_y#14 < 0.9)) AND isnotnull(f_key#11L))
+                     :        +- FileScan parquet [f_key#11L,f_x#13,f_y#14] Batched: true, DataFilters: [isnotnull(f_y#14), (f_y#14 < 0.9), isnotnull(f_key#11L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/facts], PartitionFilters: [], PushedFilters: [IsNotNull(f_y), LessThan(f_y,0.9), IsNotNull(f_key)], ReadSchema: struct<f_key:bigint,f_x:double,f_y:double>
+                     +- Sort [d_key#0L ASC NULLS FIRST], false, 0
+                        +- Exchange hashpartitioning(d_key#0L, 120), ENSURE_REQUIREMENTS, [plan_id=519]
+                           +- Filter isnotnull(d_key#0L)
+                              +- FileScan parquet [d_key#0L,d_grp#1,d_w#2] Batched: true, DataFilters: [isnotnull(d_key#0L)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[file:/home/ubuntu/p3smoke/data/sf1/dims], PartitionFilters: [], PushedFilters: [IsNotNull(d_key)], ReadSchema: struct<d_key:bigint,d_grp:int,d_w:double>
+

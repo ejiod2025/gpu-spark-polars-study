@@ -1,0 +1,10 @@
+SORT BY [col("s_grp")]
+  AGGREGATE[maintain_order: false]
+    [col("s_v").sum().alias("sum_v"), col("s_v").mean().alias("avg_v"), len().cast(Int64).alias("n")] BY [col("s_grp")]
+    FROM
+     WITH_COLUMNS:
+     [col("s_v")] 
+      Parquet SCAN [/home/ubuntu/p3smoke/data/sf1/small/part-0000.parquet]
+      PROJECT 2/3 COLUMNS
+      SELECTION: col("s_v") > 0.25
+      ESTIMATED ROWS: 200000
