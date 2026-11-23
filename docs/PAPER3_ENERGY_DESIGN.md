@@ -1016,6 +1016,72 @@ it is a study result. No timed Paper 3 study session has run and no Paper 3 ener
    which the wait is meant to provide); this is a check of the code on synthetic data, not a result. Both parts apply from the
    campaign commit on. Outcome data seen: none beyond synthetic load.
 
+### A4 — 2026-11-23
+Fourth amendment after the lock. It records the second and third runs of the harness smoke test (A3 item 1 said a second run
+follows the change of A3 item 2), the CUDA-readiness gate that the second run made necessary, and what is expected of G8 in the
+campaign. Sections 1-11 are not edited. All items are the lead's records, not author decisions. **Outcome data seen, for every
+item: none beyond synthetic load.** Both runs used generated data and three trivial synthetic queries (`tools/paper3_smoke/`) and
+no study query; nothing in them is a study result. No timed Paper 3 study session has run and no Paper 3 energy, power or cost
+aggregate has been computed.
+1. **Harness smoke test, second run: host fault (§7.2 "Harness readiness"; NOT READY).** Lambda `gpu_1x_h100_sxm5` in
+   us-south-3, 2026-11-22: created 23:25:24 UTC, termination confirmed 23:55:59 UTC (stamp `20261122T232520Z`; evidence in
+   `docs/paper3-evidence/smoke/h100-20261122T232520Z/`). The host received exactly commit
+   `4043f5de54310d5e204deabdff3648970819ada6` (no uncommitted paths). Every CUDA use on the host failed with error 802
+   (`cudaErrorSystemNotReady`, "system not yet initialized"): all eight G8 pulses (`cuInit`) and the `polars_gpu` session guard
+   (cudf-polars); the `spark_gpu` session exited 1 without a `results.json`. The CPU engines (`polars`, `spark_cpu`) ran to
+   completion. The G8 quiet waits reached a quiet GPU before all eight pulses (2.1 s each). Checklist: 10 PASS, 1 WARN, 2 INFO, 5
+   FAIL (C02 sessions, C07 pulses, C08 idle windows, C10 scope tags, C14 outputs), all of them consequences of the host fault; C12
+   only warns (G8 not evaluable for the two CPU sessions, whose pulses could not run). This run says nothing about the harness or
+   about G8's reading: smoke run 1, on another H100, ran the GPU paths. Cost:
+   about $2.50 (30.6 minutes from the create call to the confirmed termination at $4.89/h; not part of the §9 core total).
+   Outcome data seen: none beyond synthetic load.
+2. **CUDA-readiness gate in the campaign bring-up and the smoke test (commit 5146520).** *Reason:* item 1: a host can be up, show
+   its GPU in `nvidia-smi` and still fail every CUDA call, which would cost a launch's whole bring-up and the first round before
+   anyone noticed. *Change:* on GPU hosts, right after set-up and before any data or engine work, `tools/paper3_campaign/
+   p3_cuda_ready.sh` runs a tiny CUDA check (`gpu_pulse.py --seconds 0.5`: `cuInit`, a context and a PTX kernel). On any failure
+   it retries every 30 s for up to 10 minutes of wall-clock time (the fabric or the driver may still be initializing). It records
+   `nvidia-smi --query-gpu=fabric.state,fabric.status` where the driver lists them, `nvidia-smi -q` with serial numbers, UUIDs, bus
+   ids and GUIDs blanked, and the state of the `nvidia-fabricmanager` unit where it exists, at the start, at every attempt and
+   after a final failure; if the unit exists and is not active it starts it once (`sudo systemctl start`) and records that. The
+   verdict is exit 0 ("CUDA ready") or exit 82 with the line `[FAIL] cuda.ready: host GPU not ready (CUDA <code>)`. Its records
+   (`cuda-ready.json`, `cuda-ready.jsonl`, `cuda-ready-fabric.csv`, `cuda-ready-nvidia-smi-q-start.txt`, and `-end.txt` on a
+   failure) are archived with the launch. On exit 82 the campaign driver collects those files, tears the host down, writes an
+   `infrastructure_failure` (kind `cuda-not-ready`, step `cudaready`, `rounds_started` 0) into the launch record and a line into
+   the ledger, and exits 31, which its service unit does not restart. The smoke test has the same check as its `cuda` stage and,
+   on a failure, still bundles and publishes its evidence before the host is terminated. The gate reads no timing, energy or cost
+   value. *Reading of A1 item 2 (the lead's reading; the author may object):* A1 item 2 governs a launch whose square has started,
+   meaning an instance lost or a round failing the repeat-once rule. A host that fails bring-up before round 1 has started no
+   square and produced no round, so replacing it is not a relaunch under A1 item 2 and does not use the one allowed relaunch of
+   that launch; nothing about rounds, squares, orders, pooling or the gates changes. The decision to replace such a host depends
+   only on the host fault, never on any value, and `rounds_started` 0 in the launch record makes "no round was produced"
+   checkable afterwards. Outcome data seen: none.
+3. **Harness smoke test, third run (§7.2 "Harness readiness"): the harness works; G8 flags 2 of 4 sessions.** Lambda
+   `gpu_1x_h100_sxm5` in us-south-2, 2026-11-23: created 03:14:02 UTC, termination confirmed 03:47:07 UTC (stamp
+   `20261123T031358Z`; evidence in `docs/paper3-evidence/smoke/h100-20261123T031358Z/`). The host received exactly commit
+   `514652008377fb0a69ee6cb216ff10782af8a79a` (no uncommitted paths). The CUDA gate passed at its first attempt (2 s; fabric
+   `stateCompleted,statusSuccess`; the `nvidia-fabricmanager` unit inactive). The four engines completed with 9 measured windows
+   each and every engine returned the `polars` rows (C02, C14). The G8 quiet waits reached a quiet GPU before all 8 pulses (2.09-2.10
+   s each) and all 8 pulse onsets were scored (lags 0.118-0.435 s, median 0.252 s). G6, G7, G10, G11 and G12 pass for all four
+   sessions and no round-failing gate fires; all GPU energy values are tagged S1-counter (C10), the idle windows, power-limit and
+   clock-state captures are present (C05, C06, C08), and the chrony offsets of the system clock were between -0.22 ms and +0.65 ms
+   (C11). `gpu.csv` also shows software thermal slowdown in 102 rows and hardware slowdown in 7 of 5,497 (G11 logs these and
+   excludes nothing). Checklist: 13 PASS, 2 WARN, 2 INFO, 1 FAIL. The one FAIL is C12, G8, on 2 of 4 sessions (pass 2, fail 2, none
+   not evaluable): `spark_gpu`, judged by its windows (2 of 9 windows scored, 7 `busy_before`), median onset lag +0.592 s and
+   first-third minus last-third drift +0.339 s; and `polars`, judged by its two pulses, drift +0.274 s (median +0.298 s). `spark_cpu`
+   (pulses: median +0.196 s, drift -0.157 s) and `polars_gpu` (windows: 2 of 6 scored, median +0.184 s, drift -0.064 s) pass. The
+   other warnings are the synthetic queries' sizes (C09 window gaps; G9 per-run times below `t_min`). The lead reads the `spark_gpu`
+   lag as including Spark's own start-up latency before GPU work, which is not a clock offset; this was not tested here. G8 is an
+   eligibility flag (§4): a failed or not-evaluable G8 disables that session's `gpu.csv` values, the S1-sampled cross-check, and
+   leaves the S1-counter energy and the round untouched. Cost: about $2.70 (33.1 minutes from the create call to the confirmed
+   termination at $4.89/h; not part of the §9 core total). Outcome data seen: none beyond synthetic load.
+4. **Expected effect of G8 in the campaign (stated before any campaign data).** A substantial share of campaign sessions may carry
+   a G8 flag: a GPU engine's window lag includes the engine's own start-up latency before the first GPU work, and the drift of a
+   session judged by two pulses is the difference of two lags measured on a 200 ms sampling grid, which is noisy and more so on
+   the A100 (its pre-lock G8 probe lags spread from 0.276 s to 0.592 s). The `gpu.csv` cross-check will therefore rest on the
+   unflagged sessions. Nothing changes: the thresholds of §4 (+-0.4 s median, 0.2 s drift, the 10% level, the 3 s pulse), the
+   evidence order and G8's consequence are as in §4 and A3 item 2, and no G8 flag stops, repeats or drops a round (§4, §7.3). The
+   paper reports the number of G8 flags per host and engine. Outcome data seen: none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,
