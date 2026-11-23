@@ -1,0 +1,617 @@
+% references.bib -- Paper 3 (energy and cost per query, CPU versus GPU dataframe engines).
+%
+% Verification, 2026-11-23 (this draft): every DOI entry below was resolved against Crossref
+% (title, subtitle, venue, volume, issue, pages, authors) or, for DataCite DOIs (Zenodo, LBNL), against
+% doi.org content negotiation. URL-only entries were fetched and the quoted text checked on the page.
+% Entries marked "from Paper 1" or "from Paper 2" are copied unchanged from ../paper/references.bib
+% (verified 2026-10-29/30) or ../paper2/references.bib (Crossref, 2026-10-30).
+% Unverified candidates are NOT entries; they are listed at the end as TODO-VERIFY comments.
+%
+% Anonymization: the author's own deposits (Papers 1 and 2, the lock record) print their DOI through
+% \selfdoi (macros.tex), which withholds it in the anonymized build. They carry no doi field, because
+% ACM-Reference-Format would print a doi field unconditionally. The lock record is a record of THIS
+% study, so the anonymized build cites p3lockanon instead (main.tex, \citelock).
+
+% ================================================================ the author's own deposits
+% Resolved 2026-11-23 via doi.org (DataCite): title, author, Zenodo, issued 2026-11-11, v1.
+@misc{ejiofor2026p1,
+  author       = {Ejiofor, Daniel},
+  title        = {{CPU} Dataframes versus {GPU} Acceleration on a Single Host: A Pre-registered,
+                  Randomized Comparison of {Polars} and {Spark} on a {TPC-H}-Derived Workload,
+                  Replicated across {GPU} Generations},
+  year         = {2026},
+  howpublished = {Preprint, Zenodo, \selfdoi{10.5281/zenodo.24126179}}
+}
+
+% Resolved 2026-11-23 via doi.org (DataCite): title, author, Zenodo, issued 2026-11-11, v1.
+@misc{ejiofor2026p2,
+  author       = {Ejiofor, Daniel},
+  title        = {What Is the {GPU} Speedup Measured Against? {Library-Version} Lock-In and
+                  Core-Count Confounds in {CPU}-versus-{GPU} Dataframe Benchmarks},
+  year         = {2026},
+  howpublished = {Preprint, Zenodo, \selfdoi{10.5281/zenodo.24126181}}
+}
+
+% Resolved 2026-11-23 via doi.org (DataCite): title as below, author, Zenodo, issued 2026-11-16,
+% version "lock-2026-11-16". The deposit is the locked design file (docs/PAPER3_ENERGY_DESIGN.md).
+@misc{ejiofor2026p3lock,
+  author       = {Ejiofor, Daniel},
+  title        = {Pre-registered design: energy and cost per query of {CPU} and {GPU} dataframe
+                  engines ({Polars}, {Spark}, cudf-polars, {RAPIDS}) on {A100}, {H100}, {GH200} and
+                  {B200} hosts and a {CPU}-only bare-metal host ({Paper} 3), locked 2026-11-16},
+  year         = {2026},
+  howpublished = {Zenodo, \selfdoi{10.5281/zenodo.24284712}}
+}
+
+% Anonymized stand-in for ejiofor2026p3lock (cited only in the anonymized build).
+% TODO(author): decide how reviewers verify the time-stamped lock without de-anonymizing
+% (e.g. an anonymized copy of the design file and its sha256 in the supplementary material).
+@misc{p3lockanon,
+  author       = {{Anonymous}},
+  title        = {Pre-registered design of this study, locked 2026-11-16 (time-stamped public
+                  deposit; identifier withheld for review)},
+  year         = {2026}
+}
+
+% Resolved 2026-11-23 via doi.org (DataCite): title, author, Zenodo, issued 2026-11-11, version 1.0.0.
+@misc{ejiofor2026rawp1,
+  author       = {Ejiofor, Daniel},
+  title        = {Raw run records: pre-registered {CPU} vs {GPU} dataframe benchmark ({Polars},
+                  {Spark}, cudf-polars, {RAPIDS}) on {A100}, {H100}, {GH200} and {B200}, campaign
+                  2026-10-30},
+  year         = {2026},
+  howpublished = {Dataset, Zenodo, \selfdoi{10.5281/zenodo.24125306}}
+}
+
+% ================================================================ GPU and CPU energy measurement
+% Crossref 2026-11-23: SC24, pp. 1-17. arXiv:2312.02741 v1 (2023-12-05) was titled "Part-time Power
+% Measurements: nvidia-smi's Lack of Attention" (export.arxiv.org API, 2026-11-23); the arXiv record
+% links this DOI. The design (sec. 2.3) checked its abstract on 2026-11-11.
+@inproceedings{yang2024nvidiasmi,
+  author    = {Yang, Zeyu and Adamek, Karel and Armour, Wesley},
+  title     = {Accurate and Convenient Energy Measurements for {GPUs}: A Detailed Study of
+               {NVIDIA} {GPU}'s Built-In Power Sensor},
+  booktitle = {SC24: International Conference for High Performance Computing, Networking,
+               Storage and Analysis},
+  pages     = {1--17},
+  year      = {2024},
+  publisher = {IEEE},
+  doi       = {10.1109/SC41406.2024.00028},
+  note      = {Preprint: arXiv:2312.02741}
+}
+
+% Crossref 2026-11-23.
+@inproceedings{burtscher2014k20,
+  author    = {Burtscher, Martin and Zecena, Ivan and Zong, Ziliang},
+  title     = {Measuring {GPU} Power with the {K20} Built-in Sensor},
+  booktitle = {Proceedings of Workshop on General Purpose Processing Using {GPUs} (GPGPU-7)},
+  pages     = {28--36},
+  year      = {2014},
+  publisher = {ACM},
+  doi       = {10.1145/2576779.2576783}
+}
+
+% Crossref 2026-11-23 (title and subtitle).
+@article{khan2018rapl,
+  author    = {Khan, Kashif Nizam and Hirki, Mikael and Niemi, Tapio and Nurminen, Jukka K.
+               and Ou, Zhonghong},
+  title     = {{RAPL} in Action: Experiences in Using {RAPL} for Power Measurements},
+  journal   = {ACM Transactions on Modeling and Performance Evaluation of Computing Systems},
+  volume    = {3},
+  number    = {2},
+  pages     = {1--26},
+  year      = {2018},
+  doi       = {10.1145/3177754}
+}
+
+% Crossref 2026-11-23.
+@article{hahnel2012rapl,
+  author    = {H{\"a}hnel, Marcus and D{\"o}bel, Bj{\"o}rn and V{\"o}lp, Marcus and H{\"a}rtig, Hermann},
+  title     = {Measuring Energy Consumption for Short Code Paths Using {RAPL}},
+  journal   = {ACM SIGMETRICS Performance Evaluation Review},
+  volume    = {40},
+  number    = {3},
+  pages     = {13--17},
+  year      = {2012},
+  doi       = {10.1145/2425248.2425252}
+}
+
+% Crossref 2026-11-23.
+@inproceedings{desrochers2016dram,
+  author    = {Desrochers, Spencer and Paradis, Chad and Weaver, Vincent M.},
+  title     = {A Validation of {DRAM} {RAPL} Power Measurements},
+  booktitle = {Proceedings of the Second International Symposium on Memory Systems (MEMSYS '16)},
+  pages     = {455--470},
+  year      = {2016},
+  publisher = {ACM},
+  doi       = {10.1145/2989081.2989088}
+}
+
+% Crossref 2026-11-23. Background of CVE-2020-8694 (root-only energy_uj).
+@inproceedings{lipp2021platypus,
+  author    = {Lipp, Moritz and Kogler, Andreas and Oswald, David and Schwarz, Michael
+               and Easdon, Catherine and Canella, Claudio and Gruss, Daniel},
+  title     = {{PLATYPUS}: Software-based Power Side-Channel Attacks on x86},
+  booktitle = {2021 IEEE Symposium on Security and Privacy (SP)},
+  pages     = {355--371},
+  year      = {2021},
+  publisher = {IEEE},
+  doi       = {10.1109/SP40001.2021.00063}
+}
+
+% From Paper 1 (verified 2026-11-11), with the energy-counter text added: fetched 2026-11-23 from the
+% same page (title "Device Queries - NVML API Reference Guide").
+@misc{nvml_api,
+  author       = {{NVIDIA}},
+  title        = {{NVML} {API} Reference: Device Queries},
+  howpublished = {\url{https://docs.nvidia.com/deploy/nvml-api/api/group__nvmlDeviceQueries.html}},
+  note         = {Accessed 2026-11-23. \texttt{nvmlDeviceGetTotalEnergyConsumption}: ``Retrieves
+                  total energy consumption for this GPU in millijoules (mJ) since the driver was last
+                  reloaded. For Volta or newer fully supported devices.''
+                  \texttt{nvmlDeviceGetPowerUsage}: ``On Ampere (except GA100) or newer GPUs, the API
+                  returns power averaged over 1 sec interval. On GA100 and older architectures,
+                  instantaneous power is returned.''}
+}
+
+% Fetched 2026-11-23 (page title "Power Capping Framework -- The Linux Kernel documentation").
+@misc{linux_powercap,
+  author       = {{The Linux Kernel documentation}},
+  title        = {Power Capping Framework},
+  howpublished = {\url{https://docs.kernel.org/power/powercap/powercap.html}},
+  note         = {Accessed 2026-11-23}
+}
+
+% USENIX page fetched 2026-11-23 (citation metadata: NSDI 23, pp. 119-139, ISBN 978-1-939133-33-5).
+@inproceedings{you2023zeus,
+  author    = {You, Jie and Chung, Jae-Won and Chowdhury, Mosharaf},
+  title     = {Zeus: Understanding and Optimizing {GPU} Energy Consumption of {DNN} Training},
+  booktitle = {20th USENIX Symposium on Networked Systems Design and Implementation (NSDI 23)},
+  pages     = {119--139},
+  year      = {2023},
+  publisher = {USENIX Association},
+  address   = {Boston, MA},
+  url       = {https://www.usenix.org/conference/nsdi23/presentation/you}
+}
+
+% Crossref 2026-11-23.
+@inproceedings{patel2024llmpower,
+  author    = {Patel, Pratyush and Choukse, Esha and Zhang, Chaojie and Goiri, {\'I}{\~n}igo
+               and Warrier, Brijesh and Mahalingam, Nithish and Bianchini, Ricardo},
+  title     = {Characterizing Power Management Opportunities for {LLMs} in the Cloud},
+  booktitle = {Proceedings of the 29th ACM International Conference on Architectural Support for
+               Programming Languages and Operating Systems, Volume 3 (ASPLOS '24)},
+  pages     = {207--222},
+  year      = {2024},
+  publisher = {ACM},
+  doi       = {10.1145/3620666.3651329}
+}
+
+% Crossref 2026-11-23.
+@inproceedings{strubell2019energy,
+  author    = {Strubell, Emma and Ganesh, Ananya and McCallum, Andrew},
+  title     = {Energy and Policy Considerations for Deep Learning in {NLP}},
+  booktitle = {Proceedings of the 57th Annual Meeting of the Association for Computational
+               Linguistics},
+  pages     = {3645--3650},
+  year      = {2019},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/P19-1355}
+}
+
+% ================================================================ energy in data management
+% Crossref 2026-11-23.
+@inproceedings{tsirogiannis2010energy,
+  author    = {Tsirogiannis, Dimitris and Harizopoulos, Stavros and Shah, Mehul A.},
+  title     = {Analyzing the Energy Efficiency of a Database Server},
+  booktitle = {Proceedings of the 2010 ACM SIGMOD International Conference on Management of Data},
+  pages     = {231--242},
+  year      = {2010},
+  publisher = {ACM},
+  doi       = {10.1145/1807167.1807194}
+}
+
+% Crossref 2026-11-23.
+@article{lang2012cluster,
+  author    = {Lang, Willis and Harizopoulos, Stavros and Patel, Jignesh M. and Shah, Mehul A.
+               and Tsirogiannis, Dimitris},
+  title     = {Towards Energy-Efficient Database Cluster Design},
+  journal   = {Proceedings of the VLDB Endowment},
+  volume    = {5},
+  number    = {11},
+  pages     = {1684--1695},
+  year      = {2012},
+  doi       = {10.14778/2350229.2350280}
+}
+
+% Crossref 2026-11-23.
+@inproceedings{xu2010power,
+  author    = {Xu, Zichen and Tu, Yi-Cheng and Wang, Xiaorui},
+  title     = {Exploring Power-Performance Tradeoffs in Database Systems},
+  booktitle = {2010 IEEE 26th International Conference on Data Engineering (ICDE 2010)},
+  pages     = {485--496},
+  year      = {2010},
+  publisher = {IEEE},
+  doi       = {10.1109/ICDE.2010.5447840}
+}
+
+% Crossref 2026-11-23 (title and subtitle).
+@article{poess2008energy,
+  author    = {Poess, Meikel and Nambiar, Raghunath Othayoth},
+  title     = {Energy Cost, the Key Challenge of Today's Data Centers: A Power Consumption
+               Analysis of {TPC-C} Results},
+  journal   = {Proceedings of the VLDB Endowment},
+  volume    = {1},
+  number    = {2},
+  pages     = {1229--1240},
+  year      = {2008},
+  doi       = {10.14778/1454159.1454162}
+}
+
+% URL checked 2026-11-23: HTTP 200, application/pdf, linked as the current version (1.5.0) from
+% https://www.tpc.org/tpc_documents_current_versions/current_specifications5.asp
+@techreport{tpcenergy150,
+  author      = {{Transaction Processing Performance Council}},
+  title       = {{TPC-Energy} Specification, Version 1.5.0},
+  institution = {Transaction Processing Performance Council},
+  url         = {https://www.tpc.org/TPC_Documents_Current_Versions/pdf/TPC-Energy_v1.5.0.pdf},
+  note        = {Accessed 2026-11-23}
+}
+
+% Crossref 2026-11-23.
+@inproceedings{nahrstedt2024polars,
+  author    = {Nahrstedt, Felix and Karmouche, Mehdi and Bargie{\l}, Karolina and Banijamali, Pouyeh
+               and Nalini Pradeep Kumar, Apoorva and Malavolta, Ivano},
+  title     = {An Empirical Study on the Energy Usage and Performance of {Pandas} and {Polars}
+               Data Analysis {Python} Libraries},
+  booktitle = {Proceedings of the 28th International Conference on Evaluation and Assessment in
+               Software Engineering (EASE 2024)},
+  pages     = {58--68},
+  year      = {2024},
+  publisher = {ACM},
+  doi       = {10.1145/3661167.3661203}
+}
+
+% ================================================================ cost per query, cloud
+% Crossref 2026-11-23.
+@article{leis2021costoptimal,
+  author    = {Leis, Viktor and Kuschewski, Maximilian},
+  title     = {Towards Cost-Optimal Query Processing in the Cloud},
+  journal   = {Proceedings of the VLDB Endowment},
+  volume    = {14},
+  number    = {9},
+  pages     = {1606--1612},
+  year      = {2021},
+  doi       = {10.14778/3461535.3461549}
+}
+
+% Crossref 2026-11-23 (title and subtitle).
+@article{tan2019cloud,
+  author    = {Tan, Junjay and Ghanem, Thanaa and Perron, Matthew and Yu, Xiangyao
+               and Stonebraker, Michael and DeWitt, David and Serafini, Marco and Aboulnaga, Ashraf
+               and Kraska, Tim},
+  title     = {Choosing a Cloud {DBMS}: Architectures and Tradeoffs},
+  journal   = {Proceedings of the VLDB Endowment},
+  volume    = {12},
+  number    = {12},
+  pages     = {2170--2182},
+  year      = {2019},
+  doi       = {10.14778/3352063.3352133}
+}
+
+% Crossref 2026-11-23.
+@article{vanrenen2023cab,
+  author    = {van Renen, Alexander and Leis, Viktor},
+  title     = {Cloud Analytics Benchmark},
+  journal   = {Proceedings of the VLDB Endowment},
+  volume    = {16},
+  number    = {6},
+  pages     = {1413--1425},
+  year      = {2023},
+  doi       = {10.14778/3583140.3583156}
+}
+
+% ================================================================ carbon-aware computing
+% Crossref 2026-11-23 (title and subtitle).
+@inproceedings{wiesner2021wait,
+  author    = {Wiesner, Philipp and Behnke, Ilja and Scheinert, Dominik and Gontarska, Kordian
+               and Thamsen, Lauritz},
+  title     = {Let's Wait Awhile: How Temporal Workload Shifting Can Reduce Carbon Emissions in
+               the Cloud},
+  booktitle = {Proceedings of the 22nd International Middleware Conference},
+  pages     = {260--272},
+  year      = {2021},
+  publisher = {ACM},
+  doi       = {10.1145/3464298.3493399}
+}
+
+% Crossref 2026-11-23.
+@article{radovanovic2023carbon,
+  author    = {Radovanovi{\'c}, Ana and Koningstein, Ross and Schneider, Ian and Chen, Bokan
+               and Duarte, Alexandre and Roy, Binz and Xiao, Diyue and Haridasan, Maya
+               and Hung, Patrick and Care, Nick and Talukdar, Saurav and Mullen, Eric
+               and Smith, Kendal and Cottman, MariEllen and Cirne, Walfredo},
+  title     = {Carbon-Aware Computing for Datacenters},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {38},
+  number    = {2},
+  pages     = {1270--1280},
+  year      = {2023},
+  doi       = {10.1109/TPWRS.2022.3173250}
+}
+
+% Crossref 2026-11-23.
+@inproceedings{gupta2021chasing,
+  author    = {Gupta, Udit and Kim, Young Geun and Lee, Sylvia and Tse, Jordan and Lee, Hsien-Hsin S.
+               and Wei, Gu-Yeon and Brooks, David and Wu, Carole-Jean},
+  title     = {Chasing Carbon: The Elusive Environmental Footprint of Computing},
+  booktitle = {2021 IEEE International Symposium on High-Performance Computer Architecture (HPCA)},
+  pages     = {854--867},
+  year      = {2021},
+  publisher = {IEEE},
+  doi       = {10.1109/HPCA51647.2021.00076}
+}
+
+% Crossref 2026-11-23.
+@inproceedings{acun2023carbonexplorer,
+  author    = {Acun, Bilge and Lee, Benjamin and Kazhamiaka, Fiodar and Maeng, Kiwan and Gupta, Udit
+               and Chakkaravarthy, Manoj and Brooks, David and Wu, Carole-Jean},
+  title     = {Carbon Explorer: A Holistic Framework for Designing Carbon Aware Datacenters},
+  booktitle = {Proceedings of the 28th ACM International Conference on Architectural Support for
+               Programming Languages and Operating Systems, Volume 2 (ASPLOS '23)},
+  pages     = {118--132},
+  year      = {2023},
+  publisher = {ACM},
+  doi       = {10.1145/3575693.3575754}
+}
+
+% doi.org (DataCite) 2026-11-23: title, author Shehabi (only author listed in the DOI metadata),
+% publisher Lawrence Berkeley National Laboratory, issued 2025, landing page eScholarship
+% (https://escholarship.org/uc/item/32d6m0d1).
+% TODO-VERIFY: the full author list and the publication year (the DOI metadata says 2025; the
+% report is titled 2024); the LBNL page was behind a bot check when fetched.
+@techreport{shehabi2024datacenter,
+  author      = {Shehabi, Arman and others},
+  title       = {2024 United States Data Center Energy Usage Report},
+  institution = {Lawrence Berkeley National Laboratory},
+  year        = {2025},
+  doi         = {10.71468/P1WC7Q}
+}
+
+% ================================================================ engines (from Paper 1)
+@inproceedings{armbrust2015sparksql,
+  author    = {Armbrust, Michael and Xin, Reynold S. and Lian, Cheng and Huai, Yin and Liu, Davies
+               and Bradley, Joseph K. and Meng, Xiangrui and Kaftan, Tomer and Franklin, Michael J.
+               and Ghodsi, Ali and Zaharia, Matei},
+  title     = {Spark {SQL}: Relational Data Processing in {Spark}},
+  booktitle = {Proceedings of the 2015 ACM SIGMOD International Conference on Management of Data},
+  pages     = {1383--1394},
+  year      = {2015},
+  publisher = {ACM},
+  doi       = {10.1145/2723372.2742797}
+}
+
+@misc{nvidia_cudf_spark_docs,
+  author       = {{NVIDIA}},
+  title        = {Overview -- {cuDF} plugin for {Apache Spark} User Guide},
+  howpublished = {\url{https://docs.nvidia.com/cudf-spark/latest/overview.html}},
+  note         = {Product formerly named RAPIDS Accelerator for Apache Spark. Accessed 2026-10-29}
+}
+
+@misc{polars1442,
+  author       = {Vink, Ritchie and others},
+  title        = {pola-rs/polars: Python Polars 1.44.2},
+  year         = {2026},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.22670325},
+  note         = {Software release, 2026-09-09}
+}
+
+@misc{cudf_polars_docs,
+  author       = {{NVIDIA}},
+  title        = {{Polars} {GPU} engine -- {NVIDIA} {cuDF} documentation},
+  howpublished = {\url{https://docs.nvidia.com/cudf/latest/cudf_polars/}},
+  note         = {Package used: cudf-polars-cu12 26.10.2. Accessed 2026-10-29}
+}
+
+@misc{vink2025pdsh,
+  author       = {Vink, Ritchie},
+  title        = {Updated {PDS-H} benchmark results ({May} 2025)},
+  howpublished = {\url{https://pola.rs/posts/benchmarks/}},
+  year         = {2025},
+  note         = {Published 2025-06-01. Accessed 2026-10-29}
+}
+
+@article{petersohn2020dataframes,
+  author    = {Petersohn, Devin and Macke, Stephen and Xin, Doris and Ma, William and Lee, Doris
+               and Mo, Xiangxi and Gonzalez, Joseph E. and Hellerstein, Joseph M.
+               and Joseph, Anthony D. and Parameswaran, Aditya},
+  title     = {Towards Scalable Dataframe Systems},
+  journal   = {Proceedings of the VLDB Endowment},
+  volume    = {13},
+  number    = {12},
+  pages     = {2033--2046},
+  year      = {2020},
+  doi       = {10.14778/3407790.3407807}
+}
+
+@inproceedings{raasveldt2019duckdb,
+  author    = {Raasveldt, Mark and M{\"u}hleisen, Hannes},
+  title     = {{DuckDB}: an Embeddable Analytical Database},
+  booktitle = {Proceedings of the 2019 International Conference on Management of Data
+               (SIGMOD '19)},
+  pages     = {1981--1984},
+  year      = {2019},
+  publisher = {ACM},
+  doi       = {10.1145/3299869.3320212}
+}
+
+@misc{dbbenchmark,
+  author       = {{DuckDB Labs}},
+  title        = {Database-like ops benchmark},
+  howpublished = {\url{https://duckdblabs.github.io/db-benchmark/}},
+  note         = {Maintained by DuckDB Labs since 2023; originally H2O.ai. Accessed 2026-10-29}
+}
+
+% ================================================================ GPU databases (from Paper 1)
+@incollection{bress2014gpudb,
+  author    = {Bre{\ss}, Sebastian and Heimel, Max and Siegmund, Norbert and Bellatreche, Ladjel
+               and Saake, Gunter},
+  title     = {{GPU}-Accelerated Database Systems: Survey and Open Challenges},
+  booktitle = {Transactions on Large-Scale Data- and Knowledge-Centered Systems XV},
+  series    = {Lecture Notes in Computer Science},
+  pages     = {1--35},
+  year      = {2014},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-662-45761-0_1}
+}
+
+@inproceedings{shanbhag2020gpucpu,
+  author    = {Shanbhag, Anil and Madden, Samuel and Yu, Xiangyao},
+  title     = {A Study of the Fundamental Performance Characteristics of {GPUs} and {CPUs}
+               for Database Analytics},
+  booktitle = {Proceedings of the 2020 ACM SIGMOD International Conference on Management of Data},
+  pages     = {1617--1632},
+  year      = {2020},
+  publisher = {ACM},
+  doi       = {10.1145/3318464.3380595}
+}
+
+@inproceedings{lutz2020pump,
+  author    = {Lutz, Clemens and Bre{\ss}, Sebastian and Zeuch, Steffen and Rabl, Tilmann
+               and Markl, Volker},
+  title     = {Pump Up the Volume: Processing Large Data on {GPUs} with Fast Interconnects},
+  booktitle = {Proceedings of the 2020 ACM SIGMOD International Conference on Management of Data},
+  pages     = {1633--1649},
+  year      = {2020},
+  publisher = {ACM},
+  doi       = {10.1145/3318464.3389705}
+}
+
+@article{rosenfeld2022heterogeneous,
+  author    = {Rosenfeld, Viktor and Bre{\ss}, Sebastian and Markl, Volker},
+  title     = {Query Processing on Heterogeneous {CPU/GPU} Systems},
+  journal   = {ACM Computing Surveys},
+  volume    = {55},
+  number    = {1},
+  pages     = {1--38},
+  year      = {2022},
+  doi       = {10.1145/3485126}
+}
+
+% From Paper 2 (Crossref record checked 2026-10-30).
+@inproceedings{lee2010debunking,
+  author    = {Lee, Victor W. and Kim, Changkyu and Chhugani, Jatin and Deisher, Michael
+               and Kim, Daehyun and Nguyen, Anthony D. and Satish, Nadathur and Smelyanskiy, Mikhail
+               and Chennupaty, Srinivas and Hammarlund, Per and Singhal, Ronak and Dubey, Pradeep},
+  title     = {Debunking the 100{X} {GPU} vs. {CPU} Myth: An Evaluation of Throughput Computing
+               on {CPU} and {GPU}},
+  booktitle = {Proceedings of the 37th Annual International Symposium on Computer Architecture
+               (ISCA '10)},
+  pages     = {451--460},
+  year      = {2010},
+  publisher = {ACM},
+  doi       = {10.1145/1815961.1816021}
+}
+
+% ================================================================ TPC-H (from Paper 1)
+@techreport{tpch301,
+  author      = {{Transaction Processing Performance Council}},
+  title       = {{TPC} Benchmark{\texttrademark} {H} (Decision Support) Standard Specification,
+                 Revision 3.0.1},
+  institution = {Transaction Processing Performance Council},
+  year        = {2022},
+  url         = {https://www.tpc.org/TPC_Documents_Current_Versions/pdf/TPC-H_v3.0.1.pdf}
+}
+
+@misc{tpcfairuse2019,
+  author       = {{Transaction Processing Performance Council}},
+  title        = {Fair Use of {TPC} Benchmarks (quick reference)},
+  year         = {2019},
+  howpublished = {\url{https://www.tpc.org/TPC_Documents_Current_Versions/pdf/Fair_Use_Quick_Reference_v1.0.0.pdf}},
+  note         = {Dated 2019-06-05}
+}
+
+@inproceedings{boncz2014tpch,
+  author    = {Boncz, Peter and Neumann, Thomas and Erling, Orri},
+  title     = {{TPC-H} Analyzed: Hidden Messages and Lessons Learned from an Influential
+               Benchmark},
+  booktitle = {Performance Characterization and Benchmarking (TPCTC 2013)},
+  series    = {Lecture Notes in Computer Science},
+  pages     = {61--76},
+  year      = {2014},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-319-04936-6_5}
+}
+
+% ================================================================ methodology (from Paper 1, except nosek)
+@inproceedings{raasveldt2018fair,
+  author    = {Raasveldt, Mark and Holanda, Pedro and Gubner, Tim and M{\"u}hleisen, Hannes},
+  title     = {Fair Benchmarking Considered Difficult: Common Pitfalls in Database Performance
+               Testing},
+  booktitle = {Proceedings of the Workshop on Testing Database Systems (DBTest '18)},
+  pages     = {1--6},
+  year      = {2018},
+  publisher = {ACM},
+  doi       = {10.1145/3209950.3209955}
+}
+
+@inproceedings{hoefler2015scientific,
+  author    = {Hoefler, Torsten and Belli, Roberto},
+  title     = {Scientific Benchmarking of Parallel Computing Systems: Twelve Ways to Tell the
+               Masses when Reporting Performance Results},
+  booktitle = {Proceedings of the International Conference for High Performance Computing,
+               Networking, Storage and Analysis (SC '15)},
+  pages     = {1--12},
+  year      = {2015},
+  publisher = {ACM},
+  doi       = {10.1145/2807591.2807644}
+}
+
+@article{fleming1986geomean,
+  author    = {Fleming, Philip J. and Wallace, John J.},
+  title     = {How Not to Lie with Statistics: The Correct Way to Summarize Benchmark Results},
+  journal   = {Communications of the ACM},
+  volume    = {29},
+  number    = {3},
+  pages     = {218--221},
+  year      = {1986},
+  doi       = {10.1145/5666.5673}
+}
+
+@article{williams1949latin,
+  author    = {Williams, E. J.},
+  title     = {Experimental Designs Balanced for the Estimation of Residual Effects of
+               Treatments},
+  journal   = {Australian Journal of Scientific Research, Series A: Physical Sciences},
+  volume    = {2},
+  number    = {2},
+  pages     = {149--168},
+  year      = {1949},
+  doi       = {10.1071/CH9490149}
+}
+
+% Crossref 2026-11-23.
+@article{nosek2018prereg,
+  author    = {Nosek, Brian A. and Ebersole, Charles R. and DeHaven, Alexander C. and Mellor, David T.},
+  title     = {The Preregistration Revolution},
+  journal   = {Proceedings of the National Academy of Sciences},
+  volume    = {115},
+  number    = {11},
+  pages     = {2600--2606},
+  year      = {2018},
+  doi       = {10.1073/pnas.1708274114}
+}
+
+% ================================================================ TODO-VERIFY (not entries; do not cite until verified)
+% TODO-VERIFY: Harizopoulos, Shah, Meza, Ranganathan, "Energy Efficiency: The New Holy Grail of Data
+%   Management Systems Research", CIDR 2009. No DOI; the CIDR 2009 site fetched 2026-11-23 did not list
+%   papers. Would anchor the data-management energy paragraph.
+% TODO-VERIFY: a GPU-database or dataframe study that reports measured energy per query on current GPUs
+%   (none located in the Crossref title searches of 2026-11-23); the related-work claim that such
+%   measurements are scarce is worded "to our knowledge" and must be re-checked before submission.
+% TODO-VERIFY: a carbon-aware *data-system* (query processing, data warehouse) paper; the Crossref
+%   searches of 2026-11-23 found none by title.
+% TODO-VERIFY: Henderson et al., "Towards the Systematic Reporting of the Energy and Carbon Footprints of
+%   Machine Learning", JMLR 21 (2020) -- reporting-practice anchor; JMLR page not fetched.
+% TODO-VERIFY: Intel 64 and IA-32 Architectures Software Developer's Manual, RAPL MSR section -- only if
+%   the text needs RAPL's definition beyond the powercap documentation.

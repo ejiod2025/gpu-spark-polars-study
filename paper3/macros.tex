@@ -1,0 +1,159 @@
+% macros.tex -- Paper 3: statistics lookup, anonymization switch, figure, notice and notation macros.
+%
+% Numbers from the campaign are never typed in. Every result is written as \stat{key} (running
+% text) or \tstat{key} (table cells), where key is a dotted stats.json key such as
+% x1.h100.baseline.sf300.energy_total.estimate. The \stat machinery is Paper 1's
+% (../paper/macros.tex): a stats file generated/stats.tex with one \defstat{key}{value} per key
+% and \statsfinaltrue. In final mode a missing key is a hard LaTeX error; in draft mode (no
+% generated/stats.tex, as now) the key is printed in a yellow TODO box, and table cells print a
+% red TODO (the cell's key pattern is in the table's caption comment).
+%
+% TODO(results): the key names here are provisional. They must match the stats.json written by
+% the Paper 3 analysis code (not in the repository on 2026-11-23); a generator like
+% ../paper/tools/stats_to_tex.py must produce generated/stats.tex from it.
+%
+% Pre-lock method-validation numbers (probes P1-P7, G8 probe; design sections 2.1-2.4, 4) are
+% typed directly: they are synthetic-load QA values fixed before the lock, not campaign outcomes.
+
+\makeatletter
+\newif\ifstatsfinal
+\statsfinalfalse
+\newcommand{\defstat}[2]{\expandafter\def\csname stat@#1\endcsname{#2}}
+% Breakable (seqsplit) so that long keys do not overfill two-column lines in draft builds.
+\newcommand{\statplaceholder}[1]{%
+  {\color{red}\tiny\ttfamily[TODO:\expandafter\seqsplit\expandafter{\detokenize{#1}}]}}
+\newcommand{\stat@missing}[1]{%
+  \PackageError{stats}{Missing statistic '#1' in generated/stats.tex}%
+    {Re-run the stats generator; the analysis output lacks this key.}}
+\newcommand{\stat}[1]{%
+  \ifcsname stat@#1\endcsname
+    \csname stat@#1\endcsname
+  \else
+    \ifstatsfinal\stat@missing{#1}\else\statplaceholder{#1}\fi
+  \fi}
+% Compact form for table cells.
+\newcommand{\tstat}[1]{%
+  \ifcsname stat@#1\endcsname
+    \csname stat@#1\endcsname
+  \else
+    \ifstatsfinal\stat@missing{#1}\else\textcolor{red}{\tiny TODO}\fi
+  \fi}
+% "estimate [ci_low, ci_high]" for a ratio prefix such as x1.h100.baseline.sf300.energy_total
+\newcommand{\ratioci}[1]{%
+  \stat{#1.estimate}\,{\footnotesize[\stat{#1.ci_low},\,\stat{#1.ci_high}]}}
+% "estimate x (95% CI ci_low--ci_high)" for running text
+\newcommand{\ratiotext}[1]{%
+  \stat{#1.estimate}$\times$ (95\%~CI \stat{#1.ci_low}--\stat{#1.ci_high})}
+% Table form of \ratioci: one red TODO in draft mode instead of three.
+\newcommand{\tratioci}[1]{%
+  \ifcsname stat@#1.estimate\endcsname
+    \tstat{#1.estimate}\,{\scriptsize[\tstat{#1.ci_low},\,\tstat{#1.ci_high}]}%
+  \else
+    \ifstatsfinal\stat@missing{#1.estimate}\else\textcolor{red}{\tiny TODO}\fi
+  \fi}
+\makeatother
+
+% Two value files (make stats; make record):
+%  generated/stats.tex  -- copied unchanged from analyze_paper3.py's OUT/stats.tex (one \defstat per
+%                          scalar of its flattened stats.json; \syntheticstatstrue on a synthetic tree).
+%                          It does not set \statsfinaltrue, so its presence switches final mode on here.
+%  generated/record.tex -- hand-kept \defstat lines for values from committed records, not campaign
+%                          outcomes: amendment A6 (date, commit, sha256) and launch-record facts
+%                          (campaign.<host>.driver, .cpu_model, .first_session_utc, ...).
+\newif\ifsyntheticstats
+\IfFileExists{generated/record.tex}{\input{generated/record.tex}}{}
+\IfFileExists{generated/stats.tex}{\input{generated/stats.tex}\statsfinaltrue}{}
+
+% Watermarks: DRAFT while no stats file is present; SYNTHETIC when the stats come from a synthetic
+% tree. No draft or synthetic page can be mistaken for a results page.
+\newcommand{\watermarktext}{%
+  \ifsyntheticstats SYNTHETIC -- NOT RESULTS\else\ifstatsfinal\else DRAFT -- NO RESULTS\fi\fi}
+\AddToHook{shipout/background}{%
+  \ifsyntheticstats\def\pthreewmon{1}\else\ifstatsfinal\def\pthreewmon{0}\else\def\pthreewmon{1}\fi\fi
+  \ifnum\pthreewmon=1
+  \put(0.5\paperwidth,-0.5\paperheight){\makebox(0,0){\rotatebox{45}{%
+    \scalebox{4}{\sffamily\bfseries\textcolor{red!15}{\watermarktext}}}}}\fi}
+
+% ---------------------------------------------------------------- anonymization switch
+% main.tex is the anonymized submission build (the default). camera-ready.tex defines
+% \pthreecameraready and inputs main.tex: that build shows the author, the acknowledgments,
+% the funding and credits, and every self-identifying link (repository, Zenodo DOIs, commits).
+% Self-citations of Papers 1 and 2 stay in the third person in both builds (non-destructive
+% anonymization); only their DOIs are withheld.
+\newif\ifanon
+\ifdefined\pthreecameraready\anonfalse\else\anontrue\fi
+% \camera{camera-ready text}{anonymized text}
+\newcommand{\camera}[2]{\ifanon#2\else#1\fi}
+\newcommand{\anonmark}{[withheld for review]}
+\newcommand{\selfdoi}[1]{\camera{\href{https://doi.org/#1}{doi:#1}}{DOI withheld for review}}
+\newcommand{\repourl}{\camera{\url{https://github.com/ejiod2025/gpu-spark-polars-study}}{\anonmark}}
+\newcommand{\lockdoi}{\camera{\href{https://doi.org/10.5281/zenodo.24284712}{doi:10.5281/zenodo.24284712}}{\anonmark}}
+\newcommand{\lockcommit}{\camera{\texttt{bd42401}}{\anonmark}}
+\newcommand{\citelock}{\camera{\cite{ejiofor2026p3lock}}{\cite{p3lockanon}}}
+
+% Author-supplied detail still missing, and results-not-yet-available markers for draft prose
+% (each also flagged with a "% TODO(...)" comment in the source).
+\newcommand{\todoplaceholder}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\todoverify}[1]{\textcolor{red}{[TODO-VERIFY: #1]}}
+\newcommand{\pending}[1]{\textcolor{gray}{[TODO(results): #1]}}
+
+% Figures are copied into figures/ once the analysis exists. Until then a labelled placeholder
+% box keeps the layout and cross-references working. #3 is the planned height.
+\newcommand{\studyfig}[3]{%
+  \IfFileExists{figures/#1.pdf}{\includegraphics[width=#2]{figures/#1.pdf}}{%
+  \fbox{\parbox[c][#3][c]{0.92\linewidth}{\centering\footnotesize\ttfamily
+    TODO(results): figure pending\\\detokenize{#1}}}}}
+
+% TPC fair-use disclaimer, Paper 1's wording (../paper/macros.tex \tpcdisclaimer) with the author's
+% workload name for Paper 3 (design sec. 8, 2026-11-11) in place of Paper 1's \workloadname.
+\newcommand{\workloadname}{TPC-H-derived workload}
+\newcommand{\tpcdisclaimer}{The \workloadname{} is derived from the TPC-H
+  Benchmark and as such is not comparable to published TPC-H Benchmark results,
+  as the \workloadname{} results do not comply with the TPC-H Benchmark
+  Specification.}
+
+% Engine names (Paper 1) and hosts
+\newcommand{\eng}[1]{\texttt{#1}}
+\newcommand{\polarscpu}{Polars CPU}
+\newcommand{\polarsgpu}{Polars GPU}
+\newcommand{\sparkcpu}{Spark CPU}
+\newcommand{\sparkgpu}{Spark GPU}
+\newcommand{\q}[1]{\texttt{#1}}
+\newcommand{\host}[1]{\textsf{#1}}
+\newcommand{\GA}{\host{G-A100}}
+\newcommand{\GH}{\host{G-H100}}
+\newcommand{\CG}{\host{C-GCP}}
+\newcommand{\CV}{\host{C-VM}}
+
+% Notation
+\newcommand{\scope}[1]{\textsf{#1}}          % scope tags: S1-counter, S2-pinned, ...
+\newcommand{\tmin}{t_{\min}}
+\newcommand{\Pidle}{P_{\mathrm{idle}}}
+\newcommand{\Eabove}{E_{\mathrm{above}}}
+\newcommand{\Dstar}{\Delta^{*}}
+\newcommand{\NOne}{\textsf{N1}}
+
+% Compact contrast cell for wide tables: "estimate^class". The class is the analysis's word
+% (design 5.3; stats.tex escapes "_" as "\_"), shown as G (gpu_better), C (cpu_better),
+% = (no_difference), ? (inconclusive) or -- (not_estimable); one red TODO in draft mode.
+\makeatletter
+\edef\xcls@gpu{\detokenize{gpu\_better}}
+\edef\xcls@cpu{\detokenize{cpu\_better}}
+\edef\xcls@nod{\detokenize{no\_difference}}
+\edef\xcls@inc{\detokenize{inconclusive}}
+\newcommand{\xclass}[1]{%
+  \ifcsname stat@#1\endcsname
+    \edef\xcls@v{\expandafter\expandafter\expandafter\detokenize\expandafter\expandafter
+      \expandafter{\csname stat@#1\endcsname}}%
+    \ifx\xcls@v\xcls@gpu G\else\ifx\xcls@v\xcls@cpu C\else
+    \ifx\xcls@v\xcls@nod =\else\ifx\xcls@v\xcls@inc ?\else --\fi\fi\fi\fi
+  \else
+    \ifstatsfinal\stat@missing{#1}\else\textcolor{red}{\tiny TODO}\fi
+  \fi}
+\newcommand{\xcell}[1]{%
+  \ifcsname stat@#1.estimate\endcsname
+    \tstat{#1.estimate}\textsuperscript{\xclass{#1.class}}%
+  \else
+    \ifstatsfinal\stat@missing{#1.estimate}\else\textcolor{red}{\tiny TODO}\fi
+  \fi}
+\makeatother
