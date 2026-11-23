@@ -2,8 +2,14 @@
 %
 % Target venue: ACM e-Energy 2027, full paper: at most 10 pages in 9-pt ACM sigconf, excluding
 % references and appendices; double-blind with non-destructive anonymization at submission.
-% TODO-VERIFY(venue): page limit, appendix rule, anonymization rule for self-citations and for
-% the pre-registration record, CCS/keywords requirement and the conference block (e-Energy CFP).
+% e-Energy 2027 CFP (energy.acm.org/conferences/eenergy/2027/pages/cfp.php; read by venue-scout through a
+% browser on 2026-11-23): full papers "up to 10 pages in 9-point ACM double-column format, excluding
+% references and appendices"; camera-ready gets one additional page; the appendix "is not constrained;
+% however, it may only be used for the purpose of justifying the technical correctness of their claims
+% stated in the body of the paper"; double-blind with "only non-destructive anonymization"; own past
+% work cited "in the third person"; "Remove acknowledgment of identifying names and funding sources."
+% The CFP says nothing about code, data or pre-registration links (withheld here in the anonymized build).
+% TODO-VERIFY(venue): CCS concepts and keywords (ACM template requirement, not in the CFP).
 %
 % Builds: this file is the ANONYMIZED submission build (default). camera-ready.tex defines
 % \pthreecameraready and inputs this file: author, acknowledgments, funding and credits, and
@@ -39,13 +45,14 @@
 \setlength{\emergencystretch}{3em}
 
 % ---------------------------------------------------------------- ACM metadata
-% TODO-VERIFY(venue): conference name, number, dates and location of e-Energy 2027; rights block.
+% Conference: e-Energy 2027 CFP (https://energy.acm.org/conferences/eenergy/2027/pages/cfp.php, read by
+% venue-scout through a browser on 2026-11-23). TODO-VERIFY(venue): the rights block, set at acceptance.
 \setcopyright{acmlicensed}
 \copyrightyear{2027}
 \acmYear{2027}
 \acmDOI{XXXXXXX.XXXXXXX}
 \acmConference[e-Energy '27]{The 18th ACM International Conference on Future and Sustainable
-  Energy Systems [TODO-VERIFY name and number]}{2027 [TODO-VERIFY dates]}{[TODO-VERIFY location]}
+  Energy Systems}{June 5--11, 2027}{Atlanta, GA, USA}
 \acmISBN{978-X-XXXX-XXXX-X/2027/XX}
 
 \begin{document}
@@ -321,30 +328,6 @@ GPU process; at least 150\,s without query load separate consecutive sessions.
 \section{Energy Measurement Protocol}
 \label{sec:energy}
 
-\begin{table*}[t]
-\caption{Pre-lock validation of the meters (synthetic load; probes P1--P7 and the G8 probe; driver
-570.148.08). Ratio: counter over the 20\,ms integral of the instantaneous field of the counter's
-scope (10\,s idle / 20\,s load). \texttt{power.draw}: the field it equals in every sample.
-Resolution: median absolute per-run error in windows mode (Section~\ref{sec:resolution}). Idle:
-two 60\,s windows, bare and with a CUDA context open (ctx); \CG: four RAPL zones. G8: onset lag of
-20 pulses, median / p90 / max / drift (s). Grey rows: method validation only, hosts not run.}
-\label{tab:validation}
-\footnotesize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lllllllll@{}}
-\toprule
-Host & Scope tag & Ratio idle / load & \texttt{power.draw} & Resolution, \% (0.1 / 0.25 / 0.5 / 1 / 2 / 5\,s) & $\tmin$ & Idle W, bare & Idle W, ctx & G8 lag, s \\
-\midrule
-\GH & \scope{S1-counter} & 0.998 / 1.0002 & 1\,s trailing avg. & 9.3 / 5.5 / 1.1 / 0.78 / 0.56 / 0.57 & 1\,s & 76.3, 75.5 & 142.4, 145.9 & 0.241 / 0.313 / 0.327 / $-$0.072 \\
-\GA & \scope{S1-counter} & 1.001 / 1.003 & instantaneous & 34 / 18 / 11 / 5.3 / 1.9 / 0.69 & 2\,s & 69.8, 69.6 & 75.3, 75.4 & 0.389 / 0.522 / 0.592 / +0.007 \\
-\CG & \scope{S2-pinned} & -- & -- & 20.7 / 9.8 / 4.9 / 2.6 / 1.15 / 0.40 & 2\,s & 429.02, 429.05 & -- & -- \\
-\midrule
-\textcolor{gray}{GH200} & \textcolor{gray}{\scope{S1-module}} & \textcolor{gray}{0.9985 / 0.9982} & \textcolor{gray}{trailing avg.} & \textcolor{gray}{11.0 / 5.95 / 2.93 / 0.41 / 0.45 / 0.47} & \textcolor{gray}{1\,s} & \textcolor{gray}{162.0, 162.0} & \textcolor{gray}{209.4, 209.7} & \textcolor{gray}{0.226 / 0.297 / 0.331 / $-$0.005} \\
-\textcolor{gray}{B200} & \textcolor{gray}{\scope{S1-counter}} & \textcolor{gray}{0.9986 / 1.0049} & \textcolor{gray}{trailing avg.} & \textcolor{gray}{2.77 / 5.27 / 2.93 / 0.52 / 0.25 / 0.17} & \textcolor{gray}{1\,s} & \textcolor{gray}{143.0, 143.1} & \textcolor{gray}{191.9, 192.2} & \textcolor{gray}{0.195 / 0.305 / 0.334 / $-$0.039} \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
 \subsection{Meters, scopes and scope tags}
 \label{sec:scopes}
 
@@ -356,7 +339,8 @@ millijoule counter~\cite{nvml_api}, read through \texttt{ctypes} because \texttt
 them; read latency and overhang are recorded per run. Before the lock we checked on each
 host class that the counter advances (update period about 100\,ms on the H100) and has the
 scope we claim for it, by comparing it with the 20\,ms integral of an instantaneous-power field
-(Table~\ref{tab:validation}). On the H100 and A100 the counter agrees with the GPU-only
+(Table~\ref{tab:validation} in Appendix~\ref{app:validation}). On the H100 and A100 the counter
+agrees with the GPU-only
 \texttt{power.draw.instant} integral within 0.3\%, the drivers expose no module-level fields, and
 the counter is the GPU board (GPU, HBM, voltage regulators; the host is excluded): tag
 \scope{S1-counter}. The check matters: on the GH200 the same counter agreed with the module-level
@@ -556,35 +540,19 @@ GPU host & P-NEW & P-OLD & P-NEW & P-OLD \\
 
 \subsection{Integrity and telemetry gates}
 \label{sec:gates}
-Gates are pass/fail and never based on engine comparisons (Table~\ref{tab:gates}). G1--G5 are
+Gates are pass/fail and never based on engine comparisons (Table~\ref{tab:gates} in
+Appendix~\ref{app:gates}). G1--G5 are
 the prior study's: every session exits without timeout; every engine's output agrees with
 \polarscpu{} (relative $10^{-8}$, absolute $10^{-6}$, integers exact); the strict GPU guard; the
 Spark GPU plan check; and verified garbage-collection barriers in the complex suite. Rounds fail
 on G1--G6 and G12 and are repeated once; a launch whose round fails twice, or whose instance is
 lost, is relaunched once on a fresh instance, restarting its square, and the lost launch's rounds
-enter no estimate (amendment A1). G7--G11 only set eligibility flags. On GPU hosts a
+enter no estimate (amendment A1). G6 requires each session's counters to match the
+probe-declared sources and to advance; G7 checks the sampled stream's coverage, G8 clock alignment
+(Section~\ref{sec:clock}), G9 resolution, G10 idle stability (10\%), G11 thermal and power state,
+and G12 exclusive use. G7--G11 only set eligibility flags. On GPU hosts a
 CUDA-readiness check runs before any data or engine work, so that a host whose GPU is visible but
 not usable is replaced before it produces a round (A4).
-
-\begin{table}[t]
-\caption{Paper 3 gates (G1--G5 as in the prior study).}
-\label{tab:gates}
-\footnotesize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}R{0.15\columnwidth}R{0.52\columnwidth}R{0.27\columnwidth}@{}}
-\toprule
-Gate & Rule & On failure \\
-\midrule
-G6 sources & counters match the probe-declared sources; none missing or non-monotone; every sampler series advancing within the session; stamps with counter readings present & session energy invalid; round fails \\
-G7 coverage & trapezoid windows have $\ge$80\% of expected samples, no gap $>$1\,s & cross-check flagged \\
-G8 clocks & onset lag median within $\pm$0.4\,s, drift $\le$0.2\,s (Sec.~\ref{sec:clock}) & stream values disabled \\
-G9 resolution & window rule met and per-run time $\ge \tmin$ & cell below resolution \\
-G10 idle & pre/post idle mean power within 10\% per scope & above-idle flagged \\
-G11 thermal & throttle reasons, enforced power limit, temperature logged & flagged, not excluded \\
-G12 exclusive & no foreign GPU process; nothing else scheduled on \CG{} & integrity failure \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 \subsection{Quantities and contrasts}
 \label{sec:contrasts}
@@ -659,42 +627,15 @@ At the lock no timed study session had run and no energy or cost analysis had be
 what had been seen before is disclosed in the design (synthetic-load probe results, the prior
 study's published timings and GPU power summaries). Sections 1--11 of the design were never
 edited afterwards; seven dated amendments followed (A1--A7), each stating the outcome data seen
-when it was made. All are reported here plainly (Table~\ref{tab:deviations}); none changes a threshold,
+when it was made. All are reported plainly in Table~\ref{tab:deviations} (Appendix~\ref{app:amendments}); none changes a threshold,
 estimator, margin or the primary definitions.
 
-\begin{table*}[t]
-\caption{Amendments to the locked design. ``Seen'': outcome data seen when the amendment was made.
-Synthetic: smoke tests on generated data and three trivial synthetic queries, no study query.}
-\label{tab:deviations}
-\footnotesize
-\begin{tabular}{@{}lp{0.73\textwidth}l@{}}
-\toprule
-Item & Change & Seen \\
-\midrule
-A1.1 (2026-11-22) & No price snapshot at the lock itself; one was taken the same UTC day, 1\,h\,37\,min after the tag; its Lambda prices equal P-NEW. & none \\
-A1.2 & Author decision: a launch lost to a technical failure is relaunched once and restarts its square; the lost rounds are reported, never pooled, and enter no estimate. & none \\
-A1.3 & SF1 functional preflight of every engine at bring-up (as in the prior study); only verdict and failure lines are read. & none \\
-A1.4 & The \CG{} G12 allow-list is filled at the first \CG{} boot after review (done in A6). & none \\
-A1.5, A1.8 & Hypervisor and storage type recorded; synthetic smoke data refused in a campaign. & none \\
-A1.6, A1.7 & Start order (pathfinder hosts); GCP funding to be named (closed by A5.2). & none \\
-A2.1 (2026-11-22) & B200 admitted after a valid resolution probe ($\tmin = 1$\,s); superseded by A5.1. & synthetic probe \\
-A2.2 & The operator sees bring-up logs only through an allow-list view. & none \\
-A3.1 (2026-11-22) & Smoke test 1 (H100): not ready; G8 failed, read by the lead as spurious onsets from earlier activity. & synthetic \\
-A3.2 & G8 onsets count only after a quiet GPU; the runner waits for 2\,s of quiet before each pulse; thresholds unchanged. & synthetic \\
-A4.1--A4.3 (2026-11-23) & Smoke test 2: host fault (CUDA error 802); a CUDA-readiness gate was added, and a host failing it before round 1 is replaced without using the A1.2 relaunch (lead's reading). Smoke test 3: harness works; G8 flagged 2 of 4 sessions. & synthetic \\
-A4.4 & Stated before campaign data: many sessions may carry a G8 flag; flags are reported and never stop a round. & none \\
-A5.1 (2026-11-23) & Author decision: GH200 and B200 not run (time and capacity only); RQ4 covers A100 and H100; RQ6 (GH200 module scope) not run. & none \\
-A5.2 & GCP compute (\CG, \CV) paid by Google Cloud credits; cost still uses P-NEW. & none \\
-A5.3 & No H100 capacity at the start: A100 and \CG{} (\texttt{us-central1-a}, a pre-registered fallback zone, same shape and price) started first. & none \\
-% A6 checked against the committed text (commit 9a8b07b) on 2026-11-23.
-A6 (2026-11-23) & \CG{} G12 allow-list after review: the 25 scheduled items found at bring-up (18 systemd timers, 7 \texttt{/etc/cron.*} files) are all masked or inert and none may run; G12 fails on any other scheduled item; same value for both \CG{} launches. & none \\
-% A7: date, commits and sha256 are in record.tex (lead, 2026-11-23; amendment A7 records the
-% commit, the sha256 and the synthetic-recovery result before any campaign aggregate is computed or
-% seen). Checked against the committed A7 (amendment commit 5382101, freeze commit ea67f12) on 2026-11-23.
-A7 (\stat{amend.a7.date}) & Contrary to design \S5.4, no analysis code existed at the lock. It was written after the lock by a team member without access to campaign data, validated only on synthetic campaigns with injected known effects, independently reviewed, and frozen before any campaign data was seen (freeze commit \camera{\stat{amend.a7.freeze_commit}}{\anonmark}; a first freeze the same day was superseded by one change to a diagnostic); code sha256 \hashstat{amend.a7.sha256}. Synthetic recovery passes (A7.3); the readings of the design it applies are in Appendix~\ref{app:readings}. & none \\
-\bottomrule
-\end{tabular}
-\end{table*}
+The amendments are A1 (lock-day price snapshot, lost-launch policy, SF1 preflight, the allow-list
+as pending, record completeness, start order, funding, a synthetic-data guard), A2 (B200 admission,
+the bring-up view), A3 and A4 (three smoke tests, the G8 onset reading, a CUDA-readiness gate, the
+expected G8 flags), A5 (GH200 and B200 not run, GCP funding, start order), A6 (the \CG{} allow-list)
+and A7 (the analysis code); the outcome data seen was none for every item, beyond synthetic probe
+and smoke-test load for A2.1, A3 and A4.1--A4.3.
 
 Four deviations affect what the paper can report. First, contrary to \S5.4 of the locked
 design~\citelock{}, no analysis code existed at the lock: the analysis code was written after the
@@ -746,9 +687,9 @@ marked. Keys \texttt{x\{1,2,3\}.<host>.<suite>.sf<scale>.energy\_\{total,above\_
 \caption{Planned: classification of X3 (best CPU engine / best GPU engine) per host, suite and
 scale; cost under B1, B2, B3 (P-NEW) and energy at the measured scopes (total). Cell: estimate
 of $\rho$ and class (G: GPU better; C: CPU better; =: no difference; ?: inconclusive; --: not
-estimable, e.g.\ below resolution); 95\% intervals in Appendix~\ref{app:keys}. Keys
+estimable, e.g.\ below resolution); 95\% intervals in Appendix~\ref{app:tables}. Keys
 \texttt{x3.<host>.<suite>.sf<scale>.\{cost\_b1\_p\_new, cost\_b2\_p\_new, cost\_b3\_p\_new,
-energy\_total\}}; X1, X2, P-OLD and P-BILLED in Appendix~\ref{app:keys}.}
+energy\_total\}}; X1, X2, P-OLD and P-BILLED in Appendix~\ref{app:tables}.}
 \label{tab:x3}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -983,8 +924,9 @@ campaign}.
 \tpcdisclaimer{} The energy figures are not TPC-Energy metrics.
 \ifanon
 % Anonymized build: the acknowledgments (with the funding statement and the AI disclosure) are
-% withheld. TODO-VERIFY(venue): whether e-Energy wants a de-identified funding/COI statement and the
-% AI-use statement at submission; if so, keep the paragraph below.
+% withheld. The CFP says "Remove acknowledgment of identifying names and funding sources"; the paragraph
+% below names no source. TODO(lead): keep it (design sec. 8: the sponsor relationship is disclosed in
+% every output) or drop it from the submission build.
 Cloud compute for this study was paid by provider credits, including credits from providers whose
 prices are reported; the providers, amounts and the sponsors' role statement are in the
 camera-ready version. AI coding assistants were used as tools; the full statement is in the
@@ -1015,6 +957,42 @@ hosts with GCP CPU hosts; cost uses list prices whatever funded the bill.
 % =====================================================================================
 \appendix
 
+\section{Full Contrast Tables}
+\label{app:tables}
+% TODO(results): X1 and X2 tables in the layout of Table~\ref{tab:x3}; the 95\% intervals of every
+% X1-X3 cell; P-OLD and P-BILLED tables; G8 flags by engine; the coverage matrix.
+\pending{full X1, X2 tables with 95\% intervals; P-OLD and P-BILLED tables; G8 flags by engine;
+coverage matrix}
+
+\section{Pre-lock Validation of the Meters}
+\label{app:validation}
+Table~\ref{tab:validation} gives the pre-lock probe results on which the measurement protocol of
+Section~\ref{sec:energy} rests (synthetic load only).
+
+\begin{table*}[t]
+\caption{Pre-lock validation of the meters (synthetic load; probes P1--P7 and the G8 probe; driver
+570.148.08). Ratio: counter over the 20\,ms integral of the instantaneous field of the counter's
+scope (10\,s idle / 20\,s load). \texttt{power.draw}: the field it equals in every sample.
+Resolution: median absolute per-run error in windows mode (Section~\ref{sec:resolution}). Idle:
+two 60\,s windows, bare and with a CUDA context open (ctx); \CG: four RAPL zones. G8: onset lag of
+20 pulses, median / p90 / max / drift (s). Grey rows: method validation only, hosts not run.}
+\label{tab:validation}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lllllllll@{}}
+\toprule
+Host & Scope tag & Ratio idle / load & \texttt{power.draw} & Resolution, \% (0.1 / 0.25 / 0.5 / 1 / 2 / 5\,s) & $\tmin$ & Idle W, bare & Idle W, ctx & G8 lag, s \\
+\midrule
+\GH & \scope{S1-counter} & 0.998 / 1.0002 & 1\,s trailing avg. & 9.3 / 5.5 / 1.1 / 0.78 / 0.56 / 0.57 & 1\,s & 76.3, 75.5 & 142.4, 145.9 & 0.241 / 0.313 / 0.327 / $-$0.072 \\
+\GA & \scope{S1-counter} & 1.001 / 1.003 & instantaneous & 34 / 18 / 11 / 5.3 / 1.9 / 0.69 & 2\,s & 69.8, 69.6 & 75.3, 75.4 & 0.389 / 0.522 / 0.592 / +0.007 \\
+\CG & \scope{S2-pinned} & -- & -- & 20.7 / 9.8 / 4.9 / 2.6 / 1.15 / 0.40 & 2\,s & 429.02, 429.05 & -- & -- \\
+\midrule
+\textcolor{gray}{GH200} & \textcolor{gray}{\scope{S1-module}} & \textcolor{gray}{0.9985 / 0.9982} & \textcolor{gray}{trailing avg.} & \textcolor{gray}{11.0 / 5.95 / 2.93 / 0.41 / 0.45 / 0.47} & \textcolor{gray}{1\,s} & \textcolor{gray}{162.0, 162.0} & \textcolor{gray}{209.4, 209.7} & \textcolor{gray}{0.226 / 0.297 / 0.331 / $-$0.005} \\
+\textcolor{gray}{B200} & \textcolor{gray}{\scope{S1-counter}} & \textcolor{gray}{0.9986 / 1.0049} & \textcolor{gray}{trailing avg.} & \textcolor{gray}{2.77 / 5.27 / 2.93 / 0.52 / 0.25 / 0.17} & \textcolor{gray}{1\,s} & \textcolor{gray}{143.0, 143.1} & \textcolor{gray}{191.9, 192.2} & \textcolor{gray}{0.195 / 0.305 / 0.334 / $-$0.039} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
 \section{Hosts Validated but Not Measured}
 \label{app:notrun}
 GH200 and B200 were part of the locked design and were dropped by amendment A5.1 (time and
@@ -1039,6 +1017,62 @@ vCPUs, KVM guest, no CPU energy source) the counter matched the GPU-only instant
 samples, idle rose from 143\,W bare to 192\,W with a context open, and G8 passed. The first
 resolution probe was lost to dropped SSH sessions; a rerun gave $\tmin = 1$\,s. B200 was admitted
 by amendment A2.1 and then not run (A5.1).
+
+% Appendix tables are defined here (after Appendix A) so that both land on one page with no
+% overfull box in either build.
+\begin{table*}[t]
+\caption{Paper 3 gates (G1--G5 as in the prior study).}
+\label{tab:gates}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}R{0.12\textwidth}R{0.62\textwidth}R{0.22\textwidth}@{}}
+\toprule
+Gate & Rule & On failure \\
+\midrule
+G6 sources & counters match the probe-declared sources; none missing or non-monotone; every sampler series advancing within the session; stamps with counter readings present & session energy invalid; round fails \\
+G7 coverage & trapezoid windows have $\ge$80\% of expected samples, no gap $>$1\,s & cross-check flagged \\
+G8 clocks & onset lag median within $\pm$0.4\,s, drift $\le$0.2\,s (Sec.~\ref{sec:clock}) & stream values disabled \\
+G9 resolution & window rule met and per-run time $\ge \tmin$ & cell below resolution \\
+G10 idle & pre/post idle mean power within 10\% per scope & above-idle flagged \\
+G11 thermal & throttle reasons, enforced power limit, temperature logged & flagged, not excluded \\
+G12 exclusive & no foreign GPU process; nothing else scheduled on \CG{} & integrity failure \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+\caption{Amendments to the locked design. ``Seen'': outcome data seen when the amendment was made.
+Synthetic: smoke tests on generated data and three trivial synthetic queries, no study query.}
+\label{tab:deviations}
+\footnotesize
+\begin{tabular}{@{}lp{0.73\textwidth}l@{}}
+\toprule
+Item & Change & Seen \\
+\midrule
+A1.1 (2026-11-22) & No price snapshot at the lock itself; one was taken the same UTC day, 1\,h\,37\,min after the tag; its Lambda prices equal P-NEW. & none \\
+A1.2 & Author decision: a launch lost to a technical failure is relaunched once and restarts its square; the lost rounds are reported, never pooled, and enter no estimate. & none \\
+A1.3 & SF1 functional preflight of every engine at bring-up (as in the prior study); only verdict and failure lines are read. & none \\
+A1.4 & The \CG{} G12 allow-list is filled at the first \CG{} boot after review (done in A6). & none \\
+A1.5, A1.8 & Hypervisor and storage type recorded; synthetic smoke data refused in a campaign. & none \\
+A1.6, A1.7 & Start order (pathfinder hosts); GCP funding to be named (closed by A5.2). & none \\
+A2.1 (2026-11-22) & B200 admitted after a valid resolution probe ($\tmin = 1$\,s); superseded by A5.1. & synthetic probe \\
+A2.2 & The operator sees bring-up logs only through an allow-list view. & none \\
+A3.1 (2026-11-22) & Smoke test 1 (H100): not ready; G8 failed, read by the lead as spurious onsets from earlier activity. & synthetic \\
+A3.2 & G8 onsets count only after a quiet GPU; the runner waits for 2\,s of quiet before each pulse; thresholds unchanged. & synthetic \\
+A4.1--A4.3 (2026-11-23) & Smoke test 2: host fault (CUDA error 802); a CUDA-readiness gate was added, and a host failing it before round 1 is replaced without using the A1.2 relaunch (lead's reading). Smoke test 3: harness works; G8 flagged 2 of 4 sessions. & synthetic \\
+A4.4 & Stated before campaign data: many sessions may carry a G8 flag; flags are reported and never stop a round. & none \\
+A5.1 (2026-11-23) & Author decision: GH200 and B200 not run (time and capacity only); RQ4 covers A100 and H100; RQ6 (GH200 module scope) not run. & none \\
+A5.2 & GCP compute (\CG, \CV) paid by Google Cloud credits; cost still uses P-NEW. & none \\
+A5.3 & No H100 capacity at the start: A100 and \CG{} (\texttt{us-central1-a}, a pre-registered fallback zone, same shape and price) started first. & none \\
+% A6 checked against the committed text (commit 9a8b07b) on 2026-11-23.
+A6 (2026-11-23) & \CG{} G12 allow-list after review: the 25 scheduled items found at bring-up (18 systemd timers, 7 \texttt{/etc/cron.*} files) are all masked or inert and none may run; G12 fails on any other scheduled item; same value for both \CG{} launches. & none \\
+% A7: date, commits and sha256 are in record.tex (lead, 2026-11-23; amendment A7 records the
+% commit, the sha256 and the synthetic-recovery result before any campaign aggregate is computed or
+% seen). Checked against the committed A7 (amendment commit 5382101, freeze commit ea67f12) on 2026-11-23.
+A7 (\stat{amend.a7.date}) & Contrary to design \S5.4, no analysis code existed at the lock. It was written after the lock by a team member without access to campaign data, validated only on synthetic campaigns with injected known effects, independently reviewed, and frozen before any campaign data was seen (freeze commit \camera{\stat{amend.a7.freeze_commit}}{\anonmark}; a first freeze the same day was superseded by one change to a diagnostic); code sha256 \hashstat{amend.a7.sha256}. Synthetic recovery passes (A7.3); the readings of the design it applies are in Appendix~\ref{app:readings}. & none \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \section{Readings of the Design Applied by the Analysis Code}
 \label{app:readings}
@@ -1076,30 +1110,40 @@ parts of the design that its text leaves open. Each is reported here.
   value.
 \end{enumerate}
 
-\section{Statistics Keys}
-\label{app:keys}
-% Key scheme aligned 2026-11-23 with analyze_paper3.py / paper3_analysis/ as they stood then (untracked,
-% being written by p3-analysis). TODO(results): re-check every key against the committed analysis code.
-Values come from two files. \path{generated/stats.tex} is written by \path{analyze_paper3.py}
-(its flattened \path{stats.json}, one \verb|\defstat| per scalar); keys used here:
-\begin{itemize}[before=\raggedright]
-\item contrasts: \path{<x1|x2|x3|x3_strict>.<host>.<suite>.sf<scale>.<metric>} with metric
-  \path{time}, \path{time_vs_cgcp}, \path{energy_total}, \path{energy_above_idle} (and
-  \path{_s2all}), \path{cost_<b1|b2|b3>_<p_new|p_old|p_billed>}; fields \path{estimate},
-  \path{ci_low}, \path{ci_high}, \path{class} (\path{gpu_better}, \path{cpu_better},
-  \path{no_difference}, \path{inconclusive}, \path{not_estimable});
-\item \path{break_even.<contrast>.<host>.<suite>.<metric>.text} (the bracket);
-  \path{delta_star.<contrast>.<host>.<suite>.sf<scale>.<metric>.<wh_per_suite_run|w_over_gpu_suite_time>.mean};
-\item \path{x4.a100.<engine>.<suite>.sf<scale>.<metric>}, \path{x5.<host>.<engine>.<suite>.sf<scale>.<metric>},
-  \path{x6.<host>.<engine>.<suite>.sf<scale>.idle_gpu_energy_wh_per_suite_run.mean};
-\item \path{hosts.<host>.*}, \path{counts.<host>.*} (launches, rounds, squares, sessions, \path{g9.*},
-  \path{coverage_outcomes.*}), \path{qa.g8.<host>.<engine>.*}, \path{qa.crosscheck.<host>.*},
-  \path{qa.read_latency_and_overhang.*}, \path{qa.idle_power_w.<host>.<engine>.<scope>.mean},
-  \path{billing_by_host.<host>.*}, \path{c_vm_check.*}, \path{_meta.*}.
-\end{itemize}
-Hosts are \path{h100}, \path{a100}, \path{c-gcp}, \path{c-vm}. \path{record.tex} holds
-values from committed records, not campaign outcomes: \path{amend.a7.<date|commit|sha256>} and
-\path{campaign.<host>.<driver|cpu_model|first_session_utc|last_session_utc>} from the launch records. \pending{full X1, X2 tables; P-OLD and P-BILLED tables; G8 flags
-by engine; coverage matrix}
+\section{Integrity and Telemetry Gates}
+\label{app:gates}
+Table~\ref{tab:gates} gives the rule and the consequence of each Paper 3 gate (Section~\ref{sec:gates}).
+
+\section{Amendments to the Locked Design}
+\label{app:amendments}
+Table~\ref{tab:deviations} lists every amendment with the outcome data seen when it was made
+(Section~\ref{sec:deviations}).
+
+% Statistics keys (not printed: the CFP restricts appendices to justifying the body's claims).
+% \section{Statistics Keys}
+% \label{app:keys}
+% % Key scheme aligned 2026-11-23 with analyze_paper3.py / paper3_analysis/ as they stood then (untracked,
+% % being written by p3-analysis). TODO(results): re-check every key against the committed analysis code.
+% Values come from two files. \path{generated/stats.tex} is written by \path{analyze_paper3.py}
+% (its flattened \path{stats.json}, one \verb|\defstat| per scalar); keys used here:
+% \begin{itemize}[before=\raggedright]
+% \item contrasts: \path{<x1|x2|x3|x3_strict>.<host>.<suite>.sf<scale>.<metric>} with metric
+%   \path{time}, \path{time_vs_cgcp}, \path{energy_total}, \path{energy_above_idle} (and
+%   \path{_s2all}), \path{cost_<b1|b2|b3>_<p_new|p_old|p_billed>}; fields \path{estimate},
+%   \path{ci_low}, \path{ci_high}, \path{class} (\path{gpu_better}, \path{cpu_better},
+%   \path{no_difference}, \path{inconclusive}, \path{not_estimable});
+% \item \path{break_even.<contrast>.<host>.<suite>.<metric>.text} (the bracket);
+%   \path{delta_star.<contrast>.<host>.<suite>.sf<scale>.<metric>.<wh_per_suite_run|w_over_gpu_suite_time>.mean};
+% \item \path{x4.a100.<engine>.<suite>.sf<scale>.<metric>}, \path{x5.<host>.<engine>.<suite>.sf<scale>.<metric>},
+%   \path{x6.<host>.<engine>.<suite>.sf<scale>.idle_gpu_energy_wh_per_suite_run.mean};
+% \item \path{hosts.<host>.*}, \path{counts.<host>.*} (launches, rounds, squares, sessions, \path{g9.*},
+%   \path{coverage_outcomes.*}), \path{qa.g8.<host>.<engine>.*}, \path{qa.crosscheck.<host>.*},
+%   \path{qa.read_latency_and_overhang.*}, \path{qa.idle_power_w.<host>.<engine>.<scope>.mean},
+%   \path{billing_by_host.<host>.*}, \path{c_vm_check.*}, \path{_meta.*}.
+% \end{itemize}
+% Hosts are \path{h100}, \path{a100}, \path{c-gcp}, \path{c-vm}. \path{record.tex} holds
+% values from committed records, not campaign outcomes: \path{amend.a7.<date|commit|sha256>} and
+% \path{campaign.<host>.<driver|cpu_model|first_session_utc|last_session_utc>} from the launch records. \pending{full X1, X2 tables; P-OLD and P-BILLED tables; G8 flags
+% by engine; coverage matrix}
 
 \end{document}

@@ -63,7 +63,7 @@ pages:
 			if pdftotext -f $$p -l $$p $$f - | grep -q -i '^references$$'; then \
 				echo "  references start on page $$p"; break; fi; done; \
 		for p in $$(seq 1 $$n); do \
-			if pdftotext -f $$p -l $$p $$f - | grep -q -i '^hosts validated but not measured$$'; then \
+			if pdftotext -f $$p -l $$p $$f - | grep -q -i '^full contrast tables$$'; then \
 				echo "  appendices start on page $$p"; break; fi; done; \
 	done
 
