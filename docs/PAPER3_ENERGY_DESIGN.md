@@ -1113,6 +1113,38 @@ and the price snapshots taken before the launches (times, places, prices, capaci
    harness on a real H100; C-VM may run in parallel with C-GCP. This is operational: it changes no round, square, order, seed, gate or
    analysis, and no estimate uses the order in which hosts ran. Outcome data seen: none.
 
+### A6 — 2026-11-23
+Sixth amendment after the lock: the C-GCP G12 allow-list and its review, which A1 item 4 said would be recorded before the first
+C-GCP session. It is the lead's record under A1 item 4; sections 1-11 are not edited. **Outcome data seen: none.** C-GCP has run
+only its bring-up, including the SF1 functional preflight of A1 item 3 (verdict pass; its outputs are sealed and unread); no round
+has run and nothing from the host has been viewed beyond the capture below (§7.3).
+1. **What the capture shows.** The bring-up of C-GCP launch 1 (`c3-highmem-192-metal` in us-central1-a, commit
+   `e613e4070130d50c47ef9e13b2a2e407f7fd3f6f`) captured the scheduled work of the host before and after its quiesce step
+   (`paper3_gates.py --capture-exclusivity`, 2026-11-23 16:14:22 and 16:14:25 UTC; `exclusivity-before.json` sha256
+   `2c01321206fc6bfafd664701ec72d7604a7df453396e4eb49b9520836ae13621`, `exclusivity-after.json` sha256
+   `68a9b58304dfe7dc478ee6bfbb6c156ea37fda8e83216edfdf21f1b78137ee12`; the files are in the launch's bring-up artifacts and will be
+   archived with it). Both captures list the same 25 items, because the capture lists unit and file names whatever their state: 18
+   systemd timers (`apport-autoreport`, `apt-daily-upgrade`, `apt-daily`, `dpkg-db-backup`, `e2scrub_all`, `fstrim`,
+   `gce-workload-cert-refresh`, `google-oslogin-cache`, `logrotate`, `man-db`, `motd-news`, `snapd.snap-repair`, `sysstat-collect`,
+   `sysstat-summary`, `systemd-tmpfiles-clean`, `ua-timer`, `update-notifier-download`, `update-notifier-motd`) and 7 files under
+   `/etc/cron.*` (`apport`, `apt-compat`, `dpkg`, `e2scrub_all`, `logrotate`, `man-db`, `sysstat`); no crontab entries and no `at`
+   jobs.
+2. **Review (the lead, 2026-11-23 about 16:25 UTC).** The quiesce step masked 13 of the 18 timers (`apt-daily`,
+   `apt-daily-upgrade`, `dpkg-db-backup`, `e2scrub_all`, `fstrim`, `logrotate`, `man-db`, `motd-news`, `update-notifier-download`,
+   `update-notifier-motd`, `ua-timer`, `sysstat-collect`, `sysstat-summary`) and `cron.service`. The lead masked the other five
+   (`apport-autoreport`, `snapd.snap-repair`, `systemd-tmpfiles-clean`, `gce-workload-cert-refresh`, `google-oslogin-cache`) by `ssh`.
+   Every listed timer is therefore masked, and every listed cron file is inert because `cron.service` is masked. Units that are
+   not in the capture and remained enabled are recorded: the `mdadm` `mdcheck` and `mdmonitor` timers, which have no scheduled
+   elapse.
+3. **The value.** `paper3_hosts.json`, `hosts.c-gcp.exclusive_use.allowed_scheduled`, was `null` (pending). It is now the 25 item
+   names as the gate writes them (`timer:<unit>.timer` for each of the 18 timers and `cron:<file>` for each of the 7 cron files),
+   each with the status of item 2 (timer masked, or cron file inert); none is allowed to run. A name on the list is a name the gate
+   may see; the masking, not the list, is what keeps the host free of scheduled work. G12 therefore fails on any scheduled item
+   outside this list: a new timer, another file under `/etc/cron.*`, a crontab entry or an `at` job. The same value applies to both
+   C-GCP launches and is not changed afterwards, and launch 2's bring-up must mask the same 18 timers: the five masked by hand are
+   to be added to the planner's mask list (`C_GCP_MASK_UNITS` in `tools/paper3_campaign/p3_plan.py`) before launch 2. `p3_plan.py check-allowlist` from the campaign commit to the commit that holds this
+   value confirms that this is the only value of `paper3_hosts.json` that changes. Outcome data seen: none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,
