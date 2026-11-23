@@ -1,0 +1,126 @@
+Paper 3 H100 smoke test checklist for h100-20261122T232520Z (synthetic load; nothing here is a study result)
+[PASS] C01 provenance: synthetic workload, the campaign's flags, an H100
+         info: GPU: NVIDIA H100 80GB HBM3, 570.148.08, 81559 MiB
+         info: runs per query 3, cpus 26, engine order ['spark_cpu', 'spark_gpu', 'polars_gpu', 'polars']
+[FAIL] C02 sessions: four engines, each complete with exit 0 and no query error
+         FAIL: polars_gpu: status 'failed', returncode 1, failure None
+         FAIL: polars_gpu: query_execution_status None; errors []
+         FAIL: polars_gpu: failure {'type': 'RuntimeError', 'message': 'polars_gpu session guard: tiny GPU query failed on cudf-polars 26.10.02: CUDARuntimeError: cudaErrorSystemNotReady: system not yet initialized', 'stage': 'polars_gpu_session_guard'}
+         FAIL: spark_gpu: status 'failed', returncode 1, failure None
+         FAIL: spark_gpu: results.json missing
+         info: polars: 230 s wall, 9 measured windows
+         info: polars_gpu: 31 s wall, 0 measured windows
+         info: spark_cpu: 277 s wall, 9 measured windows
+[PASS] C03 nvidia-smi fields listed and queried; the final field list
+         info: final field list (the query): timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active
+         info: throttle field used: clocks_event_reasons.active
+         info: driver version(s): ['570.148.08']
+         info: 179 fields listed by `nvidia-smi --help-query-gpu`
+[PASS] C04 gpu.csv: real header names, [N/A] handling, the throttle column
+         info: header as written: timestamp, index, utilization.gpu [%], utilization.memory [%], memory.used [MiB], power.draw [W], temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw.average [W], power.draw.instant [W], clocks_event_reasons.active
+         info: throttle reasons seen (bit mask: rows, names): 0x1: 4207 (GpuIdle)
+         info: 4207 rows parsed by paper3_gates.read_gpu_csv (4207 stamped), 0 malformed
+[PASS] C05 POWER captures and power_limits_query: enforced 700 W at every session start and end
+         info: power limits at the first session's start: -q Current 700.0 W; --query-gpu {'power.limit': 700.0, 'enforced.power.limit': 700.0, 'power.default_limit': 700.0, 'power.min_limit': 200.0, 'power.max_limit': 700.0}
+         info: `-q -d POWER` Average Power Draw line at session starts: ['71.40 W', '72.16 W', '72.18 W', '72.21 W']
+[PASS] C06 PERFORMANCE captures (clock event reasons) at every session's start and end
+         info: polars: reasons Active at start ['Idle'], at end ['Idle']
+         info: polars_gpu: reasons Active at start ['Idle'], at end ['Idle']
+         info: spark_cpu: reasons Active at start ['Idle'], at end ['Idle']
+         info: spark_gpu: reasons Active at start ['Idle'], at end ['Idle']
+[FAIL] C07 G8 load pulses: gpu_pulse.py ok:true, plausible stamps, onset visible in gpu.csv
+         FAIL: polars/start: ok is False: RuntimeError: cuInit returned CUDA error 802
+         FAIL: polars/end: ok is False: RuntimeError: cuInit returned CUDA error 802
+         FAIL: polars_gpu/start: ok is False: RuntimeError: cuInit returned CUDA error 802
+         FAIL: polars_gpu/end: ok is False: RuntimeError: cuInit returned CUDA error 802
+         FAIL: spark_cpu/start: ok is False: RuntimeError: cuInit returned CUDA error 802
+         FAIL: spark_cpu/end: ok is False: RuntimeError: cuInit returned CUDA error 802
+         FAIL: spark_gpu/start: ok is False: RuntimeError: cuInit returned CUDA error 802
+         FAIL: spark_gpu/end: ok is False: RuntimeError: cuInit returned CUDA error 802
+         info: polars/start: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%
+         info: polars/end: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%
+         info: polars_gpu/start: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%
+         info: polars_gpu/end: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%
+         info: spark_cpu/start: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%
+         info: spark_cpu/end: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%
+         info: spark_gpu/start: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%
+         info: spark_gpu/end: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%
+         info: G8 pulse onsets (quiet before the launch, then the first sample >= 10%): scored 0 of 0, busy_before 0, quiet_not_shown 0, missed 0
+         info: 0 pulses ok; onset lags in gpu.csv (s): median n/a, min n/a, max n/a
+[FAIL] C08 idle windows: both per session with S1-counter energy; CUDA context in the first (clocks, memory)
+         FAIL: polars_gpu: idle windows [], expected ['after_last_trial', 'before_warmups']
+         info: polars first window: 68.8 W counter, board 68.6 W, 0 MiB, SM clock 345 MHz, idle flag in 1.000 of rows -> CUDA context held: False
+         info: polars last window: 68.4 W, 0 MiB, SM clock 345 MHz
+         info: spark_cpu first window: 68.5 W counter, board 68.6 W, 0 MiB, SM clock 345 MHz, idle flag in 1.000 of rows -> CUDA context held: False
+         info: spark_cpu last window: 68.5 W, 0 MiB, SM clock 345 MHz
+         info: resting memory.used (5th percentile of the whole run): 0 MiB; a context is called held above +100 MiB
+[PASS] C09 adaptive windows: stop reasons, n, gaps; the cap and a target-reached window both seen
+         info: polars sm_join: per run 0.4423-0.4449 s; windows n=23:target_reached x3
+         info: polars sm_light: per run 0.0044-0.0044 s; windows n=50:max_runs x3
+         info: polars sm_scan: per run 0.0826-0.0834 s; windows n=50:max_runs x3
+         info: spark_cpu sm_join: per run 3.8365-4.0342 s; windows n=3:target_reached x3
+         info: spark_cpu sm_light: per run 0.0766-0.1018 s; windows n=50:max_runs x3
+         info: spark_cpu sm_scan: per run 0.3869-0.4072 s; windows n=25:target_reached, n=26:target_reached x2
+         info: windows: 18; stopped at the cap 9; target reached with n>1 9; n=1 0
+         info: gap between runs: median 10.51 ms per run, max 17.01 ms per run
+[FAIL] C10 scope tags: every GPU energy value is S1-counter
+         FAIL: polars_gpu: gpu_energy_counter.scope_tag None
+         info: 637 energy values checked; scope_tag values seen: {'S1-counter': 639}
+[PASS] C11 chrony: the clock offset is logged at every session's start and end
+         info: offsets of the system clock from NTP time (s): min -0.000075, max +0.001529, stratum [3, 4]
+[WARN] C12 paper3_gates.py with the h100 host config: no FAIL for a clean run
+         warn: G8 smoke/sf1/spark_cpu not evaluable: 0 window(s) of 5 s or longer without two usable onsets and 2 pulse record(s) with 0 onset(s): the lag and the drift need two
+         warn: G8 smoke/sf1/polars not evaluable: 0 window(s) of 5 s or longer without two usable onsets and 2 pulse record(s) with 0 onset(s): the lag and the drift need two
+         warn: G9 spark_cpu/sm_scan: ['per_run_below_t_min'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)
+         warn: G9 polars/sm_join: ['per_run_below_t_min'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)
+         warn: G9 polars/sm_scan: ['per_run_below_t_min', 'window_below_10s'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)
+         info: G6: pass 2, not_applicable 2
+         info: G7: pass 2, not_applicable 2
+         info: G8: pass 0, fail 0, not_evaluable 2, not_applicable 2
+         info: G9: pass 1, fail 5, not_evaluable 0, not_applicable 0
+         info: G10: pass 2, not_applicable 2
+         info: G11: pass 2, not_applicable 2
+         info: G12: pass 5, not_applicable 0
+         info: G8 onsets smoke/sf1/spark_cpu: not_evaluable, method none; pulses scored 0 of 2 (busy_before 0, quiet_not_shown 0, missed 2)
+         info: G8 onsets smoke/sf1/polars: not_evaluable, method none; pulses scored 0 of 2 (busy_before 0, quiet_not_shown 0, missed 2)
+         info: G9 spark_cpu/sm_light: ['per_run_below_t_min', 'window_below_10s'] (expected: the light query is meant to hit the cap, below the resolution)
+         info: G9 polars/sm_light: ['per_run_below_t_min', 'window_below_10s'] (expected: the light query is meant to hit the cap, below the resolution)
+         info: gates stage exit 0 (0 = clean, 1 = a round-failing gate, 2 = host config error); host h100, t_min 1.0 s
+[PASS] C13 poller cadence and coverage of sessions and windows (G7's 0.80 / 1 s rule)
+         info: 4207 rows over 842 s; spacing median 200 ms, p99 203 ms, max 226 ms; query: timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active
+         info: coverage of 26 sessions and windows: min 0.842, median 1.000
+[FAIL] C14 outputs: every engine returns the polars rows (ints exact, floats rel 1e-8 / abs 1e-6)
+         FAIL: sm_light: polars_gpu has no warmup rows
+         FAIL: sm_light: spark_gpu has no warmup rows
+         FAIL: sm_join: polars_gpu has no warmup rows
+         FAIL: sm_join: spark_gpu has no warmup rows
+         FAIL: sm_scan: polars_gpu has no warmup rows
+         FAIL: sm_scan: spark_gpu has no warmup rows
+         info: sm_light: 100 result rows
+         info: sm_join: 100 result rows
+         info: sm_scan: 1000 result rows
+[PASS] C15 no foreign GPU process at the host captures, the idle gates and the session ends
+         info: polars: idle gate passed after 0.020411856999999145 s (1 poll(s))
+         info: polars_gpu: idle gate passed after 0.019075533999966865 s (1 poll(s))
+         info: spark_cpu: idle gate passed after 0.018878545000006852 s (1 poll(s))
+         info: spark_gpu: idle gate passed after 0.019145632999993722 s (1 poll(s))
+[INFO] C16 CPU / node power sampler on this host (the h100 config declares cpu_energy none)
+         info: power_telemetry: enabled True, started True, status unavailable, cpu_energy_source None, node_power_source None, interval 0.2
+         info: reasons: ['powercap-rapl: /sys/class/powercap has no intel-rapl*/energy_uj zone (driver not loaded, or RAPL not exposed to this host)', 'amd-energy: no hwmon device named amd_energy under /sys/class/hwmon', "perf-stat: no power/energy-*/ event counted (perf exit 129):     -e, --event <event>   event selector. use 'perf list' to list available events", 'turbostat: no PkgWatt/RAMWatt values (turbostat exit 251): turbostat: no /dev/cpu/0/msr, Try "# modprobe msr" : No such file or directory', "ipmi-dcmi: 'ipmitool' not found on PATH"]
+         info: power.csv present: True (103 bytes)
+[PASS] C17 redaction: no GPU UUID, serial number, bus id or IP address in the evidence
+         info: publish removed: {'ip address': 13, 'gpu uuid': 1, 'serial number': 2, 'bus id': 1, 'mask': 1}
+[INFO] C18 time and cost: every stage, the whole run
+         info: stage setup: 65 s (1.1 min), exit 0, 2026-11-22T23:30:56Z -> 2026-11-22T23:32:01Z
+         info: stage data: 4 s (0.1 min), exit 0, 2026-11-22T23:32:31Z -> 2026-11-22T23:32:35Z
+         info: stage run: 874 s (14.6 min), exit 0, 2026-11-22T23:33:03Z -> 2026-11-22T23:47:37Z
+         info: stage gates: 0 s (0.0 min), exit 0, 2026-11-22T23:48:00Z -> 2026-11-22T23:48:00Z
+         info: launch to SSH ready: 5.2 min
+         info: create call to confirmed termination: 30.6 min -> about $2.50 at $4.89/h (Lambda bills per minute from boot; the boot is part of the create-to-ready time)
+         info: driver view of the stages (start call to exit code seen, polling included): setup 1.6 min, data 0.5 min, run 14.9 min, gates 0.0 min, bundle 0.0 min
+         info: polars: session 230 s (worker launch to exit)
+         info: polars_gpu: session 31 s (worker launch to exit)
+         info: spark_cpu: session 277 s (worker launch to exit)
+         info: spark_gpu: session 45 s (worker launch to exit)
+         info: first launch to last exit: 12.9 min (four sessions, pulses and idle windows included)
+summary: 10 PASS, 1 WARN, 2 INFO, 5 FAIL -> NOT READY

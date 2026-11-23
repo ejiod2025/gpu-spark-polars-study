@@ -1,0 +1,10 @@
+SORT BY [col("f_grp")]
+  AGGREGATE[maintain_order: false]
+    [col("f_x").sum().alias("sum_x"), col("f_y").mean().alias("avg_y"), col("f_x").max().alias("max_x"), len().cast(Int64).alias("n")] BY [col("f_grp")]
+    FROM
+     WITH_COLUMNS:
+     [col("f_x"), col("f_y")] 
+      Parquet SCAN [/home/ubuntu/p3smoke/data/sf1/facts/part-0000.parquet, ... 7 other sources]
+      PROJECT 3/4 COLUMNS
+      SELECTION: col("f_y") > 0.5
+      ESTIMATED ROWS: 80000000

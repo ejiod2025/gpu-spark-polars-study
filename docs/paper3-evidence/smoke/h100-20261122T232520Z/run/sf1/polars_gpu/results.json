@@ -1,0 +1,37 @@
+{
+  "engine": "polars_gpu",
+  "suite": "smoke",
+  "suite_version": "smoke-v1",
+  "query_descriptions": {
+    "sm_light": "Synthetic: filter and grouped aggregates on a 200k-row table (milliseconds on Polars; the window hits the 50-run cap)",
+    "sm_join": "Synthetic: join of a 80M-row fact table with a 1M-row dimension, filter and grouped aggregates",
+    "sm_scan": "Synthetic: filter and grouped aggregates over the 80M-row fact table"
+  },
+  "started_at_utc": "2026-11-22T23:41:39.834564+00:00",
+  "scale_factor": 1,
+  "manifest_sha256": "aeffa4633dfaa006209b73032b5fdbde920f53f7cdb1e51d5844ca1ba5b734f5",
+  "runs": 3,
+  "queries": [
+    "sm_light",
+    "sm_join",
+    "sm_scan"
+  ],
+  "cache_policy": "preheated filesystem; no application dataframe cache",
+  "timing_scope": "query construction, optimization, parquet read, execution, result collection; excludes session/table setup and plan serialization",
+  "pid": 11794,
+  "polars_execution_engine": "gpu",
+  "synthetic_smoke": true,
+  "records": [],
+  "query_errors": [],
+  "query_cleanup_policy": "none",
+  "cleanup_records": [],
+  "failure_policy": "record_and_continue",
+  "version": "1.44.2",
+  "cpu_threads": 26,
+  "failed_at_utc": "2026-11-22T23:42:10.210367+00:00",
+  "failure": {
+    "type": "RuntimeError",
+    "message": "polars_gpu session guard: tiny GPU query failed on cudf-polars 26.10.02: CUDARuntimeError: cudaErrorSystemNotReady: system not yet initialized",
+    "stage": "polars_gpu_session_guard"
+  }
+}

@@ -1,0 +1,990 @@
+{
+ "counts": {
+  "PASS": 10,
+  "WARN": 1,
+  "INFO": 2,
+  "FAIL": 5
+ },
+ "failed": true,
+ "items": [
+  {
+   "id": "C01",
+   "title": "provenance: synthetic workload, the campaign's flags, an H100",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "GPU: NVIDIA H100 80GB HBM3, 570.148.08, 81559 MiB",
+    "runs per query 3, cpus 26, engine order ['spark_cpu', 'spark_gpu', 'polars_gpu', 'polars']"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C02",
+   "title": "sessions: four engines, each complete with exit 0 and no query error",
+   "status": "FAIL",
+   "problems": [
+    "polars_gpu: status 'failed', returncode 1, failure None",
+    "polars_gpu: query_execution_status None; errors []",
+    "polars_gpu: failure {'type': 'RuntimeError', 'message': 'polars_gpu session guard: tiny GPU query failed on cudf-polars 26.10.02: CUDARuntimeError: cudaErrorSystemNotReady: system not yet initialized', 'stage': 'polars_gpu_session_guard'}",
+    "spark_gpu: status 'failed', returncode 1, failure None",
+    "spark_gpu: results.json missing"
+   ],
+   "warnings": [],
+   "info": [
+    "polars: 230 s wall, 9 measured windows",
+    "polars_gpu: 31 s wall, 0 measured windows",
+    "spark_cpu: 277 s wall, 9 measured windows"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C03",
+   "title": "nvidia-smi fields listed and queried; the final field list",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "final field list (the query): timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active",
+    "throttle field used: clocks_event_reasons.active",
+    "driver version(s): ['570.148.08']",
+    "179 fields listed by `nvidia-smi --help-query-gpu`"
+   ],
+   "data": {
+    "query": "timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active",
+    "extra_fields": [
+     "power.draw.average",
+     "power.draw.instant",
+     "clocks_event_reasons.active"
+    ],
+    "missing_fields": [],
+    "driver_versions": [
+     "570.148.08"
+    ]
+   }
+  },
+  {
+   "id": "C04",
+   "title": "gpu.csv: real header names, [N/A] handling, the throttle column",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "header as written: timestamp, index, utilization.gpu [%], utilization.memory [%], memory.used [MiB], power.draw [W], temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw.average [W], power.draw.instant [W], clocks_event_reasons.active",
+    "throttle reasons seen (bit mask: rows, names): 0x1: 4207 (GpuIdle)",
+    "4207 rows parsed by paper3_gates.read_gpu_csv (4207 stamped), 0 malformed"
+   ],
+   "data": {
+    "header": [
+     "timestamp",
+     "index",
+     "utilization.gpu [%]",
+     "utilization.memory [%]",
+     "memory.used [MiB]",
+     "power.draw [W]",
+     "temperature.gpu",
+     "clocks.current.sm [MHz]",
+     "clocks.current.memory [MHz]",
+     "power.draw.average [W]",
+     "power.draw.instant [W]",
+     "clocks_event_reasons.active"
+    ],
+    "columns": {
+     "index": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "utilization.gpu": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "utilization.memory": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "memory.used": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "power.draw": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "temperature.gpu": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "clocks.current.sm": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "clocks.current.memory": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "power.draw.average": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "power.draw.instant": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     },
+     "clocks_event_reasons.active": {
+      "cells": 4207,
+      "n_a": 0,
+      "non_numeric": 0,
+      "none_spellings": []
+     }
+    },
+    "throttle_masks": {
+     "0x1": 4207
+    },
+    "rows": 4207
+   }
+  },
+  {
+   "id": "C05",
+   "title": "POWER captures and power_limits_query: enforced 700 W at every session start and end",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "power limits at the first session's start: -q Current 700.0 W; --query-gpu {'power.limit': 700.0, 'enforced.power.limit': 700.0, 'power.default_limit': 700.0, 'power.min_limit': 200.0, 'power.max_limit': 700.0}",
+    "`-q -d POWER` Average Power Draw line at session starts: ['71.40 W', '72.16 W', '72.18 W', '72.21 W']"
+   ],
+   "data": {
+    "polars": {
+     "current_w": 700.0,
+     "query_values_w": {
+      "power.limit": 700.0,
+      "enforced.power.limit": 700.0,
+      "power.default_limit": 700.0,
+      "power.min_limit": 200.0,
+      "power.max_limit": 700.0
+     },
+     "query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+     ],
+     "average_power_draw": "71.40 W"
+    },
+    "polars_gpu": {
+     "current_w": 700.0,
+     "query_values_w": {
+      "power.limit": 700.0,
+      "enforced.power.limit": 700.0,
+      "power.default_limit": 700.0,
+      "power.min_limit": 200.0,
+      "power.max_limit": 700.0
+     },
+     "query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+     ],
+     "average_power_draw": "72.16 W"
+    },
+    "spark_cpu": {
+     "current_w": 700.0,
+     "query_values_w": {
+      "power.limit": 700.0,
+      "enforced.power.limit": 700.0,
+      "power.default_limit": 700.0,
+      "power.min_limit": 200.0,
+      "power.max_limit": 700.0
+     },
+     "query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+     ],
+     "average_power_draw": "72.21 W"
+    },
+    "spark_gpu": {
+     "current_w": 700.0,
+     "query_values_w": {
+      "power.limit": 700.0,
+      "enforced.power.limit": 700.0,
+      "power.default_limit": 700.0,
+      "power.min_limit": 200.0,
+      "power.max_limit": 700.0
+     },
+     "query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+     ],
+     "average_power_draw": "72.18 W"
+    }
+   }
+  },
+  {
+   "id": "C06",
+   "title": "PERFORMANCE captures (clock event reasons) at every session's start and end",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "polars: reasons Active at start ['Idle'], at end ['Idle']",
+    "polars_gpu: reasons Active at start ['Idle'], at end ['Idle']",
+    "spark_cpu: reasons Active at start ['Idle'], at end ['Idle']",
+    "spark_gpu: reasons Active at start ['Idle'], at end ['Idle']"
+   ],
+   "data": {
+    "polars": {
+     "start": [
+      "Idle"
+     ],
+     "end": [
+      "Idle"
+     ]
+    },
+    "polars_gpu": {
+     "start": [
+      "Idle"
+     ],
+     "end": [
+      "Idle"
+     ]
+    },
+    "spark_cpu": {
+     "start": [
+      "Idle"
+     ],
+     "end": [
+      "Idle"
+     ]
+    },
+    "spark_gpu": {
+     "start": [
+      "Idle"
+     ],
+     "end": [
+      "Idle"
+     ]
+    }
+   }
+  },
+  {
+   "id": "C07",
+   "title": "G8 load pulses: gpu_pulse.py ok:true, plausible stamps, onset visible in gpu.csv",
+   "status": "FAIL",
+   "problems": [
+    "polars/start: ok is False: RuntimeError: cuInit returned CUDA error 802",
+    "polars/end: ok is False: RuntimeError: cuInit returned CUDA error 802",
+    "polars_gpu/start: ok is False: RuntimeError: cuInit returned CUDA error 802",
+    "polars_gpu/end: ok is False: RuntimeError: cuInit returned CUDA error 802",
+    "spark_cpu/start: ok is False: RuntimeError: cuInit returned CUDA error 802",
+    "spark_cpu/end: ok is False: RuntimeError: cuInit returned CUDA error 802",
+    "spark_gpu/start: ok is False: RuntimeError: cuInit returned CUDA error 802",
+    "spark_gpu/end: ok is False: RuntimeError: cuInit returned CUDA error 802"
+   ],
+   "warnings": [],
+   "info": [
+    "polars/start: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%",
+    "polars/end: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%",
+    "polars_gpu/start: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%",
+    "polars_gpu/end: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%",
+    "spark_cpu/start: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%",
+    "spark_cpu/end: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%",
+    "spark_gpu/start: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%",
+    "spark_gpu/end: quiet wait before the pulse: reached yes, 2.1 s waited, 5 read(s), last utilization.gpu 0.0%",
+    "G8 pulse onsets (quiet before the launch, then the first sample >= 10%): scored 0 of 0, busy_before 0, quiet_not_shown 0, missed 0",
+    "0 pulses ok; onset lags in gpu.csv (s): median n/a, min n/a, max n/a"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C08",
+   "title": "idle windows: both per session with S1-counter energy; CUDA context in the first (clocks, memory)",
+   "status": "FAIL",
+   "problems": [
+    "polars_gpu: idle windows [], expected ['after_last_trial', 'before_warmups']"
+   ],
+   "warnings": [],
+   "info": [
+    "polars first window: 68.8 W counter, board 68.6 W, 0 MiB, SM clock 345 MHz, idle flag in 1.000 of rows -> CUDA context held: False",
+    "polars last window: 68.4 W, 0 MiB, SM clock 345 MHz",
+    "spark_cpu first window: 68.5 W counter, board 68.6 W, 0 MiB, SM clock 345 MHz, idle flag in 1.000 of rows -> CUDA context held: False",
+    "spark_cpu last window: 68.5 W, 0 MiB, SM clock 345 MHz",
+    "resting memory.used (5th percentile of the whole run): 0 MiB; a context is called held above +100 MiB"
+   ],
+   "data": {
+    "polars": {
+     "before_warmups": {
+      "mean_power_w": 68.7565022206855,
+      "delta_mj": 2062960,
+      "actual_seconds": 30.000081063,
+      "energy_interval_seconds": 30.003853212,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 0.0,
+      "clocks_sm_mhz_median": 345.0,
+      "board_power_w_median": 68.6,
+      "idle_flag_share": 1.0,
+      "context_held": false
+     },
+     "after_last_trial": {
+      "mean_power_w": 68.44914111770318,
+      "delta_mj": 2053773,
+      "actual_seconds": 30.000083866,
+      "energy_interval_seconds": 30.004364795,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 0.0,
+      "clocks_sm_mhz_median": 345.0,
+      "board_power_w_median": 68.53,
+      "idle_flag_share": 1.0,
+      "context_held": false
+     },
+     "pair_relative_difference": 0.0045
+    },
+    "polars_gpu": {},
+    "spark_cpu": {
+     "before_warmups": {
+      "mean_power_w": 68.5410051339145,
+      "delta_mj": 2056475,
+      "actual_seconds": 30.000076048,
+      "energy_interval_seconds": 30.0035722555,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 0.0,
+      "clocks_sm_mhz_median": 345.0,
+      "board_power_w_median": 68.61,
+      "idle_flag_share": 1.0,
+      "context_held": false
+     },
+     "after_last_trial": {
+      "mean_power_w": 68.45582314163444,
+      "delta_mj": 2053955,
+      "actual_seconds": 30.00007562,
+      "energy_interval_seconds": 30.0040946955,
+      "gpu_csv_samples": 150,
+      "memory_used_mib_median": 0.0,
+      "clocks_sm_mhz_median": 345.0,
+      "board_power_w_median": 68.53,
+      "idle_flag_share": 1.0,
+      "context_held": false
+     },
+     "pair_relative_difference": 0.0012
+    }
+   }
+  },
+  {
+   "id": "C09",
+   "title": "adaptive windows: stop reasons, n, gaps; the cap and a target-reached window both seen",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "polars sm_join: per run 0.4423-0.4449 s; windows n=23:target_reached x3",
+    "polars sm_light: per run 0.0044-0.0044 s; windows n=50:max_runs x3",
+    "polars sm_scan: per run 0.0826-0.0834 s; windows n=50:max_runs x3",
+    "spark_cpu sm_join: per run 3.8365-4.0342 s; windows n=3:target_reached x3",
+    "spark_cpu sm_light: per run 0.0766-0.1018 s; windows n=50:max_runs x3",
+    "spark_cpu sm_scan: per run 0.3869-0.4072 s; windows n=25:target_reached, n=26:target_reached x2",
+    "windows: 18; stopped at the cap 9; target reached with n>1 9; n=1 0",
+    "gap between runs: median 10.51 ms per run, max 17.01 ms per run"
+   ],
+   "data": {
+    "windows": [
+     {
+      "engine": "polars",
+      "query": "sm_join",
+      "trial": 1,
+      "n": 23,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.219733706999705,
+      "per_run_seconds": 0.44433624813042194,
+      "span_seconds": 10.466513534,
+      "gap_seconds": 0.24677982700029588,
+      "gap_ms_per_run": 10.729557695665038,
+      "t_hat_seconds": 0.4768783470000244,
+      "window_delta_mj": 705743
+     },
+     {
+      "engine": "polars",
+      "query": "sm_light",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 0.21985178900013125,
+      "per_run_seconds": 0.004397035780002625,
+      "span_seconds": 0.712477651,
+      "gap_seconds": 0.4926258619998688,
+      "gap_ms_per_run": 9.852517239997375,
+      "t_hat_seconds": 0.011160429000028671,
+      "window_delta_mj": 20554
+     },
+     {
+      "engine": "polars",
+      "query": "sm_scan",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 4.168615266000074,
+      "per_run_seconds": 0.08337230532000149,
+      "span_seconds": 4.927870909,
+      "gap_seconds": 0.7592556429999258,
+      "gap_ms_per_run": 15.185112859998515,
+      "t_hat_seconds": 0.08136644700005036,
+      "window_delta_mj": 342634
+     },
+     {
+      "engine": "polars",
+      "query": "sm_scan",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 4.132068760999914,
+      "per_run_seconds": 0.08264137521999829,
+      "span_seconds": 4.942702433,
+      "gap_seconds": 0.810633672000086,
+      "gap_ms_per_run": 16.21267344000172,
+      "t_hat_seconds": 0.08136644700005036,
+      "window_delta_mj": 342662
+     },
+     {
+      "engine": "polars",
+      "query": "sm_join",
+      "trial": 2,
+      "n": 23,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.173833730000297,
+      "per_run_seconds": 0.44234059695653466,
+      "span_seconds": 10.414034237,
+      "gap_seconds": 0.2402005069997024,
+      "gap_ms_per_run": 10.443500304334886,
+      "t_hat_seconds": 0.4768783470000244,
+      "window_delta_mj": 698847
+     },
+     {
+      "engine": "polars",
+      "query": "sm_light",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 0.22137791299985565,
+      "per_run_seconds": 0.004427558259997113,
+      "span_seconds": 0.724957312,
+      "gap_seconds": 0.5035793990001444,
+      "gap_ms_per_run": 10.071587980002887,
+      "t_hat_seconds": 0.011160429000028671,
+      "window_delta_mj": 13718
+     },
+     {
+      "engine": "polars",
+      "query": "sm_join",
+      "trial": 3,
+      "n": 23,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.232092945000318,
+      "per_run_seconds": 0.4448736063043616,
+      "span_seconds": 10.475396154,
+      "gap_seconds": 0.2433032089996825,
+      "gap_ms_per_run": 10.578400391290543,
+      "t_hat_seconds": 0.4768783470000244,
+      "window_delta_mj": 712448
+     },
+     {
+      "engine": "polars",
+      "query": "sm_scan",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 4.140631553999924,
+      "per_run_seconds": 0.08281263107999848,
+      "span_seconds": 4.990906606,
+      "gap_seconds": 0.8502750520000761,
+      "gap_ms_per_run": 17.005501040001523,
+      "t_hat_seconds": 0.08136644700005036,
+      "window_delta_mj": 342432
+     },
+     {
+      "engine": "polars",
+      "query": "sm_light",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 0.21858189900024172,
+      "per_run_seconds": 0.0043716379800048345,
+      "span_seconds": 0.711121847,
+      "gap_seconds": 0.4925399479997583,
+      "gap_ms_per_run": 9.850798959995165,
+      "t_hat_seconds": 0.011160429000028671,
+      "window_delta_mj": 6962
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_join",
+      "trial": 1,
+      "n": 3,
+      "stop_reason": "target_reached",
+      "window_seconds": 12.102747880000038,
+      "per_run_seconds": 4.034249293333346,
+      "span_seconds": 12.120601585,
+      "gap_seconds": 0.017853704999961195,
+      "gap_ms_per_run": 5.951234999987065,
+      "t_hat_seconds": 6.083329939000009,
+      "window_delta_mj": 829135
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_light",
+      "trial": 1,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 5.089703828000097,
+      "per_run_seconds": 0.10179407656000194,
+      "span_seconds": 5.598981907,
+      "gap_seconds": 0.5092780789999027,
+      "gap_ms_per_run": 10.185561579998055,
+      "t_hat_seconds": 1.3231440989999896,
+      "window_delta_mj": 363093
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_scan",
+      "trial": 1,
+      "n": 25,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.178998345000139,
+      "per_run_seconds": 0.40715993380000554,
+      "span_seconds": 10.574442803,
+      "gap_seconds": 0.3954444579998615,
+      "gap_ms_per_run": 15.81777831999446,
+      "t_hat_seconds": 0.7808794089999651,
+      "window_delta_mj": 726247
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_scan",
+      "trial": 2,
+      "n": 26,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.224415330000284,
+      "per_run_seconds": 0.39324674346154936,
+      "span_seconds": 10.654473617,
+      "gap_seconds": 0.43005828699971715,
+      "gap_ms_per_run": 16.54070334614297,
+      "t_hat_seconds": 0.7808794089999651,
+      "window_delta_mj": 726133
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_join",
+      "trial": 2,
+      "n": 3,
+      "stop_reason": "target_reached",
+      "window_seconds": 11.634884108999984,
+      "per_run_seconds": 3.8782947029999946,
+      "span_seconds": 11.651692516,
+      "gap_seconds": 0.016808407000016956,
+      "gap_ms_per_run": 5.602802333338985,
+      "t_hat_seconds": 6.083329939000009,
+      "window_delta_mj": 801468
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_light",
+      "trial": 2,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 4.023903425000128,
+      "per_run_seconds": 0.08047806850000257,
+      "span_seconds": 4.825831197,
+      "gap_seconds": 0.8019277719998721,
+      "gap_ms_per_run": 16.03855543999744,
+      "t_hat_seconds": 1.3231440989999896,
+      "window_delta_mj": 301194
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_join",
+      "trial": 3,
+      "n": 3,
+      "stop_reason": "target_reached",
+      "window_seconds": 11.509635075999995,
+      "per_run_seconds": 3.8365450253333315,
+      "span_seconds": 11.530306683,
+      "gap_seconds": 0.020671607000004144,
+      "gap_ms_per_run": 6.890535666668048,
+      "t_hat_seconds": 6.083329939000009,
+      "window_delta_mj": 787665
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_scan",
+      "trial": 3,
+      "n": 26,
+      "stop_reason": "target_reached",
+      "window_seconds": 10.05906263899999,
+      "per_run_seconds": 0.3868870245769227,
+      "span_seconds": 10.495369797,
+      "gap_seconds": 0.43630715800001063,
+      "gap_ms_per_run": 16.78104453846195,
+      "t_hat_seconds": 0.7808794089999651,
+      "window_delta_mj": 712108
+     },
+     {
+      "engine": "spark_cpu",
+      "query": "sm_light",
+      "trial": 3,
+      "n": 50,
+      "stop_reason": "max_runs",
+      "window_seconds": 3.82805912200007,
+      "per_run_seconds": 0.0765611824400014,
+      "span_seconds": 4.327898394,
+      "gap_seconds": 0.49983927199992984,
+      "gap_ms_per_run": 9.996785439998597,
+      "t_hat_seconds": 1.3231440989999896,
+      "window_delta_mj": 253341
+     }
+    ]
+   }
+  },
+  {
+   "id": "C10",
+   "title": "scope tags: every GPU energy value is S1-counter",
+   "status": "FAIL",
+   "problems": [
+    "polars_gpu: gpu_energy_counter.scope_tag None"
+   ],
+   "warnings": [],
+   "info": [
+    "637 energy values checked; scope_tag values seen: {'S1-counter': 639}"
+   ],
+   "data": {
+    "tags": {
+     "S1-counter": 639
+    },
+    "values": 637
+   }
+  },
+  {
+   "id": "C11",
+   "title": "chrony: the clock offset is logged at every session's start and end",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "offsets of the system clock from NTP time (s): min -0.000075, max +0.001529, stratum [3, 4]"
+   ],
+   "data": {
+    "polars": {
+     "start": {
+      "offset_s": -6.6924e-05,
+      "last_offset_s": 4.615e-06,
+      "stratum": 4,
+      "leap_status": "Normal"
+     },
+     "end": {
+      "offset_s": -5.6211e-05,
+      "last_offset_s": -1.8093e-05,
+      "stratum": 4,
+      "leap_status": "Normal"
+     }
+    },
+    "polars_gpu": {
+     "start": {
+      "offset_s": -7.478e-05,
+      "last_offset_s": -0.000224672,
+      "stratum": 4,
+      "leap_status": "Normal"
+     },
+     "end": {
+      "offset_s": -6.7933e-05,
+      "last_offset_s": 4.615e-06,
+      "stratum": 4,
+      "leap_status": "Normal"
+     }
+    },
+    "spark_cpu": {
+     "start": {
+      "offset_s": 0.001529089,
+      "last_offset_s": 0.000490638,
+      "stratum": 3,
+      "leap_status": "Normal"
+     },
+     "end": {
+      "offset_s": 0.000120537,
+      "last_offset_s": 1.0585e-05,
+      "stratum": 4,
+      "leap_status": "Normal"
+     }
+    },
+    "spark_gpu": {
+     "start": {
+      "offset_s": 0.000117085,
+      "last_offset_s": 1.0585e-05,
+      "stratum": 4,
+      "leap_status": "Normal"
+     },
+     "end": {
+      "offset_s": 0.000151198,
+      "last_offset_s": 4.6221e-05,
+      "stratum": 4,
+      "leap_status": "Normal"
+     }
+    }
+   }
+  },
+  {
+   "id": "C12",
+   "title": "paper3_gates.py with the h100 host config: no FAIL for a clean run",
+   "status": "WARN",
+   "problems": [],
+   "warnings": [
+    "G8 smoke/sf1/spark_cpu not evaluable: 0 window(s) of 5 s or longer without two usable onsets and 2 pulse record(s) with 0 onset(s): the lag and the drift need two",
+    "G8 smoke/sf1/polars not evaluable: 0 window(s) of 5 s or longer without two usable onsets and 2 pulse record(s) with 0 onset(s): the lag and the drift need two",
+    "G9 spark_cpu/sm_scan: ['per_run_below_t_min'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)",
+    "G9 polars/sm_join: ['per_run_below_t_min'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)",
+    "G9 polars/sm_scan: ['per_run_below_t_min', 'window_below_10s'] (this query was meant to run 1-3 s per run: enlarge --facts-rows)"
+   ],
+   "info": [
+    "G6: pass 2, not_applicable 2",
+    "G7: pass 2, not_applicable 2",
+    "G8: pass 0, fail 0, not_evaluable 2, not_applicable 2",
+    "G9: pass 1, fail 5, not_evaluable 0, not_applicable 0",
+    "G10: pass 2, not_applicable 2",
+    "G11: pass 2, not_applicable 2",
+    "G12: pass 5, not_applicable 0",
+    "G8 onsets smoke/sf1/spark_cpu: not_evaluable, method none; pulses scored 0 of 2 (busy_before 0, quiet_not_shown 0, missed 2)",
+    "G8 onsets smoke/sf1/polars: not_evaluable, method none; pulses scored 0 of 2 (busy_before 0, quiet_not_shown 0, missed 2)",
+    "G9 spark_cpu/sm_light: ['per_run_below_t_min', 'window_below_10s'] (expected: the light query is meant to hit the cap, below the resolution)",
+    "G9 polars/sm_light: ['per_run_below_t_min', 'window_below_10s'] (expected: the light query is meant to hit the cap, below the resolution)",
+    "gates stage exit 0 (0 = clean, 1 = a round-failing gate, 2 = host config error); host h100, t_min 1.0 s"
+   ],
+   "data": {
+    "gates": {
+     "G6": {
+      "pass": 2,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 2,
+      "consequence": "session energy invalid; round fails (repeated once, then stop); no substitution"
+     },
+     "G7": {
+      "pass": 2,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 2,
+      "consequence": "cross-check flagged; counter value unaffected"
+     },
+     "G8": {
+      "pass": 0,
+      "fail": 0,
+      "not_evaluable": 2,
+      "not_applicable": 2,
+      "consequence": "gpu.csv values disabled for the session"
+     },
+     "G9": {
+      "pass": 1,
+      "fail": 5,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "cell is below measurement resolution"
+     },
+     "G10": {
+      "pass": 2,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 2,
+      "consequence": "above-idle flagged unreliable; total unaffected"
+     },
+     "G11": {
+      "pass": 2,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 2,
+      "consequence": "flagged, not excluded"
+     },
+     "G12": {
+      "pass": 5,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "integrity failure; round fails"
+     }
+    },
+    "round_failed": false,
+    "ineligible": {
+     "smoke/sf1/polars": [
+      "gpu_csv_enabled"
+     ],
+     "smoke/sf1/polars/sm_join": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/polars/sm_light": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/polars/sm_scan": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/spark_cpu": [
+      "gpu_csv_enabled"
+     ],
+     "smoke/sf1/spark_cpu/sm_light": [
+      "resolution_ok"
+     ],
+     "smoke/sf1/spark_cpu/sm_scan": [
+      "resolution_ok"
+     ]
+    }
+   }
+  },
+  {
+   "id": "C13",
+   "title": "poller cadence and coverage of sessions and windows (G7's 0.80 / 1 s rule)",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "4207 rows over 842 s; spacing median 200 ms, p99 203 ms, max 226 ms; query: timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active",
+    "coverage of 26 sessions and windows: min 0.842, median 1.000"
+   ],
+   "data": {
+    "rows": 4207,
+    "spacing_ms": {
+     "median": 200.00004768371582,
+     "p99": 202.99983024597168,
+     "max": 226.0000705718994
+    }
+   }
+  },
+  {
+   "id": "C14",
+   "title": "outputs: every engine returns the polars rows (ints exact, floats rel 1e-8 / abs 1e-6)",
+   "status": "FAIL",
+   "problems": [
+    "sm_light: polars_gpu has no warmup rows",
+    "sm_light: spark_gpu has no warmup rows",
+    "sm_join: polars_gpu has no warmup rows",
+    "sm_join: spark_gpu has no warmup rows",
+    "sm_scan: polars_gpu has no warmup rows",
+    "sm_scan: spark_gpu has no warmup rows"
+   ],
+   "warnings": [],
+   "info": [
+    "sm_light: 100 result rows",
+    "sm_join: 100 result rows",
+    "sm_scan: 1000 result rows"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C15",
+   "title": "no foreign GPU process at the host captures, the idle gates and the session ends",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "polars: idle gate passed after 0.020411856999999145 s (1 poll(s))",
+    "polars_gpu: idle gate passed after 0.019075533999966865 s (1 poll(s))",
+    "spark_cpu: idle gate passed after 0.018878545000006852 s (1 poll(s))",
+    "spark_gpu: idle gate passed after 0.019145632999993722 s (1 poll(s))"
+   ],
+   "data": {}
+  },
+  {
+   "id": "C16",
+   "title": "CPU / node power sampler on this host (the h100 config declares cpu_energy none)",
+   "status": "INFO",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "power_telemetry: enabled True, started True, status unavailable, cpu_energy_source None, node_power_source None, interval 0.2",
+    "reasons: ['powercap-rapl: /sys/class/powercap has no intel-rapl*/energy_uj zone (driver not loaded, or RAPL not exposed to this host)', 'amd-energy: no hwmon device named amd_energy under /sys/class/hwmon', \"perf-stat: no power/energy-*/ event counted (perf exit 129):     -e, --event <event>   event selector. use 'perf list' to list available events\", 'turbostat: no PkgWatt/RAMWatt values (turbostat exit 251): turbostat: no /dev/cpu/0/msr, Try \"# modprobe msr\" : No such file or directory', \"ipmi-dcmi: 'ipmitool' not found on PATH\"]",
+    "power.csv present: True (103 bytes)"
+   ],
+   "data": {
+    "power_telemetry": {
+     "enabled": true,
+     "started": true,
+     "status": "unavailable",
+     "csv": "power.csv",
+     "sidecar": "power_sources.json",
+     "cpu_energy_source": null,
+     "node_power_source": null,
+     "interval_seconds": 0.2,
+     "reasons": [
+      "powercap-rapl: /sys/class/powercap has no intel-rapl*/energy_uj zone (driver not loaded, or RAPL not exposed to this host)",
+      "amd-energy: no hwmon device named amd_energy under /sys/class/hwmon",
+      "perf-stat: no power/energy-*/ event counted (perf exit 129):     -e, --event <event>   event selector. use 'perf list' to list available events",
+      "turbostat: no PkgWatt/RAMWatt values (turbostat exit 251): turbostat: no /dev/cpu/0/msr, Try \"# modprobe msr\" : No such file or directory",
+      "ipmi-dcmi: 'ipmitool' not found on PATH"
+     ]
+    }
+   }
+  },
+  {
+   "id": "C17",
+   "title": "redaction: no GPU UUID, serial number, bus id or IP address in the evidence",
+   "status": "PASS",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "publish removed: {'ip address': 13, 'gpu uuid': 1, 'serial number': 2, 'bus id': 1, 'mask': 1}"
+   ],
+   "data": {
+    "leaks": 0
+   }
+  },
+  {
+   "id": "C18",
+   "title": "time and cost: every stage, the whole run",
+   "status": "INFO",
+   "problems": [],
+   "warnings": [],
+   "info": [
+    "stage setup: 65 s (1.1 min), exit 0, 2026-11-22T23:30:56Z -> 2026-11-22T23:32:01Z",
+    "stage data: 4 s (0.1 min), exit 0, 2026-11-22T23:32:31Z -> 2026-11-22T23:32:35Z",
+    "stage run: 874 s (14.6 min), exit 0, 2026-11-22T23:33:03Z -> 2026-11-22T23:47:37Z",
+    "stage gates: 0 s (0.0 min), exit 0, 2026-11-22T23:48:00Z -> 2026-11-22T23:48:00Z",
+    "launch to SSH ready: 5.2 min",
+    "create call to confirmed termination: 30.6 min -> about $2.50 at $4.89/h (Lambda bills per minute from boot; the boot is part of the create-to-ready time)",
+    "driver view of the stages (start call to exit code seen, polling included): setup 1.6 min, data 0.5 min, run 14.9 min, gates 0.0 min, bundle 0.0 min",
+    "polars: session 230 s (worker launch to exit)",
+    "polars_gpu: session 31 s (worker launch to exit)",
+    "spark_cpu: session 277 s (worker launch to exit)",
+    "spark_gpu: session 45 s (worker launch to exit)",
+    "first launch to last exit: 12.9 min (four sessions, pulses and idle windows included)"
+   ],
+   "data": {
+    "setup": 65,
+    "data": 4,
+    "run": 874,
+    "gates": 0,
+    "billed_seconds_estimate": 1837,
+    "sessions_span_seconds": 776.4101569652557
+   }
+  }
+ ]
+}

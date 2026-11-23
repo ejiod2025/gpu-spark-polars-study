@@ -1,0 +1,458 @@
+{
+  "format": 1,
+  "host": "h100",
+  "kind": "gpu",
+  "t_min_s": 1.0,
+  "thresholds": {
+    "window_target_s": 10.0,
+    "window_max_runs": 50,
+    "g7_min_coverage": 0.8,
+    "g7_max_gap_s": 1.0,
+    "g8_median_lag_s": 0.4,
+    "g8_drift_s": 0.2,
+    "g8_utilization_percent": 10.0,
+    "g8_window_quiet": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "g8_pulse_quiet": [
+      2.0,
+      1.0,
+      1.0
+    ],
+    "g10_max_relative_difference": 0.1
+  },
+  "interpretations": {
+    "G6.liveness": "liveness is judged per session over the runner's launch and process-exit stamps with power_telemetry.energy_between_uj (the analysis's own function: too few samples, a stamp outside the sampled range or a sample flagged decrease or gap = no session energy), plus no backwards step, no gap over 30 s, the counter advancing and never flat over 5 s; the sampler's invocation-wide verdicts are information only",
+    "G6.incomplete_session": "a session whose schedule status is not complete (a coverage outcome or a failure) is judged by G1/A1, not G6: G6 is not_applicable for it",
+    "G7.scope": "applied to the gpu.csv trapezoid cross-check (measured windows and idle windows >= 10 s); the RAPL series are judged by G6 (flags, liveness), not G7",
+    "G7.gap": "a gap is the spacing of consecutive samples whose interval overlaps the window, boundary intervals included",
+    "G8.clean_onset": "an onset is usable only if gpu.csv shows the GPU quiet (utilization.gpu < 10% in every sample) just before the reference stamp (the window start or the pulse's launch stamp). A window: quiet over the 1.0 s before the stamp, then the onset is the first sample >= 10% in [stamp, stamp + 3 s] (windows follow each other and the query's warm-up run within milliseconds: activity in the last second is earlier work, not the window's onset). A pulse: quiet over [stamp - 2 s, stamp - 1 s), then the onset is the first sample >= 10% in [stamp - 1 s, stamp + 3 s] and the lag is signed, so a stream stamped ahead of the worker's clock (a negative lag) is scored and fails the +-0.4 s rule (the runner waits for a quiet GPU before every pulse). A window or pulse with a sample >= 10% in its quiet range (busy_before) or no sample there (quiet_not_shown) has no onset: counted in the QA table (windows_skipped, pulses_skipped), never scored as a lag. With fewer than two usable window onsets a session falls back to its load pulses (implementation clarification of section 4 G8, amendment A3, made before any study data)",
+    "G8.drift": "first-third versus last-third = median lag of the first max(1, n // 3) usable onsets minus that of the last max(1, n // 3); needs n >= 2 (the probe tool reports no drift below six onsets and passes; the gate evaluates it)",
+    "G8.chrony": "the design says the offset is logged, with no threshold: a missing log fails G8, a logged one never does",
+    "G8.not_evaluable": "a session with fewer than two onsets from its windows and its pulses together is not_evaluable: counted in the QA table, its gpu.csv values are disabled like a failed session's, and it is never a pass",
+    "G9.median_trial": "the median trial of a query is the one with the median per-run time of its trials",
+    "G9.window_rule": "a window that does not follow the stop rule (n < 50 needs sum of the first n-1 runs < target <= sum of all n) is a rule violation, reported as its own reason; the cell is not usable",
+    "G10.difference": "relative difference = |post - pre| / mean(pre, post), the pair difference of the P5 probe",
+    "G10.scopes": "the GPU counter, and on a RAPL host S2-all (power_telemetry.all_package_dram_zones; every series for a source that is not per socket) and S2-pinned (power_telemetry.pinned_energy_zones) where attribution is possible, each summed by power_telemetry.s2_pinned_energy_j; a scope that exists on the host but has no valid energy in both idle windows (for instance a window that touches a flagged sample) makes the session's above-idle unreliable",
+    "G11.logged": "G11 passes when the throttle reasons, the temperature and the power-limit text are logged for the session; throttling actually observed is reported as a count, not judged",
+    "G12.scheduled": "'nothing else scheduled' is judged against an explicit allow-list in the host config (cron, at, systemd timers captured at the start and end of the round)"
+  },
+  "gates": {
+    "G6": {
+      "pass": 2,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 2,
+      "consequence": "session energy invalid; round fails (repeated once, then stop); no substitution"
+    },
+    "G7": {
+      "pass": 2,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 2,
+      "consequence": "cross-check flagged; counter value unaffected"
+    },
+    "G8": {
+      "pass": 0,
+      "fail": 0,
+      "not_evaluable": 2,
+      "not_applicable": 2,
+      "consequence": "gpu.csv values disabled for the session"
+    },
+    "G9": {
+      "pass": 1,
+      "fail": 5,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "cell is below measurement resolution"
+    },
+    "G10": {
+      "pass": 2,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 2,
+      "consequence": "above-idle flagged unreliable; total unaffected"
+    },
+    "G11": {
+      "pass": 2,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 2,
+      "consequence": "flagged, not excluded"
+    },
+    "G12": {
+      "pass": 5,
+      "fail": 0,
+      "not_evaluable": 0,
+      "not_applicable": 0,
+      "consequence": "integrity failure; round fails"
+    }
+  },
+  "round_failures": [],
+  "round_failed": false,
+  "ineligible": {
+    "smoke/sf1/polars": [
+      "gpu_csv_enabled"
+    ],
+    "smoke/sf1/polars/sm_join": [
+      "resolution_ok"
+    ],
+    "smoke/sf1/polars/sm_light": [
+      "resolution_ok"
+    ],
+    "smoke/sf1/polars/sm_scan": [
+      "resolution_ok"
+    ],
+    "smoke/sf1/spark_cpu": [
+      "gpu_csv_enabled"
+    ],
+    "smoke/sf1/spark_cpu/sm_light": [
+      "resolution_ok"
+    ],
+    "smoke/sf1/spark_cpu/sm_scan": [
+      "resolution_ok"
+    ]
+  },
+  "round_exclusivity": {
+    "outcome": "pass",
+    "problems": []
+  },
+  "runs": [
+    {
+      "run_dir": "/home/ubuntu/p3smoke/run",
+      "suite": "smoke",
+      "sessions": [
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "spark_cpu",
+          "key": "smoke/sf1/spark_cpu",
+          "gates": {
+            "G6": {
+              "outcome": "pass",
+              "problems": []
+            },
+            "G7": {
+              "outcome": "pass",
+              "windows": 8,
+              "flagged_windows": []
+            },
+            "G8": {
+              "outcome": "not_evaluable",
+              "method": "none",
+              "windows_considered": 0,
+              "windows_skipped": {
+                "busy_before": 0,
+                "quiet_not_shown": 0,
+                "missed": 0,
+                "no_utilization_column": 0
+              },
+              "pulses": 2,
+              "pulses_skipped": {
+                "busy_before": 0,
+                "quiet_not_shown": 0,
+                "missed": 2,
+                "no_utilization_column": 0
+              },
+              "reasons": [
+                "0 window(s) of 5 s or longer without two usable onsets and 2 pulse record(s) with 0 onset(s): the lag and the drift need two"
+              ]
+            },
+            "G10": {
+              "outcome": "pass",
+              "problems": [],
+              "relative_difference": {
+                "S1-counter": 0.00124
+              },
+              "unreliable_scopes": []
+            },
+            "G11": {
+              "outcome": "pass",
+              "problems": [],
+              "throttle_samples_with_reasons": 0,
+              "power_limit_text_logged": [
+                "end",
+                "start"
+              ]
+            },
+            "G12": {
+              "outcome": "pass",
+              "problems": []
+            }
+          },
+          "flags": {
+            "energy_valid": true,
+            "crosscheck_ok": true,
+            "gpu_csv_enabled": false,
+            "above_idle_reliable": true,
+            "power_state_logged": true,
+            "exclusive_use": true
+          }
+        },
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "spark_gpu",
+          "key": "smoke/sf1/spark_gpu",
+          "gates": {
+            "G6": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "session did not complete (judged by G1/A1)"
+              ]
+            },
+            "G7": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "no results.json"
+              ]
+            },
+            "G8": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "session did not complete"
+              ]
+            },
+            "G10": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "session did not complete"
+              ]
+            },
+            "G11": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "session did not complete"
+              ]
+            },
+            "G12": {
+              "outcome": "pass",
+              "problems": []
+            }
+          },
+          "flags": {
+            "energy_valid": true,
+            "crosscheck_ok": true,
+            "gpu_csv_enabled": true,
+            "above_idle_reliable": true,
+            "power_state_logged": true,
+            "exclusive_use": true
+          }
+        },
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "polars_gpu",
+          "key": "smoke/sf1/polars_gpu",
+          "gates": {
+            "G6": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "session did not complete (judged by G1/A1)"
+              ]
+            },
+            "G7": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "no window of 10 s or longer"
+              ],
+              "windows": 0
+            },
+            "G8": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "session did not complete"
+              ]
+            },
+            "G10": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "session did not complete"
+              ]
+            },
+            "G11": {
+              "outcome": "not_applicable",
+              "reasons": [
+                "session did not complete"
+              ]
+            },
+            "G12": {
+              "outcome": "pass",
+              "problems": []
+            }
+          },
+          "flags": {
+            "energy_valid": true,
+            "crosscheck_ok": true,
+            "gpu_csv_enabled": true,
+            "above_idle_reliable": true,
+            "power_state_logged": true,
+            "exclusive_use": true
+          }
+        },
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "polars",
+          "key": "smoke/sf1/polars",
+          "gates": {
+            "G6": {
+              "outcome": "pass",
+              "problems": []
+            },
+            "G7": {
+              "outcome": "pass",
+              "windows": 5,
+              "flagged_windows": []
+            },
+            "G8": {
+              "outcome": "not_evaluable",
+              "method": "none",
+              "windows_considered": 0,
+              "windows_skipped": {
+                "busy_before": 0,
+                "quiet_not_shown": 0,
+                "missed": 0,
+                "no_utilization_column": 0
+              },
+              "pulses": 2,
+              "pulses_skipped": {
+                "busy_before": 0,
+                "quiet_not_shown": 0,
+                "missed": 2,
+                "no_utilization_column": 0
+              },
+              "reasons": [
+                "0 window(s) of 5 s or longer without two usable onsets and 2 pulse record(s) with 0 onset(s): the lag and the drift need two"
+              ]
+            },
+            "G10": {
+              "outcome": "pass",
+              "problems": [],
+              "relative_difference": {
+                "S1-counter": 0.00448
+              },
+              "unreliable_scopes": []
+            },
+            "G11": {
+              "outcome": "pass",
+              "problems": [],
+              "throttle_samples_with_reasons": 0,
+              "power_limit_text_logged": [
+                "end",
+                "start"
+              ]
+            },
+            "G12": {
+              "outcome": "pass",
+              "problems": []
+            }
+          },
+          "flags": {
+            "energy_valid": true,
+            "crosscheck_ok": true,
+            "gpu_csv_enabled": false,
+            "above_idle_reliable": true,
+            "power_state_logged": true,
+            "exclusive_use": true
+          }
+        }
+      ],
+      "cells": [
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "spark_cpu",
+          "query": "sm_join",
+          "outcome": "pass",
+          "reasons": [],
+          "trials": 3,
+          "median_trial": {
+            "n": 3,
+            "stop_reason": "target_reached"
+          }
+        },
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "spark_cpu",
+          "query": "sm_light",
+          "outcome": "fail",
+          "reasons": [
+            "window_below_10s",
+            "per_run_below_t_min"
+          ],
+          "trials": 3,
+          "median_trial": {
+            "n": 50,
+            "stop_reason": "max_runs"
+          }
+        },
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "spark_cpu",
+          "query": "sm_scan",
+          "outcome": "fail",
+          "reasons": [
+            "per_run_below_t_min"
+          ],
+          "trials": 3,
+          "median_trial": {
+            "n": 26,
+            "stop_reason": "target_reached"
+          }
+        },
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "polars",
+          "query": "sm_join",
+          "outcome": "fail",
+          "reasons": [
+            "per_run_below_t_min"
+          ],
+          "trials": 3,
+          "median_trial": {
+            "n": 23,
+            "stop_reason": "target_reached"
+          }
+        },
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "polars",
+          "query": "sm_light",
+          "outcome": "fail",
+          "reasons": [
+            "window_below_10s",
+            "per_run_below_t_min"
+          ],
+          "trials": 3,
+          "median_trial": {
+            "n": 50,
+            "stop_reason": "max_runs"
+          }
+        },
+        {
+          "suite": "smoke",
+          "scale": "1",
+          "engine": "polars",
+          "query": "sm_scan",
+          "outcome": "fail",
+          "reasons": [
+            "window_below_10s",
+            "per_run_below_t_min"
+          ],
+          "trials": 3,
+          "median_trial": {
+            "n": 50,
+            "stop_reason": "max_runs"
+          }
+        }
+      ]
+    }
+  ]
+}

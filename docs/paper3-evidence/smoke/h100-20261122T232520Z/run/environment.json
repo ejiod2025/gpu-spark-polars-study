@@ -1,0 +1,539 @@
+{
+  "started_at_utc": "2026-11-22T23:33:04.150995+00:00",
+  "arguments": {
+    "data_root": "/home/ubuntu/p3smoke/data",
+    "output": "/home/ubuntu/p3smoke/run",
+    "scales": [
+      "1"
+    ],
+    "engines": [
+      "polars",
+      "polars_gpu",
+      "spark_cpu",
+      "spark_gpu"
+    ],
+    "engine_order": [
+      "spark_cpu",
+      "spark_gpu",
+      "polars_gpu",
+      "polars"
+    ],
+    "runs": 3,
+    "cpus": 26,
+    "driver_memory": "96g",
+    "jar": "/home/ubuntu/gpu-spark-polars-study/jars/rapids-4-spark_2.12-26.08.1.jar",
+    "queries": null,
+    "suite": "smoke",
+    "synthetic_smoke": true,
+    "query_cleanup": "none",
+    "cleanup_timeout_seconds": 60,
+    "keep_going": true,
+    "engine_timeout_seconds": null,
+    "gpu_idle_timeout_seconds": 60,
+    "power_telemetry": "auto",
+    "power_interval_ms": 200.0,
+    "ipmi_interval_seconds": 1.0,
+    "idle_baseline_seconds": 0.0,
+    "cpu_energy": "auto",
+    "socket": null,
+    "cpu_list": null,
+    "no_membind": false,
+    "gpu_energy": "auto",
+    "gpu_energy_scope": "board",
+    "energy_window_s": 10.0,
+    "session_cooldown_seconds": 0.0,
+    "g8_pulse_seconds": 3.0,
+    "g8_pulse_engines": "all",
+    "redact_gpu_identifiers": "on",
+    "polars_gpu_executor": "streaming",
+    "polars_gpu_executor_options": "{}",
+    "spark_gpu_profile": "a100-parity",
+    "spark_gpu_conf_file": null
+  },
+  "platform": "Linux-6.8.0-60-generic-x86_64-with-glibc2.35",
+  "python": "3.11.13 (main, Aug 18 2025, 19:19:13) [Clang 20.1.4 ]",
+  "inventory": [
+    {
+      "command": [
+        "lscpu"
+      ],
+      "returncode": 0,
+      "output": "Architecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        52 bits physical, 57 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               26\nOn-line CPU(s) list:                  0-25\nVendor ID:                            GenuineIntel\nModel name:                           Intel(R) Xeon(R) Platinum 8480+\nCPU family:                           6\nModel:                                143\nThread(s) per core:                   2\nCore(s) per socket:                   13\nSocket(s):                            1\nStepping:                             8\nBogoMIPS:                             4000.00\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx_vnni avx512_bf16 wbnoinvd arat vnmi avx512vbmi umip pku ospke waitpkg avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq la57 rdpid bus_lock_detect cldemote movdiri movdir64b fsrm md_clear serialize tsxldtrk avx512_fp16 arch_capabilities\nVirtualization:                       VT-x\nHypervisor vendor:                    KVM\nVirtualization type:                  full\nL1d cache:                            832 KiB (26 instances)\nL1i cache:                            832 KiB (26 instances)\nL2 cache:                             52 MiB (13 instances)\nL3 cache:                             16 MiB (1 instance)\nNUMA node(s):                         1\nNUMA node0 CPU(s):                    0-25\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Unknown: No mitigations\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Enhanced / Automatic IBRS; IBPB conditional; RSB filling; PBRSB-eIBRS SW sequence; BHI SW loop, KVM SW loop\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Mitigation; TSX disabled\n"
+    },
+    {
+      "command": [
+        "free",
+        "-b"
+      ],
+      "returncode": 0,
+      "output": "               total        used        free      shared  buff/cache   available\nMem:     237490966528  1264734208 224222769152     5599232 12003463168 234218348544\nSwap:              0           0           0\n"
+    },
+    {
+      "command": [
+        "df",
+        "-B1",
+        "/home/ubuntu/p3smoke/data"
+      ],
+      "returncode": 0,
+      "output": "Filesystem         1B-blocks        Used     Available Use% Mounted on\n/dev/vda1      2930253778944 36321001472 2893916000256   2% /\n"
+    },
+    {
+      "command": [
+        "nvidia-smi",
+        "-q"
+      ],
+      "returncode": 0,
+      "output": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Sun Nov 22 23:33:04 2026\nDriver Version                            : 570.148.08\nCUDA Version                              : 12.8\n\nAttached GPUs                             : 1\nGPU <redacted>\n    Product Name                          : NVIDIA H100 80GB HBM3\n    Product Brand                         : NVIDIA\n    Product Architecture                  : Hopper\n    Display Mode                          : Enabled\n    Display Active                        : Disabled\n    Persistence Mode                      : Enabled\n    Addressing Mode                       : HMM\n    MIG Mode\n        Current                           : Disabled\n        Pending                           : Disabled\n    Accounting Mode                       : Disabled\n    Accounting Mode Buffer Size           : 4000\n    Driver Model\n        Current                           : N/A\n        Pending                           : N/A\n    Serial Number                         : <redacted>\n    GPU UUID                              : <redacted>\n    Minor Number                          : 0\n    VBIOS Version                         : 96.00.99.00.01\n    MultiGPU Board                        : No\n    Board ID                              : <redacted>\n    Board Part Number                     : 692-2G520-0200-000\n    GPU Part Number                       : 2330-885-A1\n    FRU Part Number                       : N/A\n    Platform Info\n        Chassis Serial Number             : N/A\n        Slot Number                       : N/A\n        Tray Index                        : N/A\n        Host ID                           : N/A\n        Peer Type                         : N/A\n        Module Id                         : 6\n        GPU Fabric GUID                   : N/A\n    Inforom Version\n        Image Version                     : G520.0200.00.05\n        OEM Object                        : 2.1\n        ECC Object                        : 7.16\n        Power Management Object           : N/A\n    Inforom BBX Object Flush\n        Latest Timestamp                  : N/A\n        Latest Duration                   : N/A\n    GPU Operation Mode\n        Current                           : N/A\n        Pending                           : N/A\n    GPU C2C Mode                          : Disabled\n    GPU Virtualization Mode\n        Virtualization Mode               : Pass-Through\n        Host VGPU Mode                    : N/A\n        vGPU Heterogeneous Mode           : N/A\n    GPU Reset Status\n        Reset Required                    : Requested functionality has been deprecated\n        Drain and Reset Recommended       : Requested functionality has been deprecated\n    GPU Recovery Action                   : None\n    GSP Firmware Version                  : 570.148.08\n    IBMNPU\n        Relaxed Ordering Mode             : N/A\n    PCI\n        Bus                               : <redacted>\n        Device                            : <redacted>\n        Domain                            : <redacted>\n        Base Classcode                    : 0x3\n        Sub Classcode                     : 0x2\n        Device Id                         : 0x233010DE\n        Bus Id                            : <redacted>\n        Sub System Id                     : 0x16C110DE\n        GPU Link Info\n            PCIe Generation\n                Max                       : 5\n                Current                   : 5\n                Device Current            : 5\n                Device Max                : 5\n                Host Max                  : N/A\n            Link Width\n                Max                       : 16x\n                Current                   : 16x\n        Bridge Chip\n            Type                          : N/A\n            Firmware                      : N/A\n        Replays Since Reset               : 0\n        Replay Number Rollovers           : 0\n        Tx Throughput                     : 686 KB/s\n        Rx Throughput                     : 609 KB/s\n        Atomic Caps Outbound              : N/A\n        Atomic Caps Inbound               : N/A\n    Fan Speed                             : N/A\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n    FB Memory Usage\n        Total                             : 81559 MiB\n        Reserved                          : 470 MiB\n        Used                              : 0 MiB\n        Free                              : 81090 MiB\n    BAR1 Memory Usage\n        Total                             : 131072 MiB\n        Used                              : 1 MiB\n        Free                              : 131071 MiB\n    Conf Compute Protected Memory Usage\n        Total                             : 0 MiB\n        Used                              : 0 MiB\n        Free                              : 0 MiB\n    Compute Mode                          : Default\n    Utilization\n        GPU                               : 0 %\n        Memory                            : 0 %\n        Encoder                           : 0 %\n        Decoder                           : 0 %\n        JPEG                              : 0 %\n        OFA                               : 0 %\n    Encoder Stats\n        Active Sessions                   : 0\n        Average FPS                       : 0\n        Average Latency                   : 0\n    FBC Stats\n        Active Sessions                   : 0\n        Average FPS                       : 0\n        Average Latency                   : 0\n    DRAM Encryption Mode\n        Current                           : N/A\n        Pending                           : N/A\n    ECC Mode\n        Current                           : Enabled\n        Pending                           : Enabled\n    ECC Errors\n        Volatile\n            SRAM Correctable              : 0\n            SRAM Uncorrectable Parity     : 0\n            SRAM Uncorrectable SEC-DED    : 0\n            DRAM Correctable              : 0\n            DRAM Uncorrectable            : 0\n        Aggregate\n            SRAM Correctable              : 0\n            SRAM Uncorrectable Parity     : 0\n            SRAM Uncorrectable SEC-DED    : 0\n            DRAM Correctable              : 0\n            DRAM Uncorrectable            : 0\n            SRAM Threshold Exceeded       : No\n        Aggregate Uncorrectable SRAM Sources\n            SRAM L2                       : 0\n            SRAM SM                       : 0\n            SRAM Microcontroller          : 0\n            SRAM PCIE                     : 0\n            SRAM Other                    : 0\n    Retired Pages\n        Single Bit ECC                    : N/A\n        Double Bit ECC                    : N/A\n        Pending Page Blacklist            : N/A\n    Remapped Rows\n        Correctable Error                 : 0\n        Uncorrectable Error               : 0\n        Pending                           : No\n        Remapping Failure Occurred        : No\n        Bank Remap Availability Histogram\n            Max                           : 2560 bank(s)\n            High                          : 0 bank(s)\n            Partial                       : 0 bank(s)\n            Low                           : 0 bank(s)\n            None                          : 0 bank(s)\n    Temperature\n        GPU Current Temp                  : 27 C\n        GPU T.Limit Temp                  : 60 C\n        GPU Shutdown T.Limit Temp         : -8 C\n        GPU Slowdown T.Limit Temp         : -2 C\n        GPU Max Operating T.Limit Temp    : 0 C\n        GPU Target Temperature            : N/A\n        Memory Current Temp               : 35 C\n        Memory Max Operating T.Limit Temp : 0 C\n    GPU Power Readings\n        Average Power Draw                : 68.56 W\n        Instantaneous Power Draw          : 68.61 W\n        Current Power Limit               : 700.00 W\n        Requested Power Limit             : 700.00 W\n        Default Power Limit               : 700.00 W\n        Min Power Limit                   : 200.00 W\n        Max Power Limit                   : 700.00 W\n    GPU Memory Power Readings \n        Average Power Draw                : 48.37 W\n        Instantaneous Power Draw          : N/A\n    Module Power Readings\n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Power Smoothing                       : N/A\n    Workload Power Profiles\n        Requested Profiles                : N/A\n        Enforced Profiles                 : N/A\n    Clocks\n        Graphics                          : 345 MHz\n        SM                                : 345 MHz\n        Memory                            : 2619 MHz\n        Video                             : 765 MHz\n    Applications Clocks\n        Graphics                          : 1980 MHz\n        Memory                            : 2619 MHz\n    Default Applications Clocks\n        Graphics                          : 1980 MHz\n        Memory                            : 2619 MHz\n    Deferred Clocks\n        Memory                            : N/A\n    Max Clocks\n        Graphics                          : 1980 MHz\n        SM                                : 1980 MHz\n        Memory                            : 2619 MHz\n        Video                             : 1545 MHz\n    Max Customer Boost Clocks\n        Graphics                          : 1980 MHz\n    Clock Policy\n        Auto Boost                        : N/A\n        Auto Boost Default                : N/A\n    Voltage\n        Graphics                          : N/A\n    Fabric\n        State                             : In Progress\n        Status                            : N/A\n        CliqueId                          : N/A\n        ClusterUUID                       : N/A\n        Health\n            Bandwidth                     : N/A\n            Route Recovery in progress    : N/A\n            Route Unhealthy               : N/A\n            Access Timeout Recovery       : N/A\n    Processes                             : None\n    Capabilities\n        EGM                               : disabled\n\n"
+    },
+    {
+      "command": [
+        "java",
+        "-version"
+      ],
+      "returncode": 0,
+      "output": "openjdk version \"<ip>\" 2026-11-17\nOpenJDK Runtime Environment (build <ip>+2-1-22.04.1-Ubuntu)\nOpenJDK 64-Bit Server VM (build <ip>+2-1-22.04.1-Ubuntu, mixed mode, sharing)\n"
+    },
+    {
+      "command": [
+        "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+        "-m",
+        "pip",
+        "freeze"
+      ],
+      "returncode": 1,
+      "output": "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python: No module named pip\n"
+    },
+    {
+      "command": [
+        "nvidia-smi",
+        "topo",
+        "-m"
+      ],
+      "returncode": 0,
+      "output": "\t\u001b[4mGPU0\tNIC0\tCPU Affinity\tNUMA Affinity\tGPU NUMA ID\u001b[0m\nGPU0\t X \tPHB\t0-25\t0\t\tN/A\nNIC0\tPHB\t X \t\t\t\t\n\nLegend:\n\n  X    = Self\n  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)\n  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node\n  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)\n  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)\n  PIX  = Connection traversing at most a single PCIe bridge\n  NV#  = Connection traversing a bonded set of # NVLinks\n\nNIC Legend:\n\n  NIC0: mlx5_0\n\n"
+    },
+    {
+      "command": [
+        "nvidia-smi",
+        "--query-gpu=name,driver_version,memory.total",
+        "--format=csv"
+      ],
+      "returncode": 0,
+      "output": "name, driver_version, memory.total [MiB]\nNVIDIA H100 80GB HBM3, 570.148.08, 81559 MiB\n"
+    },
+    {
+      "command": [
+        "/home/ubuntu/gpu-spark-polars-study/.venv/bin/python",
+        "-c",
+        "\nimport importlib, importlib.metadata as metadata, json\nout = {\"distributions\": {}, \"imports\": {}}\nfor dist in (\"polars\", \"cudf-polars-cu12\", \"cudf-polars-cu13\", \"cudf-cu12\", \"cudf-cu13\",\n             \"pylibcudf-cu12\", \"pylibcudf-cu13\", \"rmm-cu12\", \"rmm-cu13\", \"rapidsmpf-cu12\",\n             \"rapidsmpf-cu13\", \"cuda-python\", \"cuda-bindings\", \"nvidia-ml-py\"):\n    try:\n        out[\"distributions\"][dist] = metadata.version(dist)\n    except metadata.PackageNotFoundError:\n        pass\nfor name in (\"cudf_polars\", \"pylibcudf\", \"rmm\", \"cuda.bindings\", \"pynvml\"):\n    try:\n        module = importlib.import_module(name)\n        out[\"imports\"][name] = str(getattr(module, \"__version__\", \"imported\"))\n    except Exception as exc:\n        out[\"imports\"][name] = (\"unavailable: %s: %s\" % (type(exc).__name__, exc))[:300]\ntry:\n    from cuda.bindings import runtime\n    out[\"cuda_runtime_version\"] = runtime.cudaRuntimeGetVersion()[1]\n    out[\"cuda_driver_version\"] = runtime.cudaDriverGetVersion()[1]\nexcept Exception as exc:\n    out[\"cuda_versions_error\"] = (\"%s: %s\" % (type(exc).__name__, exc))[:300]\nprint(json.dumps(out, indent=2))\n"
+      ],
+      "returncode": 0,
+      "output": "{\n  \"distributions\": {\n    \"polars\": \"1.44.2\",\n    \"cudf-polars-cu12\": \"26.10.2\",\n    \"pylibcudf-cu12\": \"26.10.2\",\n    \"rmm-cu12\": \"26.10.0\",\n    \"rapidsmpf-cu12\": \"26.10.0\",\n    \"cuda-bindings\": \"12.9.10\",\n    \"nvidia-ml-py\": \"13.615.71\"\n  },\n  \"imports\": {\n    \"cudf_polars\": \"26.10.02\",\n    \"pylibcudf\": \"imported\",\n    \"rmm\": \"26.10.00\",\n    \"cuda.bindings\": \"12.9.10\",\n    \"pynvml\": \"imported\"\n  },\n  \"cuda_runtime_version\": 12090,\n  \"cuda_driver_version\": 12080\n}\n"
+    }
+  ],
+  "engine_order": [
+    "spark_cpu",
+    "spark_gpu",
+    "polars_gpu",
+    "polars"
+  ],
+  "gpu_engine_options": {
+    "polars_gpu_executor": "streaming",
+    "polars_gpu_executor_options": {},
+    "spark_gpu_profile": "a100-parity",
+    "spark_gpu_conf_file": null,
+    "spark_gpu_conf_file_sha256": null,
+    "spark_gpu_extra_conf": {}
+  },
+  "source_sha256": {
+    "preflight.py": "28c42cdc2877800b74ce8b0292d5080028312e5aa376114a69ced7af1421b0bb",
+    "run_experiment.py": "79aafd7b666164fe4f48ec84fa23f6b6420828fb157ff94ad92008f510491763",
+    "paper3_gates.py": "cfe190ba3f15c7d091b6401a65e88f6b159bf2296c68e025d20c42733094e319",
+    "smoke_workloads.py": "2f23cfef3db1587422e7edfe44c987be059f98b71c246e50a18b421c4cc6307f",
+    "compare_hardware.py": "3eb413aee78e0ed9891df53233ae24a902d93fbe123c112a0cc9cea4b3993391",
+    "generate_data.py": "ce8b4f02672c002c4f3941223acc11e971c5e16fdb788a3723cf7fe62aaa7acf",
+    "complex_joins.py": "030412b31e874272274c7568633ed10239e0f8c95edfafe3f118bcc06b016463",
+    "plot_crossover.py": "46dd4448f76a1512b20dd030af885393f30b8ada81bdd2b11b12b5defe2b782d",
+    "analyze_results.py": "069894693010ea9244d6a1a5e9b0f6abc31bee9ae0791f3b6b86fe43dddb85d5",
+    "workloads.py": "ac8391ea9dd8ea5f7af9b7087dad9809da39c04cbb52dfb7a0485eac4357b232",
+    "probe_power.py": "42c6af17a53004738aa1b8ef291aa8a8f3096c44b136b8e27267b408dfea1ffa",
+    "gpu_pulse.py": "a45257f628c077992dc59338e18ce7ff4bf728c76cb828197a13b14fdbb46799",
+    "complex_workloads.py": "35e54e0ac0da7a05dd47b4d3051606dd3e76b5b3c93724cf491acbefb44fd0a3",
+    "plot_results.py": "290b07eda7b86880e00165ded57812cf76c6d5b3c65aab72c82f7da5988f1550",
+    "query_cleanup.py": "090f823e50247090fc5bb6d9fec08b65b3936d34bb5cc0fd126f3d33c9792f3f",
+    "analyze_campaign.py": "39114621119b41694c3e0b14eb85a10f8ef4c3733bf966286577f72fa469f867",
+    "complex_analytics.py": "b31c14f22891ef8018d9a65b1cf46587904a46398b7656a101e34e94c1be9803",
+    "plot_campaign.py": "e5796d132698ad6711e743b3fbc93d67c3670b5d10f60152681a6ff993c8160e",
+    "generate_large_data.py": "d7bdddd602a0cd757747f82502f3d665bd65993a4b0de5059dc8c0da282b8c08",
+    "prove_query_cleanup.py": "e8460922ff0e30f47970e86ce6ac1bb424c80cd29b37312bb0b3de1ce1b9aac5",
+    "plot_complex.py": "307e2d553df6993474c0b3872d727138e0c5da3bd59f8e02852cf817dcd089a2",
+    "complex_oracle.py": "0bf3d44b5fb55e4f98ad9960b5a16e2fb491ee0175c19ae1823ba03338bf917b",
+    "analyze_crossover.py": "c81a3c6ada83152a7e63f4dc9ccf5e7a3e8b99884eb2fa3e1a658c820dd0684d",
+    "paper3_campaign.py": "dd774a6096cc848017d8c30c8b8b49e04471c0a4f80570d5ca49c3f3e7f27a83",
+    "run_campaign.py": "c81b624c2fdbffd689d8519089bbed6df96aef55bfcefa76105eef974b31a3e6",
+    "verify_generated_inputs.py": "c49e53eb97db994e1f9049afd5f89863b8969ea741aa74fc8063c6196fd26800",
+    "inspect_spark_metrics.py": "99816f9ce64fe8525bb0a1ddd46976b217fb3b6811685abbc63979fb6ff4ffc7",
+    "worker.py": "e779852378ae154d7e1159011c61ee88c653a9d16afebe40f925e986a9ad6c05",
+    "analyze_complex.py": "a5f167edcb675d7098f028cd97546f90c87994170160eb2b633d3e58b36bcaed",
+    "power_telemetry.py": "1021a38723f0417066ea60633060e04bc9de06eab1ee8484983fcd4055a7dbc3"
+  },
+  "cpu_pinning": {
+    "pinned": false,
+    "affinity": {
+      "cpus": "0-25",
+      "count": 26,
+      "source": "os.sched_getaffinity(0) in the worker"
+    }
+  },
+  "cpu_energy_gate": {
+    "mode": "auto",
+    "ok": true,
+    "state": "absent",
+    "problems": [],
+    "warnings": [
+      "no CPU energy counter (RAPL, amd_energy) on this host: CPU energy will be recorded as unavailable (/sys/class/powercap has no intel-rapl*/energy_uj zone (driver not loaded, or RAPL not exposed to this host); no hwmon device named amd_energy under /sys/class/hwmon)"
+    ],
+    "zones": {
+      "total": 0,
+      "unreadable": 0,
+      "not_advancing": 0
+    },
+    "euid": 1000
+  },
+  "redactions": {
+    "gpu_identifiers": "on",
+    "fields": [
+      "GPU UUID",
+      "MIG UUID",
+      "Serial Number",
+      "Chassis Serial Number",
+      "GPU PDI",
+      "Board ID",
+      "GPU Fabric GUID",
+      "ClusterUUID",
+      "Bus Id",
+      "PCI Bus/Device/Domain",
+      "GPU <bus id> header"
+    ],
+    "counts": {
+      "Serial Number": 1,
+      "GPU UUID": 1,
+      "Board ID": 1,
+      "PCI bus": 1,
+      "PCI device": 1,
+      "PCI domain": 1,
+      "Bus Id": 1,
+      "GPU bus id header": 1
+    },
+    "scope": "the nvidia-smi -q inventory entry only; command-line paths are stored as given"
+  },
+  "gpu_telemetry": {
+    "started": true,
+    "interval_ms": 200,
+    "timestamp_column": "timestamp",
+    "timestamp_format": "%Y/%m/%d %H:%M:%S.%f, host local time of the nvidia-smi process, no zone suffix",
+    "timezone": {
+      "tz_env": null,
+      "tzname": [
+        "UTC",
+        "UTC"
+      ],
+      "utc_offset_seconds": 0,
+      "dst_in_effect": false,
+      "has_dst_rules": false,
+      "etc_localtime": "/usr/share/zoneinfo/Etc/UTC"
+    },
+    "anchor_before_launch": {
+      "utc": "2026-11-22T23:33:34.883789+00:00",
+      "monotonic_ns": 248321831343,
+      "uncertainty_ns": 20558
+    },
+    "anchor_after_launch": {
+      "utc": "2026-11-22T23:33:34.884221+00:00",
+      "monotonic_ns": 248322259058,
+      "uncertainty_ns": 6592
+    },
+    "query": "timestamp,index,utilization.gpu,utilization.memory,memory.used,power.draw,temperature.gpu,clocks.sm,clocks.mem,power.draw.average,power.draw.instant,clocks_event_reasons.active",
+    "extra_fields": [
+      "power.draw.average",
+      "power.draw.instant",
+      "clocks_event_reasons.active"
+    ],
+    "missing_fields": [],
+    "fields_listed_by_driver": [
+      "timestamp",
+      "driver_version",
+      "vgpu_driver_capability.heterogenous_multivGPU",
+      "count",
+      "name",
+      "serial",
+      "uuid",
+      "pci.bus_id",
+      "pci.domain",
+      "pci.bus",
+      "pci.device",
+      "pci.baseClass",
+      "pci.subClass",
+      "pci.device_id",
+      "pci.sub_device_id",
+      "vgpu_device_capability.fractional_multiVgpu",
+      "vgpu_device_capability.heterogeneous_timeSlice_profile",
+      "vgpu_device_capability.heterogeneous_timeSlice_sizes",
+      "vgpu_device_capability.homogeneous_placements",
+      "pcie.link.gen.current",
+      "pcie.link.gen.gpucurrent",
+      "pcie.link.gen.max",
+      "pcie.link.gen.gpumax",
+      "pcie.link.gen.hostmax",
+      "pcie.link.width.current",
+      "pcie.link.width.max",
+      "index",
+      "display_mode",
+      "display_active",
+      "persistence_mode",
+      "addressing_mode",
+      "accounting.mode",
+      "accounting.buffer_size",
+      "driver_model.current",
+      "driver_model.pending",
+      "vbios_version",
+      "inforom.img",
+      "inforom.oem",
+      "inforom.ecc",
+      "inforom.pwr",
+      "gpu_recovery_action",
+      "gom.current",
+      "gom.pending",
+      "fan.speed",
+      "pstate",
+      "clocks_event_reasons.supported",
+      "clocks_event_reasons.active",
+      "clocks_event_reasons.gpu_idle",
+      "clocks_event_reasons.applications_clocks_setting",
+      "clocks_event_reasons.sw_power_cap",
+      "clocks_event_reasons.hw_slowdown",
+      "clocks_event_reasons.hw_thermal_slowdown",
+      "clocks_event_reasons.hw_power_brake_slowdown",
+      "clocks_event_reasons.sw_thermal_slowdown",
+      "clocks_event_reasons.sync_boost",
+      "memory.total",
+      "memory.reserved",
+      "memory.used",
+      "memory.free",
+      "compute_mode",
+      "compute_cap",
+      "utilization.gpu",
+      "utilization.memory",
+      "utilization.encoder",
+      "utilization.decoder",
+      "utilization.jpeg",
+      "utilization.ofa",
+      "encoder.stats.sessionCount",
+      "encoder.stats.averageFps",
+      "encoder.stats.averageLatency",
+      "dramEncryption.mode.current",
+      "dramEncryption.mode.pending",
+      "ecc.mode.current",
+      "ecc.mode.pending",
+      "ecc.errors.corrected.volatile.device_memory",
+      "ecc.errors.corrected.volatile.dram",
+      "ecc.errors.corrected.volatile.register_file",
+      "ecc.errors.corrected.volatile.l1_cache",
+      "ecc.errors.corrected.volatile.l2_cache",
+      "ecc.errors.corrected.volatile.texture_memory",
+      "ecc.errors.corrected.volatile.cbu",
+      "ecc.errors.corrected.volatile.sram",
+      "ecc.errors.corrected.volatile.total",
+      "ecc.errors.corrected.aggregate.device_memory",
+      "ecc.errors.corrected.aggregate.dram",
+      "ecc.errors.corrected.aggregate.register_file",
+      "ecc.errors.corrected.aggregate.l1_cache",
+      "ecc.errors.corrected.aggregate.l2_cache",
+      "ecc.errors.corrected.aggregate.texture_memory",
+      "ecc.errors.corrected.aggregate.cbu",
+      "ecc.errors.corrected.aggregate.sram",
+      "ecc.errors.corrected.aggregate.total",
+      "ecc.errors.uncorrected.volatile.device_memory",
+      "ecc.errors.uncorrected.volatile.dram",
+      "ecc.errors.uncorrected.volatile.register_file",
+      "ecc.errors.uncorrected.volatile.l1_cache",
+      "ecc.errors.uncorrected.volatile.l2_cache",
+      "ecc.errors.uncorrected.volatile.texture_memory",
+      "ecc.errors.uncorrected.volatile.cbu",
+      "ecc.errors.uncorrected.volatile.sram",
+      "ecc.errors.uncorrected.volatile.total",
+      "ecc.errors.uncorrected.aggregate.device_memory",
+      "ecc.errors.uncorrected.aggregate.dram",
+      "ecc.errors.uncorrected.aggregate.register_file",
+      "ecc.errors.uncorrected.aggregate.l1_cache",
+      "ecc.errors.uncorrected.aggregate.l2_cache",
+      "ecc.errors.uncorrected.aggregate.texture_memory",
+      "ecc.errors.uncorrected.aggregate.cbu",
+      "ecc.errors.uncorrected.aggregate.sram",
+      "ecc.errors.uncorrected.aggregate.total",
+      "ecc.errors.uncorrected.volatile.sram.parity",
+      "ecc.errors.uncorrected.volatile.sram.secded",
+      "ecc.errors.uncorrected.aggregate.sram.parity",
+      "ecc.errors.uncorrected.aggregate.sram.secded",
+      "ecc.errors.uncorrected.aggregate.sram.thresholdExceeded",
+      "ecc.errors.uncorrected.aggregate.sram.l2",
+      "ecc.errors.uncorrected.aggregate.sram.sm",
+      "ecc.errors.uncorrected.aggregate.sram.mcu",
+      "ecc.errors.uncorrected.aggregate.sram.pcie",
+      "ecc.errors.uncorrected.aggregate.sram.other",
+      "retired_pages.single_bit_ecc.count",
+      "retired_pages.double_bit.count",
+      "retired_pages.pending",
+      "remapped_rows.correctable",
+      "remapped_rows.uncorrectable",
+      "remapped_rows.pending",
+      "remapped_rows.failure",
+      "remapped_rows.histogram.max",
+      "remapped_rows.histogram.high",
+      "remapped_rows.histogram.partial",
+      "remapped_rows.histogram.low",
+      "remapped_rows.histogram.none",
+      "temperature.gpu",
+      "temperature.gpu.tlimit",
+      "temperature.memory",
+      "power.management",
+      "power.draw",
+      "power.draw.average",
+      "power.draw.instant",
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit",
+      "module.power.draw.average",
+      "module.power.draw.instant",
+      "module.power.limit",
+      "module.enforced.power.limit",
+      "module.power.default_limit",
+      "module.power.min_limit",
+      "module.power.max_limit",
+      "clocks.current.graphics",
+      "clocks.current.sm",
+      "clocks.current.memory",
+      "clocks.current.video",
+      "clocks.applications.graphics",
+      "clocks.applications.memory",
+      "clocks.default_applications.graphics",
+      "clocks.default_applications.memory",
+      "clocks.max.graphics",
+      "clocks.max.sm",
+      "clocks.max.memory",
+      "mig.mode.current",
+      "mig.mode.pending",
+      "gsp.mode.current",
+      "gsp.mode.default",
+      "c2c.mode",
+      "protected_memory.total",
+      "protected_memory.used",
+      "protected_memory.free",
+      "fabric.state",
+      "fabric.status",
+      "platform.chassis_serial_number",
+      "platform.slot_number",
+      "platform.tray_index",
+      "platform.host_id",
+      "platform.peer_type",
+      "platform.module_id",
+      "platform.gpu_fabric_guid"
+    ],
+    "driver_versions": [
+      "570.148.08"
+    ],
+    "field_detection_command": [
+      "nvidia-smi",
+      "--help-query-gpu"
+    ],
+    "monitor_tz_env": "UTC"
+  },
+  "gpu_energy_counter": {
+    "source": "nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption",
+    "unit": "mJ",
+    "device_index": 0,
+    "reasons": [],
+    "semantics": "cumulative whole-board energy of this device since the driver was loaded; take the difference of two reads; update granularity is host-specific (see --probe-gpu-energy)",
+    "scope": "board",
+    "scope_tag": "S1-counter",
+    "resolution": {
+      "source": "nvml-ctypes:nvmlDeviceGetTotalEnergyConsumption",
+      "unit": "mJ",
+      "reads": 253,
+      "failed_reads": 0,
+      "duration_seconds": 0.99183991,
+      "changes_observed": 10,
+      "update_interval_ms": {
+        "min": 98.902439,
+        "median": 99.96478,
+        "max": 101.072051
+      },
+      "step_mj": {
+        "min": 7147,
+        "median": 7201.0,
+        "max": 7261
+      },
+      "read_latency_us": {
+        "min": 2684.465,
+        "median": 2857.6,
+        "max": 16846.602
+      },
+      "nondecreasing": true,
+      "note": "update_interval_ms is the spacing of observed value changes: the finest time resolution of a counter difference; a timed run shorter than it has an energy delta of 0 or one step"
+    }
+  },
+  "power_telemetry": {
+    "enabled": true,
+    "started": true,
+    "status": "unavailable",
+    "csv": "power.csv",
+    "sidecar": "power_sources.json",
+    "cpu_energy_source": null,
+    "node_power_source": null,
+    "interval_seconds": 0.2,
+    "reasons": [
+      "powercap-rapl: /sys/class/powercap has no intel-rapl*/energy_uj zone (driver not loaded, or RAPL not exposed to this host)",
+      "amd-energy: no hwmon device named amd_energy under /sys/class/hwmon",
+      "perf-stat: no power/energy-*/ event counted (perf exit 129):     -e, --event <event>   event selector. use 'perf list' to list available events",
+      "turbostat: no PkgWatt/RAMWatt values (turbostat exit 251): turbostat: no /dev/cpu/0/msr, Try \"# modprobe msr\" : No such file or directory",
+      "ipmi-dcmi: 'ipmitool' not found on PATH"
+    ]
+  },
+  "paper3_energy": {
+    "gpu_energy_scope": "board",
+    "declared_with": "--gpu-energy-scope (never inferred from the hardware)",
+    "gpu_counter_scope_tag": "S1-counter",
+    "energy_window_s": 10.0,
+    "window_max_runs": 50,
+    "session_idle_seconds": 30.0,
+    "session_idle_settle_seconds": 60.0,
+    "session_cooldown_seconds": 0.0,
+    "g8_pulse_seconds": 3.0,
+    "g8_pulse_engines": "all",
+    "scope_tags": [
+      "S1-counter",
+      "S1-sampled",
+      "S1-module",
+      "S2-pinned",
+      "S2-all",
+      "S3",
+      "none"
+    ],
+    "cpu_energy_scope_tags": {
+      "none": {
+        "what": "no CPU energy source on this host"
+      }
+    },
+    "gpu_power_state": "nvidia-smi -q -d POWER at each session's start and end: <engine>-gpu-power-start.txt and -end.txt beside the session log, listed under gpu_power_state in schedule.json",
+    "power_limit_query_fields": [
+      "power.limit",
+      "enforced.power.limit",
+      "power.default_limit",
+      "power.min_limit",
+      "power.max_limit"
+    ],
+    "gpu_performance_state": "nvidia-smi -q -d PERFORMANCE (clock event / throttle reasons) at each session's start and end: <engine>-gpu-performance-start.txt and -end.txt, listed under gpu_performance_state in schedule.json"
+  }
+}
