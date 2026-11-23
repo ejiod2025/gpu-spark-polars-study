@@ -51,11 +51,17 @@ POLARS, GPU = "baseline/sf1/polars", "baseline/sf1/polars_gpu"
 
 # ---- host config -------------------------------------------------------------------------------------------------------------
 
-def test_the_shipped_config_names_exactly_what_is_pending():
+def test_the_shipped_config_has_nothing_pending_and_a_null_allow_list_is_the_one_value_that_would_be(tmp_path):
     config = REPO / "paper3_hosts.json"
     unset = {h: pg.load_host_config(config, h).unset() for h in ("h100", "a100", "gh200", "b200", "c-gcp", "c-vm")}
-    assert unset == {"h100": [], "a100": [], "gh200": [], "b200": [],
-                     "c-gcp": ["allowed_scheduled"], "c-vm": []}
+    assert unset == {"h100": [], "a100": [], "gh200": [], "b200": [], "c-gcp": [], "c-vm": []}, "the C-GCP allow-list was filled by amendment A6 (2026-11-23)"
+    document = json.loads(config.read_text())
+    assert isinstance(document["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"], list)
+    document["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"] = None                    # the state at the lock: the one value that was pending
+    pending = tmp_path / "hosts-pending.json"
+    pending.write_text(json.dumps(document))
+    assert pg.load_host_config(pending, "c-gcp").unset() == ["allowed_scheduled"]
+    assert all(pg.load_host_config(pending, h).unset() == [] for h in ("h100", "a100", "gh200", "b200", "c-vm"))
     assert pg.load_host_config(config, "h100").t_min_s == 1.0 and pg.load_host_config(config, "a100").t_min_s == 2.0
     assert pg.load_host_config(config, "gh200").t_min_s == 1.0, "GH200 P6 rerun against module.power.draw.instant: max(1 s, measured 1.0 s)"
     gh200 = pg.load_host_config(config, "gh200")

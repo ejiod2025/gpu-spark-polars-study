@@ -50,6 +50,23 @@ def plan_of(*args):
     return cfg, rc.build_units(cfg)
 
 
+def pending_allowlist_config(tmp_path):
+    """The shipped config with the C-GCP allow-list set back to null: the state before amendment A6 filled it (2026-11-23). Keeps the refusal path covered."""
+    document = json.loads(json.dumps(REAL_CONFIG))
+    document["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"] = None
+    path = tmp_path / "hosts-pending.json"
+    path.write_text(json.dumps(document))
+    return path
+
+
+def test_the_shipped_config_carries_the_reviewed_c_gcp_allow_list_and_no_host_has_a_pending_value(capsys):
+    allowed = REAL_CONFIG["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"]
+    assert isinstance(allowed, list) and allowed and all(isinstance(item, str) for item in allowed) and allowed == sorted(allowed)       # filled by amendment A6
+    for host, launch in (("a100", "1"), ("h100", "1"), ("c-gcp", "1"), ("c-vm", "1")):
+        assert rc.main([*argv_for(host, launch), "--dry-run"]) == 0
+        assert "host config unset: nothing" in capsys.readouterr().out, host
+
+
 def argv_for(host, launch="1", *more):
     pin = ["--cpu-list", "0-12,96-108"] if host == "c-gcp" else []
     return ["--paper3-host", host, "--paper3-launch", launch, *LOCK, *pin, *more]
@@ -158,7 +175,9 @@ def test_dry_run_prints_the_paper3_schedule_and_writes_nothing(capsys, tmp_path)
     out = capsys.readouterr().out
     assert "t_min: 1.0   host config unset: nothing" in out and "--gpu-energy-scope board" in out, "B200: admitted by amendment A2, board scope fixed by the host class"
     assert rc.main([*argv_for("c-gcp", "1"), "--dry-run"]) == 0
-    assert "host config unset: ['allowed_scheduled']" in capsys.readouterr().out, "the C-GCP allow-list is the one pending value"
+    assert "host config unset: nothing" in capsys.readouterr().out, "the C-GCP allow-list is filled (amendment A6): nothing is pending"
+    assert rc.main([*argv_for("c-gcp", "1"), "--dry-run", "--paper3-host-config", str(pending_allowlist_config(tmp_path))]) == 0
+    assert "host config unset: ['allowed_scheduled']" in capsys.readouterr().out, "with the allow-list null it is the one pending value"
 
 
 # ---- usage errors ---------------------------------------------------------------------------------------------------------
@@ -204,7 +223,7 @@ def formal_cfg(host="h100", *more):
     return cfg
 
 
-def test_a_formal_campaign_needs_its_instance_type_and_the_hosts_config_values(monkeypatch):
+def test_a_formal_campaign_needs_its_instance_type_and_the_hosts_config_values(monkeypatch, tmp_path):
     cfg = formal_cfg("h100")
     with pytest.raises(rc.CampaignError, match="records its instance type"):
         rc.paper3_startup_checks(cfg, resolved_pinning=False)
@@ -215,17 +234,21 @@ def test_a_formal_campaign_needs_its_instance_type_and_the_hosts_config_values(m
     rc.paper3_startup_checks(cfg, resolved_pinning=False)
     rc.paper3_startup_checks(formal_cfg("gh200", "--host-label", "gpu_1x_gh200"), resolved_pinning=False)       # complete since the P6 rerun and the source check
     rc.paper3_startup_checks(formal_cfg("b200", "--host-label", "gpu_1x_b200_sxm6"), resolved_pinning=False)       # admitted (A2), board scope from the host class
-    c_gcp = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("c-gcp"), "--paper3-lock-commit", "c" * 40, "--paper3-lock-doi", "d",
-                                             "--host-label", "c3-highmem-192-metal"]))
-    with pytest.raises(rc.CampaignError, match="unset in paper3_hosts.json: allowed_scheduled"):
-        rc.paper3_startup_checks(c_gcp, resolved_pinning=False)
+    c_gcp_args = [*COMMON, *argv_for("c-gcp"), "--paper3-lock-commit", "c" * 40, "--paper3-lock-doi", "d", "--host-label", "c3-highmem-192-metal"]
+    rc.paper3_startup_checks(rc.resolve_config(rc.parse_args(c_gcp_args)), resolved_pinning=False)                      # the reviewed allow-list is in the shipped config (A6)
+    pending = rc.resolve_config(rc.parse_args([*c_gcp_args, "--paper3-host-config", str(pending_allowlist_config(tmp_path))]))
+    with pytest.raises(rc.CampaignError, match="unset in .*: allowed_scheduled"):
+        rc.paper3_startup_checks(pending, resolved_pinning=False)                                                          # a null allow-list still refuses a formal C-GCP campaign
 
 
-def test_a_test_campaign_only_warns_about_unset_values(capsys):
-    cfg = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("c-gcp", "1"), "--rounds", "1"]))      # C-GCP: the allow-list is still pending
+def test_a_test_campaign_only_warns_about_unset_values(capsys, tmp_path):
+    cfg = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("c-gcp", "1"), "--rounds", "1", "--paper3-host-config", str(pending_allowlist_config(tmp_path))]))      # a pending allow-list
     assert not cfg.formal
     rc.paper3_startup_checks(cfg, resolved_pinning=False)
     assert "gates will not be evaluated" in capsys.readouterr().out
+    filled = rc.resolve_config(rc.parse_args([*COMMON, *argv_for("c-gcp", "1"), "--rounds", "1"]))                                    # the shipped config: nothing pending, nothing to warn about
+    rc.paper3_startup_checks(filled, resolved_pinning=False)
+    assert "gates will not be evaluated" not in capsys.readouterr().out
 
 
 def test_the_cpu_only_host_must_pin_26_vcpus_on_socket_0(c3):
@@ -452,12 +475,14 @@ def test_a_second_invocation_runs_nothing_and_a_changed_design_is_refused(p3rig,
 
 
 def test_another_hosts_pending_values_do_not_change_this_hosts_design(p3rig):
+    """C-VM's design digest is its own entry's: whatever C-GCP's allow-list is (filled by amendment A6, or null as at the lock, or a different list), the C-VM campaign resumes."""
     assert p3rig.run() == 0
     config = json.loads(p3rig.config.read_text())
-    assert config["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"] is None, "the one pending value of the shipped config"
-    config["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"] = []
-    p3rig.config.write_text(json.dumps(config))
-    assert p3rig.run() == 0
+    assert isinstance(config["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"], list), "filled in the shipped config"
+    for value in (None, [], ["timer:other.timer"]):
+        config["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"] = value
+        p3rig.config.write_text(json.dumps(config))
+        assert p3rig.run() == 0, value
 
 
 def test_amendments_to_section_12_do_not_stop_a_running_campaign_but_a_change_to_section_5_does(p3rig, tmp_path, capsys):
