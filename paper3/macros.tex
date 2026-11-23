@@ -8,9 +8,8 @@
 % generated/stats.tex, as now) the key is printed in a yellow TODO box, and table cells print a
 % red TODO (the cell's key pattern is in the table's caption comment).
 %
-% TODO(results): the key names here are provisional. They must match the stats.json written by
-% the Paper 3 analysis code (not in the repository on 2026-11-23); a generator like
-% ../paper/tools/stats_to_tex.py must produce generated/stats.tex from it.
+% The keys are paths of analyze_paper3.py's flattened stats.json (checked on a synthetic tree,
+% 2026-11-23); "make stats-check STATS=<out>/stats.json" lists any the analysis output lacks.
 %
 % Pre-lock method-validation numbers (probes P1-P7, G8 probe; design sections 2.1-2.4, 4) are
 % typed directly: they are synthetic-load QA values fixed before the lock, not campaign outcomes.
@@ -44,6 +43,12 @@
 % "estimate x (95% CI ci_low--ci_high)" for running text
 \newcommand{\ratiotext}[1]{%
   \stat{#1.estimate}$\times$ (95\%~CI \stat{#1.ci_low}--\stat{#1.ci_high})}
+% A long hash value (sha256), line-breakable.
+\newcommand{\hashstat}[1]{%
+  \ifcsname stat@#1\endcsname
+    {\ttfamily\expandafter\expandafter\expandafter\seqsplit\expandafter\expandafter
+      \expandafter{\csname stat@#1\endcsname}}%
+  \else\stat{#1}\fi}
 % Table form of \ratioci: one red TODO in draft mode instead of three.
 \newcommand{\tratioci}[1]{%
   \ifcsname stat@#1.estimate\endcsname
@@ -53,13 +58,14 @@
   \fi}
 \makeatother
 
-% Two value files (make stats; make record):
-%  generated/stats.tex  -- copied unchanged from analyze_paper3.py's OUT/stats.tex (one \defstat per
-%                          scalar of its flattened stats.json; \syntheticstatstrue on a synthetic tree).
-%                          It does not set \statsfinaltrue, so its presence switches final mode on here.
-%  generated/record.tex -- hand-kept \defstat lines for values from committed records, not campaign
-%                          outcomes: amendment A6 (date, commit, sha256) and launch-record facts
-%                          (campaign.<host>.driver, .cpu_model, .first_session_utc, ...).
+% Two value files:
+%  generated/stats.tex  -- written by "make stats STATS=<out>/stats.json" (tools/stats_json_to_tex.py): one
+%                          \defstat per key this paper uses, from analyze_paper3.py's stats.json, formatted by the
+%                          analysis's own number format; \syntheticstatstrue for a synthetic tree. Its presence
+%                          switches final mode on.
+%  generated/record.tex -- hand-kept \defstat lines for values from committed records, not campaign outcomes:
+%                          amendment A6 (amend.a6.date, .commit, .sha256) and launch-record facts
+%                          (campaign.<host>.driver, .cpu_model, .first_session_utc, .last_session_utc).
 \newif\ifsyntheticstats
 \IfFileExists{generated/record.tex}{\input{generated/record.tex}}{}
 \IfFileExists{generated/stats.tex}{\input{generated/stats.tex}\statsfinaltrue}{}

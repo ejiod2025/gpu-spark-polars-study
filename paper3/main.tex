@@ -687,7 +687,7 @@ A5.3 & Start order: no H100 capacity at the start, so A100 and \CG{} (in \texttt
 % TODO(A6): date, commit and sha256 come from amendment A6 (lead, 2026-11-23: it will record the
 % commit, the sha256 and the synthetic-recovery result before any campaign aggregate is computed or
 % seen); re-check this row and the paragraph below against the committed A6 text.
-A6 (\stat{amend.a6.date}) & Contrary to design \S5.4, the analysis code was not committed before the lock. It was written after the lock and before any campaign data were analysed or viewed, validated on synthetic campaigns with known injected effects, and committed (commit \camera{\stat{amend.a6.commit}}{\anonmark}, sha256 \stat{amend.a6.sha256}). & none \\
+A6 (\stat{amend.a6.date}) & Contrary to design \S5.4, the analysis code was not committed before the lock. It was written after the lock and before any campaign data were analysed or viewed, validated on synthetic campaigns with known injected effects, and committed (commit \camera{\stat{amend.a6.commit}}{\anonmark}, sha256 \hashstat{amend.a6.sha256}). & none \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -724,9 +724,10 @@ only on technical failures, and the counts of lost launches and replaced hosts a
 \label{sec:results-qa}
 
 \begin{table}[t]
-\caption{Campaign record and QA per host (analysis keys \texttt{hosts.<host>.*},
-\texttt{qa.g8.<host>.<engine>.\{flagged,sessions\}}, \texttt{c\_vm\_check.status}). G8: sessions
-flagged (failed or not evaluable) of sessions.}
+% Keys: hosts.<host>.{status,squares.<n>.complete}, qa.g8.<host>.<engine>.{flagged,sessions},
+% c_vm_check.status, qa.read_latency_and_overhang.<host>.polars_gpu.read_latency_ms.median.
+\caption{Campaign record and QA per host. G8: sessions flagged (failed or not evaluable) of
+sessions.}
 \label{tab:qa}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
@@ -743,7 +744,7 @@ G8, \polarscpu & \tstat{qa.g8.h100.polars.flagged}/\tstat{qa.g8.h100.polars.sess
 G8, \polarsgpu & \tstat{qa.g8.h100.polars_gpu.flagged}/\tstat{qa.g8.h100.polars_gpu.sessions} & \tstat{qa.g8.a100.polars_gpu.flagged}/\tstat{qa.g8.a100.polars_gpu.sessions} & -- & -- \\
 G8, \sparkcpu & \tstat{qa.g8.h100.spark_cpu.flagged}/\tstat{qa.g8.h100.spark_cpu.sessions} & \tstat{qa.g8.a100.spark_cpu.flagged}/\tstat{qa.g8.a100.spark_cpu.sessions} & -- & -- \\
 G8, \sparkgpu & \tstat{qa.g8.h100.spark_gpu.flagged}/\tstat{qa.g8.h100.spark_gpu.sessions} & \tstat{qa.g8.a100.spark_gpu.flagged}/\tstat{qa.g8.a100.spark_gpu.sessions} & -- & -- \\
-Read latency, median ms (\polarsgpu) & \tstat{qa.read_latency_and_overhang.h100.polars_gpu.read_latency_ms.median} & \tstat{qa.read_latency_and_overhang.a100.polars_gpu.read_latency_ms.median} & -- & -- \\
+Read latency ms, \polarsgpu & \tstat{qa.read_latency_and_overhang.h100.polars_gpu.read_latency_ms.median} & \tstat{qa.read_latency_and_overhang.a100.polars_gpu.read_latency_ms.median} & -- & -- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -833,13 +834,12 @@ reconciliation (the analysis writes it as a list, \texttt{billing}; it needs sca
 \subsection{Break-even scales}
 \label{sec:results-breakeven}
 
-\begin{table}[t]
+\begin{table*}[t]
 \caption{Planned: break-even scale brackets (previous scale, $s$] of X3 under P-NEW;
 ``$\le$SF1'' and ``$>$SF300'' censored. Energy: lower bound on the node-level break-even, under
 \NOne. Keys \texttt{break\_even.x3.<host>.<suite>.<metric>.text}.}
 \label{tab:breakeven}
 \footnotesize
-\setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}llccccc@{}}
 \toprule
 Host & Suite & Cost B1 & Cost B2 & Cost B3 & Energy & Energy above idle \\
@@ -851,7 +851,7 @@ Host & Suite & Cost B1 & Cost B2 & Cost B3 & Energy & Energy above idle \\
  & complex & \tstat{break_even.x3.a100.complex.cost_b1_p_new.text} & \tstat{break_even.x3.a100.complex.cost_b2_p_new.text} & \tstat{break_even.x3.a100.complex.cost_b3_p_new.text} & \tstat{break_even.x3.a100.complex.energy_total.text} & \tstat{break_even.x3.a100.complex.energy_above_idle.text} \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \pending{break-even brackets from Table~\ref{tab:breakeven}; X1 and X2 brackets; how the bracket
 moves between B1, B2, B3 and between P-NEW, P-OLD, P-BILLED; the descriptive log-linear
@@ -950,7 +950,7 @@ cross-class energy claims bounded by an explicit assumption and its tipping poin
 The probe tools, harness, gates, analysis code, price snapshots and probe evidence are in the
 study repository (\repourl); the locked design is deposited with a time stamp (\lockdoi). The
 analysis output records the sha256 of the code that produced it
-(\stat{_meta.analysis_code_sha256}), which equals the value recorded in amendment A6. Raw
+(\hashstat{_meta.analysis_code_sha256}), which equals the value recorded in amendment A6. Raw
 campaign records will be deposited with checksums \todoplaceholder{raw-data DOI after the
 campaign}.
 

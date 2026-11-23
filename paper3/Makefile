@@ -4,28 +4,30 @@
 #   make camera     # de-anonymized camera-ready build: camera-ready.pdf
 #   make both       # both builds
 #   make pages      # page count and the page on which the references start, per build
-#   make stats STATS=<analysis-out>/stats.tex   # install analyze_paper3.py's stats.tex (final mode)
+#   make stats STATS=<analysis-out>/stats.json        # generated/stats.tex for the paper's keys (final mode)
+#   make stats-check STATS=<analysis-out>/stats.json  # list keys the paper uses that stats.json lacks
 #   make todo       # every TODO marker in the sources
-#   make keys       # every statistics key (or key prefix) the paper uses
+#   make keys       # every statistics key the paper uses (record.tex keys marked)
 #   make clean
 # Draft mode: without generated/stats.tex every \stat key prints as a yellow TODO box, table cells
 # as a red TODO, and every page carries a DRAFT -- NO RESULTS watermark.
 #
-# Final mode: analyze_paper3.py writes OUT/stats.tex (one \defstat per scalar statistic of its
-# flattened stats.json). "make stats" copies it unchanged to generated/stats.tex; its presence switches
-# the build to final mode, where every missing key is a hard error. Values from committed records that
-# the analysis does not produce (amendment A6 date, commit and sha256; launch-record facts such as
-# campaign.<host>.driver) go in a hand-kept generated/record.tex of \defstat lines (macros.tex).
-# A stats file from a synthetic tree carries \syntheticstatstrue and watermarks every page.
+# Final mode: tools/stats_json_to_tex.py reads analyze_paper3.py's OUT/stats.json, flattens it with the analysis's
+# own outputs.flatten and writes one \defstat per key that main.tex uses (formatted by outputs.tex_number) to
+# generated/stats.tex. It refuses if a key is missing or not a scalar. The file's presence switches the build to final
+# mode, where every missing key is a hard error. Values from committed records that the analysis does not produce
+# (amend.a6.*, campaign.<host>.*) go in a hand-kept generated/record.tex of \defstat lines (macros.tex). A synthetic
+# stats.json writes \syntheticstatstrue, which watermarks every page.
 STATS ?=
 
+PYTHON ?= python3
 TEX := $(shell command -v tectonic >/dev/null 2>&1 && echo tectonic || echo latexmk)
 
 # Fixed build time for a reproducible \today: 2026-11-23 12:00 UTC.
 SOURCE_DATE_EPOCH ?= 1795435200
 export SOURCE_DATE_EPOCH
 
-.PHONY: pdf anon camera both stats pages todo keys clean
+.PHONY: pdf anon camera both stats stats-check pages todo keys clean
 
 pdf: anon
 
@@ -46,10 +48,12 @@ endif
 both: anon camera
 
 stats:
-	@test -n "$(STATS)" -a -f "$(STATS)" || (echo "usage: make stats STATS=<analyze_paper3.py output dir>/stats.tex" && exit 2)
-	mkdir -p generated
-	cp "$(STATS)" generated/stats.tex
-	@grep -q 'syntheticstatstrue' generated/stats.tex && echo "note: SYNTHETIC stats installed (pages are watermarked)" || true
+	@test -n "$(STATS)" -a -f "$(STATS)" || (echo "usage: make stats STATS=<analyze_paper3.py output dir>/stats.json" && exit 2)
+	$(PYTHON) tools/stats_json_to_tex.py --stats "$(STATS)" --output generated/stats.tex
+
+stats-check:
+	@test -n "$(STATS)" -a -f "$(STATS)" || (echo "usage: make stats-check STATS=<analyze_paper3.py output dir>/stats.json" && exit 2)
+	$(PYTHON) tools/stats_json_to_tex.py --stats "$(STATS)" --check
 
 pages:
 	@for f in main.pdf camera-ready.pdf; do \
@@ -67,7 +71,7 @@ todo:
 	@grep -n -E 'TODO|\\pending\{|\\todoverify\{|\\todoplaceholder\{' main.tex macros.tex references.bib camera-ready.tex Makefile
 
 keys:
-	@grep -o -E '\\(stat|tstat|ratioci|ratiotext|tratioci|xcell)\{[^}]+\}' main.tex | sed -E 's/^\\([a-z]+)\{(.*)\}$$/\2  (\1)/' | sort -u
+	@$(PYTHON) tools/stats_json_to_tex.py --list-keys
 
 clean:
 	rm -f main.pdf camera-ready.pdf *.aux *.bbl *.blg *.log *.out *.xdv *.fls *.fdb_latexmk
