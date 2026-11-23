@@ -485,7 +485,10 @@ def test_the_probe_watchdog_would_have_silently_skipped_a_campaign_host(world, c
 STUBS = {
     "setup_h100.sh": '#!/usr/bin/env bash\nmkdir -p rerun/setup-logs\necho "$@" > rerun/setup-logs/args.txt\n[ "${FAKE_SETUP_RC:-0}" = 0 ] || exit "$FAKE_SETUP_RC"\n'
                      'printf \'export DATA_ROOT=%s/data\\npython() { python3 "$@"; }\\n\' "$PWD" > rerun/cpu-env.sh\n'
-                     'cp rerun/cpu-env.sh rerun/h100-env.sh; echo "export RAPIDS_JAR=$PWD/jars/rapids.jar" >> rerun/h100-env.sh\n',
+                     'cp rerun/cpu-env.sh rerun/h100-env.sh; echo "export RAPIDS_JAR=$PWD/jars/rapids.jar" >> rerun/h100-env.sh\n'
+                     'echo "export PYTHON_GPU_ENV=$(command -v python3)" >> rerun/h100-env.sh\n',
+    "gpu_pulse.py": "import json, os, sys\nfails = int(os.environ.get('FAKE_PULSE_FAILS', '0'))\nif fails:\n    print(json.dumps({'ok': False, 'error': 'RuntimeError: cuInit returned CUDA error 802'})); sys.exit(1)\nprint(json.dumps({'ok': True}))\n",
+    "tools/paper3_campaign/p3_cuda_ready.sh": (REPO / "tools" / "paper3_campaign" / "p3_cuda_ready.sh").read_text(),
     "generate_data.py": "import sys, pathlib\nroot = pathlib.Path(sys.argv[sys.argv.index('--root') + 1])\n(root / 'sf1').mkdir(parents=True, exist_ok=True)\n(root / 'sf1' / 'manifest.json').write_text('{}')\n",
     "generate_large_data.py": "import sys, pathlib\nroot = pathlib.Path(sys.argv[sys.argv.index('--root') + 1])\n(root / ('sf' + sys.argv[sys.argv.index('--scales') + 1])).mkdir(parents=True, exist_ok=True)\n",
     "verify_generated_inputs.py": "import sys, pathlib\nreport = pathlib.Path(sys.argv[sys.argv.index('--report') + 1])\nreport.write_text('{\"result\": \"OK\"}')\n",
@@ -502,6 +505,7 @@ def origin(tmp_path):
     env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@x", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@x"}
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True, env=env)
     for name, text in STUBS.items():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
         (repo / name).write_text(text)
         (repo / name).chmod(0o755)
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True, env=env)
@@ -546,8 +550,9 @@ def test_the_gpu_bringup_runs_every_step_in_order_and_leaves_what_the_driver_col
     repo, commit = origin
     done, lease = run_bringup(world, repo, commit, "a100", monkeypatch)
     assert done.returncode == 0, done.stdout + done.stderr
-    assert [s for s, what in steps(done.stdout) if what == "ok"] == ["boot_wait", "checkout", "lease", "setup", "hostinfo", "generate", "verify", "preflight", "artifacts"]
+    assert [s for s, what in steps(done.stdout) if what == "ok"] == ["boot_wait", "checkout", "lease", "setup", "cudaready", "hostinfo", "generate", "verify", "preflight", "artifacts"]
     study = world.host / "study"
+    assert json.loads((study / "rerun" / "bringup-artifacts" / "cuda-ready.json").read_text())["ok"] is True              # the CUDA gate's record is collected with the artifacts
     assert (world.tmp / "etc" / "paper3-lease").read_text().strip() == lease
     assert (study / "rerun" / "setup-logs" / "args.txt").read_text().strip() == "--envs gpu --expect-gpu A100 --min-free-gib 450"
     assert json.loads((study / "rerun" / "verify-sf1-30-ref.json").read_text())["result"] == "OK" and (study / "rerun" / "verify-sf100-300.json").exists()
@@ -556,7 +561,8 @@ def test_the_gpu_bringup_runs_every_step_in_order_and_leaves_what_the_driver_col
     assert (study / "data" / "sf300").is_dir() and (study / "data" / "sf1" / "manifest.json").exists()
     assert json.loads((study / "rerun" / "bringup-artifacts" / "probe-power.json").read_text()) == {"probe": "stub"}       # hypervisor, sources, clock: evidence per launch
     assert subprocess.run(["git", "-C", str(study), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip() == commit
-    assert not (world.tmp / "etc" / "systemctl").exists() and not (world.net / "systemctl.log").exists()                # GPU hosts are not quiesced
+    calls = (world.net / "systemctl.log").read_text().splitlines() if (world.net / "systemctl.log").exists() else []
+    assert not [c for c in calls if c.split()[0] in ("mask", "stop", "start", "disable")]                                  # GPU hosts are not quiesced (the CUDA gate only looks: list-unit-files)
 
 
 def test_a_failing_step_ends_the_stage_with_its_code_and_runs_nothing_after_it(world, origin, monkeypatch):
@@ -565,6 +571,24 @@ def test_a_failing_step_ends_the_stage_with_its_code_and_runs_nothing_after_it(w
     assert done.returncode == 5 and "STEP setup FAILED rc=5" in done.stdout
     assert [s for s, what in steps(done.stdout) if what == "begin"] == ["boot_wait", "checkout", "lease", "setup"]
     assert not (world.host / "study" / "rerun" / "verify-sf1-30-ref.json").exists()
+
+
+def test_a_host_whose_cuda_never_works_ends_the_bringup_with_82_before_any_data_or_engine_work(world, origin, monkeypatch):
+    repo, commit = origin
+    clock = world.tmp / "clock"
+    clock.mkdir()
+    (clock / "clock").write_text("1000000\n")
+    (clock / "now.sh").write_text('#!/bin/bash\ncat "$FAKE_CLOCK/clock"\n')
+    (clock / "sleep.sh").write_text('#!/bin/bash\necho $(( $(cat "$FAKE_CLOCK/clock") + $1 )) > "$FAKE_CLOCK/clock"\n')
+    for f in ("now.sh", "sleep.sh"):
+        (clock / f).chmod(0o755)
+    done, _ = run_bringup(world, repo, commit, "h100", monkeypatch, FAKE_PULSE_FAILS=1, FAKE_CLOCK=clock, P3_CUDA_NOW=clock / "now.sh", P3_CUDA_SLEEP=clock / "sleep.sh")
+    assert done.returncode == 82, done.stdout + done.stderr
+    assert "STEP cudaready FAILED rc=82" in done.stdout and "[FAIL    ] cuda.ready: host GPU not ready (CUDA 802)" in done.stdout
+    assert [s for s, what in steps(done.stdout) if what == "begin"] == ["boot_wait", "checkout", "lease", "setup", "cudaready"]       # nothing after the gate ran
+    study = world.host / "study"
+    assert not (study / "rerun" / "verify-sf1-30-ref.json").exists() and not (study / "data").exists() and not (study / "rerun" / "preflight-bringup").exists()
+    assert json.loads((study / "rerun" / "bringup-artifacts" / "cuda-ready.json").read_text())["reason"] == "host GPU not ready (CUDA 802)"
 
 
 def test_bringup_refuses_once_the_campaign_has_started_and_a_dirty_or_wrong_checkout(world, origin, monkeypatch):

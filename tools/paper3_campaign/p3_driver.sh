@@ -31,12 +31,17 @@
 # The full logs are copied off the host (bringup-aN.log, campaign-rK-aN.log) and archived unread. The one exception is the log of a stage that FAILED and held the driver
 # (exit 20): the driver names it in .held-logs, and p3_open_log.sh opens it, only it, writing every opening to log-openings.log and the ledger.
 #
+# CUDA gate (GPU hosts): the bring-up runs p3_cuda_ready.sh right after setup (a tiny CUDA init and kernel, retried for up to 10 minutes). Exit 82 of the bring-up means the
+# host's GPU is not usable, and nothing else in the launch can be: the driver collects the gate's records, tears the host down, writes infrastructure_failure into the
+# launch record and an infrastructure-failure line into the ledger, and exits 31. No round has run, so nothing is lost but the host's time.
+#
 # --stop-after-bringup: stop (exit 11, host running) once the bring-up is copied and verified, for a step a person must do before round 1
 # (the harness smoke test on the pathfinder host); run the driver again without it to continue.
 #
 # Exit codes: 0 done and torn down; 10 C-GCP allow-list review needed; 11 stopped after bring-up on request; 20 held for a person (host kept running; the message says why);
 # 21 the provider no longer lists the host; 30 the campaign stopped by its own rule (a round failed its gates twice): everything was
-# copied, the host was torn down unless --on-stop hold; 2 usage.
+# copied, the host was torn down unless --on-stop hold; 31 the host's GPU is not ready (the bring-up's CUDA gate failed, e.g. CUDA error 802): an infrastructure failure
+# BEFORE round 1, recorded in the launch record and the ledger, the host torn down (a relaunch is not a lost launch: no round ran); 2 usage.
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
@@ -218,6 +223,48 @@ qa() {               # prints the allowed view of the fetched root
   python3 "$HERE/p3_qa_view.py" "$DEST/$ROOT_REL" 2>&1 | while IFS= read -r line; do log "QA $line"; done
 }
 
+teardown_host() {    # terminate and confirm (unless --no-teardown); holds when the termination cannot be confirmed
+  if [ "$TEARDOWN" = 1 ]; then
+    log "tearing down $LEASE"
+    if p3_terminate_and_confirm "$RECORD" >>"$RUN_LOG" 2>&1; then
+      p3_kill_watchdog "$RECORD"
+      log "confirmed terminated at $(record_get "$RECORD" terminate_confirmed_utc)"
+    else
+      hold "termination of $LEASE could not be confirmed"
+    fi
+  else
+    log "teardown skipped (--no-teardown): p3_teardown.sh $RECORD --yes ends the instance"
+  fi
+}
+
+write_launch_files() {   # the launch record and one manifest of everything that arrived
+  # campaign.json is written when the campaign starts and cannot hold the terminate time (design 2.6 P-BILLED): the operator's record does.
+  # The address and the watchdog pid are dropped; the lease name is in the instance name the provider bills under, and in the evidence logs.
+  jq 'del(.ip, .watchdog_pid)' "$RECORD" > "$DEST/launch-record.json"
+  (cd "$DEST" && { find rerun -type f 2>/dev/null; echo launch-record.json; } | sort | tr '\n' '\0' | xargs -0 shasum -a 256 > LAUNCH-SHA256SUMS) \
+    && log "LAUNCH-SHA256SUMS: $(wc -l < "$DEST/LAUNCH-SHA256SUMS" | tr -d ' ') file(s) (the copied campaign root and launch-record.json)"
+}
+
+infra_fail() {       # BRINGUP_LOG_NAME: the host's GPU is not ready (the CUDA gate of the bring-up failed): no round ran; record it, tear the host down, exit 31
+  local log_name=$1 f detail='{}' reason code
+  mkdir -p "$DEST/rerun/bringup-artifacts"
+  for f in cuda-ready.json cuda-ready.jsonl cuda-ready-fabric.csv cuda-ready-nvidia-smi-q-start.txt cuda-ready-nvidia-smi-q-end.txt; do
+    P3_RETRIES=2 P3_RETRY_PAUSE=2 p3_fetch "study/rerun/bringup-artifacts/$f" "$DEST/rerun/bringup-artifacts/" >/dev/null 2>&1 || true
+  done
+  [ -f "$DEST/rerun/bringup-artifacts/cuda-ready.json" ] && detail=$(jq -c . "$DEST/rerun/bringup-artifacts/cuda-ready.json" 2>/dev/null || echo '{}')
+  reason=$(printf '%s' "$detail" | jq -r '.reason // "host GPU not ready (CUDA init failed)"')
+  code=$(printf '%s' "$detail" | jq -r '.code // "unknown"')
+  echo "$log_name" >> "$DEST/.held-logs"          # a failed stage's log may be opened to diagnose it, through p3_open_log.sh only (design 7.3)
+  log "INFRASTRUCTURE FAILURE before round 1: $reason. No CUDA call works on this host (CUDA error $code after the gate's retries); no round has run, so a relaunch is not a lost launch (amendment A1 item 2, the lead's decision 2026-11-22). The host is torn down; the gate's records are in $DEST/rerun/bringup-artifacts and its log may be opened with: p3_open_log.sh $RECORD $log_name"
+  record_set "$RECORD" infrastructure_failure "$(jq -nc --arg at "$(p3_utc)" --arg reason "$reason" --arg log "$log_name" --argjson detail "$detail" \
+    '{kind: "cuda-not-ready", reason: $reason, stage: "bringup", step: "cudaready", at: $at, rounds_started: 0, bringup_log: $log, detail: $detail}')" json
+  ledger_append infrastructure-failure "$RECORD" "$reason"
+  teardown_host
+  write_launch_files
+  log "=== done: INFRASTRUCTURE FAILURE (host GPU not ready), host torn down, nothing lost: no round ran ==="
+  exit 31
+}
+
 # ---- 1. bring-up -------------------------------------------------------------------------------------------------------
 if [ ! -f "$DEST/.verified/bringup" ]; then
   plan bringup "$HOST" "$LAUNCH" --record "$RECORD" > "$DEST/.stage-scripts/bringup.sh" || die "cannot generate the bring-up script"
@@ -227,6 +274,7 @@ if [ ! -f "$DEST/.verified/bringup" ]; then
   bringup_view "bringup-a$attempt.log"
   case "$RESULT" in
     0) ;;
+    82) infra_fail "bringup-a$attempt.log" ;;
     timeout) hold "bring-up is still running after its poll budget" ;;
     *) HOLD_LOG="bringup-a$attempt.log" hold "bring-up ended with $RESULT (after the cause is fixed, run the driver again with --fresh)" ;;
   esac
@@ -323,23 +371,9 @@ fi
 
 # ---- 5. teardown -------------------------------------------------------------------------------------------------------------
 if [ "$STOPPED" = 1 ] && [ "$ON_STOP" = hold ]; then hold "stopped by rule, --on-stop hold"; fi
-if [ "$TEARDOWN" = 1 ]; then
-  log "tearing down $LEASE"
-  if p3_terminate_and_confirm "$RECORD" >>"$RUN_LOG" 2>&1; then
-    p3_kill_watchdog "$RECORD"
-    log "confirmed terminated at $(record_get "$RECORD" terminate_confirmed_utc)"
-  else
-    hold "termination of $LEASE could not be confirmed"
-  fi
-else
-  log "teardown skipped (--no-teardown): p3_teardown.sh $RECORD --yes ends the instance"
-fi
+teardown_host
 # ---- 6. the launch record and one manifest of everything that arrived ------------------------------------------------------------------
-# campaign.json is written when the campaign starts and cannot hold the terminate time (design 2.6 P-BILLED): the operator's record does.
-# The address and the watchdog pid are dropped; the lease name is in the instance name the provider bills under, and in the evidence logs.
-jq 'del(.ip, .watchdog_pid)' "$RECORD" > "$DEST/launch-record.json"
-(cd "$DEST" && { find rerun -type f; echo launch-record.json; } | sort | tr '\n' '\0' | xargs -0 shasum -a 256 > LAUNCH-SHA256SUMS) \
-  && log "LAUNCH-SHA256SUMS: $(wc -l < "$DEST/LAUNCH-SHA256SUMS" | tr -d ' ') file(s) (the copied campaign root and launch-record.json)"
+write_launch_files
 if [ "$STOPPED" = 1 ]; then log "=== done: STOPPED by the campaign's own rule; all data copied ==="; exit 30; fi
 log "=== done: $HOST launch $LAUNCH complete ==="
 exit 0

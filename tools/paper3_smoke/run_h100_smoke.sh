@@ -7,6 +7,8 @@
 #
 #   launch (p3-probe-h100-smoke-owner-ejiod-expires-<UTC>) -> arm the watchdog -> wait for SSH -> copy the repository ->
 #   stage setup   ./setup_h100.sh as the campaign host is brought up, timed
+#   stage cuda    the CUDA-readiness gate (a tiny CUDA init and kernel, retried for up to 10 minutes; exit 82 = host GPU not ready, as in the campaign bring-up): a host
+#                 whose GPU cannot run CUDA ends the test here, torn down, exit status 1 (smoke run 2 on 2026-11-22: error 802 on every CUDA call)
 #   stage data    the synthetic dataset
 #   stage run     run_experiment.py with the flags run_campaign.py builds for round 1 of the h100 class (smoke_command.py): four
 #                 engines, scope board, window 10 s, idle windows 30 s after a 60 s settle, 3 s load pulses, power captures
@@ -80,7 +82,7 @@ p3_keep_awake
 
 # ---- the code that goes to the host: decided and checked before anything is launched -----------------------------------------
 NEEDED=(smoke_workloads.py tools/paper3_smoke/smoke_host.sh tools/paper3_smoke/smoke_command.py tools/paper3_smoke/generate_smoke_data.py
-        worker.py run_experiment.py run_campaign.py paper3_gates.py paper3_hosts.json gpu_pulse.py setup_h100.sh)
+        tools/paper3_campaign/p3_cuda_ready.sh worker.py run_experiment.py run_campaign.py paper3_gates.py paper3_hosts.json gpu_pulse.py setup_h100.sh)
 HEAD_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)
 DIRTY=$(git -C "$REPO_ROOT" status --porcelain | wc -l | tr -d ' ')
 ARCHIVE="$STAGING/repo.tar.gz"
@@ -197,17 +199,23 @@ run_stage() {            # STAGE BUDGET_SECONDS COMMAND [ARG...]: detached start
 }
 HOST_SCRIPT=gpu-spark-polars-study/tools/paper3_smoke/smoke_host.sh
 
-setup_ok=0 data_ok=0
+setup_ok=0 cuda_ok=0 data_ok=0
 if run_stage setup "${P3_STAGE_TIMEOUT_SETUP:-2700}" bash "$HOST_SCRIPT" setup; then
   setup_ok=1
-  run_stage data "${P3_STAGE_TIMEOUT_DATA:-900}" env "P3_SMOKE_DATA_ARGS=${P3_SMOKE_DATA_ARGS:-}" bash "$HOST_SCRIPT" data && data_ok=1
+  # the CUDA-readiness gate: nothing after it means anything on a host whose GPU cannot run CUDA (retried on the host for up to 10 minutes first)
+  if run_stage cuda "${P3_STAGE_TIMEOUT_CUDA:-900}" bash "$HOST_SCRIPT" cuda; then
+    cuda_ok=1
+    run_stage data "${P3_STAGE_TIMEOUT_DATA:-900}" env "P3_SMOKE_DATA_ARGS=${P3_SMOKE_DATA_ARGS:-}" bash "$HOST_SCRIPT" data && data_ok=1
+  elif [ "$STEP_RC" = 82 ]; then
+    log "HOST GPU NOT READY (CUDA init failed even after the gate's retries): this host cannot run the smoke test; it is torn down by the exit trap and this script exits 1"
+  fi
 fi
-if [ $setup_ok = 1 ] && [ $data_ok = 1 ]; then
+if [ $setup_ok = 1 ] && [ $cuda_ok = 1 ] && [ $data_ok = 1 ]; then
   run_stage run "${P3_STAGE_TIMEOUT_RUN:-3600}" env "P3_SMOKE_RUNS=${P3_SMOKE_RUNS:-3}" bash "$HOST_SCRIPT" run
   # the gates read whatever the run left behind (an engine failure is a finding, not a reason to skip them); not after a lost host
   if [ "$P3_STAGE_STATE" != host-gone ]; then run_stage gates "${P3_STAGE_TIMEOUT_GATES:-600}" bash "$HOST_SCRIPT" gates; fi
 else
-  log "setup or data stage failed: the run and the gates are skipped; the logs are still collected"
+  log "setup, cuda or data stage failed: the run and the gates are skipped; the logs are still collected"
 fi
 
 # ---- collect, redact, hash ---------------------------------------------------------------------------------------------------

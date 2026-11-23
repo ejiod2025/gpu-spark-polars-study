@@ -322,7 +322,7 @@ def test_every_bringup_script_is_valid_bash_and_ends_with_its_steps_in_order(mon
         done = subprocess.run([BASH, "-n"], input=script, capture_output=True, text=True)
         assert done.returncode == 0, (host, done.stderr)
         steps = re.findall(r"^run_step (\w+) ", script, re.M)
-        expected = ["boot_wait", "checkout", "lease", "setup", "hostinfo", "generate", "verify"] + (["pincheck", "preflight", "capture_before", "quiesce", "capture_after"] if host == "c-gcp" else ["preflight"]) + ["artifacts"]
+        expected = ["boot_wait", "checkout", "lease", "setup"] + (["cudaready"] if P.pc.HOSTS[host].kind == "gpu" else []) + ["hostinfo", "generate", "verify"] + (["pincheck", "preflight", "capture_before", "quiesce", "capture_after"] if host == "c-gcp" else ["preflight"]) + ["artifacts"]
         assert steps == expected, host
         assert f"git -C \"$STUDY\" checkout --detach {'a' * 40}" in script and "refs/tags/paper3-design-lock^{commit}" in script
         assert "campaign.json exists" in script and f"rerun/paper3-{host}-l{launch}" in script

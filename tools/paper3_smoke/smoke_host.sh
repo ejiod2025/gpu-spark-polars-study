@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# smoke_host.sh setup | data | run | gates | bundle      (runs on the Lambda H100 HOST; run_h100_smoke.sh starts each as a detached stage)
+# smoke_host.sh setup | cuda | data | run | gates | bundle      (runs on the Lambda H100 HOST; run_h100_smoke.sh starts each as a detached stage)
 #
 #   setup   ./setup_h100.sh exactly as the campaign host is brought up (no flags), timed: the duration is a result of the smoke test
+#   cuda    the CUDA-readiness gate (tools/paper3_campaign/p3_cuda_ready.sh, the one the campaign bring-up runs): a tiny CUDA init and kernel, retried for up to 10 minutes;
+#           exit 82 = "host GPU not ready (CUDA 802)": the host is unusable (smoke run 2, 2026-11-22: every CUDA call failed with error 802) and the driver stops
 #   data    the synthetic dataset (generate_smoke_data.py) into ~/p3smoke/data/sf1
 #   run     host-exclusivity capture, then run_experiment.py with the campaign's flags for round 1 (smoke_command.py: --suite smoke
 #           --synthetic-smoke on the synthetic data, four engines, scope board, window 10 s, pulses, idle windows 30 s after a 60 s
@@ -50,6 +52,10 @@ case "${1:-}" in
   setup)
     timed setup ./setup_h100.sh
     ;;
+  cuda)
+    use_env
+    timed cuda tools/paper3_campaign/p3_cuda_ready.sh --python "$PYTHON_GPU_ENV" --out "$OUT/cuda-ready"
+    ;;
   data)
     use_env
     # shellcheck disable=SC2086
@@ -81,15 +87,16 @@ case "${1:-}" in
       [ -f "$SMOKE/$f" ] && cp "$SMOKE/$f" "$stage/$f"
     done
     [ -f "$SMOKE/data/sf1/manifest.json" ] && cp "$SMOKE/data/sf1/manifest.json" "$stage/data-manifest.json"
-    for f in "$OUT"/*-timing.json "$OUT/setup.log" "$OUT/data.log" "$OUT/run.log" "$OUT/gates.log"; do
+    for f in "$OUT"/*-timing.json "$OUT/setup.log" "$OUT/cuda.log" "$OUT/data.log" "$OUT/run.log" "$OUT/gates.log"; do
       [ -f "$f" ] && cp "$f" "$stage/stages/"
     done
+    [ -d "$OUT/cuda-ready" ] && cp -R "$OUT/cuda-ready" "$stage/cuda-ready"       # the gate's verdict, attempts, fabric state and nvidia-smi -q (identifiers blanked)
     [ -d "$REPO/rerun/setup-logs" ] && cp -R "$REPO/rerun/setup-logs" "$stage/setup-logs"
     [ -f "$REPO/rerun/h100-env.sh" ] && cp "$REPO/rerun/h100-env.sh" "$stage/h100-env.sh"
     tar -czf "$OUT/smoke-evidence.tar.gz.tmp" -C "$stage" . && mv "$OUT/smoke-evidence.tar.gz.tmp" "$OUT/smoke-evidence.tar.gz"
     ;;
   *)
-    sed -n 2,14p "$0" >&2
+    sed -n '2,/^set -uo pipefail/p' "$0" | sed '$d' >&2
     exit 2
     ;;
 esac

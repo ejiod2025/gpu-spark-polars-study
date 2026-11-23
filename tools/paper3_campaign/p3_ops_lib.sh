@@ -21,10 +21,11 @@ export CLOUDSDK_CORE_PROJECT=${P3_GCP_PROJECT:-siriusmedai}
 
 p3_utc() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
-ledger_append() {      # EVENT RECORD_FILE: one line to ledger.jsonl with the record's identifying fields
-  local event=$1 record=$2
+ledger_append() {      # EVENT RECORD_FILE [REASON]: one line to ledger.jsonl with the record's identifying fields (and the reason, when there is one)
+  local event=$1 record=$2 reason=${3:-}
   mkdir -p "$P3_LEDGER_DIR" || return 1
-  jq -c --arg event "$event" --arg at "$(p3_utc)" '{at:$at, event:$event, host:.host, launch:.launch, provider:.provider, instance_id:.instance_id, lease_name:.lease_name}' "$record" \
+  jq -c --arg event "$event" --arg at "$(p3_utc)" --arg reason "$reason" \
+    '{at:$at, event:$event, host:.host, launch:.launch, provider:.provider, instance_id:.instance_id, lease_name:.lease_name} + (if $reason == "" then {} else {reason:$reason} end)' "$record" \
     >> "$P3_LEDGER_DIR/ledger.jsonl"
 }
 
@@ -32,10 +33,10 @@ record_get() {         # RECORD KEY: the value, or empty for null
   jq -r --arg k "$2" '.[$k] // empty' "$1"
 }
 
-record_set() {         # RECORD KEY VALUE [string|number]: atomic in-place update
+record_set() {         # RECORD KEY VALUE [string|number|json]: atomic in-place update (number and json take the value as JSON)
   local file=$1 key=$2 value=$3 kind=${4:-string} tmp
   tmp=$(mktemp "$file.XXXXXX") || return 1
-  if [ "$kind" = number ]; then jq --arg k "$key" --argjson v "$value" '.[$k]=$v' "$file" > "$tmp"; else jq --arg k "$key" --arg v "$value" '.[$k]=$v' "$file" > "$tmp"; fi \
+  if [ "$kind" = number ] || [ "$kind" = json ]; then jq --arg k "$key" --argjson v "$value" '.[$k]=$v' "$file" > "$tmp"; else jq --arg k "$key" --arg v "$value" '.[$k]=$v' "$file" > "$tmp"; fi \
     && mv "$tmp" "$file" || { rm -f "$tmp"; return 1; }
 }
 

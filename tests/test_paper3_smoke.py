@@ -624,6 +624,15 @@ printf 'export PYTHON_GPU_ENV="%s"\\nexport DATA_ROOT="$HOME/data"\\nexport RAPI
 sleep ${FAKE_SETUP_SLEEP:-0.3}
 exit ${FAKE_SETUP_RC:-0}
 """
+STUB_GPU_PULSE = """import json, os, sys
+from pathlib import Path
+counter = Path("pulse-count")
+count = int(counter.read_text()) if counter.exists() else 0
+counter.write_text(str(count + 1))
+if count < int(os.environ.get("FAKE_PULSE_FAILS", "0")):
+    print(json.dumps({"ok": False, "error": "RuntimeError: cuInit returned CUDA error 802"})); sys.exit(1)
+print(json.dumps({"ok": True}))
+"""
 STUB_RUN_EXPERIMENT = """import os, shutil, sys
 from pathlib import Path
 out = Path(sys.argv[sys.argv.index("--output") + 1])
@@ -662,6 +671,9 @@ def smoke_repo(net, clean):
     (root / "tools" / "paper3_probes" / "lambda_watchdog.sh").write_text("#!/bin/bash\nsleep 0.1\n")
     (root / "setup_h100.sh").write_text(STUB_SETUP)
     (root / "run_experiment.py").write_text(STUB_RUN_EXPERIMENT)
+    (root / "gpu_pulse.py").write_text(STUB_GPU_PULSE)                                  # the real one needs a GPU; the CUDA gate runs it on the fake host
+    (root / "tools" / "paper3_campaign").mkdir(parents=True)
+    shutil.copy(REPO / "tools" / "paper3_campaign" / "p3_cuda_ready.sh", root / "tools" / "paper3_campaign" / "p3_cuda_ready.sh")
     for path in list((root / "tools").rglob("*.sh")) + [root / "setup_h100.sh"]:
         path.chmod(0o755)
     subprocess.run(["git", "init", "-q", str(root)], check=True)
@@ -690,8 +702,10 @@ def test_the_driver_runs_every_stage_collects_redacts_checks_and_terminates(net,
     (evidence,) = [p for p in smoke_repo.evidence.iterdir() if p.is_dir()]
     assert evidence.name.startswith("h100-")
     log = (evidence / "driver.log").read_text()
-    for stage in ("setup", "data", "run", "gates", "bundle"):
+    for stage in ("setup", "cuda", "data", "run", "gates", "bundle"):
         assert f"stage {stage} exit=0" in log
+    gate = json.loads((evidence / "cuda-ready" / "cuda-ready.json").read_text())
+    assert gate["ok"] is True and gate["attempts"] == 1 and (evidence / "stages" / "cuda-timing.json").is_file()      # the CUDA gate ran between setup and data
     assert "confirmed terminated" in log and (net.net / "terminated").exists() and "10.0.0.1" not in log
     assert "p3-probe-h100-smoke" in (net.net / "launch_args").read_text() or "h100-smoke" in (net.net / "launch_args").read_text()
     for name in ("run/schedule.json", "run/environment.json", "run/gpu.csv", "run/sf1/polars/results.json", "gates.json", "data-manifest.json",
@@ -753,3 +767,49 @@ def test_a_signal_to_the_driver_still_terminates_the_instance(net, smoke_repo):
     output, _ = process.communicate(timeout=120)
     assert process.returncode == 143, output[-2000:]
     assert (net.net / "terminated").exists() and "confirmed terminated" in output and "terminated (signal)" in output
+
+
+def fake_cuda_clock(net):
+    """A clock for the host's CUDA gate that only moves when it sleeps: a ten-minute retry window takes no time."""
+    clock = net.tmp / "cuda_clock"
+    clock.mkdir(exist_ok=True)
+    (clock / "clock").write_text("1000000\n")
+    (clock / "now.sh").write_text('#!/bin/bash\ncat "' + str(clock / "clock") + '"\n')
+    (clock / "sleep.sh").write_text('#!/bin/bash\necho "$1" >> "' + str(clock / "sleeps.log") + '"\necho $(( $(cat "' + str(clock / "clock") + '") + $1 )) > "' + str(clock / "clock") + '"\n')
+    for name in ("now.sh", "sleep.sh"):
+        (clock / name).chmod(0o755)
+    return {"P3_CUDA_NOW": clock / "now.sh", "P3_CUDA_SLEEP": clock / "sleep.sh"}, clock / "sleeps.log"
+
+
+def test_a_host_whose_cuda_never_works_stops_the_test_at_the_gate_still_collects_and_terminates(net, smoke_repo):
+    clock_env, sleeps = fake_cuda_clock(net)
+    done = run_smoke_driver(smoke_repo, FAKE_PULSE_FAILS=10 ** 6, **clock_env)
+    assert done.returncode == 1, done.stdout[-2000:]
+    (evidence,) = [p for p in smoke_repo.evidence.iterdir() if p.is_dir()]
+    log = (evidence / "driver.log").read_text()
+    assert "stage setup exit=0" in log and "stage cuda exit=82" in log and "HOST GPU NOT READY" in log
+    assert "stage data exit" not in log and "stage run exit" not in log and "stage gates exit" not in log and "the run and the gates are skipped" in log
+    assert "stage bundle exit=0" in log and "confirmed terminated" in log and (net.net / "terminated").exists()      # collected, then torn down
+    gate = json.loads((evidence / "cuda-ready" / "cuda-ready.json").read_text())
+    assert gate["ok"] is False and gate["reason"] == "host GPU not ready (CUDA 802)" and gate["attempts"] == 21
+    assert json.loads((evidence / "stages" / "cuda-timing.json").read_text())["rc"] == 82
+    assert sleeps.read_text().split() == ["30"] * 20
+    assert json.loads((evidence / "checklist.json").read_text())["failed"] is True
+
+
+def test_a_host_that_needs_a_few_retries_passes_the_gate_and_the_test_goes_on(net, smoke_repo):
+    clock_env, sleeps = fake_cuda_clock(net)
+    done = run_smoke_driver(smoke_repo, FAKE_PULSE_FAILS=3, **clock_env)
+    assert done.returncode == 0, done.stdout[-2000:]
+    (evidence,) = [p for p in smoke_repo.evidence.iterdir() if p.is_dir()]
+    log = (evidence / "driver.log").read_text()
+    for stage in ("setup", "cuda", "data", "run", "gates", "bundle"):
+        assert f"stage {stage} exit=0" in log
+    assert json.loads((evidence / "cuda-ready" / "cuda-ready.json").read_text())["attempts"] == 4 and sleeps.read_text().split() == ["30"] * 3
+
+
+def test_the_smoke_driver_ships_the_gate_and_checks_that_head_has_it(net, smoke_repo):
+    git(smoke_repo.root, "rm", "-q", "tools/paper3_campaign/p3_cuda_ready.sh")
+    git(smoke_repo.root, "commit", "-q", "-m", "drop the gate")
+    done = run_smoke_driver(smoke_repo)
+    assert done.returncode == 1 and "lacks tools/paper3_campaign/p3_cuda_ready.sh" in done.stdout and not (net.net / "launch_args").exists()

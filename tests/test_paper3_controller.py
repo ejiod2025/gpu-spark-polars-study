@@ -525,7 +525,7 @@ def test_the_driver_unit_restarts_crashes_but_never_a_deliberate_exit_of_the_dri
             break
         block.append(line.lstrip("# ").rstrip())
     deliberate = {int(m) for m in re.findall(r"(?:Exit codes: |; |^)(\d+) ", "\n".join(block), flags=re.M)} - {0}
-    assert deliberate == {2, 10, 11, 20, 21, 30} and never == deliberate               # a new exit code of the driver must be classified here
+    assert deliberate == {2, 10, 11, 20, 21, 30, 31} and never == deliberate               # a new exit code of the driver must be classified here
     assert values(service, "Service", "Restart") == ["on-failure"] and values(service, "Service", "User") == ["p3ops"]
     assert values(service, "Install", "WantedBy") == ["multi-user.target"]               # enabled: it comes back after a reboot of the controller
     assert int(values(service, "Unit", "StartLimitBurst")[0]) >= 3                        # a crash loop is bounded

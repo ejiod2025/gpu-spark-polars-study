@@ -3,7 +3,7 @@
 # Extra driver options go in /etc/p3/driver-<lease>.env as P3_DRIVER_ARGS="--fresh" (see docs/PAPER3_CONTROLLER.md).
 #
 # Restart policy: the driver exits by itself with 0 (done and torn down) or with a code that means "a person decides" (2 usage, 10 allow-list
-# review, 11 stopped after bring-up on request, 20 held, 21 host gone, 30 stopped by the campaign's own rule). None of those is restarted: the
+# review, 11 stopped after bring-up on request, 20 held, 21 host gone, 30 stopped by the campaign's own rule, 31 host GPU not ready before round 1). None of those is restarted: the
 # unit stays failed so that `systemctl --failed` and p3_ctl.sh status show it. A crash, a kill (OOM) or a reboot of the controller is restarted,
 # and the driver is restartable by construction (a started stage is attached to, a verified copy is skipped).
 [Unit]
@@ -25,7 +25,7 @@ EnvironmentFile=-/etc/p3/driver-%i.env
 ExecStart=/home/p3ops/study/tools/paper3_campaign/p3_driver.sh /home/p3ops/p3ledger/%i.json $P3_DRIVER_ARGS
 Restart=on-failure
 RestartSec=60
-RestartPreventExitStatus=2 10 11 20 21 30
+RestartPreventExitStatus=2 10 11 20 21 30 31
 TimeoutStopSec=60
 NoNewPrivileges=yes
 ProtectSystem=full

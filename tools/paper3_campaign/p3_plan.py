@@ -479,6 +479,11 @@ def bringup_script(host: str, launch: str, record: dict) -> str:
              f"s_verify() {{\n  {env}\n  mkdir -p rerun; rm -f {reports}\n{indented(verify_lines(host))}\n}}\n"
              f"s_preflight() {{\n  {env}\n  rm -rf rerun/preflight-bringup\n  {preflight_line(host)}\n}}\n"]
     steps = ["boot_wait", "checkout", "lease", "setup", "hostinfo", "generate", "verify"]
+    if spec.kind == "gpu":
+        # The CUDA-readiness gate (2026-11-22, smoke run 2: a host that answered every CUDA call with error 802): right after setup, before data and engines. It retries for
+        # up to 10 minutes, then fails with exit 82, which the driver reads as an infrastructure failure before round 1 (it tears the host down).
+        parts.append(f's_cudaready() {{\n  {env}\n  tools/paper3_campaign/p3_cuda_ready.sh --python "$PYTHON_GPU_ENV" --out rerun/bringup-artifacts\n}}\n')
+        steps.insert(steps.index("setup") + 1, "cudaready")
     if spec.pinned:
         parts.append(f"s_pincheck() {{\n  {env}\n{PINCHECK}\n}}\n"
                      f'capture() {{ {env}; mkdir -p "$HOME/p3out"; python paper3_gates.py --capture-exclusivity > "$HOME/p3out/$1"; }}\n'
