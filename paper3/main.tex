@@ -132,11 +132,11 @@ We address both with a pre-registered study. Four engines (\polarscpu, \polarsgp
 \sparkgpu) run the TPC-H-derived workload of a prior pre-registered timing
 study~\cite{ejiofor2026p1} on two rented GPU hosts (NVIDIA A100 and H100) and on a bare-metal
 CPU host with readable RAPL counters; a right-sized CPU virtual machine checks the CPU cost
-baseline. The design, including the analysis, the classification rule and the scope rules for
-what may be claimed, was locked on 2026-11-16 with a public time-stamped
+baseline. The design, including the analysis plan, the classification rule and the scope rules
+for what may be claimed, was locked on 2026-11-16 with a public time-stamped
 deposit~\citelock{}, after a battery of synthetic-load probes of every meter and before any
-timed study session. Every later change is a dated amendment reported in
-Section~\ref{sec:deviations}.
+timed study session. The analysis code was written after the lock and frozen before any campaign
+data was seen. Every later change is a dated amendment reported in Section~\ref{sec:deviations}.
 
 \paragraph{Contributions.}
 \begin{enumerate}
@@ -147,7 +147,7 @@ Section~\ref{sec:deviations}.
   and without an open CUDA context, and clock alignment are measured; a window rule makes
   sub-second queries measurable; energy is reported both total and above idle; and every value
   carries a scope tag that the analysis code enforces.
-\item \textbf{A pre-registered design and analysis} (Sections~\ref{sec:design},
+\item \textbf{A pre-registered design and analysis plan} (Sections~\ref{sec:design},
   \ref{sec:analysis}): Williams Latin squares, timing-independent integrity gates, a $\pm$10\%
   equivalence margin, a fixed cell classification, and explicit rules for cross-class energy
   claims (assumption \NOne{} and tipping points $\Dstar$), with every deviation disclosed.
@@ -312,8 +312,8 @@ alternates by round and scales ascend. A GPU-host round has 32 sessions (4 engin
 suite--scale cells); a \CG{} round has 16, with orders \texttt{AB BA BA AB} and \texttt{BA AB AB
 BA} (\sparkcpu{} is A and \polarscpu{} is B, derived from the same seed). \CV{} runs the
 baseline suite at SF10, 30 and 300 for two rounds (\texttt{AB}, \texttt{BA}), time only.
-Confirmatory estimates use complete squares only: two give $R = 8$, one gives $R = 4$; rounds
-of an incomplete square are a sensitivity. No round is added or dropped for what its values
+Confirmatory estimates use complete squares only (all of a square's rounds accepted within one
+instance): two give $R = 8$, one gives $R = 4$; rounds of an incomplete square are a sensitivity. No round is added or dropped for what its values
 look like. One query runs at a time on a whole instance, with no other workload and no foreign
 GPU process; at least 150\,s without query load separate consecutive sessions.
 
@@ -419,7 +419,7 @@ locked 1\,s default as a floor, $\tmin(\text{host}) = \max(1\,\text{s},\ \text{m
 gives 1\,s on the H100 (measured 0.5\,s), 2\,s on the A100 and 2\,s on \CG{}
 (Table~\ref{tab:validation}). A cell whose median trial has a per-run time below its host's
 $\tmin$, or a window below 10\,s, is reported as \emph{below measurement resolution}, never as a
-number (gate G9). The limit was not tuned to observed values: the A100's 1.9\% at 2\,s is close
+number (gate G9); the cell's time and cost stay. The limit was not tuned to observed values: the A100's 1.9\% at 2\,s is close
 to the limit and is recorded as measured.
 
 The errors are not always random. On the H100 their signs are mixed, so for $n$ runs they grow
@@ -610,8 +610,11 @@ Per query, the log-ratio is computed per round; the estimate is the geometric me
 and the 95\% interval is a $t$-interval on the mean log-ratio with $R-1$ degrees of freedom
 ($t = 2.365$ for $R = 8$, $3.182$ for $R = 4$), back-transformed; the across-round range is also
 reported. Per suite and scale, the per-query log-ratios of queries both engines supported are
-averaged within each round and the same interval is taken across rounds (round as block). Suite
-totals in Wh and USD per suite run are reported beside geometric means, never mixed with them.
+averaged within each round and the same interval is taken across rounds (round as block).
+Cross-host contrasts (cross-class energy, B1 and B2 cost, X5, X6) pair the two hosts' rounds by
+round number, a convention because the rounds are independent runs; an unpaired Welch estimate
+is shown beside each such cell as a labelled sensitivity. Suite totals in Wh and USD per suite
+run are reported beside geometric means, never mixed with them.
 There are no hypothesis tests and no $p$-values; intervals are marginal, with no multiplicity
 correction and no power calculation (between-round energy variance was unknown). Ineligible
 cells (coverage outcome, below resolution, scope absent, invalid session) go to a coverage
@@ -622,12 +625,14 @@ matrix and are not imputed.
 Each (contrast, host, suite, scale) cell is classified from its 95\% interval of $\rho$:
 \emph{GPU better} if it lies entirely above 1, \emph{CPU better} if entirely below 1, \emph{no
 difference} if entirely inside $[1/1.10,\ 1.10]$ (a practical margin approved before data), and
-\emph{inconclusive} otherwise; an interval that merely contains 1 is never ``no difference''.
+\emph{inconclusive} otherwise, checked in this order (an interval wholly above 1 but inside the
+margin is GPU better and flagged as within the margin); an interval that merely contains 1 is never
+``no difference''.
 The \emph{break-even scale} of a contrast, per suite, host and metric (energy total and above
 idle; cost under B1, B2, B3, each under P-NEW, P-OLD and P-BILLED) is the smallest grid scale $s$
 such that every grid scale $\ge s$ is GPU better, reported as the bracket (previous scale, $s$];
-``$\le$SF1'' and ``$>$SF300'' are censored outcomes, and a scale that is not estimable is named
-in the outcome (``$\le$SF10 (SF1 not estimable)''; ``not determinable (SF300 not estimable)'').
+``$\le$SF1'' and ``$>$SF300'' (the top scale has a class other than GPU better) are censored
+outcomes, and a scale that is not estimable is named in the outcome (``$\le$SF10 (SF1 not estimable)''; ``not determinable (SF300 not estimable)'').
 For cross-class energy it is computed on the
 measured scopes and labelled a lower bound on the node-level break-even, under \NOne. No scale is
 added to refine a bracket.
@@ -637,9 +642,10 @@ added to refine a bracket.
 Until every round has completed or been stopped by rule, no engine-versus-engine or
 host-versus-host energy, power or cost aggregate is computed or viewed; only QA views (gate
 outcomes, sample counts, idle stability, coverage, read latencies) are allowed, through an
-allow-list view of the logs (A2). The analysis code is run on campaign data only after its
-validation on synthetic campaigns with injected known effects (A7, Section~\ref{sec:deviations}).
-Stopping, repeating or relaunching is never based on observed
+allow-list view of the logs (A2). The analysis code was written after the lock and frozen before
+any campaign data was seen (A7, Section~\ref{sec:deviations}); it refuses the full analysis until
+every planned launch is complete, stopped or declared ended, and before that reads only the gate
+files of the QA view. Stopping, repeating or relaunching is never based on observed
 speed, energy or cost. \camera{The author knows the prior study's timings and its published GPU
 power summaries}{The prior study's timings and GPU power summaries were published before the
 lock}, so the pre-registration protects the analysis choices, not ignorance of them.
@@ -682,20 +688,26 @@ A5.2 & GCP compute (\CG, \CV) paid by Google Cloud credits; cost still uses P-NE
 A5.3 & No H100 capacity at the start: A100 and \CG{} (\texttt{us-central1-a}, a pre-registered fallback zone, same shape and price) started first. & none \\
 % A6 checked against the committed text (commit 9a8b07b) on 2026-11-23.
 A6 (2026-11-23) & \CG{} G12 allow-list after review: the 25 scheduled items found at bring-up (18 systemd timers, 7 \texttt{/etc/cron.*} files) are all masked or inert and none may run; G12 fails on any other scheduled item; same value for both \CG{} launches. & none \\
-% TODO(A7): date, commit and sha256 come from amendment A7 (lead, 2026-11-23: it will record the
+% A7: date, commits and sha256 are in record.tex (lead, 2026-11-23; amendment A7 records the
 % commit, the sha256 and the synthetic-recovery result before any campaign aggregate is computed or
-% seen); re-check this row and the paragraph below against the committed A7 text.
-A7 (\stat{amend.a7.date}) & Contrary to design \S5.4, the analysis code was not committed before the lock. It was written after the lock and before any campaign data were analysed or viewed, validated on synthetic campaigns with known injected effects, and committed (commit \camera{\stat{amend.a7.commit}}{\anonmark}, sha256 \hashstat{amend.a7.sha256}). & none \\
+% seen). Checked against the committed A7 (amendment commit 5382101, freeze commit ea67f12) on 2026-11-23.
+A7 (\stat{amend.a7.date}) & Contrary to design \S5.4, no analysis code existed at the lock. It was written after the lock by a team member without access to campaign data, validated only on synthetic campaigns with injected known effects, independently reviewed, and frozen before any campaign data was seen (freeze commit \camera{\stat{amend.a7.freeze_commit}}{\anonmark}; a first freeze the same day was superseded by one change to a diagnostic); code sha256 \hashstat{amend.a7.sha256}. Synthetic recovery passes (A7.3); the readings of the design it applies are in Appendix~\ref{app:readings}. & none \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
 Four deviations affect what the paper can report. First, contrary to \S5.4 of the locked
-design~\citelock{}, the analysis code was not committed before the lock; it was written after the
-lock and before any campaign data were analysed or viewed, validated on synthetic campaigns with
-known effects, and committed with its hash recorded in amendment A7 (\stat{amend.a7.date},
-commit \camera{\stat{amend.a7.commit}}{\anonmark}). The pre-registration therefore fixes the
-analysis rules of Section~\ref{sec:analysis} but not, in advance, the code that applies them.
+design~\citelock{}, no analysis code existed at the lock: the analysis code was written after the
+lock and frozen before any campaign data was seen (A7 item 1). It was written by a team member
+without access to the campaign data, validated only on synthetic campaigns with injected known
+effects, and independently reviewed; amendment A7 (\stat{amend.a7.date}, commit
+\camera{\stat{amend.a7.commit}}{\anonmark}) records the freeze commit
+(\camera{\stat{amend.a7.freeze_commit}}{\anonmark}) and the code's sha256. On synthetic campaigns all
+1,056 X1--X3 estimates lay within sampling error of the injected truth, and the 95\% intervals
+covered it in 3,079 of 3,240 cases (0.950) over 12 replicate seeds (A7 item 3). The
+pre-registration therefore fixes the analysis rules of Section~\ref{sec:analysis} but not, in
+advance, the code that applies them; the readings of the design that the code applies are listed in
+Appendix~\ref{app:readings}.
 Second, GH200 and B200 were dropped (A5.1) by
 the author's decision on 2026-11-23, on grounds of time and scarce capacity, before any campaign
 value existed: RQ4 covers two GPU generations instead of four, and the planned same-host,
@@ -958,8 +970,11 @@ cross-class energy claims bounded by an explicit assumption and its tipping poin
 % Paper 3 campaign (both to be minted after the campaign).
 The probe tools, harness, gates, analysis code, price snapshots and probe evidence are in the
 study repository (\repourl); the locked design is deposited with a time stamp (\lockdoi). The
-analysis output records the sha256 of the code that produced it
-(\hashstat{_meta.analysis_code_sha256}), which equals the value recorded in amendment A7. Raw
+analysis code was written after the lock and frozen before any campaign data was seen (A7, freeze
+commit \camera{\stat{amend.a7.freeze_commit}}{\anonmark}); its synthetic recovery evidence is in the
+repository (commit \camera{\stat{amend.a7.recovery_commit}}{\anonmark}). The analysis output records
+the sha256 of the code that produced it (\hashstat{_meta.analysis_code_sha256}), which equals the
+value recorded in amendment A7. Raw
 campaign records will be deposited with checksums \todoplaceholder{raw-data DOI after the
 campaign}.
 
@@ -1025,6 +1040,42 @@ samples, idle rose from 143\,W bare to 192\,W with a context open, and G8 passed
 resolution probe was lost to dropped SSH sessions; a rerun gave $\tmin = 1$\,s. B200 was admitted
 by amendment A2.1 and then not run (A5.1).
 
+\section{Readings of the Design Applied by the Analysis Code}
+\label{app:readings}
+Amendment A7 (item 4) fixes, before any aggregate was seen, how the frozen analysis code reads
+parts of the design that its text leaves open. Each is reported here.
+\begin{enumerate}[label=(\alph*)]
+\item Cross-host contrasts (cross-class energy X1--X3, B1 and B2 cost, time against \CG, X5, X6)
+  pair the two hosts' rounds by round number, a convention because they are independent runs; where
+  the hosts share no round number the cell is not estimable, and an unpaired Welch estimate with
+  each side's own rounds is given beside every cross-host cell as a labelled sensitivity.
+\item X3 takes the best value among the engines that ran the query; if an engine that ran has no
+  value for the metric (below resolution, an invalid counter), that query and round is unavailable
+  for the metric, with no other engine standing in. The strict X3 also needs both GPU engines to
+  have run; a lenient variant is a labelled diagnostic that carries no claim.
+\item Break-even: a scale that was not measured is not ``not GPU better''. If the walk down from
+  the top ends at a scale with no estimate, the bracket is censored (``$\le$SF$s$'', the
+  unestimable scale named); if the top scale has no estimate it is ``not determinable''; and
+  ``$>$SF300'' only when the top scale has a class that is not GPU better.
+\item G9 drops a cell's energy only; its time and cost stay.
+\item Class precedence follows Section~\ref{sec:classification}: an interval inside the
+  $\pm$10\% band but wholly above 1 is GPU better, flagged as within the margin.
+\item Suite-level geometric means use, per round, the queries both sides have in that round;
+  suite totals, $\Dstar$ and X6 use the queries every round has; per-query ratios with a
+  non-positive value (above-idle energy can be negative) are excluded and counted.
+\item A complete square is all its rounds accepted within one instance; a relaunch after a loss
+  (A1.2) is never pooled with the lost instance; launches of one host on different instance types
+  are refused.
+\item If the \CV{} check fails, B1 uses the \CV's geometric-mean time per cell as a fixed
+  reference, not paired by round, and the P-BILLED B1 price is the \CV{} launch's billed price
+  (P-NEW's if there is none).
+\item Blinding guard: the full analysis refuses unless every planned launch (A100 and H100
+  launches 1 and 2, \CG{} launches 1 and 2, \CV{} launch 1) is complete or stopped, or declared
+  ended by label; until then only a QA-only mode runs, reading the gate files the QA view allows.
+  The code drops X7 (A5), computes no model energy value and raises an error on an untagged energy
+  value.
+\end{enumerate}
+
 \section{Statistics Keys}
 \label{app:keys}
 % Key scheme aligned 2026-11-23 with analyze_paper3.py / paper3_analysis/ as they stood then (untracked,
@@ -1046,7 +1097,7 @@ Values come from two files. \path{generated/stats.tex} is written by \path{analy
   \path{qa.read_latency_and_overhang.*}, \path{qa.idle_power_w.<host>.<engine>.<scope>.mean},
   \path{billing_by_host.<host>.*}, \path{c_vm_check.*}, \path{_meta.*}.
 \end{itemize}
-Hosts are \path{h100}, \path{a100}, \path{c-gcp}, \path{c-vm}. \path{generated/record.tex} holds
+Hosts are \path{h100}, \path{a100}, \path{c-gcp}, \path{c-vm}. \path{record.tex} holds
 values from committed records, not campaign outcomes: \path{amend.a7.<date|commit|sha256>} and
 \path{campaign.<host>.<driver|cpu_model|first_session_utc|last_session_utc>} from the launch records. \pending{full X1, X2 tables; P-OLD and P-BILLED tables; G8 flags
 by engine; coverage matrix}

@@ -5,7 +5,7 @@ The paper cites a statistic as \\stat{key}, \\tstat{key}, \\ratiotext{prefix}, \
 \\xcell{prefix} (macros.tex). This tool scans main.tex for those, expands the prefixes (estimate, ci_low, ci_high; for \\xcell
 estimate and class), flattens stats.json with the analysis's own outputs.flatten and formats every value with its own
 outputs.tex_number, so a value reads the same here as in the analysis's tables. Keys of values from committed records, not
-campaign outcomes (amend.*, campaign.*), are skipped: they come from the hand-kept generated/record.tex (macros.tex).
+campaign outcomes (amend.*, campaign.*), are skipped: they come from the tracked, hand-kept record.tex (macros.tex).
 
 It refuses (exit 1) if a key the paper uses is absent from stats.json or is a list or object, unless --allow-missing; a synthetic
 stats.json (_meta.synthetic true) writes \\syntheticstatstrue, which watermarks every page.
