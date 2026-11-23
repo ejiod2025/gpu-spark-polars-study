@@ -112,6 +112,8 @@ while :; do
   poll=$((poll + 1))
   reply=$(lambda_call GET /instance-types 2>>"$LOG")
   listed=$(printf '%s' "$reply" | jq -r --arg t "$ITYPE" '.data[$t].regions_with_capacity_available[]?.name' 2>/dev/null)
+  # P3_EXCLUDE_REGIONS (space-separated): regions never launched in, e.g. one whose hosts failed the CUDA gate
+  for bad in ${P3_EXCLUDE_REGIONS:-}; do listed=$(printf '%s\n' "$listed" | grep -vx "$bad" || true); done
   if ! printf '%s' "$reply" | jq -e '.data' >/dev/null 2>&1; then
     log "poll $poll: the API answer has no .data ($(printf '%s' "$reply" | head -c 200 | tr '\n' ' ')); trying again"
   elif [ -z "$listed" ]; then
