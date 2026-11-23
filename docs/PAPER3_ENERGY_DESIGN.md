@@ -1145,6 +1145,77 @@ has run and nothing from the host has been viewed beyond the capture below (§7.
    to be added to the planner's mask list (`C_GCP_MASK_UNITS` in `tools/paper3_campaign/p3_plan.py`) before launch 2. `p3_plan.py check-allowlist` from the campaign commit to the commit that holds this
    value confirms that this is the only value of `paper3_hosts.json` that changes. Outcome data seen: none.
 
+### A7 — 2026-11-23
+Seventh amendment after the lock: the analysis code, frozen. Items 1-4 are the lead's records; sections 1-11 are not edited.
+**Outcome data seen, for every item: none.** The campaign is in round 1 on three hosts, no round has completed, nothing has been
+analysed, and the analysis code has never been run on campaign data.
+1. **Deviation from §5.4 (the lead's record).** §5.4 requires the analysis code to be committed before the lock, with its sha256
+   recorded at the lock, and to be run only on a synthetic campaign with injected known effects. At the tag `paper3-design-lock` no
+   Paper 3 analysis code existed (the tree at the lock holds Paper 1's `analyze_campaign.py` and `analyze_results.py`, which the new
+   code imports, and nothing of `analyze_paper3.py` or `paper3_analysis/`). The code was written after the lock, on 2026-11-23, by a
+   team member with no access to the campaign data. It was validated only on synthetic campaigns with injected known effects and on
+   the published synthetic smoke-test evidence (format checks), and independently reviewed (8 defects were found and fixed before it was
+   frozen). It was first frozen and committed as `c5ca1469a641ba9cb1694cb832ce23a4dd2a0e58`. A later commit of the same day, made before any campaign
+   data was seen, supersedes it with one change alone: `qa.crosscheck_summary` (a diagnostic, §2.3) now takes the tree's GPU hosts, so every
+   GPU host has a `qa.crosscheck` block (zero counts and null statistics when no window qualifies), and its median, p90, min and max use the
+   same linear interpolation as p10; `analyze_paper3.py` passes the host list, and one test was added. No estimate, class, interval, gate or
+   blinding rule changed. The final freeze is `ea67f127c6bd04449f13257e4830204bcfebc1f0` (a child of `df84ea3`, a descendant of `c5ca146`
+   and of the lock commit), pushed to GitHub on 2026-11-23, whose push time is the external timestamp (§7.1 gives the lock its Zenodo
+   deposit; this code has none).
+2. **The frozen code.** `analyze_paper3.py` and `paper3_analysis/` (`__init__`, `cells`, `constants`, `contrasts`, `crosscheck`,
+   `descriptive`, `estimation`, `outputs`, `qa`, `recovery`, `synthetic`, `tree`). Combined sha256
+   `80ac76fb952057b62803e25dbef0b61d4f757f67179ef31943c6dbc03f68b633`: the sha256 over each file's name, NUL, bytes, NUL, in the order
+   `python analyze_paper3.py --manifest` prints, which is the order of this list:
+   `analyze_paper3.py` b61e8eebd6b8b6ba930b1337788c8c453c0add617d38e430036556538db353ef
+   `paper3_analysis/__init__.py` e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+   `paper3_analysis/cells.py` 304c9d23b64916d7a791bbb4450b515f34a407b8f92667d4d4bc33009f7e1e9c
+   `paper3_analysis/constants.py` e450be8d437880fad1f5626d60cee2056be3816bd9e3255463ded8478aa42e38
+   `paper3_analysis/contrasts.py` d2f76a554070dba3a2d9c1801d13feacc7456226268be95f72e5f3870ae95f65
+   `paper3_analysis/crosscheck.py` 49bb632351e17fe932686b140f081eaeed57d4d0f4686a92719db765a0b90110
+   `paper3_analysis/descriptive.py` e865f674acc1f7e33d0e8f3ae6c72884aa95a458fbfd4e18a6e3b80fe96f1c89
+   `paper3_analysis/estimation.py` 9c6afae7b5aeda801add3553483939ff528b68fbfce4d8ab4c8161fa0c2e2db8
+   `paper3_analysis/outputs.py` 46d441a9a395a918d0c62ebe1c4a12e012b1a49a44069e3820e3173f230b1800
+   `paper3_analysis/qa.py` 1bf5357e7cc0e73ea3831a159686d2c724ec2767c96ea716c66e948add4dc3e8
+   `paper3_analysis/recovery.py` c0c60649a12480bd0746974bd87151f1eb3f40a945fa6d015dc4242141bf02f3
+   `paper3_analysis/synthetic.py` 8916351dc524e0a52eadb68c93c08d89839c28b0da9972f3c6c53e38c10f8b60
+   `paper3_analysis/tree.py` abb1e82bdf88f10a1ac364daf5b14a2de1a80cd599c5b5636fd18ee0d6eec80a
+   `--manifest` also prints the hashes of the modules the code imports and does not own (`power_telemetry.py`, `paper3_gates.py`,
+   `paper3_campaign.py`, `preflight.py`, `analyze_campaign.py`, `analyze_results.py`, `paper3_hosts.json`). Those imported files are
+   byte-identical between the campaign commit `e613e4070130d50c47ef9e13b2a2e407f7fd3f6f` and `ea67f12`, except that `paper3_hosts.json`
+   differs by the A6 allow-list value, so the analysis reads the energy, gate and error-classification code the campaign ran.
+   `stats.json` and `recovery.json` carry the combined hash (`_meta.analysis_code_sha256`). Any later change to these files is a new
+   dated amendment, made before the campaign is unblinded.
+3. **§5.4 synthetic recovery.** `python analyze_paper3.py --recovery OUT` exits 0 only if every check passes. At `ea67f12` (re-run from
+   a clean extract of that commit; the figures are the same as at `c5ca146`) all of them pass: every one of 1,056 X1-X3 estimates has a true value and lies within sampling
+   error of it (largest |z| 3.49 against a limit of 5.0; median relative error 0.78%); 1,034 of the single tree's 1,056 intervals cover
+   the truth; no class contradicts a clear true ratio (855 of 855 agree) and no break-even bracket is wrong where every scale is clear;
+   interval coverage over 12 replicate seeds is 3,079 of 3,240 (0.950; R = 4 0.960, R = 8 0.941); the t-interval covers at 0.9570, 0.9505,
+   0.9500 and 0.9483 for R = 2, 3, 4 and 8 (4,000 simulations each), and the Welch interval of 4 against 8 rounds at 0.9433. The test
+   suite shows the recovery failing when a 5% bias is injected into every X1-X3 estimate.
+4. **Readings of the design that the code applies beyond its text** (all in `docs/PAPER3_ANALYSIS.md` at `ea67f12`, section "Readings of
+   the design to confirm"; each is reported in the paper). (a) *Cross-host contrasts* (X1-X3 energy, B1 and B2 cost, time against
+   C-GCP, X5, X6) pair the rounds the two hosts have by round number, a convention because two hosts' rounds are independent runs; where
+   they share no round number the cell is `not_estimable`, and beside every cross-host cell a labelled Welch estimate with each side's
+   own rounds (`sensitivity_unpaired`) is given. (b) *X3* takes the best value among the engines that ran the query, and if an engine
+   that ran has no value for the metric (below resolution, an invalid counter) that query and round is unavailable for the metric, with
+   no other engine standing in; `x3_strict` also needs both GPU engines to have run, and a lenient variant is a labelled diagnostic that
+   carries no claim. (c) *Break-even*: a scale that was not measured is not "not GPU better"; if the walk down from the top ends at a
+   scale with no estimate the bracket is censored (`<= SFs`, with the unestimable scale named), if the top scale has no estimate it is
+   "not determinable", and "> SF300" only when the top scale has a class that is not GPU better. (d) *G9* drops a cell's energy only;
+   time and cost stay. (e) *Class precedence* follows the order of §5.3, so an interval inside the +-10% band but wholly above 1 is "GPU
+   better", with `within_margin` true beside it. (f) *Suite-level* geometric means use, per round, the queries both sides have in that
+   round, while suite totals, Delta* and X6 use the queries every round has; per-query ratios with a non-positive value (above-idle can
+   be negative) are excluded and counted. (g) *Squares and instances*: a complete square is all its rounds accepted within one
+   instance, a relaunch after a loss (A1 item 2) is never pooled with the lost instance, and launches of one host that ran different
+   instance types are refused. (h) *If the C-VM check fails*, B1 uses the C-VM's geometric-mean time per cell as a fixed reference, not
+   paired by round, and P-BILLED's B1 price is the C-VM launch's billed price, or P-NEW's if there is none. (i) *Blinding guard* (§7.3):
+   the full analysis refuses without `--unblind`, and `--unblind` does not override that it refuses, before opening any result file,
+   unless every planned launch (A100 and H100 launches 1 and 2, C-GCP launches 1 and 2, C-VM launch 1) has a `status.json` state of
+   `complete` or `stopped`; a launch that was lost or will not run must be declared by label with `--declare-ended`. Until then only
+   `--qa-only` is allowed, and it reads only the gate files that the QA view of §4 allows. The code drops X7 (A5), computes no model
+   energy value and raises an error for an untagged energy value. These readings are fixed here before any aggregate has been seen, so
+   they do not fall under the limit of §7.4. Outcome data seen: none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,
