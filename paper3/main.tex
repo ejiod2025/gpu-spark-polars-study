@@ -207,7 +207,11 @@ and studied fast CPU--GPU interconnects~\cite{lutz2020pump}. Lee et al.\ showed 
 CPU--GPU speedups depend on the CPU baseline~\cite{lee2010debunking}. The two studies this one
 builds on are a pre-registered timing comparison of the same four engines on four GPU
 generations~\cite{ejiofor2026p1} and a re-examination of its CPU baseline (library-version
-lock-in and core count)~\cite{ejiofor2026p2}, which motivates our three CPU cost baselines.
+lock-in and core count)~\cite{ejiofor2026p2}, which motivates our three CPU cost baselines. We
+follow established benchmarking and reporting
+advice~\cite{hoefler2015scientific,raasveldt2018fair,fleming1986geomean}, a Williams design
+balanced for first-order carryover~\cite{williams1949latin}, and
+pre-registration~\cite{nosek2018prereg}.
 
 \paragraph{Cost per query and carbon.}
 Cloud cost per query has been modelled for query processing~\cite{leis2021costoptimal}, cloud
@@ -217,12 +221,6 @@ informs data-center design~\cite{acun2023carbonexplorer}, and the footprint of c
 includes embodied as well as operational carbon~\cite{gupta2021chasing}. We report
 energy and cost, not carbon: converting our scope-tagged energy to emissions needs grid
 intensity and embodied-carbon data that are outside this study.
-
-\paragraph{Benchmarking method.}
-We follow established advice on benchmarking and
-reporting~\cite{hoefler2015scientific,raasveldt2018fair,fleming1986geomean}, use a Williams
-design balanced for first-order carryover~\cite{williams1949latin}, and pre-register the
-analysis~\cite{nosek2018prereg}.
 
 % =====================================================================================
 \section{Study Design}
@@ -324,17 +322,12 @@ GPU process; at least 150\,s without query load separate consecutive sessions.
 \label{sec:energy}
 
 \begin{table*}[t]
-\caption{Pre-lock validation of the meters (synthetic load only; probes P1--P7 and the G8 probe;
-driver 570.148.08). Ratio: counter energy over the 20\,ms integral of the instantaneous-power
-field of the counter's scope, on a 10\,s idle and a 20\,s steady-load window. \texttt{power.draw}:
-the field that \texttt{nvidia-smi}'s default power reading equals in every sample of a 50\,ms
-stream under pulsed load. Resolution: median absolute per-run error of the campaign's energy path
-in windows mode (Section~\ref{sec:resolution}) at per-run lengths of 0.1, 0.25, 0.5, 1, 2 and 5\,s.
-Scope tags: \scope{S1-counter} GPU board, \scope{S1-module} whole Grace--Hopper module,
-\scope{S2-pinned} RAPL package + DRAM of the pinned socket. Idle: counter mean power over two
-60\,s windows, bare and with an open CUDA context (ctx; for \CG{} the sum of the four RAPL zones). G8: onset lag of 20 synthetic 3\,s pulses, median / p90 /
-max and first-third minus last-third drift, in seconds. GH200 and B200 rows: method validation
-only, hosts not run.}
+\caption{Pre-lock validation of the meters (synthetic load; probes P1--P7 and the G8 probe; driver
+570.148.08). Ratio: counter over the 20\,ms integral of the instantaneous field of the counter's
+scope (10\,s idle / 20\,s load). \texttt{power.draw}: the field it equals in every sample.
+Resolution: median absolute per-run error in windows mode (Section~\ref{sec:resolution}). Idle:
+two 60\,s windows, bare and with a CUDA context open (ctx); \CG: four RAPL zones. G8: onset lag of
+20 pulses, median / p90 / max / drift (s). Grey rows: method validation only, hosts not run.}
 \label{tab:validation}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
@@ -672,23 +665,23 @@ Synthetic: smoke tests on generated data and three trivial synthetic queries, no
 \toprule
 Item & Change & Seen \\
 \midrule
-A1.1 (2026-11-22) & No price snapshot was taken at the lock itself; one was taken the same UTC day, 1\,h\,37\,min after the tag. Its Lambda prices equal P-NEW; no price table changed. & none \\
-A1.2 & Author decision: a launch lost to a technical failure (instance lost, or a round failing the repeat-once rule) is relaunched once and restarts its square; the lost rounds are reported, never pooled, and enter no estimate. & none \\
-A1.3 & An SF1 functional preflight of every engine runs at bring-up (as in the prior study); only its verdict and failure lines are read, its outputs are sealed. & none \\
-A1.4 & The \CG{} allow-list of scheduled jobs for G12 is filled at the first \CG{} boot after review, by a guarded commit (done in A6). & none \\
-A1.5, A1.8 & Hypervisor and storage type added to the campaign record; a guard refuses synthetic smoke data in a campaign. & none \\
-A1.6, A1.7 & Start order (pathfinder hosts); GCP compute funding to be named later (closed by A5.2). & none \\
+A1.1 (2026-11-22) & No price snapshot at the lock itself; one was taken the same UTC day, 1\,h\,37\,min after the tag; its Lambda prices equal P-NEW. & none \\
+A1.2 & Author decision: a launch lost to a technical failure is relaunched once and restarts its square; the lost rounds are reported, never pooled, and enter no estimate. & none \\
+A1.3 & SF1 functional preflight of every engine at bring-up (as in the prior study); only verdict and failure lines are read. & none \\
+A1.4 & The \CG{} G12 allow-list is filled at the first \CG{} boot after review (done in A6). & none \\
+A1.5, A1.8 & Hypervisor and storage type recorded; synthetic smoke data refused in a campaign. & none \\
+A1.6, A1.7 & Start order (pathfinder hosts); GCP funding to be named (closed by A5.2). & none \\
 A2.1 (2026-11-22) & B200 admitted after a valid resolution probe ($\tmin = 1$\,s); superseded by A5.1. & synthetic probe \\
-A2.2 & The operator sees bring-up logs only through an allow-list view (step results, failures, verdict). & none \\
-A3.1 (2026-11-22) & First harness smoke test on an H100: not ready; G8 failed, read by the lead as spurious onsets from earlier activity. & synthetic \\
-A3.2 & G8 implementation clarified: an onset counts only after a quiet GPU; the runner waits up to 30\,s for 2\,s of quiet before each pulse. Thresholds unchanged. & synthetic \\
-A4.1--A4.3 (2026-11-23) & Second smoke test: host fault (CUDA error 802 on every CUDA call). A CUDA-readiness gate was added to bring-up; a host failing it before round 1 is replaced without using the A1.2 relaunch (lead's reading). Third smoke test: harness works; G8 flagged 2 of 4 sessions. & synthetic \\
-A4.4 & Stated before campaign data: a substantial share of sessions may carry a G8 flag; flags are reported per host and engine and never stop a round. & none \\
-A5.1 (2026-11-23) & Author decision: GH200 and B200 are not run, for time and capacity only. RQ4 covers A100 and H100; the GH200 module-scope comparison (RQ6) is not run; both hosts are reported as not measured. & none \\
-A5.2 & GCP compute (\CG, \CV) is funded by Google Cloud credits; cost still uses P-NEW list prices. & none \\
-A5.3 & Start order: no H100 capacity at the start, so A100 and \CG{} (in \texttt{us-central1-a}, a pre-registered fallback zone of the same shape and price) started first. & none \\
+A2.2 & The operator sees bring-up logs only through an allow-list view. & none \\
+A3.1 (2026-11-22) & Smoke test 1 (H100): not ready; G8 failed, read by the lead as spurious onsets from earlier activity. & synthetic \\
+A3.2 & G8 onsets count only after a quiet GPU; the runner waits for 2\,s of quiet before each pulse; thresholds unchanged. & synthetic \\
+A4.1--A4.3 (2026-11-23) & Smoke test 2: host fault (CUDA error 802); a CUDA-readiness gate was added, and a host failing it before round 1 is replaced without using the A1.2 relaunch (lead's reading). Smoke test 3: harness works; G8 flagged 2 of 4 sessions. & synthetic \\
+A4.4 & Stated before campaign data: many sessions may carry a G8 flag; flags are reported and never stop a round. & none \\
+A5.1 (2026-11-23) & Author decision: GH200 and B200 not run (time and capacity only); RQ4 covers A100 and H100; RQ6 (GH200 module scope) not run. & none \\
+A5.2 & GCP compute (\CG, \CV) paid by Google Cloud credits; cost still uses P-NEW. & none \\
+A5.3 & No H100 capacity at the start: A100 and \CG{} (\texttt{us-central1-a}, a pre-registered fallback zone, same shape and price) started first. & none \\
 % A6 checked against the committed text (commit 9a8b07b) on 2026-11-23.
-A6 (2026-11-23) & The \CG{} G12 allow-list, filled after review at launch 1's bring-up: the 25 scheduled items found (18 systemd timers, 7 \texttt{/etc/cron.*} files) are all masked or inert, none may run, and G12 fails on any scheduled item outside the list; the same value holds for both \CG{} launches. & none \\
+A6 (2026-11-23) & \CG{} G12 allow-list after review: the 25 scheduled items found at bring-up (18 systemd timers, 7 \texttt{/etc/cron.*} files) are all masked or inert and none may run; G12 fails on any other scheduled item; same value for both \CG{} launches. & none \\
 % TODO(A7): date, commit and sha256 come from amendment A7 (lead, 2026-11-23: it will record the
 % commit, the sha256 and the synthetic-recovery result before any campaign aggregate is computed or
 % seen); re-check this row and the paragraph below against the committed A7 text.
@@ -906,16 +899,14 @@ the GH200 counter; resolution: $\tmin$ and below-resolution cells; idle: context
 \section{Threats to Validity and Limitations}
 \label{sec:threats}
 
-\paragraph{Virtualized counters and missing CPU energy.} The Lambda GPU hosts are KVM guests
+\paragraph{Virtualized counters, missing CPU energy and \NOne.} The Lambda GPU hosts are KVM guests
 with a working NVML counter and no CPU energy source, so host CPU and DRAM energy of GPU-engine
 runs are unmeasured; no wall-power reference exists on any host (no BMC), and RAPL covers package
 and DRAM only, not power supplies, fans, storage or network. \CG's virtualization verdict was
 ambiguous (no hypervisor flag; the platform reports Google), but its counters advance, agree
 between powercap and \texttt{perf}, and are re-checked by G6 in every session. Its probes ran
 on the same shape in \texttt{us-east4}; the campaign host is in \texttt{us-central1-a} (A5.3).
-
-\paragraph{Scope asymmetry and \NOne.} \scope{S1} and \scope{S2} are different slices of a node.
-\NOne{} is untested; the tipping points show its weight without testing it. The claim ``a GPU
+\scope{S1} and \scope{S2} are different slices of a node, and \NOne{} is untested; the tipping points show its weight without testing it. The claim ``a GPU
 engine uses less energy than its CPU counterpart'' is not available on the x86 hosts at any scale,
 and the one design element that avoided \NOne, the GH200 module-scope comparison, was not run.
 
@@ -934,13 +925,11 @@ Back-to-back window runs are warmer than interleaved trials, and thermal carryov
 the Latin square and the cool-down, not removed. Idle power depends on temperature, persistence
 mode, C-states and the CUDA-context state (recorded, not controlled).
 
-\paragraph{Tenancy, capacity and prices.} Lambda hosts and network storage are shared; noise is
+\paragraph{Tenancy, prices and confounds.} Lambda hosts and network storage are shared; noise is
 bounded only by rounds and two launches. \CG{} has network storage, not the GPU hosts' local SSD,
 so Spark spill I/O may differ (recorded). Prices are a snapshot: Lambda changed three of four
 relevant prices on 2026-11-16, and spot, reserved and committed-use prices are not measured; the
-factorised time and price ratios are the durable result.
-
-\paragraph{Baselines and confounds.} The \CG{} Xeon 8481C and the H100 host's 8480+ are one
+factorised time and price ratios are the durable result. The \CG{} Xeon 8481C and the H100 host's 8480+ are one
 family, not one SKU; the A100 host has an AMD EPYC, confounding A100 CPU-engine comparisons and
 X4. One query at a time on a whole instance: real fleets share, queue and idle.
 
