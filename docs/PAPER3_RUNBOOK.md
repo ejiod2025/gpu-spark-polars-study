@@ -695,8 +695,9 @@ the second launch's `campaign.json` must carry the same one.
    (`~/p3out/exclusivity-before.json`), masks the timers in the list below and `cron.service` (a unit that does not exist on the image is
    skipped), and captures again (`exclusivity-after.json`). Both are copied into the launch directory under `rerun/bringup-artifacts/`.
    The masked units are hygiene for a measurement host (apt-daily, apt-daily-upgrade, dpkg-db-backup, e2scrub_all, fstrim, logrotate, man-db,
-   motd-news, update-notifier-download, update-notifier-motd, fwupd-refresh, ua-timer, sysstat-collect, sysstat-summary, and `cron.service`
-   so the files under `/etc/cron.*` are inert); the list is a guess at Ubuntu 24.04 until the first capture. **Both launches must have the same
+   motd-news, update-notifier-download, update-notifier-motd, fwupd-refresh, ua-timer, sysstat-collect, sysstat-summary, and, added after launch 1's
+   review (amendment A6), apport-autoreport, snapd.snap-repair, systemd-tmpfiles-clean, gce-workload-cert-refresh and google-oslogin-cache: 19 timers, and `cron.service`
+   so the files under `/etc/cron.*` are inert); the first fourteen were a guess at Ubuntu 24.04 until the first capture. **Both launches must have the same
    host configuration:** a unit masked by hand during the review is added to `C_GCP_MASK_UNITS` in `p3_plan.py` (committed with the allow-list, which
    the guard permits) so that launch 2's bring-up masks it before its first capture.
 2. **The driver stops (exit 10)** with the host running. A person reads `exclusivity-after.json`: every remaining item is either

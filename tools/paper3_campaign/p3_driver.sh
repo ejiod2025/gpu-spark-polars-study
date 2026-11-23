@@ -288,7 +288,7 @@ if [ ! -f "$DEST/.verified/bringup" ]; then
     0) ;;
     82) infra_fail "bringup-a$attempt.log" ;;
     timeout) hold "bring-up is still running after its poll budget" ;;
-    *) HOLD_LOG="bringup-a$attempt.log" hold "bring-up ended with $RESULT (after the cause is fixed, run the driver again with --fresh)" ;;
+    *) HOLD_LOG="bringup-a$attempt.log" hold "bring-up ended with $RESULT (after the cause is fixed, run the driver again with --fresh, or with --resume-bringup to skip the steps that finished ok)" ;;
   esac
   collect bringup rerun/setup-logs 'rerun/verify-*.json' rerun/preflight-bringup rerun/bringup-artifacts
 fi

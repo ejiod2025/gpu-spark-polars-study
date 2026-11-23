@@ -69,11 +69,15 @@ PAUSE_H = 0.12                       # per round: pack, copy, verify, restart (a
 LEASE_MARGIN_H = 1.0                 # the lease also covers one more round than the design's 1.2 allowance, plus this margin
 STORAGE_EGRESS_USD = 50.0            # design section 9, "Storage, snapshots, egress"
 DESIGN_CORE_TOTAL_USD = 1364.0
-# timers masked on C-GCP before the G12 capture is reviewed; a unit that does not exist is skipped
+# timers masked on C-GCP before the G12 capture is reviewed; a unit that does not exist is skipped. The last five were masked by hand during launch 1's review (2026-11-23,
+# amendment A6) and are listed here so that every later bring-up on this host class (launch 2, a --fresh re-bring-up) masks them before its first capture: both launches
+# must have the same host configuration.
 C_GCP_MASK_UNITS = ("apt-daily.timer", "apt-daily-upgrade.timer", "dpkg-db-backup.timer", "e2scrub_all.timer", "fstrim.timer",
                     "logrotate.timer", "man-db.timer", "motd-news.timer", "update-notifier-download.timer",
                     "update-notifier-motd.timer", "fwupd-refresh.timer", "ua-timer.timer", "sysstat-collect.timer",
-                    "sysstat-summary.timer")
+                    "sysstat-summary.timer",
+                    "apport-autoreport.timer", "snapd.snap-repair.timer", "systemd-tmpfiles-clean.timer", "gce-workload-cert-refresh.timer",
+                    "google-oslogin-cache.timer")
 # bytes of Parquet per scale, from evidence/INPUT_MANIFESTS (sum of the tables' parquet_bytes) and the recorded generation seconds
 INPUT_BYTES = {"1": 325716220, "10": 3442803048, "30": 10568904879, "100": 35652242574, "300": 107978166411}
 INPUT_GEN_SECONDS = {"1": 13.0, "10": 120.1, "30": 362.6, "100": 165.8, "300": 345.6}

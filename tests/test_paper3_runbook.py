@@ -224,7 +224,8 @@ def test_the_campaign_command_is_accepted_by_run_campaign_and_runs_the_launchs_r
     rounds = P.rounds_of(host, launch)
     assert f"THIS LAUNCH: rounds {rounds}" in done.stdout
     assert f"host {host} " in done.stdout and "formal: True" in done.stdout
-    assert ("host config unset: ['allowed_scheduled']" in done.stdout) == (host == "c-gcp")      # filled by the reviewed allow-list, nothing else is pending
+    filled = json.loads((REPO / "paper3_hosts.json").read_text())["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"] is not None      # amendment A6 filled it on 2026-11-23
+    assert ("host config unset: ['allowed_scheduled']" in done.stdout) == (host == "c-gcp" and not filled)                                  # nothing else is pending
     if host == "b200":
         assert "t_min: 1.0" in done.stdout                                                # admitted by amendment A2
 
@@ -342,6 +343,25 @@ def test_c_gcp_masks_scheduled_timers_before_the_second_capture_and_cron_with_th
     assert script.index("capture exclusivity-before.json") < script.index("s_quiesce()") < script.index("capture exclusivity-after.json")
     assert "REVIEW-REQUIRED exclusivity-after.json" in script
     assert "REVIEW-REQUIRED" not in bringup("h100")
+
+
+def test_the_five_timers_masked_by_hand_in_launch_1s_review_are_masked_by_every_later_bringup():
+    by_hand = ("apport-autoreport.timer", "snapd.snap-repair.timer", "systemd-tmpfiles-clean.timer", "gce-workload-cert-refresh.timer", "google-oslogin-cache.timer")
+    script = bringup("c-gcp", credit_funded="no")
+    loop = re.search(r"s_quiesce\(\) \{ for unit in (.*?); do quiesce_unit", script).group(1).split()
+    assert all(unit in loop for unit in by_hand) and loop[-1] == "cron.service" and len(loop) == 20 and len(set(loop)) == 20       # 19 timers and cron.service
+    assert loop.index("sysstat-summary.timer") < loop.index("apport-autoreport.timer")                                           # the old list keeps its order, the new ones follow
+    assert all(unit not in bringup(host) for host in ("h100", "a100", "c-vm") for unit in by_hand)                               # only the pinned metal host is quiesced
+
+
+def test_every_timer_the_committed_allow_list_allows_is_masked_by_the_quiesce_step():
+    """Launch 2 (and any --fresh re-bring-up) must show no scheduled item that launch 1's allow-list does not have, and launch 1 masked these on purpose: the bring-up that
+    runs on the second launch has to mask the same timers, or its capture differs from the first launch's."""
+    allowed = json.loads((REPO / "paper3_hosts.json").read_text())["hosts"]["c-gcp"]["exclusive_use"]["allowed_scheduled"]
+    if allowed is None:
+        pytest.skip("the allow-list is not filled yet")
+    timers = {item.split(":", 1)[1] for item in allowed if item.startswith("timer:")}
+    assert timers and timers <= set(P.C_GCP_MASK_UNITS), sorted(timers - set(P.C_GCP_MASK_UNITS))
 
 
 # ---- the allow-list change guard ----------------------------------------------------------------------------------------------
