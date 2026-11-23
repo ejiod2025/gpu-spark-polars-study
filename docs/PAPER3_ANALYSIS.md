@@ -79,7 +79,7 @@ and, for energy, `ref_scope eng_scope cross_class mixed_scope n1`. Classes: `gpu
 Scalars for the paper (all flat keys): `counts.<host>.{launches_planned, launches_found, launches_lost_replaced, instances, rounds_planned, rounds_accepted, rounds_analysed, rounds_confirmatory, rounds_sensitivity,
 round_attempts, round_repeats, round_attempts_failed, squares_planned, squares_complete, sessions_accepted, sessions_analysed, cells_analysed, cells_without_time, coverage_outcomes.{resource_exhaustion,
 unsupported_operation,integrity_failure,other_without_time,total}, g9.{cells_below_resolution, window_below_10s, per_run_below_t_min, window_rule_violation, by_engine.<engine>.{cells,below_resolution}}}`;
-`qa.crosscheck.<host>.{n_sessions, n_windows, median, p10, p90, min, max, median_abs, spread_iqr, field}` (S1-sampled against the counter, windows of 10 s or more of sessions with clean G7 and G8);
+`qa.crosscheck.<host>.{n_sessions, n_windows, median, p10, p90, min, max, median_abs, spread_iqr, field}` (S1-sampled against the counter, windows of 10 s or more of sessions with clean G7 and G8; every GPU host has the block, with zero counts and null statistics when no window qualifies);
 `billing_by_host.<host>.{hours, billed_usd, invoice_usd, gap, gap_above_2pct, instances}`.
 
 ## Where each design section is implemented

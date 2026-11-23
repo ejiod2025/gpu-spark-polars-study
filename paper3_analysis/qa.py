@@ -263,18 +263,18 @@ def coverage_matrix(tree, store, selection) -> list:
     return rows
 
 
-def crosscheck_summary(store, rounds_by_host: dict) -> dict:
+def crosscheck_summary(store, rounds_by_host: dict, hosts=()) -> dict:
     """The S1-sampled cross-check (2.3) per host: the median and spread of the relative difference (trapezoid of the 200 ms stream against the counter) over
-    the eligible windows (>= 10 s, in sessions whose G7 and G8 flags are clean), and how many sessions and windows that is. A diagnostic only."""
+    the eligible windows (>= 10 s, in sessions whose G7 and G8 flags are clean), and how many sessions and windows that is. A diagnostic only. Every host in
+    `hosts` (the GPU hosts of the tree) has a block: with no eligible window its counts are 0 and every other field is null, so the key always exists."""
     out = {}
-    for host, data in sorted(store.crosscheck.items()):
+    for host in sorted(set(hosts) | set(store.crosscheck)):
+        data = store.crosscheck.get(host, {"field": None, "sessions": []})
         rounds = rounds_by_host.get(host, {})
         sessions = [(r, label, engine, diffs) for r, label, engine, diffs in data["sessions"] if rounds.get(r) == label]
         values = [d for _, _, _, diffs in sessions for d in diffs]
-        summary = {"field": data["field"], "n_sessions": len(sessions), "n_windows": len(values)}
-        q = quantiles(values)
-        summary.update(median=q["median"], p10=None, p90=q["p90"], min=q["min"], max=q["max"],
-                       median_abs=quantiles([abs(v) for v in values])["median"], spread_iqr=None)
+        summary = {"field": data["field"], "n_sessions": len(sessions), "n_windows": len(values), "median": None, "p10": None, "p90": None, "min": None,
+                   "max": None, "median_abs": None, "spread_iqr": None}
         if values:
             ordered = sorted(values)
 
@@ -282,6 +282,7 @@ def crosscheck_summary(store, rounds_by_host: dict) -> dict:
                 position = (len(ordered) - 1) * p
                 low, high = math.floor(position), math.ceil(position)
                 return ordered[low] + (ordered[high] - ordered[low]) * (position - low)
-            summary.update(p10=at(0.1), spread_iqr=at(0.75) - at(0.25))
+            summary.update(median=at(0.5), p10=at(0.1), p90=at(0.9), min=ordered[0], max=ordered[-1], median_abs=quantiles([abs(v) for v in values])["median"],
+                           spread_iqr=at(0.75) - at(0.25))
         out[host] = summary
     return out

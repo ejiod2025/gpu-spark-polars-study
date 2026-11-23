@@ -264,7 +264,7 @@ def run_analysis(tree_root, output, *, unblind: bool = False, allow_synthetic: b
     qa_stats = qa_for_tree(tree)
     qa_stats["read_latency_and_overhang"] = qa.latency_summary(store)
     qa_stats["idle_power_w"] = qa.idle_summary(store)
-    qa_stats["crosscheck"] = qa.crosscheck_summary(store, main.subject)
+    qa_stats["crosscheck"] = qa.crosscheck_summary(store, main.subject, [h for h, hd in tree.hosts.items() if hd.kind == "gpu"])
     billing = contrasts_mod.billing_reconciliation(tree, invoices or {})
     hosts = host_blocks(tree)
     warnings = sorted(set(tree.warnings + store.warnings + analyzer.warnings))

@@ -1618,6 +1618,15 @@ def test_the_scalars_the_paper_cites_are_flat_keys(big):
     assert "counts.h100.rounds_confirmatory" in (big.out / "stats.tex").read_text()
 
 
+def test_every_gpu_host_has_a_cross_check_block_even_when_no_window_qualifies(big):
+    """The fixture writes no gpu.csv: the block exists with zero counts and null statistics, so the paper's key resolves (and prints n/a)."""
+    for host in ("h100", "a100"):
+        block = big.stats["qa"]["crosscheck"][host]
+        assert block["n_sessions"] == 0 and block["n_windows"] == 0 and block["median"] is None and block["spread_iqr"] is None
+    assert "c-gcp" not in big.stats["qa"]["crosscheck"]
+    assert "\\defstat{qa.crosscheck.h100.n_windows}{0}" in (big.out / "stats.tex").read_text()
+
+
 def test_the_s1_sampled_cross_check_summarises_the_relative_difference_on_eligible_windows(tmp_path):
     """The stream shows the counter's power in every run, scaled by 1.02: the trapezoid reads 2% above the counter, on windows of 10 s or more of clean sessions."""
     def hook(kind, key, default):
