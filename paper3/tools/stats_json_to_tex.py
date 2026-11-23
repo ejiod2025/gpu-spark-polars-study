@@ -12,6 +12,7 @@ stats.json (_meta.synthetic true) writes \\syntheticstatstrue, which watermarks 
 
   stats_json_to_tex.py --stats OUT/stats.json [--tex main.tex] [--output generated/stats.tex] [--check] [--allow-missing]
   stats_json_to_tex.py --list-keys [--tex main.tex]
+  stats_json_to_tex.py --update-readme README.md [--tex main.tex]   # rewrite its generated key list
 """
 from __future__ import annotations
 
@@ -24,6 +25,7 @@ from pathlib import Path
 PAPER = Path(__file__).resolve().parent.parent
 REPO = PAPER.parent
 RECORD_PREFIXES = ("amend.", "campaign.")
+README_BEGIN, README_END = "<!-- keys:begin (make readme-keys) -->", "<!-- keys:end -->"
 MACRO_RE = re.compile(r"\\(stat|tstat|hashstat|ratioci|ratiotext|tratioci|xcell)\{([^}]+)\}")
 EXPANSION = {"ratioci": ("estimate", "ci_low", "ci_high"), "ratiotext": ("estimate", "ci_low", "ci_high"),
              "tratioci": ("estimate", "ci_low", "ci_high"), "xcell": ("estimate", "class")}
@@ -57,9 +59,25 @@ def main(argv=None) -> int:
     parser.add_argument("--list-keys", action="store_true", help="print every key the paper uses (record keys marked) and exit")
     parser.add_argument("--check", action="store_true", help="report missing keys, write nothing")
     parser.add_argument("--allow-missing", action="store_true", help="write the keys present; the build then fails on the others")
+    parser.add_argument("--update-readme", type=Path, help="rewrite the generated key list between the README's markers and exit")
     args = parser.parse_args(argv)
 
     keys = used_keys(args.tex)
+    if args.update_readme:
+        text = args.update_readme.read_text()
+        if text.count(README_BEGIN) != 1 or text.count(README_END) != 1:
+            print(f"{args.update_readme}: the markers {README_BEGIN!r} and {README_END!r} must each appear once", file=sys.stderr)
+            return 1
+        head, rest = text.split(README_BEGIN); _, tail = rest.split(README_END)
+        analysis = [k for k in keys if not k.startswith(RECORD_PREFIXES)]
+        record = [k for k in keys if k.startswith(RECORD_PREFIXES)]
+        body = (f"\n{len(analysis)} keys from the analysis's stats.json and {len(record)} from record.tex, as used by "
+                f"main.tex (generated; do not edit by hand).\n\n"
+                "From stats.json (`make stats`):\n\n```\n" + "\n".join(analysis) + "\n```\n\n"
+                "From record.tex (committed records, not campaign outcomes):\n\n```\n" + "\n".join(record) + "\n```\n")
+        args.update_readme.write_text(head + README_BEGIN + body + README_END + tail)
+        print(f"wrote the key list of {args.update_readme} ({len(keys)} keys)", file=sys.stderr)
+        return 0
     if args.list_keys:
         for key in keys:
             print(f"{key}  (record.tex)" if key.startswith(RECORD_PREFIXES) else key)

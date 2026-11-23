@@ -186,9 +186,7 @@ Linux powercap interface~\cite{linux_powercap}. Its update interval limits short
 measurements~\cite{hahnel2012rapl}, its behaviour has been characterized at
 length~\cite{khan2018rapl}, and its DRAM domain has been validated
 separately~\cite{desrochers2016dram}; since the PLATYPUS power side channel~\cite{lipp2021platypus}
-the counters are readable by root only. GPU energy has been studied mostly for machine
-learning, from the cost of training language models~\cite{strubell2019energy} to energy-aware
-training~\cite{you2023zeus} and power management for model serving~\cite{patel2024llmpower}.
+the counters are readable by root only. GPU energy has been studied mostly for machine learning~\cite{strubell2019energy,you2023zeus,patel2024llmpower}.
 What we add is a per-host-class validation of scope and resolution before measurement, applied
 to analytical queries whose runs last from milliseconds to minutes.
 
@@ -196,7 +194,7 @@ to analytical queries whose runs last from milliseconds to minutes.
 The energy efficiency of database servers and clusters has been analyzed on
 CPUs~\cite{tsirogiannis2010energy,lang2012cluster,xu2010power}, and TPC result disclosures
 have been mined for power consumption~\cite{poess2008energy}; TPC-Energy specifies energy
-metrics for TPC benchmarks~\cite{tpcenergy150}. Our figures are not TPC-Energy metrics.
+metrics for TPC benchmarks~\cite{tpcenergy150}.
 Nahrstedt et al.\ measured the energy usage and performance of pandas and
 Polars~\cite{nahrstedt2024polars}. To our knowledge, measured per-query energy of GPU dataframe
 engines against CPU engines on rented hosts, with stated meter scope, has not been reported
@@ -245,9 +243,7 @@ generation, A100 against H100 (descriptive; confounded with the host).
 \textbf{RQ5}: CPU platform and the idle-GPU tax, i.e.\ CPU engines on the CPU-only host
 against the GPU hosts, and the GPU energy burned idle while a CPU engine runs on a GPU host.
 ``Confirmatory'' means that contrast, metric, baseline, scale grid and decision rule were
-fixed in advance; it does not mean a hypothesis test. The design also planned a GH200
-module-scope comparison (RQ6) and B200 as a fourth GPU generation; neither host was run
-(amendment A5, Section~\ref{sec:deviations}).
+fixed in advance; it does not mean a hypothesis test.
 
 \subsection{Hosts and engines}
 \label{sec:hosts}
@@ -270,8 +266,6 @@ Id & Instance (provider) & CPU as seen by the guest & GPU & vCPU / RAM & Energy 
 \GA{} & \texttt{gpu\_1x\_a100\_sxm4} (Lambda) & EPYC 7J13, 30 vCPUs, SMT off, KVM & A100 SXM4 40\,GB & 30 / 200\,GiB & NVML counter, GPU board (\scope{S1-counter}); no CPU energy & 1.99 (1.99) \\
 \CG{} & \texttt{c3-highmem-192-metal} (GCP) & 2$\times$ Xeon Platinum 8481C, 96 cores / 192 threads, bare metal & none & 192 / 1,536\,GB & RAPL package + DRAM per socket (\scope{S2-pinned}, \scope{S2-all}) & 12.701568 \\
 \CV{} & \texttt{c3-highmem-44} VM (GCP) & \tstat{campaign.c-vm.cpu_model} & none & 44 / 352\,GiB & none (time only) & 2.910776 \\
-\midrule
-\multicolumn{7}{@{}p{0.97\textwidth}@{}}{\textcolor{gray}{Not run: \texttt{gpu\_1x\_gh200} (counter covers the whole Grace--Hopper module, \scope{S1-module}) and \texttt{gpu\_1x\_b200\_sxm6} (board scope); probe results in Appendix~\ref{app:notrun}.}} \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -281,9 +275,7 @@ the prior study~\cite{ejiofor2026p1}, so energy and cost can be read beside its 
 are never pooled. On them, all four engines run. The CPU-only host \CG{} is a two-socket
 bare-metal machine on which the two CPU engines are pinned to 26 vCPUs of socket~0 (13
 physical cores and their SMT siblings, the H100 guest's shape) with memory bound to the
-pinned socket's NUMA node (Section~\ref{sec:cpuenergy}). \CV{} is the smallest GCP C3 VM with
-at least 26 vCPUs and 200\,GiB of RAM; it exists to check the right-sized CPU cost baseline
-(Section~\ref{sec:cost}). The engines and their settings are the prior study's: Polars
+pinned socket's NUMA node (Section~\ref{sec:cpuenergy}). \CV{} checks the right-sized CPU cost baseline (Section~\ref{sec:cost}). The engines and their settings are the prior study's: Polars
 1.44.2~\cite{polars1442} on the CPU and with the cudf-polars 26.10.2 GPU engine, and Spark
 on the CPU and with the cuDF plugin, with 26 threads, the strict \polarsgpu{} session guard
 (no silent CPU fallback) and the \sparkgpu{} final-plan check. Exact versions, the driver
@@ -343,9 +335,8 @@ scope we claim for it, by comparing it with the 20\,ms integral of an instantane
 agrees with the GPU-only
 \texttt{power.draw.instant} integral within 0.3\%, the drivers expose no module-level fields, and
 the counter is the GPU board (GPU, HBM, voltage regulators; the host is excluded): tag
-\scope{S1-counter}. The check matters: on the GH200 the same counter agreed with the module-level
-field (0.998) and not with the GPU-only one (1.14 to 1.55), because it covers the whole
-Grace--Hopper module (Appendix~\ref{app:notrun}).
+\scope{S1-counter}. The check matters: on the GH200 the counter matched the module field (0.998),
+not the GPU-only one (1.14--1.55); it covers the whole module (Appendix~\ref{app:notrun}).
 
 \paragraph{CPU energy (\scope{S2}) and where it is missing.}
 \label{sec:cpuenergy}
@@ -356,13 +347,7 @@ which is reported, not attributed. A 200\,ms sampler reads the counters (unwrapp
 \texttt{max\_energy\_range\_uj}); a window that contains a counter decrease or a gap above 30\,s
 is invalid, and per-run energy is the series interpolated linearly at the run's monotonic stamps.
 Because \texttt{energy\_uj} is root-only~\cite{lipp2021platypus}, read access was granted on this
-single-tenant host by a setup flag, recorded. Before the lock, \texttt{perf stat --per-socket}
-agreed with powercap within 0.05\% per socket idle and under a socket-0 burn (bare \texttt{perf
-stat -a} returns the right Joules but a runtime summed over sockets, so its power column is half
-the true value). Pinning was verified: socket~0 is NUMA nodes 0 and~1; the 26-vCPU pin (CPUs 0--12
-and 96--108) lies on node~0; with \texttt{MPOL\_BIND} 99.96\% of an 8\,GiB allocation landed on
-the bound node; under a 26-vCPU burn on socket~0, package-0 rose by 68.7\% and package-1 changed
-by $-0.12$\%. DRAM attribution to the pinned socket is therefore sound.
+single-tenant host by a setup flag, recorded. The RAPL path and the pinning were verified before the lock (Appendix~\ref{app:validation}). DRAM attribution to the pinned socket is therefore sound.
 
 The Lambda GPU hosts are KVM guests with no CPU energy source: no powercap zones, no MSR device,
 no BMC, and a \texttt{perf} \texttt{energy-psys} event that counts 0\,J (H100; a source check on
@@ -380,7 +365,7 @@ The default \texttt{nvidia-smi} power field means different things on different 
 instantaneous, consistent with the NVML documentation~\cite{nvml_api}. Energy integrated from it
 is thus not like-for-like across GPUs. We record \texttt{.average} and \texttt{.instant} in a
 200\,ms stream and use its trapezoid integral only as a diagnostic cross-check on windows of at
-least 10\,s (tag \scope{S1-sampled} if the counter were missing; it never is on the hosts run).
+least 10\,s.
 
 \subsection{Resolution: the window rule and \texorpdfstring{$\tmin$}{t\_min}}
 \label{sec:resolution}
@@ -411,10 +396,7 @@ like $\sqrt{n}$; on the A100 every window was positive at every length (about 4-
 and on \CG{} every window and pulse was negative (7.0--8.9\,J per run at a spin load of about
 340\,W for package~0 and its DRAM, consistent with the 200\,ms sampling smearing each power step;
 not tested). One-sided errors do not average out, which is why $\tmin$ is taken from windows
-mode, the mode the study uses. The single-run $\tmin$ never binds: a one-run window arises only
-when the first run takes at least 10\,s, where the isolated error was 0.34\% (H100) and 0.22\%
-(A100). On \CG{} the probe's 200\,ms series had a median spacing of 200.0\,ms, a maximum of
-211\,ms and no overrun, at a sampler cost of 0.21\% of one core.
+mode, the mode the study uses. The single-run $\tmin$ never binds (Appendix~\ref{app:validation}).
 
 \subsection{Idle, both ways}
 \label{sec:idle}
@@ -431,11 +413,8 @@ open CUDA context with no kernel running raises idle board power by 68\,W on the
 GPU draw under a CPU-engine session are different quantities; which state a session's windows
 measured is read from its recorded clocks. Second, a 26-process CPU burn moved the A100 counter
 by nothing and raised the H100 board counter by 3--5\% together with GPU temperature, a GPU-side
-effect: host CPU load can move the ``idle GPU'' energy of a CPU-engine run. Pairs of idle
-windows agreed within 2.2\% (H100), 0.23\% (A100) and 0.0065\% (\CG, whose four RAPL zones idle at
-429\,W, a lower bound on wall power). The \texttt{nvidia-smi} poller changed idle draw by at most
-0.72\,W, within the H100's window-to-window variation, and the RAPL sampler cost 0.39--0.48\% of
-one core; both run in every session, so their draw is inside $\Pidle$ and $E$.
+effect: host CPU load can move the ``idle GPU'' energy of a CPU-engine run. The measurement processes run in every session, so their draw is inside $\Pidle$ and $E$
+(idle stability and overhead: Appendix~\ref{app:validation}).
 
 \subsection{Clock alignment}
 \label{sec:clock}
@@ -447,11 +426,9 @@ versus last-third drift of at most 0.2\,s, using GPU-engine windows of at least 
 synthetic pulses run before the worker starts and after it exits. A failed G8 disables only that
 session's stream values; counter energy and the round are untouched. Before the lock the G8
 probe passed on every host with no onset missed, the A100 marginally (median 0.389\,s; 8 of 20
-lags above 0.4\,s; Table~\ref{tab:validation}). The smoke tests on synthetic queries led to a
-stricter onset reading before any study data (an onset counts only if the GPU was quiet just
-before the stamp; amendment A3) and to the prediction, stated before the campaign, that a
-substantial share of sessions may carry a G8 flag, because a GPU engine's onset lag includes its
-own start-up latency (A4). We report the flags per host and engine.
+lags above 0.4\,s; Table~\ref{tab:validation}). Before any study data, the smoke tests led to a stricter onset reading (A3) and to the stated
+expectation that many sessions may carry a G8 flag, because a GPU engine's onset lag includes its
+start-up latency (A4); flags are reported per host and engine.
 
 \subsection{What may be compared: assumption \NOne{} and tipping points}
 \label{sec:n1}
@@ -512,27 +489,10 @@ otherwise B1 uses the \CV{} times where they exist and the gap is reported.
 the same GPU host (the idle-GPU tax).
 
 \paragraph{Factorised reporting.}
-A GPU host is cheaper per query if and only if $p_G/p_C < t_C/t_G$. We report the time ratio and
-the price ratio separately; Table~\ref{tab:priceratio} gives the price ratios, fixed before any
-data, which are the time ratios a GPU engine must exceed to cost less. A reader with other prices
-can re-price every result with their own ratio.
-
-\begin{table}[t]
-\caption{Price ratios $p_G/p_C$ (fixed at the lock): the speedup over the CPU baseline that a
-GPU engine needs to be cheaper per query. Under B3 the ratio is 1 (same host).}
-\label{tab:priceratio}
-\footnotesize
-\begin{tabular}{@{}lrrrr@{}}
-\toprule
-& \multicolumn{2}{c}{B1 (\texttt{c3-highmem-44})} & \multicolumn{2}{c}{B2 (\CG{} as rented)} \\
-\cmidrule(lr){2-3}\cmidrule(l){4-5}
-GPU host & P-NEW & P-OLD & P-NEW & P-OLD \\
-\midrule
-\GH & 1.680 & 1.474 & 0.385 & 0.338 \\
-\GA & 0.684 & 0.684 & 0.157 & 0.157 \\
-\bottomrule
-\end{tabular}
-\end{table}
+A GPU host is cheaper per query if and only if $p_G/p_C < t_C/t_G$. We report the time ratio and the price ratio separately. The
+price ratios, fixed at the lock, are the speedups a GPU engine needs to cost less: against B1,
+1.680 on the H100 (1.474 under P-OLD) and 0.684 on the A100; against B2, 0.385 (0.338) and 0.157;
+under B3, 1. A reader with other prices can re-price every result with their own ratio.
 
 % =====================================================================================
 \section{Gates and Analysis Plan}
@@ -568,9 +528,8 @@ energy, so energy X1--X3 are cross-class and read under \NOne{} with $\Dstar$. \
 engine, A100 over H100 (descriptive, confounded with CPU, RAM, link and driver). \textbf{X5}: CPU
 engines on a GPU host over \CG{}, time and cost only. \textbf{X6}: the idle-GPU tax, B3/B1 as price
 ratio $\times$ time ratio, and the \scope{S1} idle-GPU energy of CPU-engine runs in Wh per suite
-run. Exploratory analyses (a re-analysis of the prior study's archived GPU power
-stream~\cite{ejiofor2026rawp1}, a MODEL estimate of host-CPU energy) are labelled as such and never
-fill a gap in the confirmatory tables.
+run. Exploratory analyses (e.g.\ the prior study's archived GPU power~\cite{ejiofor2026rawp1}) are
+labelled and never fill a confirmatory gap.
 
 \subsection{Estimation}
 \label{sec:estimation}
@@ -626,16 +585,15 @@ The design was locked on 2026-11-16 (annotated tag, commit \lockcommit{}, deposi
 At the lock no timed study session had run and no energy or cost analysis had been computed;
 what had been seen before is disclosed in the design (synthetic-load probe results, the prior
 study's published timings and GPU power summaries). Sections 1--11 of the design were never
-edited afterwards; seven dated amendments followed (A1--A7), each stating the outcome data seen
-when it was made. All are reported plainly in Table~\ref{tab:deviations} (Appendix~\ref{app:amendments}); none changes a threshold,
-estimator, margin or the primary definitions.
-
-The amendments are A1 (lock-day price snapshot, lost-launch policy, SF1 preflight, the allow-list
-as pending, record completeness, start order, funding, a synthetic-data guard), A2 (B200 admission,
-the bring-up view), A3 and A4 (three smoke tests, the G8 onset reading, a CUDA-readiness gate, the
-expected G8 flags), A5 (GH200 and B200 not run, GCP funding, start order), A6 (the \CG{} allow-list)
-and A7 (the analysis code); the outcome data seen was none for every item, beyond synthetic probe
-and smoke-test load for A2.1, A3 and A4.1--A4.3.
+edited afterwards. Seven dated amendments followed, each stating the outcome data seen when it was
+made (``seen''): A1 (lock-day price snapshot, lost-launch policy, SF1 preflight, the \CG{}
+allow-list as pending, record completeness, start order, funding, a synthetic-data guard; seen:
+none), A2 (B200 admission, the bring-up view; seen: none beyond synthetic probe load), A3 (smoke
+test 1, the G8 onset reading; seen: none beyond synthetic load), A4 (smoke tests 2 and 3, the
+CUDA-readiness gate, the expected G8 flags; seen: none beyond synthetic load), A5 (GH200 and B200
+not run, GCP funding, start order; seen: none), A6 (the \CG{} allow-list; seen: none) and A7 (the
+analysis code; seen: none). None changes a threshold, estimator, margin or primary definition.
+Appendix~\ref{app:amendments} is the full pre-registration record (Table~\ref{tab:deviations}).
 
 Four deviations affect what the paper can report. First, contrary to \S5.4 of the locked
 design~\citelock{}, no analysis code existed at the lock: the analysis code was written after the
@@ -654,12 +612,13 @@ the author's decision on 2026-11-23, on grounds of time and scarce capacity, bef
 value existed: RQ4 covers two GPU generations instead of four, and the planned same-host,
 module-scope CPU-versus-GPU energy comparison on the GH200, the one comparison in the design that
 needed no \NOne, is not available. Their pre-lock probes remain as method validation
-(Appendix~\ref{app:notrun}). Third, the lock-day price snapshot followed the tag by 1\,h\,37\,min
-(A1.1); it cannot show what the providers returned at the tag's minute, but every P-NEW price had
-been in force since 00:00 UTC that day. Fourth, the relaunch policy (A1.2) and the
-CUDA-readiness replacement rule (A4.2) define which launches enter the estimates; both depend
-only on technical failures, and the counts of lost launches and replaced hosts are reported
-(Table~\ref{tab:qa}).
+(Appendix~\ref{app:notrun}). Third, the relaunch rule (A1.2): a launch lost to a technical failure
+(the instance lost, or a round failing the repeat-once rule) is relaunched once on a fresh instance
+and restarts its square; the lost launch's rounds are reported, never pooled, and enter no
+estimate. Fourth, the CUDA-readiness replacement (A4.2): a GPU host that fails the CUDA-readiness
+check before round 1 has produced no round and is replaced without using the relaunch of A1.2
+(the lead's reading, recorded in A4). Both rules depend only on technical failures, never on any
+value, and the counts of lost launches and replaced hosts are reported (Table~\ref{tab:qa}).
 
 % =====================================================================================
 \section{Results}
@@ -800,7 +759,7 @@ pinned \CG{} socket's idle \stat{qa.idle_power_w.c-gcp.polars.S2-pinned.mean} W 
 \centering
 \studyfig{f02_time_vs_price}{\columnwidth}{0.18\textheight}
 \caption{Planned: factorised cost. Time ratio $t_C/t_G$ (95\% interval) of X3 per scale against
-the price ratios of Table~\ref{tab:priceratio} (horizontal lines, P-NEW solid, P-OLD dashed);
+the price ratios of Section~\ref{sec:cost} (horizontal lines, P-NEW solid, P-OLD dashed);
 points above a line are cheaper on the GPU host. Keys \texttt{x3.<host>.<suite>.sf<scale>.time\_vs\_cgcp}.}
 \label{fig:factorised}
 \end{figure}
@@ -859,9 +818,7 @@ and DRAM only, not power supplies, fans, storage or network. \CG's virtualizatio
 ambiguous (no hypervisor flag; the platform reports Google), but its counters advance, agree
 between powercap and \texttt{perf}, and are re-checked by G6 in every session. Its probes ran
 on the same shape in \texttt{us-east4}; the campaign host is in \texttt{us-central1-a} (A5.3).
-\scope{S1} and \scope{S2} are different slices of a node, and \NOne{} is untested; the tipping points show its weight without testing it. The claim ``a GPU
-engine uses less energy than its CPU counterpart'' is not available on the x86 hosts at any scale,
-and the one design element that avoided \NOne, the GH200 module-scope comparison, was not run.
+\scope{S1} and \scope{S2} are different slices of a node, and \NOne{} is untested; the tipping points show its weight without testing it. The one design element that avoided \NOne, the GH200 module-scope comparison, was not run.
 
 \paragraph{Over-provisioned CPU host.} \CG{} has 96 cores and 1.5\,TB of DRAM, so the pinned
 socket idles high against light work and its DRAM includes capacity a right-sized node lacks.
@@ -899,9 +856,9 @@ to other engines, formats, clusters, CPU vendors or query mixes. Two GPU generat
 % Sections 4.6 and 6.4.
 Energy and cost per query of CPU and GPU dataframe engines can be measured on rented hosts, but
 only with the meter's scope, resolution and idle state established first and the scope carried
-with every number. We locked such a protocol, with its analysis, before the campaign: per-host
-resolution limits of 1--2\,s, idle measured both ways, scope tags enforced in code, and
-cross-class energy claims bounded by an explicit assumption and its tipping points.
+with every number. We locked such a protocol and its analysis plan before the campaign: per-host
+resolution limits of 1--2\,s, idle both ways, enforced scope tags, and cross-class energy claims
+bounded by an explicit assumption and its tipping points.
 \pending{summary of findings per research question}
 
 % =====================================================================================
@@ -912,25 +869,28 @@ cross-class energy claims bounded by an explicit assumption and its tipping poin
 The probe tools, harness, gates, analysis code, price snapshots and probe evidence are in the
 study repository (\repourl); the locked design is deposited with a time stamp (\lockdoi). The
 analysis code was written after the lock and frozen before any campaign data was seen (A7, freeze
-commit \camera{\stat{amend.a7.freeze_commit}}{\anonmark}); its synthetic recovery evidence is in the
-repository (commit \camera{\stat{amend.a7.recovery_commit}}{\anonmark}). The analysis output records
-the sha256 of the code that produced it (\hashstat{_meta.analysis_code_sha256}), which equals the
-value recorded in amendment A7. Raw
-campaign records will be deposited with checksums \todoplaceholder{raw-data DOI after the
-campaign}.
+commit \camera{\stat{amend.a7.freeze_commit}}{\anonmark}; synthetic recovery evidence: commit
+\camera{\stat{amend.a7.recovery_commit}}{\anonmark}); the analysis output records the code's sha256
+(\hashstat{_meta.analysis_code_sha256}), equal to the A7 value. Raw campaign records will be
+deposited with checksums \todoplaceholder{raw-data DOI}.
 
+\ifanon
 \section*{Disclosures}
 \label{sec:disclosures}
-\tpcdisclaimer{} The energy figures are not TPC-Energy metrics.
-\ifanon
-% Anonymized build: the acknowledgments (with the funding statement and the AI disclosure) are
-% withheld. The CFP says "Remove acknowledgment of identifying names and funding sources"; the paragraph
-% below names no source. TODO(lead): keep it (design sec. 8: the sponsor relationship is disclosed in
-% every output) or drop it from the submission build.
-Cloud compute for this study was paid by provider credits, including credits from providers whose
-prices are reported; the providers, amounts and the sponsors' role statement are in the
-camera-ready version. AI coding assistants were used as tools; the full statement is in the
-camera-ready acknowledgments.
+% Anonymized build only (lead's decisions, 2026-11-23). The camera-ready acknowledgments are withheld.
+% (1) The AI statement appears in full: it identifies no one, ACM's policy expects AI use to be disclosed
+%     in the submitted paper, and the author requires that the disclosure never omit the automation and
+%     the writing assistance. It is the camera-ready text with "The author" as "The author(s)".
+% (2) A credit disclosure that names no source: the CFP says "Remove acknowledgment of identifying names
+%     and funding sources", and design sec. 8 discloses the sponsor relationship in every output. No
+%     "no role" claim here: amendment A5 item 2 records none for the GCP credits.
+The author(s) directed the study and approved every design and analysis decision. AI coding
+assistants (Anthropic's Claude Code; OpenAI Codex) were used as tools to write and test code,
+automate the cloud runs, and assist with writing. The author(s) reviewed all of it and take full
+responsibility.
+
+Part of the compute was paid for with cloud-provider credits; cost is computed from list prices
+whatever funded the bill. The sources are named in the final version.
 \fi
 
 \ifanon\else
@@ -955,6 +915,9 @@ hosts with GCP CPU hosts; cost uses list prices whatever funded the bill.
 \bibliography{references}
 
 % =====================================================================================
+% The appendix starts on a fresh page: this flushes every pending float before it and removes the
+% end-of-document overfull boxes that the appendix floats otherwise caused (tested in all four builds).
+\clearpage
 \appendix
 
 \section{Full Contrast Tables}
@@ -968,6 +931,25 @@ coverage matrix}
 \label{app:validation}
 Table~\ref{tab:validation} gives the pre-lock probe results on which the measurement protocol of
 Section~\ref{sec:energy} rests (synthetic load only).
+
+\paragraph{RAPL path and pinning on \CG.} Before the lock, \texttt{perf stat --per-socket}
+agreed with powercap within 0.05\% per socket idle and under a socket-0 burn (bare \texttt{perf
+stat -a} returns the right Joules but a runtime summed over sockets, so its power column is half
+the true value). Pinning was verified: socket~0 is NUMA nodes 0 and~1; the 26-vCPU pin (CPUs 0--12
+and 96--108) lies on node~0; with \texttt{MPOL\_BIND} 99.96\% of an 8\,GiB allocation landed on
+the bound node; under a 26-vCPU burn on socket~0, package-0 rose by 68.7\% and package-1 changed
+by $-0.12$\%.
+
+\paragraph{Resolution.} The single-run $\tmin$ never binds: a one-run window arises only
+when the first run takes at least 10\,s, where the isolated error was 0.34\% (H100) and 0.22\%
+(A100). On \CG{} the probe's 200\,ms series had a median spacing of 200.0\,ms, a maximum of
+211\,ms and no overrun, at a sampler cost of 0.21\% of one core.
+
+\paragraph{Idle stability and measurement overhead.} Pairs of idle
+windows agreed within 2.2\% (H100), 0.23\% (A100) and 0.0065\% (\CG, whose four RAPL zones idle at
+429\,W, a lower bound on wall power). The \texttt{nvidia-smi} poller changed idle draw by at most
+0.72\,W, within the H100's window-to-window variation, and the RAPL sampler cost 0.39--0.48\% of
+one core; both run in every session, so their draw is inside $\Pidle$ and $E$.
 
 \begin{table*}[t]
 \caption{Pre-lock validation of the meters (synthetic load; probes P1--P7 and the G8 probe; driver
@@ -1040,7 +1022,7 @@ G12 exclusive & no foreign GPU process; nothing else scheduled on \CG{} & integr
 \end{tabular}
 \end{table*}
 
-\begin{table*}[t]
+\begin{table*}[p]% own float page: three stacked appendix tables overfill a page by about 2 pt
 \caption{Amendments to the locked design. ``Seen'': outcome data seen when the amendment was made.
 Synthetic: smoke tests on generated data and three trivial synthetic queries, no study query.}
 \label{tab:deviations}
@@ -1062,7 +1044,7 @@ A3.2 & G8 onsets count only after a quiet GPU; the runner waits for 2\,s of quie
 A4.1--A4.3 (2026-11-23) & Smoke test 2: host fault (CUDA error 802); a CUDA-readiness gate was added, and a host failing it before round 1 is replaced without using the A1.2 relaunch (lead's reading). Smoke test 3: harness works; G8 flagged 2 of 4 sessions. & synthetic \\
 A4.4 & Stated before campaign data: many sessions may carry a G8 flag; flags are reported and never stop a round. & none \\
 A5.1 (2026-11-23) & Author decision: GH200 and B200 not run (time and capacity only); RQ4 covers A100 and H100; RQ6 (GH200 module scope) not run. & none \\
-A5.2 & GCP compute (\CG, \CV) paid by Google Cloud credits; cost still uses P-NEW. & none \\
+A5.2 & \camera{GCP compute (\CG, \CV) paid by Google Cloud credits}{GCP compute funding recorded (source withheld for review)}; cost still uses P-NEW. & none \\
 A5.3 & No H100 capacity at the start: A100 and \CG{} (\texttt{us-central1-a}, a pre-registered fallback zone, same shape and price) started first. & none \\
 % A6 checked against the committed text (commit 9a8b07b) on 2026-11-23.
 A6 (2026-11-23) & \CG{} G12 allow-list after review: the 25 scheduled items found at bring-up (18 systemd timers, 7 \texttt{/etc/cron.*} files) are all masked or inert and none may run; G12 fails on any other scheduled item; same value for both \CG{} launches. & none \\
@@ -1114,36 +1096,12 @@ parts of the design that its text leaves open. Each is reported here.
 \label{app:gates}
 Table~\ref{tab:gates} gives the rule and the consequence of each Paper 3 gate (Section~\ref{sec:gates}).
 
-\section{Amendments to the Locked Design}
+\section{Pre-registration Record: Amendments A1--A7 and What Each Saw}
 \label{app:amendments}
-Table~\ref{tab:deviations} lists every amendment with the outcome data seen when it was made
-(Section~\ref{sec:deviations}).
+Table~\ref{tab:deviations} lists every amendment to the locked design with the outcome data seen
+when it was made. It is the record on which the confirmatory status of the claims in the body
+rests (Section~\ref{sec:deviations}).
 
-% Statistics keys (not printed: the CFP restricts appendices to justifying the body's claims).
-% \section{Statistics Keys}
-% \label{app:keys}
-% % Key scheme aligned 2026-11-23 with analyze_paper3.py / paper3_analysis/ as they stood then (untracked,
-% % being written by p3-analysis). TODO(results): re-check every key against the committed analysis code.
-% Values come from two files. \path{generated/stats.tex} is written by \path{analyze_paper3.py}
-% (its flattened \path{stats.json}, one \verb|\defstat| per scalar); keys used here:
-% \begin{itemize}[before=\raggedright]
-% \item contrasts: \path{<x1|x2|x3|x3_strict>.<host>.<suite>.sf<scale>.<metric>} with metric
-%   \path{time}, \path{time_vs_cgcp}, \path{energy_total}, \path{energy_above_idle} (and
-%   \path{_s2all}), \path{cost_<b1|b2|b3>_<p_new|p_old|p_billed>}; fields \path{estimate},
-%   \path{ci_low}, \path{ci_high}, \path{class} (\path{gpu_better}, \path{cpu_better},
-%   \path{no_difference}, \path{inconclusive}, \path{not_estimable});
-% \item \path{break_even.<contrast>.<host>.<suite>.<metric>.text} (the bracket);
-%   \path{delta_star.<contrast>.<host>.<suite>.sf<scale>.<metric>.<wh_per_suite_run|w_over_gpu_suite_time>.mean};
-% \item \path{x4.a100.<engine>.<suite>.sf<scale>.<metric>}, \path{x5.<host>.<engine>.<suite>.sf<scale>.<metric>},
-%   \path{x6.<host>.<engine>.<suite>.sf<scale>.idle_gpu_energy_wh_per_suite_run.mean};
-% \item \path{hosts.<host>.*}, \path{counts.<host>.*} (launches, rounds, squares, sessions, \path{g9.*},
-%   \path{coverage_outcomes.*}), \path{qa.g8.<host>.<engine>.*}, \path{qa.crosscheck.<host>.*},
-%   \path{qa.read_latency_and_overhang.*}, \path{qa.idle_power_w.<host>.<engine>.<scope>.mean},
-%   \path{billing_by_host.<host>.*}, \path{c_vm_check.*}, \path{_meta.*}.
-% \end{itemize}
-% Hosts are \path{h100}, \path{a100}, \path{c-gcp}, \path{c-vm}. \path{record.tex} holds
-% values from committed records, not campaign outcomes: \path{amend.a7.<date|commit|sha256>} and
-% \path{campaign.<host>.<driver|cpu_model|first_session_utc|last_session_utc>} from the launch records. \pending{full X1, X2 tables; P-OLD and P-BILLED tables; G8 flags
-% by engine; coverage matrix}
+% Statistics keys: paper3/README.md, section "Statistics keys" (make readme-keys).
 
 \end{document}

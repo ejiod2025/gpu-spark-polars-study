@@ -8,6 +8,7 @@
 #   make stats-check STATS=<analysis-out>/stats.json  # list keys the paper uses that stats.json lacks
 #   make todo       # every TODO marker in the sources
 #   make keys       # every statistics key the paper uses (record.tex keys marked)
+#   make readme-keys  # regenerate the key list in README.md from main.tex
 #   make clean
 # Draft mode: without generated/stats.tex every \stat key prints as a yellow TODO box, table cells
 # as a red TODO, and every page carries a DRAFT -- NO RESULTS watermark.
@@ -27,7 +28,7 @@ TEX := $(shell command -v tectonic >/dev/null 2>&1 && echo tectonic || echo late
 SOURCE_DATE_EPOCH ?= 1795435200
 export SOURCE_DATE_EPOCH
 
-.PHONY: pdf anon camera both stats stats-check pages todo keys clean
+.PHONY: pdf anon camera both stats stats-check pages todo keys readme-keys clean
 
 pdf: anon
 
@@ -68,10 +69,13 @@ pages:
 	done
 
 todo:
-	@grep -n -E 'TODO|\\pending\{|\\todoverify\{|\\todoplaceholder\{' main.tex macros.tex references.bib camera-ready.tex Makefile
+	@grep -n -E 'TODO|\\pending\{|\\todoverify\{|\\todoplaceholder\{' main.tex macros.tex references.bib camera-ready.tex record.tex Makefile
 
 keys:
 	@$(PYTHON) tools/stats_json_to_tex.py --list-keys
+
+readme-keys:
+	$(PYTHON) tools/stats_json_to_tex.py --update-readme README.md
 
 clean:
 	rm -f main.pdf camera-ready.pdf *.aux *.bbl *.blg *.log *.out *.xdv *.fls *.fdb_latexmk

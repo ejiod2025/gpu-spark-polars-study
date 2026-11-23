@@ -1,0 +1,311 @@
+# Paper 3 manuscript (ACM e-Energy 2027, sigconf)
+
+Energy and cost per query of CPU and GPU dataframe engines: the pre-registered design is
+`docs/PAPER3_ENERGY_DESIGN.md` (locked 2026-11-16, amendments A1-A7 in its section 12).
+
+## Build
+
+Requires tectonic (or latexmk with pdflatex and bibtex); `make pages` also needs poppler (pdfinfo, pdftotext).
+
+| Command | What it does |
+|---|---|
+| `make pdf` | anonymized submission build, `main.pdf` (the default) |
+| `make camera` | de-anonymized camera-ready build, `camera-ready.pdf` (`camera-ready.tex` defines `\pthreecameraready`) |
+| `make both` | both builds |
+| `make stats STATS=<out>/stats.json` | `generated/stats.tex` from `analyze_paper3.py`'s output, for exactly the keys `main.tex` uses; switches the build to final mode (a missing key is then an error) |
+| `make stats-check STATS=<out>/stats.json` | list the keys the paper uses that the output lacks; writes nothing |
+| `make keys` | every statistics key `main.tex` uses |
+| `make readme-keys` | regenerate the key list below from `main.tex` |
+| `make pages` | page count and the pages where the references and the appendices start |
+| `make todo` | every TODO marker in the sources |
+
+Without `generated/stats.tex` the build is a draft: each key prints as a red TODO and every page carries a
+"DRAFT -- NO RESULTS" watermark. A `stats.json` from a synthetic tree watermarks every page "SYNTHETIC -- NOT
+RESULTS".
+
+The anonymized build withholds the author, the acknowledgments (AI disclosure, funding and credits), the
+repository URL, the Zenodo DOIs of the author's deposits and every commit hash (`macros.tex`: `\camera`,
+`\selfdoi`, `\repourl`, `\lockdoi`, `\lockcommit`, `\citelock`). Papers 1 and 2 are cited in the third person in
+both builds.
+
+## Values
+
+- `generated/stats.tex` (git-ignored): written by `make stats` from the analysis output. Never edited by hand.
+- `record.tex` (tracked): hand-kept `\defstat` lines for values from committed records, not campaign outcomes:
+  amendment A7 (date, amendment commit, freeze commit, recovery commit, code sha256) and, once the launches
+  have ended, the launch-record facts (`campaign.<host>.*`).
+
+## Statistics keys
+
+Keys are paths of `analyze_paper3.py`'s flattened `stats.json` (frozen at `ea67f12`, amendment A7). Hosts:
+`h100`, `a100`, `c-gcp`, `c-vm`. Families:
+
+- Contrasts: `<x1|x2|x3|x3_strict>.<host>.<suite>.sf<scale>.<metric>`, metric `time`, `time_vs_cgcp`,
+  `energy_total`, `energy_above_idle` (and `_s2all`), `cost_<b1|b2|b3>_<p_new|p_old|p_billed>`; fields
+  `estimate`, `ci_low`, `ci_high`, `class` (`gpu_better`, `cpu_better`, `no_difference`, `inconclusive`,
+  `not_estimable`).
+- `break_even.<contrast>.<host>.<suite>.<metric>.text` (the bracket);
+  `delta_star.<contrast>.<host>.<suite>.sf<scale>.<metric>.<wh_per_suite_run|w_over_gpu_suite_time>.mean`.
+- `x4.a100.<engine>.<suite>.sf<scale>.<metric>`, `x5.<host>.<engine>.<suite>.sf<scale>.<metric>`,
+  `x6.<host>.<engine>.<suite>.sf<scale>.idle_gpu_energy_wh_per_suite_run.mean`.
+- `hosts.<host>.*`, `counts.<host>.*` (launches, rounds, squares, sessions, `g9.*`, `coverage_outcomes.*`),
+  `qa.g8.<host>.<engine>.*`, `qa.crosscheck.<host>.*`, `qa.read_latency_and_overhang.*`,
+  `qa.idle_power_w.<host>.<engine>.<scope>.mean`, `billing_by_host.<host>.*`, `c_vm_check.*`, `_meta.*`.
+- From `record.tex`: `amend.a7.*`, `campaign.<host>.*`.
+
+The exact list:
+
+<!-- keys:begin (make readme-keys) -->
+231 keys from the analysis's stats.json and 10 from record.tex, as used by main.tex (generated; do not edit by hand).
+
+From stats.json (`make stats`):
+
+```
+_meta.analysis_code_sha256
+billing_by_host.h100.billed_usd
+billing_by_host.h100.gap
+billing_by_host.h100.gap_above_2pct
+billing_by_host.h100.hours
+billing_by_host.h100.invoice_usd
+break_even.x3.a100.baseline.cost_b1_p_new.text
+break_even.x3.a100.baseline.cost_b2_p_new.text
+break_even.x3.a100.baseline.cost_b3_p_new.text
+break_even.x3.a100.baseline.energy_above_idle.text
+break_even.x3.a100.baseline.energy_total.text
+break_even.x3.a100.complex.cost_b1_p_new.text
+break_even.x3.a100.complex.cost_b2_p_new.text
+break_even.x3.a100.complex.cost_b3_p_new.text
+break_even.x3.a100.complex.energy_above_idle.text
+break_even.x3.a100.complex.energy_total.text
+break_even.x3.h100.baseline.cost_b1_p_new.text
+break_even.x3.h100.baseline.cost_b2_p_new.text
+break_even.x3.h100.baseline.cost_b3_p_new.text
+break_even.x3.h100.baseline.energy_above_idle.text
+break_even.x3.h100.baseline.energy_total.text
+break_even.x3.h100.complex.cost_b1_p_new.text
+break_even.x3.h100.complex.cost_b2_p_new.text
+break_even.x3.h100.complex.cost_b3_p_new.text
+break_even.x3.h100.complex.energy_above_idle.text
+break_even.x3.h100.complex.energy_total.text
+c_vm_check.ci_high
+c_vm_check.ci_low
+c_vm_check.ratio_vm_over_metal
+c_vm_check.status
+counts.a100.coverage_outcomes.total
+counts.a100.g9.cells_below_resolution
+counts.a100.launches_lost_replaced
+counts.a100.round_repeats
+counts.a100.rounds_confirmatory
+counts.a100.sessions_analysed
+counts.a100.squares_complete
+counts.a100.squares_planned
+counts.c-gcp.coverage_outcomes.total
+counts.c-gcp.g9.cells_below_resolution
+counts.c-gcp.launches_lost_replaced
+counts.c-gcp.round_repeats
+counts.c-gcp.rounds_confirmatory
+counts.c-gcp.sessions_analysed
+counts.c-gcp.squares_complete
+counts.c-gcp.squares_planned
+counts.c-vm.coverage_outcomes.total
+counts.c-vm.launches_lost_replaced
+counts.c-vm.round_repeats
+counts.c-vm.rounds_confirmatory
+counts.c-vm.sessions_analysed
+counts.h100.coverage_outcomes.resource_exhaustion
+counts.h100.coverage_outcomes.total
+counts.h100.coverage_outcomes.unsupported_operation
+counts.h100.g9.cells_below_resolution
+counts.h100.g9.per_run_below_t_min
+counts.h100.g9.window_below_10s
+counts.h100.launches_lost_replaced
+counts.h100.round_repeats
+counts.h100.rounds_confirmatory
+counts.h100.sessions_analysed
+counts.h100.squares_complete
+counts.h100.squares_planned
+delta_star.x3.h100.baseline.sf300.energy_total.w_over_gpu_suite_time.mean
+delta_star.x3.h100.baseline.sf300.energy_total.wh_per_suite_run.mean
+hosts.a100.status
+hosts.c-gcp.status
+hosts.c-vm.status
+hosts.h100.status
+qa.crosscheck.a100.median
+qa.crosscheck.h100.median
+qa.g8.a100.polars.flagged
+qa.g8.a100.polars.sessions
+qa.g8.a100.polars_gpu.flagged
+qa.g8.a100.polars_gpu.sessions
+qa.g8.a100.spark_cpu.flagged
+qa.g8.a100.spark_cpu.sessions
+qa.g8.a100.spark_gpu.flagged
+qa.g8.a100.spark_gpu.sessions
+qa.g8.h100.polars.flagged
+qa.g8.h100.polars.sessions
+qa.g8.h100.polars_gpu.flagged
+qa.g8.h100.polars_gpu.sessions
+qa.g8.h100.spark_cpu.flagged
+qa.g8.h100.spark_cpu.sessions
+qa.g8.h100.spark_gpu.flagged
+qa.g8.h100.spark_gpu.sessions
+qa.idle_power_w.c-gcp.polars.S2-pinned.mean
+qa.idle_power_w.h100.polars.S1-counter.mean
+qa.read_latency_and_overhang.a100.polars_gpu.read_latency_ms.median
+qa.read_latency_and_overhang.h100.polars_gpu.read_latency_ms.median
+x1.h100.baseline.sf300.energy_total.ci_high
+x1.h100.baseline.sf300.energy_total.ci_low
+x1.h100.baseline.sf300.energy_total.estimate
+x3.a100.baseline.sf1.cost_b1_p_new.class
+x3.a100.baseline.sf1.cost_b1_p_new.estimate
+x3.a100.baseline.sf1.cost_b2_p_new.class
+x3.a100.baseline.sf1.cost_b2_p_new.estimate
+x3.a100.baseline.sf1.cost_b3_p_new.class
+x3.a100.baseline.sf1.cost_b3_p_new.estimate
+x3.a100.baseline.sf1.energy_total.class
+x3.a100.baseline.sf1.energy_total.estimate
+x3.a100.baseline.sf10.cost_b1_p_new.class
+x3.a100.baseline.sf10.cost_b1_p_new.estimate
+x3.a100.baseline.sf10.cost_b2_p_new.class
+x3.a100.baseline.sf10.cost_b2_p_new.estimate
+x3.a100.baseline.sf10.cost_b3_p_new.class
+x3.a100.baseline.sf10.cost_b3_p_new.estimate
+x3.a100.baseline.sf10.energy_total.class
+x3.a100.baseline.sf10.energy_total.estimate
+x3.a100.baseline.sf100.cost_b1_p_new.class
+x3.a100.baseline.sf100.cost_b1_p_new.estimate
+x3.a100.baseline.sf100.cost_b2_p_new.class
+x3.a100.baseline.sf100.cost_b2_p_new.estimate
+x3.a100.baseline.sf100.cost_b3_p_new.class
+x3.a100.baseline.sf100.cost_b3_p_new.estimate
+x3.a100.baseline.sf100.energy_total.class
+x3.a100.baseline.sf100.energy_total.estimate
+x3.a100.baseline.sf30.cost_b1_p_new.class
+x3.a100.baseline.sf30.cost_b1_p_new.estimate
+x3.a100.baseline.sf30.cost_b2_p_new.class
+x3.a100.baseline.sf30.cost_b2_p_new.estimate
+x3.a100.baseline.sf30.cost_b3_p_new.class
+x3.a100.baseline.sf30.cost_b3_p_new.estimate
+x3.a100.baseline.sf30.energy_total.class
+x3.a100.baseline.sf30.energy_total.estimate
+x3.a100.baseline.sf300.cost_b1_p_new.class
+x3.a100.baseline.sf300.cost_b1_p_new.estimate
+x3.a100.baseline.sf300.cost_b2_p_new.class
+x3.a100.baseline.sf300.cost_b2_p_new.estimate
+x3.a100.baseline.sf300.cost_b3_p_new.class
+x3.a100.baseline.sf300.cost_b3_p_new.estimate
+x3.a100.baseline.sf300.energy_total.class
+x3.a100.baseline.sf300.energy_total.estimate
+x3.a100.complex.sf100.cost_b1_p_new.class
+x3.a100.complex.sf100.cost_b1_p_new.estimate
+x3.a100.complex.sf100.cost_b2_p_new.class
+x3.a100.complex.sf100.cost_b2_p_new.estimate
+x3.a100.complex.sf100.cost_b3_p_new.class
+x3.a100.complex.sf100.cost_b3_p_new.estimate
+x3.a100.complex.sf100.energy_total.class
+x3.a100.complex.sf100.energy_total.estimate
+x3.a100.complex.sf30.cost_b1_p_new.class
+x3.a100.complex.sf30.cost_b1_p_new.estimate
+x3.a100.complex.sf30.cost_b2_p_new.class
+x3.a100.complex.sf30.cost_b2_p_new.estimate
+x3.a100.complex.sf30.cost_b3_p_new.class
+x3.a100.complex.sf30.cost_b3_p_new.estimate
+x3.a100.complex.sf30.energy_total.class
+x3.a100.complex.sf30.energy_total.estimate
+x3.a100.complex.sf300.cost_b1_p_new.class
+x3.a100.complex.sf300.cost_b1_p_new.estimate
+x3.a100.complex.sf300.cost_b2_p_new.class
+x3.a100.complex.sf300.cost_b2_p_new.estimate
+x3.a100.complex.sf300.cost_b3_p_new.class
+x3.a100.complex.sf300.cost_b3_p_new.estimate
+x3.a100.complex.sf300.energy_total.class
+x3.a100.complex.sf300.energy_total.estimate
+x3.h100.baseline.sf1.cost_b1_p_new.class
+x3.h100.baseline.sf1.cost_b1_p_new.estimate
+x3.h100.baseline.sf1.cost_b2_p_new.class
+x3.h100.baseline.sf1.cost_b2_p_new.estimate
+x3.h100.baseline.sf1.cost_b3_p_new.class
+x3.h100.baseline.sf1.cost_b3_p_new.estimate
+x3.h100.baseline.sf1.energy_total.class
+x3.h100.baseline.sf1.energy_total.estimate
+x3.h100.baseline.sf10.cost_b1_p_new.class
+x3.h100.baseline.sf10.cost_b1_p_new.estimate
+x3.h100.baseline.sf10.cost_b2_p_new.class
+x3.h100.baseline.sf10.cost_b2_p_new.estimate
+x3.h100.baseline.sf10.cost_b3_p_new.class
+x3.h100.baseline.sf10.cost_b3_p_new.estimate
+x3.h100.baseline.sf10.energy_total.class
+x3.h100.baseline.sf10.energy_total.estimate
+x3.h100.baseline.sf100.cost_b1_p_new.class
+x3.h100.baseline.sf100.cost_b1_p_new.estimate
+x3.h100.baseline.sf100.cost_b2_p_new.class
+x3.h100.baseline.sf100.cost_b2_p_new.estimate
+x3.h100.baseline.sf100.cost_b3_p_new.class
+x3.h100.baseline.sf100.cost_b3_p_new.estimate
+x3.h100.baseline.sf100.energy_total.class
+x3.h100.baseline.sf100.energy_total.estimate
+x3.h100.baseline.sf30.cost_b1_p_new.class
+x3.h100.baseline.sf30.cost_b1_p_new.estimate
+x3.h100.baseline.sf30.cost_b2_p_new.class
+x3.h100.baseline.sf30.cost_b2_p_new.estimate
+x3.h100.baseline.sf30.cost_b3_p_new.class
+x3.h100.baseline.sf30.cost_b3_p_new.estimate
+x3.h100.baseline.sf30.energy_total.class
+x3.h100.baseline.sf30.energy_total.estimate
+x3.h100.baseline.sf300.cost_b1_p_new.ci_high
+x3.h100.baseline.sf300.cost_b1_p_new.ci_low
+x3.h100.baseline.sf300.cost_b1_p_new.class
+x3.h100.baseline.sf300.cost_b1_p_new.estimate
+x3.h100.baseline.sf300.cost_b2_p_new.class
+x3.h100.baseline.sf300.cost_b2_p_new.estimate
+x3.h100.baseline.sf300.cost_b3_p_new.class
+x3.h100.baseline.sf300.cost_b3_p_new.estimate
+x3.h100.baseline.sf300.energy_total.class
+x3.h100.baseline.sf300.energy_total.estimate
+x3.h100.complex.sf100.cost_b1_p_new.class
+x3.h100.complex.sf100.cost_b1_p_new.estimate
+x3.h100.complex.sf100.cost_b2_p_new.class
+x3.h100.complex.sf100.cost_b2_p_new.estimate
+x3.h100.complex.sf100.cost_b3_p_new.class
+x3.h100.complex.sf100.cost_b3_p_new.estimate
+x3.h100.complex.sf100.energy_total.class
+x3.h100.complex.sf100.energy_total.estimate
+x3.h100.complex.sf30.cost_b1_p_new.class
+x3.h100.complex.sf30.cost_b1_p_new.estimate
+x3.h100.complex.sf30.cost_b2_p_new.class
+x3.h100.complex.sf30.cost_b2_p_new.estimate
+x3.h100.complex.sf30.cost_b3_p_new.class
+x3.h100.complex.sf30.cost_b3_p_new.estimate
+x3.h100.complex.sf30.energy_total.class
+x3.h100.complex.sf30.energy_total.estimate
+x3.h100.complex.sf300.cost_b1_p_new.class
+x3.h100.complex.sf300.cost_b1_p_new.estimate
+x3.h100.complex.sf300.cost_b2_p_new.class
+x3.h100.complex.sf300.cost_b2_p_new.estimate
+x3.h100.complex.sf300.cost_b3_p_new.class
+x3.h100.complex.sf300.cost_b3_p_new.estimate
+x3.h100.complex.sf300.energy_total.class
+x3.h100.complex.sf300.energy_total.estimate
+x4.a100.polars_gpu.baseline.sf300.energy_total.ci_high
+x4.a100.polars_gpu.baseline.sf300.energy_total.ci_low
+x4.a100.polars_gpu.baseline.sf300.energy_total.estimate
+x5.h100.polars.baseline.sf300.time.ci_high
+x5.h100.polars.baseline.sf300.time.ci_low
+x5.h100.polars.baseline.sf300.time.estimate
+x6.h100.polars.baseline.sf300.idle_gpu_energy_wh_per_suite_run.mean
+```
+
+From record.tex (committed records, not campaign outcomes):
+
+```
+amend.a7.commit
+amend.a7.date
+amend.a7.freeze_commit
+amend.a7.recovery_commit
+amend.a7.sha256
+campaign.a100.driver
+campaign.c-vm.cpu_model
+campaign.h100.driver
+campaign.h100.first_session_utc
+campaign.h100.last_session_utc
+```
+<!-- keys:end -->
