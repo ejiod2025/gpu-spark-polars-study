@@ -642,7 +642,7 @@ Until every round has completed or been stopped by rule, no engine-versus-engine
 host-versus-host energy, power or cost aggregate is computed or viewed; only QA views (gate
 outcomes, sample counts, idle stability, coverage, read latencies) are allowed, through an
 allow-list view of the logs (A2). The analysis code is run on campaign data only after its
-validation on synthetic campaigns with injected known effects (A6, Section~\ref{sec:deviations}).
+validation on synthetic campaigns with injected known effects (A7, Section~\ref{sec:deviations}).
 Stopping, repeating or relaunching is never based on observed
 speed, energy or cost. \camera{The author knows the prior study's timings and its published GPU
 power summaries}{The prior study's timings and GPU power summaries were published before the
@@ -656,7 +656,7 @@ The design was locked on 2026-11-16 (annotated tag, commit \lockcommit{}, deposi
 At the lock no timed study session had run and no energy or cost analysis had been computed;
 what had been seen before is disclosed in the design (synthetic-load probe results, the prior
 study's published timings and GPU power summaries). Sections 1--11 of the design were never
-edited afterwards; six dated amendments followed (A1--A6), each stating the outcome data seen
+edited afterwards; seven dated amendments followed (A1--A7), each stating the outcome data seen
 when it was made. All are reported here plainly (Table~\ref{tab:deviations}); none changes a threshold,
 estimator, margin or the primary definitions.
 
@@ -672,7 +672,7 @@ Item & Change & Seen \\
 A1.1 (2026-11-22) & No price snapshot was taken at the lock itself; one was taken the same UTC day, 1\,h\,37\,min after the tag. Its Lambda prices equal P-NEW; no price table changed. & none \\
 A1.2 & Author decision: a launch lost to a technical failure (instance lost, or a round failing the repeat-once rule) is relaunched once and restarts its square; the lost rounds are reported, never pooled, and enter no estimate. & none \\
 A1.3 & An SF1 functional preflight of every engine runs at bring-up (as in the prior study); only its verdict and failure lines are read, its outputs are sealed. & none \\
-A1.4 & The \CG{} allow-list of scheduled jobs for G12 is filled at the first \CG{} boot after review, by a guarded commit. \todoverify{its later amendment and value} & none \\
+A1.4 & The \CG{} allow-list of scheduled jobs for G12 is filled at the first \CG{} boot after review, by a guarded commit (done in A6). & none \\
 A1.5, A1.8 & Hypervisor and storage type added to the campaign record; a guard refuses synthetic smoke data in a campaign. & none \\
 A1.6, A1.7 & Start order (pathfinder hosts); GCP compute funding to be named later (closed by A5.2). & none \\
 A2.1 (2026-11-22) & B200 admitted after a valid resolution probe ($\tmin = 1$\,s); superseded by A5.1. & synthetic probe \\
@@ -684,10 +684,12 @@ A4.4 & Stated before campaign data: a substantial share of sessions may carry a 
 A5.1 (2026-11-23) & Author decision: GH200 and B200 are not run, for time and capacity only. RQ4 covers A100 and H100; the GH200 module-scope comparison (RQ6) is not run; both hosts are reported as not measured. & none \\
 A5.2 & GCP compute (\CG, \CV) is funded by Google Cloud credits; cost still uses P-NEW list prices. & none \\
 A5.3 & Start order: no H100 capacity at the start, so A100 and \CG{} (in \texttt{us-central1-a}, a pre-registered fallback zone of the same shape and price) started first. & none \\
-% TODO(A6): date, commit and sha256 come from amendment A6 (lead, 2026-11-23: it will record the
+% TODO(A6): A6 quoted from the uncommitted design text of 2026-11-23; re-check against the committed A6.
+A6 (2026-11-23) & The \CG{} G12 allow-list, filled after review at launch 1's bring-up: the 25 scheduled items found (18 systemd timers, 7 \texttt{/etc/cron.*} files) are all masked or inert, none may run, and G12 fails on any scheduled item outside the list; the same value holds for both \CG{} launches. & none \\
+% TODO(A7): date, commit and sha256 come from amendment A7 (lead, 2026-11-23: it will record the
 % commit, the sha256 and the synthetic-recovery result before any campaign aggregate is computed or
-% seen); re-check this row and the paragraph below against the committed A6 text.
-A6 (\stat{amend.a6.date}) & Contrary to design \S5.4, the analysis code was not committed before the lock. It was written after the lock and before any campaign data were analysed or viewed, validated on synthetic campaigns with known injected effects, and committed (commit \camera{\stat{amend.a6.commit}}{\anonmark}, sha256 \hashstat{amend.a6.sha256}). & none \\
+% seen); re-check this row and the paragraph below against the committed A7 text.
+A7 (\stat{amend.a7.date}) & Contrary to design \S5.4, the analysis code was not committed before the lock. It was written after the lock and before any campaign data were analysed or viewed, validated on synthetic campaigns with known injected effects, and committed (commit \camera{\stat{amend.a7.commit}}{\anonmark}, sha256 \hashstat{amend.a7.sha256}). & none \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -695,8 +697,8 @@ A6 (\stat{amend.a6.date}) & Contrary to design \S5.4, the analysis code was not 
 Four deviations affect what the paper can report. First, contrary to \S5.4 of the locked
 design~\citelock{}, the analysis code was not committed before the lock; it was written after the
 lock and before any campaign data were analysed or viewed, validated on synthetic campaigns with
-known effects, and committed with its hash recorded in amendment A6 (\stat{amend.a6.date},
-commit \camera{\stat{amend.a6.commit}}{\anonmark}). The pre-registration therefore fixes the
+known effects, and committed with its hash recorded in amendment A7 (\stat{amend.a7.date},
+commit \camera{\stat{amend.a7.commit}}{\anonmark}). The pre-registration therefore fixes the
 analysis rules of Section~\ref{sec:analysis} but not, in advance, the code that applies them.
 Second, GH200 and B200 were dropped (A5.1) by
 the author's decision on 2026-11-23, on grounds of time and scarce capacity, before any campaign
@@ -950,7 +952,7 @@ cross-class energy claims bounded by an explicit assumption and its tipping poin
 The probe tools, harness, gates, analysis code, price snapshots and probe evidence are in the
 study repository (\repourl); the locked design is deposited with a time stamp (\lockdoi). The
 analysis output records the sha256 of the code that produced it
-(\hashstat{_meta.analysis_code_sha256}), which equals the value recorded in amendment A6. Raw
+(\hashstat{_meta.analysis_code_sha256}), which equals the value recorded in amendment A7. Raw
 campaign records will be deposited with checksums \todoplaceholder{raw-data DOI after the
 campaign}.
 
@@ -1036,7 +1038,7 @@ Values come from two files. \path{generated/stats.tex} is written by \path{analy
   \path{qa.idle_power_w.<host>.<engine>.<scope>.mean}, \path{c_vm_check.*}, \path{_meta.*}.
 \end{itemize}
 Hosts are \path{h100}, \path{a100}, \path{c-gcp}, \path{c-vm}. \path{generated/record.tex} holds
-values from committed records, not campaign outcomes: \path{amend.a6.<date|commit|sha256>} and
+values from committed records, not campaign outcomes: \path{amend.a7.<date|commit|sha256>} and
 \path{campaign.<host>.<driver|cpu_model|first_session_utc|last_session_utc>} from the launch records. \pending{full X1, X2 tables; P-OLD and P-BILLED tables; G8 flags
 by engine; coverage matrix}
 

@@ -16,7 +16,7 @@
 # own outputs.flatten and writes one \defstat per key that main.tex uses (formatted by outputs.tex_number) to
 # generated/stats.tex. It refuses if a key is missing or not a scalar. The file's presence switches the build to final
 # mode, where every missing key is a hard error. Values from committed records that the analysis does not produce
-# (amend.a6.*, campaign.<host>.*) go in a hand-kept generated/record.tex of \defstat lines (macros.tex). A synthetic
+# (amend.a7.*, campaign.<host>.*) go in a hand-kept generated/record.tex of \defstat lines (macros.tex). A synthetic
 # stats.json writes \syntheticstatstrue, which watermarks every page.
 STATS ?=
 
