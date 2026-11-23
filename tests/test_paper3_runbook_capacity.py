@@ -228,3 +228,47 @@ def test_the_commit_must_be_a_full_hash_and_driver_args_reach_the_driver(watch):
 def test_the_dry_run_polls_and_launches_nothing(watch):
     done = watch.run("--dry-run")
     assert done.returncode == 0 and "DRY RUN" in watch.log() and not watch.calls() and not watch.records()
+
+
+# ---- excluded regions (2026-11-23: both H100 hosts that never answered CUDA were in us-south-3) ----------------------------------------------------------
+
+def launched_region(watch):
+    return json.loads(watch.records()[0].read_text())["region"]
+
+
+def test_an_excluded_region_is_never_launched_in_even_when_it_is_the_only_one_listed_or_the_preferred_one(watch):
+    (watch.net / "instance_types").write_text(instance_types(["us-south-3", "us-west-1"]))
+    done = watch.run("--regions", "us-south-3 us-south-2", "--exclude-regions", "us-south-3")
+    assert done.returncode == 0, done.stdout + done.stderr + watch.log()
+    assert launched_region(watch) == "us-west-1"                                                    # the preferred us-south-3 is excluded: the next region that lists capacity wins
+    assert "excluded regions: us-south-3" in watch.log() and "preferred region us-south-3 is excluded" in done.stderr
+    assert not [c for c in watch.calls() if "instance-operations/launch" in c and "us-south-3" in c]
+
+
+def test_capacity_only_in_an_excluded_region_keeps_the_watcher_waiting_and_launches_nothing(watch):
+    (watch.net / "instance_types").write_text(instance_types(["us-south-3"]))
+    done = watch.run("--exclude-regions", "us-south-3", "--max-hours", 1)
+    assert done.returncode == 1 and "--max-hours reached" in watch.log() and not watch.records()
+    assert "no region lists gpu_1x_h100_sxm5 with capacity" in watch.log()
+    assert not [c for c in watch.calls() if "instance-operations" in c]
+    assert not (watch.out / "snapshots").exists() or not list((watch.out / "snapshots").iterdir())                                          # no snapshot either
+
+
+def test_the_environment_and_the_option_both_exclude_and_add_up(watch):
+    (watch.net / "instance_types").write_text(instance_types(["us-south-3", "us-west-1", "europe-central-1"]))
+    done = watch.run("--exclude-regions", "us-west-1", P3_EXCLUDE_REGIONS="us-south-3")
+    assert done.returncode == 0 and launched_region(watch) == "europe-central-1"
+    assert "excluded regions: us-south-3 us-west-1" in watch.log()
+
+
+@pytest.mark.parametrize("bad", ["us-south", "US-SOUTH-3", "us-south-3;ls", "$(id)", "3"])
+def test_an_excluded_region_must_look_like_a_region_name(watch, bad):
+    done = watch.run("--exclude-regions", bad)
+    assert done.returncode == 2 and "not a Lambda region name" in done.stderr and not watch.calls()
+    envbad = watch.run(P3_EXCLUDE_REGIONS=bad)
+    assert envbad.returncode == 2 and "not a Lambda region name" in envbad.stderr and not watch.calls()
+
+
+def test_the_help_text_documents_the_exclusion():
+    header = subprocess.run([BASH, str(WATCHER), "--bogus"], capture_output=True, text=True).stdout
+    assert "--exclude-regions" in header and "P3_EXCLUDE_REGIONS" in header and "us-south-3" in header

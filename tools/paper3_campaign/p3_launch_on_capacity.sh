@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# p3_launch_on_capacity.sh --commit SHA [--host h100] [--launch 1] [--interval 30] [--max-hours 72] [--regions "r1 r2"] [--driver-args "..."]
-#                          [--credit-funded yes|no] [--allow-relaunch] [--dry-run]
+# p3_launch_on_capacity.sh --commit SHA [--host h100] [--launch 1] [--interval 30] [--max-hours 72] [--regions "r1 r2"] [--exclude-regions "r1 r2"]
+#                          [--driver-args "..."] [--credit-funded yes|no] [--allow-relaunch] [--dry-run]
 #
 # Waits for Lambda capacity of a campaign host's instance type and, the moment a region lists it, launches that host's launch ONCE and starts its driver. No terminal and no
 # session is needed: start it with nohup (it keeps the Mac awake with caffeinate when there is one) and read its log.
@@ -13,7 +13,9 @@
 #   a launch that failed (the capacity went between the listing and the call: p3_launch.sh exit 1, nothing exists) is logged and the watching goes on; a refusal (exit 2:
 #                      a bad argument, no price for the type, a commit that is not on origin) ends it, because trying again would repeat it
 #
-# Preferred regions come first (default: the planner's places for the host, then any other region the API lists). It acts on nothing but its own launch: no terminate call,
+# Preferred regions come first (default: the planner's places for the host, then any other region the API lists). EXCLUDED regions are never launched in, whatever the API lists:
+# --exclude-regions "us-south-3" and/or the environment P3_EXCLUDE_REGIONS (space-separated; both are used). 2026-11-23: both H100 hosts whose GPU never answered CUDA (error 802,
+# the bring-up's CUDA gate) were in us-south-3. An excluded region is dropped from the preferred list too, with a note in the log. It acts on nothing but its own launch: no terminate call,
 # no instance of anyone else is listed or touched (the API listing is of instance TYPES), every name is the planner's p3- lease name.
 # A launch record of the same host and launch makes it refuse to start, unless that record is terminated AND carries infrastructure_failure (a host whose GPU was not ready:
 # no round ran, the launch may be made again) or --allow-relaunch is given.
@@ -31,7 +33,7 @@ now() { ${P3_WATCH_NOW:-date +%s}; }
 wsleep() { ${P3_WATCH_SLEEP:-sleep} "$1"; }
 die() { echo "p3_launch_on_capacity.sh: $*" >&2; exit 2; }
 
-HOST=h100 LAUNCH=1 COMMIT="" INTERVAL=30 MAX_HOURS=72 REGIONS="" DRIVER_ARGS="" CREDIT=yes RELAUNCH=0 DRY=0
+HOST=h100 LAUNCH=1 COMMIT="" INTERVAL=30 MAX_HOURS=72 REGIONS="" EXCLUDE_OPT="" DRIVER_ARGS="" CREDIT=yes RELAUNCH=0 DRY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --commit) COMMIT=${2:-}; shift 2 ;;
@@ -40,6 +42,7 @@ while [ $# -gt 0 ]; do
     --interval) INTERVAL=${2:-}; shift 2 ;;
     --max-hours) MAX_HOURS=${2:-}; shift 2 ;;
     --regions) REGIONS=${2:-}; shift 2 ;;
+    --exclude-regions) EXCLUDE_OPT=${2:-}; shift 2 ;;
     --driver-args) DRIVER_ARGS=${2:-}; shift 2 ;;
     --credit-funded) CREDIT=${2:-}; shift 2 ;;
     --allow-relaunch) RELAUNCH=1; shift ;;
@@ -53,6 +56,13 @@ printf '%s' "$COMMIT" | grep -Eq '^[0-9a-f]{40}$' || die "--commit must be a ful
 [[ "$INTERVAL" =~ ^[0-9]+$ ]] && [ "$INTERVAL" -ge 15 ] || die "--interval is a whole number of seconds, at least 15 (the API allows about one request per second; the launch call one per 12 s)"
 [[ "$MAX_HOURS" =~ ^[0-9]+$ ]] || die "--max-hours is a whole number"
 [[ "$CREDIT" =~ ^(yes|no)$ ]] || die "--credit-funded is yes or no"
+region_re='^[a-z]+-[a-z]+-[0-9]+$'
+EXCLUDED=""
+for bad in ${P3_EXCLUDE_REGIONS:-} $EXCLUDE_OPT; do
+  [[ "$bad" =~ $region_re ]] || die "'$bad' is not a Lambda region name (excluded regions look like us-south-3)"
+  case " $EXCLUDED " in *" $bad "*) ;; *) EXCLUDED="$EXCLUDED $bad" ;; esac
+done
+EXCLUDED=${EXCLUDED# }
 args_re='^[-A-Za-z0-9_=./ ]*$'
 [[ "$DRIVER_ARGS" =~ $args_re ]] || die "--driver-args may use letters, digits, space and - _ = . / only"
 
@@ -70,6 +80,11 @@ PY
 ) || die "cannot read the planner's places for $HOST"
 fi
 
+if [ -n "$EXCLUDED" ]; then
+  kept=""
+  for want in $REGIONS; do case " $EXCLUDED " in *" $want "*) echo "note: preferred region $want is excluded and dropped from the preferred list" >&2 ;; *) kept="$kept $want" ;; esac; done
+  REGIONS=${kept# }
+fi
 OUTDIR=${P3_WATCH_OUTDIR:-$REPO/rerun/paper3}
 STATE=$P3_LEDGER_DIR/watch-$HOST-l$LAUNCH
 LOG=$OUTDIR/watch-$HOST-l$LAUNCH.log
@@ -102,7 +117,7 @@ rm -f "$STATE/stop"
 if [ -z "${P3_NO_CAFFEINATE:-}" ] && command -v caffeinate >/dev/null 2>&1; then caffeinate -i -s -w $$ >/dev/null 2>&1 & fi
 
 END=$(( $(now) + MAX_HOURS * 3600 ))
-log "=== watching Lambda for $ITYPE ($HOST launch $LAUNCH): every $INTERVAL s for up to $MAX_HOURS h; preferred regions: $REGIONS; commit $COMMIT; stop file $STATE/stop ==="
+log "=== watching Lambda for $ITYPE ($HOST launch $LAUNCH): every $INTERVAL s for up to $MAX_HOURS h; preferred regions: ${REGIONS:-any}; excluded regions: ${EXCLUDED:-none}; commit $COMMIT; stop file $STATE/stop ==="
 [ "$DRY" = 1 ] && { log "DRY RUN: would launch on the first capacity; nothing was polled, nothing was launched"; exit 0; }
 
 poll=0
@@ -112,8 +127,8 @@ while :; do
   poll=$((poll + 1))
   reply=$(lambda_call GET /instance-types 2>>"$LOG")
   listed=$(printf '%s' "$reply" | jq -r --arg t "$ITYPE" '.data[$t].regions_with_capacity_available[]?.name' 2>/dev/null)
-  # P3_EXCLUDE_REGIONS (space-separated): regions never launched in, e.g. one whose hosts failed the CUDA gate
-  for bad in ${P3_EXCLUDE_REGIONS:-}; do listed=$(printf '%s\n' "$listed" | grep -vx "$bad" || true); done
+  # excluded regions (--exclude-regions, P3_EXCLUDE_REGIONS): never launched in, whatever the API lists
+  for bad in $EXCLUDED; do listed=$(printf '%s\n' "$listed" | grep -vx "$bad" || true); done
   if ! printf '%s' "$reply" | jq -e '.data' >/dev/null 2>&1; then
     log "poll $poll: the API answer has no .data ($(printf '%s' "$reply" | head -c 200 | tr '\n' ' ')); trying again"
   elif [ -z "$listed" ]; then

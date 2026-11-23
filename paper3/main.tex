@@ -601,7 +601,8 @@ $\rho = m_{\mathrm{ref}}/m_{\mathrm{engine}}$, so $\rho > 1$ means the engine ne
 energy or cost than the reference. Per host, suite, scale and metric with a valid scope or price:
 \textbf{X1} \polarscpu{}/\polarsgpu{}; \textbf{X2} \sparkcpu{}/\sparkgpu{}; \textbf{X3} best CPU
 engine / best GPU engine per query and round among engines that ran the query (strict variant:
-queries both GPU engines ran). The CPU reference is B1 for cost and \scope{S2-pinned} on \CG{} for
+queries both GPU engines ran); if an engine that ran the query has no value for the metric (for
+example, below resolution), that query's X3 value is not estimable. The CPU reference is B1 for cost and \scope{S2-pinned} on \CG{} for
 energy, so energy X1--X3 are cross-class and read under \NOne{} with $\Dstar$. \textbf{X4}: per GPU
 engine, A100 over H100 (descriptive, confounded with CPU, RAM, link and driver). \textbf{X5}: CPU
 engines on a GPU host over \CG{}, time and cost only. \textbf{X6}: the idle-GPU tax, B3/B1 as price
@@ -632,7 +633,9 @@ difference} if entirely inside $[1/1.10,\ 1.10]$ (a practical margin approved be
 The \emph{break-even scale} of a contrast, per suite, host and metric (energy total and above
 idle; cost under B1, B2, B3, each under P-NEW, P-OLD and P-BILLED) is the smallest grid scale $s$
 such that every grid scale $\ge s$ is GPU better, reported as the bracket (previous scale, $s$];
-``$\le$SF1'' and ``$>$SF300'' are censored outcomes. For cross-class energy it is computed on the
+``$\le$SF1'' and ``$>$SF300'' are censored outcomes, and a scale that is not estimable is named
+in the outcome (``$\le$SF10 (SF1 not estimable)''; ``not determinable (SF300 not estimable)'').
+For cross-class energy it is computed on the
 measured scopes and labelled a lower bound on the node-level break-even, under \NOne. No scale is
 added to refine a bracket.
 
@@ -722,50 +725,8 @@ only on technical failures, and the counts of lost launches and replaced hosts a
 % \stat keys only and follows the classification wording of Section 6.4 and the scope wording of
 % Section 4.6.
 
-\subsection{Campaign record and data quality}
-\label{sec:results-qa}
-
-\begin{table}[t]
-% Keys: hosts.<host>.{status,squares.<n>.complete}, qa.g8.<host>.<engine>.{flagged,sessions},
-% c_vm_check.status, qa.read_latency_and_overhang.<host>.polars_gpu.read_latency_ms.median.
-\caption{Campaign record and QA per host. G8: sessions flagged (failed or not evaluable) of
-sessions.}
-\label{tab:qa}
-\footnotesize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-Item & \GH & \GA & \CG & \CV \\
-\midrule
-Status (measured / descriptive) & \tstat{hosts.h100.status} & \tstat{hosts.a100.status} & \tstat{hosts.c-gcp.status} & \tstat{hosts.c-vm.status} \\
-Square 1 complete & \tstat{hosts.h100.squares.1.complete} & \tstat{hosts.a100.squares.1.complete} & \tstat{hosts.c-gcp.squares.1.complete} & -- \\
-Square 2 complete & \tstat{hosts.h100.squares.2.complete} & \tstat{hosts.a100.squares.2.complete} & \tstat{hosts.c-gcp.squares.2.complete} & -- \\
-B1 time check & -- & -- & -- & \tstat{c_vm_check.status} \\
-\midrule
-G8, \polarscpu & \tstat{qa.g8.h100.polars.flagged}/\tstat{qa.g8.h100.polars.sessions} & \tstat{qa.g8.a100.polars.flagged}/\tstat{qa.g8.a100.polars.sessions} & -- & -- \\
-G8, \polarsgpu & \tstat{qa.g8.h100.polars_gpu.flagged}/\tstat{qa.g8.h100.polars_gpu.sessions} & \tstat{qa.g8.a100.polars_gpu.flagged}/\tstat{qa.g8.a100.polars_gpu.sessions} & -- & -- \\
-G8, \sparkcpu & \tstat{qa.g8.h100.spark_cpu.flagged}/\tstat{qa.g8.h100.spark_cpu.sessions} & \tstat{qa.g8.a100.spark_cpu.flagged}/\tstat{qa.g8.a100.spark_cpu.sessions} & -- & -- \\
-G8, \sparkgpu & \tstat{qa.g8.h100.spark_gpu.flagged}/\tstat{qa.g8.h100.spark_gpu.sessions} & \tstat{qa.g8.a100.spark_gpu.flagged}/\tstat{qa.g8.a100.spark_gpu.sessions} & -- & -- \\
-Read latency ms, \polarsgpu & \tstat{qa.read_latency_and_overhang.h100.polars_gpu.read_latency_ms.median} & \tstat{qa.read_latency_and_overhang.a100.polars_gpu.read_latency_ms.median} & -- & -- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-% TODO(results): summary keys the analysis does not emit as scalars yet (needed for this section):
-% launches lost / replaced per host (A1.2, A4.2), round repeats, sessions per host, G9 cells below
-% resolution per host (qa.g9 is keyed per host|suite|scale|engine), the S1-sampled cross-check against
-% the counter, coverage outcomes per host, the billing reconciliation (a list).
-\pending{campaign dates and launches: \GH{} \stat{campaign.h100.first_session_utc} to
-\stat{campaign.h100.last_session_utc}; \GA, \CG, \CV{} likewise; regions per launch; any lost
-launch or replaced host and why (technical cause only)}
-\pending{gate outcomes from Table~\ref{tab:qa}; launches lost or replaced and round repeats; the
-number of cells below resolution per host and why (per-run time below $\tmin$, from
-\texttt{qa.g9}); G8 flags per host and engine against the A4 prediction}
-\pending{B1 check on \CV: geometric-mean time ratio VM/metal \stat{c_vm_check.ratio_vm_over_metal}
-(95\% CI \stat{c_vm_check.ci_low}--\stat{c_vm_check.ci_high}), verdict \stat{c_vm_check.status}}
-
-\subsection{Energy per query}
-\label{sec:results-energy}
+% Full-width results floats are defined here, at the start of the section, so that they can
+% float onto the results pages (a table* lands at the top of a page after the one it is defined on).
 \begin{figure*}[t]
 \centering
 \studyfig{f01_energy_forest}{\textwidth}{0.20\textheight}
@@ -775,18 +736,6 @@ scale on \GH{} and \GA, total and above-idle, each point labelled with its scope
 marked. Keys \texttt{x\{1,2,3\}.<host>.<suite>.sf<scale>.energy\_\{total,above\_idle\}}.}
 \label{fig:energy}
 \end{figure*}
-
-\pending{X1 and X2 energy per suite and scale, per host, with classification; worded "CPU better
-at the measured scopes (under N1: the GPU engine uses more node energy)" or "GPU better at the
-measured scopes (no node-level claim)" or "inconclusive"; e.g.\ \ratiotext{x1.h100.baseline.sf300.energy_total}}
-\pending{tipping points: $\Dstar$ per cross-class cell, \stat{delta_star.x3.h100.baseline.sf300.energy_total.wh_per_suite_run.mean}
-Wh per suite run (\stat{delta_star.x3.h100.baseline.sf300.energy_total.w_over_gpu_suite_time.mean} W), beside the
-pinned \CG{} socket's idle \stat{qa.idle_power_w.c-gcp.polars.S2-pinned.mean} W and the idle GPU under a CPU engine
-\stat{qa.idle_power_w.h100.polars.S1-counter.mean} W}
-\pending{above-idle versus total: where they classify differently}
-
-\subsection{Cost per query}
-\label{sec:results-cost}
 
 \begin{table*}[t]
 \caption{Planned: classification of X3 (best CPU engine / best GPU engine) per host, suite and
@@ -817,25 +766,6 @@ Host & Metric & SF1 & SF10 & SF30 & SF100 & SF300 & SF30 & SF100 & SF300 \\
 \end{tabular}
 \end{table*}
 
-\begin{figure}[t]
-\centering
-\studyfig{f02_time_vs_price}{\columnwidth}{0.18\textheight}
-\caption{Planned: factorised cost. Time ratio $t_C/t_G$ (95\% interval) of X3 per scale against
-the price ratios of Table~\ref{tab:priceratio} (horizontal lines, P-NEW solid, P-OLD dashed);
-points above a line are cheaper on the GPU host. Keys \texttt{x3.<host>.<suite>.sf<scale>.time\_vs\_cgcp}.}
-\label{fig:factorised}
-\end{figure}
-
-\pending{X3 cost under B1 per host and scale from Table~\ref{tab:x3}, with classification; time
-ratio and price ratio stated separately (Figure~\ref{fig:factorised}); e.g.\
-\ratiotext{x3.h100.baseline.sf300.cost_b1_p_new}}
-\pending{X1 and X2 cost; B2 and B3 sensitivity; P-OLD and P-BILLED, with the invoice
-reconciliation (the analysis writes it as a list, \texttt{billing}; it needs scalar keys to be cited)}
-\pending{session and cold-job cost where start-up dominates (small scales)}
-
-\subsection{Break-even scales}
-\label{sec:results-breakeven}
-
 \begin{table*}[t]
 \caption{Planned: break-even scale brackets (previous scale, $s$] of X3 under P-NEW;
 ``$\le$SF1'' and ``$>$SF300'' censored. Energy: lower bound on the node-level break-even, under
@@ -855,6 +785,92 @@ Host & Suite & Cost B1 & Cost B2 & Cost B3 & Energy & Energy above idle \\
 \end{tabular}
 \end{table*}
 
+\subsection{Campaign record and data quality}
+\label{sec:results-qa}
+
+\begin{table}[t]
+% Keys (analyze_paper3.py, format frozen 2026-11-23): hosts.<host>.status; counts.<host>.{squares_complete,
+% squares_planned, rounds_confirmatory, launches_lost_replaced, round_repeats, sessions_analysed,
+% g9.cells_below_resolution, coverage_outcomes.total}; c_vm_check.status; qa.g8.<host>.<engine>.{flagged,
+% sessions}; qa.crosscheck.<host>.median ((trapezoid - counter) / counter, windows >= 10 s, sessions with
+% clean G7 and G8); qa.read_latency_and_overhang.<host>.polars_gpu.read_latency_ms.median.
+\caption{Campaign record and QA per host. G8: sessions flagged (failed or not evaluable) of
+sessions. Cross-check: median relative difference of the sampled \texttt{nvidia-smi} integral from
+the counter, windows of at least 10\,s in sessions with clean G7 and G8.}
+\label{tab:qa}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Item & \GH & \GA & \CG & \CV \\
+\midrule
+Status & \tstat{hosts.h100.status} & \tstat{hosts.a100.status} & \tstat{hosts.c-gcp.status} & \tstat{hosts.c-vm.status} \\
+Complete squares & \tstat{counts.h100.squares_complete}/\tstat{counts.h100.squares_planned} & \tstat{counts.a100.squares_complete}/\tstat{counts.a100.squares_planned} & \tstat{counts.c-gcp.squares_complete}/\tstat{counts.c-gcp.squares_planned} & -- \\
+Confirmatory rounds & \tstat{counts.h100.rounds_confirmatory} & \tstat{counts.a100.rounds_confirmatory} & \tstat{counts.c-gcp.rounds_confirmatory} & \tstat{counts.c-vm.rounds_confirmatory} \\
+Launches lost or replaced & \tstat{counts.h100.launches_lost_replaced} & \tstat{counts.a100.launches_lost_replaced} & \tstat{counts.c-gcp.launches_lost_replaced} & \tstat{counts.c-vm.launches_lost_replaced} \\
+Round repeats & \tstat{counts.h100.round_repeats} & \tstat{counts.a100.round_repeats} & \tstat{counts.c-gcp.round_repeats} & \tstat{counts.c-vm.round_repeats} \\
+Sessions analysed & \tstat{counts.h100.sessions_analysed} & \tstat{counts.a100.sessions_analysed} & \tstat{counts.c-gcp.sessions_analysed} & \tstat{counts.c-vm.sessions_analysed} \\
+Cells below resolution (G9) & \tstat{counts.h100.g9.cells_below_resolution} & \tstat{counts.a100.g9.cells_below_resolution} & \tstat{counts.c-gcp.g9.cells_below_resolution} & -- \\
+Coverage outcomes (cells) & \tstat{counts.h100.coverage_outcomes.total} & \tstat{counts.a100.coverage_outcomes.total} & \tstat{counts.c-gcp.coverage_outcomes.total} & \tstat{counts.c-vm.coverage_outcomes.total} \\
+B1 time check & -- & -- & -- & \tstat{c_vm_check.status} \\
+\midrule
+G8, \polarscpu & \tstat{qa.g8.h100.polars.flagged}/\tstat{qa.g8.h100.polars.sessions} & \tstat{qa.g8.a100.polars.flagged}/\tstat{qa.g8.a100.polars.sessions} & -- & -- \\
+G8, \polarsgpu & \tstat{qa.g8.h100.polars_gpu.flagged}/\tstat{qa.g8.h100.polars_gpu.sessions} & \tstat{qa.g8.a100.polars_gpu.flagged}/\tstat{qa.g8.a100.polars_gpu.sessions} & -- & -- \\
+G8, \sparkcpu & \tstat{qa.g8.h100.spark_cpu.flagged}/\tstat{qa.g8.h100.spark_cpu.sessions} & \tstat{qa.g8.a100.spark_cpu.flagged}/\tstat{qa.g8.a100.spark_cpu.sessions} & -- & -- \\
+G8, \sparkgpu & \tstat{qa.g8.h100.spark_gpu.flagged}/\tstat{qa.g8.h100.spark_gpu.sessions} & \tstat{qa.g8.a100.spark_gpu.flagged}/\tstat{qa.g8.a100.spark_gpu.sessions} & -- & -- \\
+Cross-check, median & \tstat{qa.crosscheck.h100.median} & \tstat{qa.crosscheck.a100.median} & -- & -- \\
+Read latency ms, \polarsgpu & \tstat{qa.read_latency_and_overhang.h100.polars_gpu.read_latency_ms.median} & \tstat{qa.read_latency_and_overhang.a100.polars_gpu.read_latency_ms.median} & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\pending{campaign dates and launches: \GH{} \stat{campaign.h100.first_session_utc} to
+\stat{campaign.h100.last_session_utc}; \GA, \CG, \CV{} likewise; regions per launch; any lost
+launch or replaced host and why (technical cause only)}
+\pending{gate outcomes from Table~\ref{tab:qa}; launches lost or replaced and round repeats; the
+cells below resolution per host and why (\stat{counts.h100.g9.per_run_below_t_min} with per-run
+time below $\tmin$, \stat{counts.h100.g9.window_below_10s} with a window below 10\,s on \GH);
+coverage outcomes by kind (\stat{counts.h100.coverage_outcomes.unsupported_operation} unsupported,
+\stat{counts.h100.coverage_outcomes.resource_exhaustion} resource exhaustion on \GH); G8 flags per
+host and engine against the A4 prediction}
+\pending{B1 check on \CV: geometric-mean time ratio VM/metal \stat{c_vm_check.ratio_vm_over_metal}
+(95\% CI \stat{c_vm_check.ci_low}--\stat{c_vm_check.ci_high}), verdict \stat{c_vm_check.status}}
+
+\subsection{Energy per query}
+\label{sec:results-energy}
+\pending{X1 and X2 energy per suite and scale, per host, with classification; worded "CPU better
+at the measured scopes (under N1: the GPU engine uses more node energy)" or "GPU better at the
+measured scopes (no node-level claim)" or "inconclusive"; e.g.\ \ratiotext{x1.h100.baseline.sf300.energy_total}}
+\pending{tipping points: $\Dstar$ per cross-class cell, \stat{delta_star.x3.h100.baseline.sf300.energy_total.wh_per_suite_run.mean}
+Wh per suite run (\stat{delta_star.x3.h100.baseline.sf300.energy_total.w_over_gpu_suite_time.mean} W), beside the
+pinned \CG{} socket's idle \stat{qa.idle_power_w.c-gcp.polars.S2-pinned.mean} W and the idle GPU under a CPU engine
+\stat{qa.idle_power_w.h100.polars.S1-counter.mean} W}
+\pending{above-idle versus total: where they classify differently}
+
+\subsection{Cost per query}
+\label{sec:results-cost}
+
+\begin{figure}[t]
+\centering
+\studyfig{f02_time_vs_price}{\columnwidth}{0.18\textheight}
+\caption{Planned: factorised cost. Time ratio $t_C/t_G$ (95\% interval) of X3 per scale against
+the price ratios of Table~\ref{tab:priceratio} (horizontal lines, P-NEW solid, P-OLD dashed);
+points above a line are cheaper on the GPU host. Keys \texttt{x3.<host>.<suite>.sf<scale>.time\_vs\_cgcp}.}
+\label{fig:factorised}
+\end{figure}
+
+\pending{X3 cost under B1 per host and scale from Table~\ref{tab:x3}, with classification; time
+ratio and price ratio stated separately (Figure~\ref{fig:factorised}); e.g.\
+\ratiotext{x3.h100.baseline.sf300.cost_b1_p_new}}
+\pending{X1 and X2 cost; B2 and B3 sensitivity; P-OLD and P-BILLED, with the invoice
+reconciliation per host (\GH: \stat{billing_by_host.h100.hours}\,h, billed
+\stat{billing_by_host.h100.billed_usd}\,USD, invoice \stat{billing_by_host.h100.invoice_usd}\,USD,
+gap \stat{billing_by_host.h100.gap}, above 2\%: \stat{billing_by_host.h100.gap_above_2pct})}
+\pending{session and cold-job cost where start-up dominates (small scales)}
+
+\subsection{Break-even scales}
+\label{sec:results-breakeven}
+
 \pending{break-even brackets from Table~\ref{tab:breakeven}; X1 and X2 brackets; how the bracket
 moves between B1, B2, B3 and between P-NEW, P-OLD, P-BILLED; the descriptive log-linear
 interpolation only as such}
@@ -870,7 +886,9 @@ state from the recorded clocks}
 
 \subsection{Sensitivity}
 \label{sec:results-sens}
-\pending{rounds of incomplete squares; instance as a factor; strict X3 variant; above-idle; P-OLD
+\pending{rounds of incomplete squares and per-launch estimates (\texttt{sensitivity.<name>});
+unpaired Welch comparisons (\texttt{sensitivity\_unpaired}, labelled); strict X3 variant (the lenient
+X3 is a diagnostic only, never a claim); above-idle; P-OLD
 and P-BILLED; within-session and between-round CV; order and carryover by position (descriptive)}
 
 % =====================================================================================
@@ -1034,8 +1052,10 @@ Values come from two files. \path{generated/stats.tex} is written by \path{analy
   \path{delta_star.<contrast>.<host>.<suite>.sf<scale>.<metric>.<wh_per_suite_run|w_over_gpu_suite_time>.mean};
 \item \path{x4.a100.<engine>.<suite>.sf<scale>.<metric>}, \path{x5.<host>.<engine>.<suite>.sf<scale>.<metric>},
   \path{x6.<host>.<engine>.<suite>.sf<scale>.idle_gpu_energy_wh_per_suite_run.mean};
-\item \path{hosts.<host>.*}, \path{qa.g8.<host>.<engine>.*}, \path{qa.read_latency_and_overhang.*},
-  \path{qa.idle_power_w.<host>.<engine>.<scope>.mean}, \path{c_vm_check.*}, \path{_meta.*}.
+\item \path{hosts.<host>.*}, \path{counts.<host>.*} (launches, rounds, squares, sessions, \path{g9.*},
+  \path{coverage_outcomes.*}), \path{qa.g8.<host>.<engine>.*}, \path{qa.crosscheck.<host>.*},
+  \path{qa.read_latency_and_overhang.*}, \path{qa.idle_power_w.<host>.<engine>.<scope>.mean},
+  \path{billing_by_host.<host>.*}, \path{c_vm_check.*}, \path{_meta.*}.
 \end{itemize}
 Hosts are \path{h100}, \path{a100}, \path{c-gcp}, \path{c-vm}. \path{generated/record.tex} holds
 values from committed records, not campaign outcomes: \path{amend.a7.<date|commit|sha256>} and
