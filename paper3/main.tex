@@ -185,12 +185,10 @@ data was seen. Every later change is a dated amendment reported in Section~\ref{
 \paragraph{Contributions.}
 \begin{enumerate}
 \item \textbf{A validated measurement protocol} for per-query energy on rented CPU and GPU
-  hosts (Section~\ref{sec:energy}): per host class, the meter's scope is checked against the
-  integral of an instantaneous-power field of matching scope; a resolution limit $\tmin$ is
-  measured on synthetic pulses of known length; the power field's semantics, idle floors with
-  and without an open CUDA context, and clock alignment are measured; a window rule makes
-  sub-second queries measurable; energy is reported both total and above idle; and every value
-  carries a scope tag that the analysis code enforces.
+  hosts (Section~\ref{sec:energy}): per host class, the meter's scope, a resolution limit $\tmin$,
+  the power field's semantics, idle floors with and without a CUDA context, and clock alignment
+  are measured before the lock; a window rule makes sub-second queries measurable; energy is
+  reported total and above idle; every value carries a scope tag the analysis code enforces.
 \item \textbf{A pre-registered design and analysis plan} (Sections~\ref{sec:design},
   \ref{sec:analysis}): Williams Latin squares, timing-independent integrity gates, a $\pm$10\%
   equivalence margin, a fixed cell classification, and explicit rules for cross-class energy
@@ -299,7 +297,7 @@ generation, A100 against H100 (descriptive; confounded with the host).
 \textbf{RQ5}: CPU platform and the idle-GPU tax, i.e.\ CPU engines on the CPU-only host
 against the GPU hosts, and the GPU energy burned idle while a CPU engine runs on a GPU host.
 ``Confirmatory'' means that contrast, metric, baseline, scale grid and decision rule were
-fixed in advance; it does not mean a hypothesis test.
+fixed in advance (there are no hypothesis tests).
 
 \subsection{Hosts and engines}
 \label{sec:hosts}
@@ -371,6 +369,22 @@ Confirmatory estimates use complete squares only (all of a square's rounds accep
 instance): two give $R = 8$, one gives $R = 4$; rounds of an incomplete square are a sensitivity. No round is added or dropped for what its values
 look like. One query runs at a time on a whole instance, with no other workload and no foreign
 GPU process; at least 150\,s without query load separate consecutive sessions.
+
+% ACM Policy on Authorship, "Use of Artificial Intelligence" (updated 2026-05-14;
+% https://www.acm.org/publications/policies/new-acm-policy-on-authorship, read by venue-scout on 2026-11-24):
+% AI used to conduct the research "must be described in detail in the methods section of the Work". Facts:
+% the lead's list (2026-11-24), design sec. 8 (the design was drafted by Claude via Claude Code; earlier
+% project designs with OpenAI Codex) and sec. 11 item 5 (the probes were run by the lead's agents). Names tools,
+% not people. Agrees with the Disclosures (submission) and the acknowledgments (camera-ready).
+\paragraph{Use of AI tools.} AI coding assistants (Anthropic's Claude Code; OpenAI Codex in the
+project's earlier, exploratory work) wrote and tested the measurement harness, the probe tools, the
+gates and the campaign automation (launch, drivers, copies, teardown); drafted the pre-registered
+design and its amendments; wrote the analysis code, after the lock and frozen before any campaign
+data was seen (A7); ran and monitored the probes and the cloud campaign under
+\camera{the author's}{the author(s)'} direction; and assisted with writing this paper. \camera{The author}{The author(s)} directed the
+study, approved every design and analysis decision and every amendment, reviewed the code and the
+text, and \camera{takes}{take} full responsibility. Measurement and analysis are deterministic code
+in the study repository; no AI model produces or judges a measured value.
 
 % =====================================================================================
 \section{Energy Measurement Protocol}
@@ -567,8 +581,7 @@ enter no estimate (amendment A1). G6 requires each session's counters to match t
 probe-declared sources and to advance; G7 checks the sampled stream's coverage, G8 clock alignment
 (Section~\ref{sec:clock}), G9 resolution, G10 idle stability (10\%), G11 thermal and power state,
 and G12 exclusive use. G7--G11 only set eligibility flags. On GPU hosts a
-CUDA-readiness check runs before any data or engine work, so that a host whose GPU is visible but
-not usable is replaced before it produces a round (A4).
+CUDA-readiness check runs before any data or engine work (A4; Section~\ref{sec:deviations}).
 
 \subsection{Quantities and contrasts}
 \label{sec:contrasts}
@@ -625,20 +638,16 @@ added to refine a bracket.
 Until every round has completed or been stopped by rule, no engine-versus-engine or
 host-versus-host energy, power or cost aggregate is computed or viewed; only QA views (gate
 outcomes, sample counts, idle stability, coverage, read latencies) are allowed, through an
-allow-list view of the logs (A2). The analysis code was written after the lock and frozen before
-any campaign data was seen (A7, Section~\ref{sec:deviations}); it refuses the full analysis until
+allow-list view of the logs (A2). The analysis code (A7) refuses the full analysis until
 every planned launch is complete, stopped or declared ended, and before that reads only the gate
 files of the QA view. Stopping, repeating or relaunching is never based on observed
-speed, energy or cost. \camera{The author knows the prior study's timings and its published GPU
-power summaries}{The prior study's timings and GPU power summaries were published before the
-lock}, so the pre-registration protects the analysis choices, not ignorance of them.
+speed, energy or cost.
 
 % =====================================================================================
 \section{Deviations from the Pre-registration}
 \label{sec:deviations}
 
-The design was locked on 2026-11-16 (annotated tag, commit \lockcommit{}, deposit \lockdoi{}).
-At the lock no timed study session had run and no energy or cost analysis had been computed;
+The design was locked on 2026-11-16 (annotated tag, commit \lockcommit{}, deposit \lockdoi{});
 what had been seen before is disclosed in the design (synthetic-load probe results, the prior
 study's published timings and GPU power summaries). Sections 1--11 of the design were never
 edited afterwards. Eight dated amendments followed, each stating the outcome data seen when it was
@@ -868,9 +877,8 @@ the GH200 counter; resolution: $\tmin$ and below-resolution cells; idle: context
 \section{Threats to Validity and Limitations}
 \label{sec:threats}
 
-\paragraph{Virtualized counters, missing CPU energy and \NOne.} The Lambda GPU hosts are KVM guests
-with a working NVML counter and no CPU energy source, so host CPU and DRAM energy of GPU-engine
-runs are unmeasured; no wall-power reference exists on any host (no BMC), and RAPL covers package
+\paragraph{Virtualized counters, missing CPU energy and \NOne.} Host CPU and DRAM energy of
+GPU-engine runs are unmeasured (Section~\ref{sec:scopes}); no wall-power reference exists on any host (no BMC), and RAPL covers package
 and DRAM only, not power supplies, fans, storage or network. \CG's virtualization verdict was
 ambiguous (no hypervisor flag; the platform reports Google), but its counters advance, agree
 between powercap and \texttt{perf}, and are re-checked by G6 in every session. Its probes ran
@@ -885,9 +893,9 @@ DRAM are reported separately and above-idle beside total for this reason. B1 pri
 for 26 threads on times from the metal host; \CV{} bounds the time assumption, not the vCPU
 surplus.
 
-\paragraph{Sensors and idle draw.} The counter's 100\,ms update limits short runs; on the A100 and
-on \CG{} the short-run error is one-sided and was measured on synthetic pulses at one power level,
-so a query drawing less power may have a larger relative error than the probe's (not tested).
+\paragraph{Sensors and idle draw.} The one-sided short-run errors of the A100 and \CG{}
+(Section~\ref{sec:resolution}) were measured at one power level, so a query drawing less power may
+have a larger relative error (not tested).
 Back-to-back window runs are warmer than interleaved trials, and thermal carryover is limited by
 the Latin square and the cool-down, not removed. Idle power depends on temperature, persistence
 mode, C-states and the CUDA-context state (recorded, not controlled).
