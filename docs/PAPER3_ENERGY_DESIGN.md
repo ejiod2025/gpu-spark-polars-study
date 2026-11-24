@@ -1272,6 +1272,33 @@ what was.
    the A7 manifest), and so is the analysis's behaviour: `--recovery` on that extract writes a `recovery.json` identical to the one at
    `ea67f12`. Outcome data seen: none.
 
+### A9 — 2026-11-24
+Ninth amendment after the lock: C-GCP launch 2 is not run. Item 1 is the author's decision of 2026-11-24 (about 10:50 UTC), taken from
+options the lead put to the author; items 2 to 4 are the lead's records and item 3 is the lead's contingency (the author may
+object). Sections 1-11 are not edited. **Outcome data seen, for every item: none.** The only information used was progress, which §4
+allows: the driver QA lines and status views, meaning round states, gate verdicts, session counts and the pooled ETA. Nothing about
+speed, energy, power or cost was seen.
+1. **The decision (the author's, 2026-11-24).** C-GCP launch 2 (the second square, rounds 5-8) is not run. The reason is time alone: the
+   author wants the study finished this week, and launch 2 would add about 16 h after the C-GCP relaunch (`c-gcp-l1r2`, launched
+   2026-11-24 10:45 UTC, A8 item 4). The decision was made before any outcome was seen and depends on time only, never on any value;
+   §5.4 names time as one of the two things that set R ("R is set by time and instance availability").
+2. **Consequence under §3.2.** §3.2 says: "Confirmatory estimates use complete squares only: two complete squares give R = 8; one complete
+   square gives R = 4 (df = 3) from it, stated; the rounds of an incomplete square enter no confirmatory estimate and appear only as a
+   sensitivity; a host with no complete square is reported descriptively, outside the confirmatory set." The rule does not depend on why
+   a square is missing, so it covers this decision. C-GCP's confirmatory estimates therefore come from one complete square, the C-GCP
+   relaunch (`c-gcp-l1r2`, rounds 1-4), once it completes: R = 4 (df = 3, t = 3.182), stated as such. Every cell that pairs C-GCP with
+   another host (X3 energy and cost, X5, X6; A7 item 4 (a)) is paired on the rounds the two have, here rounds 1-4, so it also has at
+   most 4 rounds, and the other host's rounds 5-8 are not used in those cells. The other hosts are unchanged: the A100 and the H100 keep
+   two launches each (R = 8 when both squares complete), and the C-VM is complete (`c-vm-l1r2`). The analysis treats C-GCP launch 2 as a
+   planned launch that was declared ended (`--declare-ended c-gcp-l2`, the blinding guard of A7 item 4 (i)); the analysis code is not
+   changed.
+3. **Contingency (the lead's; the author may object).** It depends only on a technical failure, never on a value. If the C-GCP
+   relaunch's square does not complete for a technical reason (A1 item 2: a round and its repeat both fail, or the instance is lost),
+   C-GCP launch 2 is run after all, as the only remaining source of a complete square for C-GCP (§3.2). A1 item 2 (d) still applies: the
+   relaunch is not relaunched again.
+4. **Cost.** About 16 h of `c3-highmem-192-metal` are not used: roughly $200 of GCP credit at the list price (15.75 h at $12.701568/h,
+   the runbook's hours per launch). Cost still uses P-NEW (§2.6). Outcome data seen: none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,
