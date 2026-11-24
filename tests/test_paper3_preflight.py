@@ -21,6 +21,8 @@ import preflight  # noqa: E402
 from paper3_fakes import HOST_ENTRIES, RunBuilder, edit_results, host_gates  # noqa: E402
 from test_campaign_gates import (BASELINE_SCALES, COMPLEX_SCALES, DECLARED, ENGINES, GO, ROUND_ORDER, build_round, edit,  # noqa: E402
                                  edit_schedule, gate_verdicts)
+from test_paper3_driver import argv_for, plan_of  # noqa: E402
+import run_campaign as rc  # noqa: E402
 
 PAPER3 = ["--paper3", "--skip-run", "--skip-env", "--skip-inputs", "--runs", "3", "--expect-gpu-unsupported", *DECLARED, "--expect-cpus", "26"]
 
@@ -110,6 +112,47 @@ def test_paper3_judges_the_records_with_the_formal_rules_where_the_explicit_flag
                            "--complex-scales", *COMPLEX_SCALES, "--baseline-dir", str(root / "baseline"), "--complex-dir", str(root / "complex"),
                            "--output", str(tmp_path / "lax-out"), "--report", str(lax)])
     assert code == 0, "without --formal or --paper3 the same missing gate record passes: the strictness is what --paper3 adds"
+
+
+# ---- the idle-GPU record exists only where run_experiment.py makes it ---------------------------------------------------------------
+
+@pytest.mark.parametrize("host", ["h100", "a100", "gh200", "b200", "c-gcp", "c-vm"])
+def test_the_gate_command_of_every_host_passes_a_round_shaped_like_that_hosts_job(host, tmp_path, monkeypatch):
+    """The first C-VM launch failed both attempts at `:session`: preflight asked for gpu_idle_gate in every session, run_experiment.py records it
+    only for a job that selected a GPU engine, and the fake round wrote it everywhere. The exact command the campaign builds is run here, on a
+    round whose schedule is what the host's job writes."""
+    cfg, units = plan_of(*argv_for(host, "1"))
+    unit = units[0]
+    monkeypatch.setitem(ROUND_ORDER, 9, list(unit.jobs[0].order))           # odd: baseline first, as in every launch-1 round 1
+    scales = {suite: list(cfg.scales.get(suite, ())) for suite in ("baseline", "complex")}
+    root = build_round(tmp_path / "r", 9, scales=scales, engines=[e for e in rc.ENGINES if e in cfg.engines])
+    command = rc.gate_command(unit, root, cfg, tmp_path / "preflight")
+    gpu_host = any(e in ("polars_gpu", "spark_gpu") for e in cfg.engines)
+    schedule = json.loads((root / "baseline" / "schedule.json").read_text())
+    assert all(("gpu_idle_gate" in item) is gpu_host for item in schedule), "the fake writes the record as run_experiment.py does"
+    assert preflight.main(command[2:]) == 0, json.loads((tmp_path / "preflight" / "preflight-report.json").read_text())["failing_checks"][:3]
+
+
+def test_a_cpu_only_round_is_not_failed_for_the_missing_gate_but_a_busy_record_still_fails(tmp_path):
+    cpu = ("polars", "spark_cpu")
+    order = [e for e in ROUND_ORDER[1] if e in cpu]
+    root = build_round(tmp_path / "r", 1, engines=cpu)
+    code, report = run_p3(root, tmp_path, round_number=1, order=order, engines=cpu, name="none")
+    assert code == 0, report["failing_checks"][:3]
+    busy = {"idle": False, "waited_seconds": 60.0, "compute_apps": ["4242, python3, 512"], "error": None}
+    edit_schedule(root, "baseline", lambda schedule: schedule[0].update(gpu_idle_gate=busy))
+    code, report = run_p3(root, tmp_path, round_number=1, order=order, engines=cpu, name="busy")
+    assert code == 1 and any(c["status"] == "FAIL" and "gpu_idle_gate" in c["detail"] for c in report["checks"]), report["failing_checks"][:3]
+
+
+def test_a_job_with_a_gpu_engine_needs_the_record_on_its_cpu_engine_sessions_too(tmp_path):
+    root = build_round(tmp_path / "r", 1)
+    first = json.loads((root / "baseline" / "schedule.json").read_text())[0]
+    assert first["engine"] == "spark_cpu" and "gpu_idle_gate" in first
+    edit_schedule(root, "baseline", lambda schedule: schedule[0].pop("gpu_idle_gate"))
+    code, report = run_p3(root, tmp_path, name="gpu-job")
+    failing = [c for c in report["checks"] if c["status"] == "FAIL"]
+    assert code == 1 and [c["id"] for c in failing] == ["baseline/sf1:spark_cpu:session"] and "gpu_idle_gate" in failing[0]["detail"], failing
 
 
 def test_paper3_requires_polars_as_the_reference_engine(tmp_path):

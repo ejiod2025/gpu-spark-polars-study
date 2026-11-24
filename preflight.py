@@ -836,7 +836,10 @@ def validate_engine(checks: Checks, tag: str, suite: str, queries, engine: str, 
         elif schedule_item.get("status") != "complete" or code != 0:
             nonzero = True
         gate = schedule_item.get("gpu_idle_gate")
-        if formal and (not isinstance(gate, dict) or gate.get("idle") is not True):
+        # run_experiment.py gates the GPU, and records it for every session of the job (CPU engines included), only when the job selected a
+        # GPU engine; a CPU-only host's job has no GPU to wait for and records none. A record that is there must still say idle.
+        gpu_job = not args.engines or any(name in GPU_ENGINES for name in args.engines)    # engines unknown: the strict reading
+        if formal and (gpu_job or gate is not None) and (not isinstance(gate, dict) or gate.get("idle") is not True):
             problems.add(f"no passing gpu_idle_gate recorded for the session (section 6 control): {gate!r}")
     if schedule_entries > 1:
         problems.add(f"{schedule_entries} schedule.json entries for this session (a repeat belongs in a new round directory)", G1)

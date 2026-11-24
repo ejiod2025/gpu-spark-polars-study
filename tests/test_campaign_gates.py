@@ -133,7 +133,9 @@ def write_session(root: Path, suite: str, scale: str, engine: str, session: dict
 
 
 def build_round(root: Path, round_number: int = 1, scales: dict | None = None, engines=None) -> Path:
-    """One finished round under root/{baseline,complex}; returns root."""
+    """One finished round under root/{baseline,complex}; returns root. The idle-GPU record is written the way run_experiment.py writes it:
+    on every session of a job that selected a GPU engine (CPU engines included), and on none of a CPU-only job."""
+    gpu_job = engines is None or any(e in ("polars_gpu", "spark_gpu") for e in engines)
     base = datetime(2026, 11, 1, tzinfo=timezone.utc)
     suite_order = ["baseline", "complex"] if round_number % 2 else ["complex", "baseline"]
     for suite_index, suite in enumerate(suite_order):
@@ -147,7 +149,7 @@ def build_round(root: Path, round_number: int = 1, scales: dict | None = None, e
                 schedule.append({"scale": scale, "engine": engine, "status": "complete", "returncode": 0,
                                  "start_utc": clock.isoformat(), "process_wall_seconds": 60.0,
                                  "engine_order_position": [e for e in ROUND_ORDER[round_number] if engines is None or e in engines].index(engine) + 1,
-                                 "gpu_idle_gate": {"idle": True, "waited_seconds": 0.0, "compute_apps": [], "error": None}})
+                                 **({"gpu_idle_gate": {"idle": True, "waited_seconds": 0.0, "compute_apps": [], "error": None}} if gpu_job else {})})
                 clock += timedelta(minutes=30)
                 write_session(root, suite, scale, engine)
         (run_dir / "schedule.json").write_text(json.dumps(schedule))
