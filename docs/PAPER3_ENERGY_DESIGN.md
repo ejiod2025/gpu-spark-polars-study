@@ -1299,6 +1299,30 @@ speed, energy, power or cost was seen.
 4. **Cost.** About 16 h of `c3-highmem-192-metal` are not used: roughly $200 of GCP credit at the list price (15.75 h at $12.701568/h,
    the runbook's hours per launch). Cost still uses P-NEW (§2.6). Outcome data seen: none.
 
+### A10 — 2026-11-24
+Tenth amendment after the lock: the analysis run's command and flags, fixed before anything is unblinded. It is the lead's record and
+adds no analysis rule; the flags are those the code frozen in A7 defines. Sections 1-11 are not edited. **Outcome data seen: none.**
+1. **The command**, run once, after every launch is complete or stopped and copied (the blinding guard of A7 item 4 (i)), with the
+   frozen code of A7 (combined sha256 `80ac76fb952057b62803e25dbef0b61d4f757f67179ef31943c6dbc03f68b633`, unchanged at `afe7025`, A8
+   item 7): `python3 analyze_paper3.py --tree rerun/paper3 --output results/paper3-analysis --unblind --declare-ended c-gcp-l2
+   [--invoices invoices.json]`.
+2. **`--declare-ended c-gcp-l2`** follows from A9 (C-GCP launch 2 is not run). No other launch is declared ended; a launch that is neither
+   complete nor stopped blocks the run, and declaring any further launch ended needs a new amendment first.
+3. **`--allow-design-mismatch`** is used only if the run refuses with "host c-gcp: the launches carry different common_sha256", and the
+   two instances' design blocks differ only in `host_config_sha256`, and that difference is the A6 allow-list value (null at `e613e40`,
+   filled from `9a8b07b` on). The expected values are `common_sha256`
+   `0e1c025c14dd9a0690269a90a4c6f0b69b524401b6d756ad82b555337342122e` and `host_config_sha256`
+   `e8c5ec46310950e1b7f73adef80a9c344d659abae3f9fbb0861588a133a1932c`, the digest of the filled C-GCP entry of `paper3_hosts.json`; the
+   first C-GCP instance's `campaign.json` already carries both (the pre-A6 entry would give `1d0cb575…`), because that launch checked
+   out the allow-list commit before round 1. If the relaunch's `campaign.json` carries the same two values, no flag is needed. The
+   analysis code's own synthetic check (2026-11-24) shows that the flag relaxes only that comparison and that the schedule taken
+   from the first instance is the same in both, since it comes from the lock date and the seed. Any other mismatch, or a refusal of
+   any other kind, means the run stops and a new amendment comes before any further run.
+4. **`--allow-status-mismatch` is not used.** A refusal on status means stop and amend.
+5. **`--invoices`** is given only if the providers' invoices for the campaign period are available when the run happens; otherwise the
+   billing reconciliation shows the invoice values as missing. That is a reporting matter and changes no estimate. Outcome data seen:
+   none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,
