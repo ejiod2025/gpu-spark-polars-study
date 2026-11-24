@@ -9,7 +9,7 @@
 % stated in the body of the paper"; double-blind with "only non-destructive anonymization"; own past
 % work cited "in the third person"; "Remove acknowledgment of identifying names and funding sources."
 % The CFP says nothing about code, data or pre-registration links (withheld here in the anonymized build).
-% TODO-VERIFY(venue): CCS concepts and keywords (ACM template requirement, not in the CFP).
+% CCS concepts: verified 2026-11-23 (see the CCSXML block). Keywords: the author's choice (ACM requires them).
 %
 % Builds: this file is the ANONYMIZED submission build (default). camera-ready.tex defines
 % \pthreecameraready and inputs this file: author, acknowledgments, funding and credits, and
@@ -100,11 +100,48 @@ separate time and price ratios under frozen list prices and three CPU baselines.
 Tools, raw records and the time-stamped pre-registration are public.
 \end{abstract}
 
-% TODO-VERIFY: CCS concept names against https://dl.acm.org/ccs before submission, and add the
-% matching CCSXML block generated there (concept ids are not typed from memory).
+% CCS 2012 concepts verified in ACM's CCS tool (https://dl.acm.org/ccs, read by venue-scout in a browser on
+% 2026-11-23): full paths and concept ids from the tree; concept_desc in the tool's "Generate Code" form
+% (root~leaf; significance 500 high, 300 medium, 100 low).
+%  Information systems > Data management systems > Database administration > Database performance evaluation
+%  Hardware > Power and energy > Power estimation and optimization > Enterprise level and data centers power issues
+%  General and reference > Cross-computing tools and techniques > Measurement
+%  Information systems > Data management systems > Database management system engines > Online analytical processing engines
+%  Social and professional topics > Professional topics > Computing industry > Sustainability
+\begin{CCSXML}
+<ccs2012>
+<concept>
+<concept_id>10002951.10002952.10003212.10003214</concept_id>
+<concept_desc>Information systems~Database performance evaluation</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+<concept>
+<concept_id>10010583.10010662.10010674.10011724</concept_id>
+<concept_desc>Hardware~Enterprise level and data centers power issues</concept_desc>
+<concept_significance>300</concept_significance>
+</concept>
+<concept>
+<concept_id>10002944.10011123.10010916</concept_id>
+<concept_desc>General and reference~Measurement</concept_desc>
+<concept_significance>300</concept_significance>
+</concept>
+<concept>
+<concept_id>10002951.10002952.10003190.10010841</concept_id>
+<concept_desc>Information systems~Online analytical processing engines</concept_desc>
+<concept_significance>100</concept_significance>
+</concept>
+<concept>
+<concept_id>10003456.10003457.10003458.10010921</concept_id>
+<concept_desc>Social and professional topics~Sustainability</concept_desc>
+<concept_significance>100</concept_significance>
+</concept>
+</ccs2012>
+\end{CCSXML}
 \ccsdesc[500]{Information systems~Database performance evaluation}
-\ccsdesc[300]{General and reference~Experimentation}
-\ccsdesc[300]{Hardware~Power estimation and optimization}
+\ccsdesc[300]{Hardware~Enterprise level and data centers power issues}
+\ccsdesc[300]{General and reference~Measurement}
+\ccsdesc[100]{Information systems~Online analytical processing engines}
+\ccsdesc[100]{Social and professional topics~Sustainability}
 
 \keywords{energy per query, cost per query, GPU, dataframes, Polars, Apache Spark, NVML, RAPL,
 cloud, pre-registration}
@@ -129,7 +166,7 @@ rent are virtual machines whose guests expose a GPU energy counter but no CPU en
 of the hosts we probed, only a bare-metal one exposed readable CPU energy counters (RAPL). A per-query energy figure is
 therefore always a figure for a slice of a node, and a CPU-versus-GPU comparison across host
 classes compares different slices. For organizations in the United States, where data-center
-electricity use is the subject of national reporting~\cite{shehabi2024datacenter}, the
+electricity use is the subject of national reporting~\cite{smith2026datacenter}, the
 practical decision is made per workload at hourly list prices that move: one provider in this
 study raised three of the four prices relevant to its design by 13--14\% on 2026-11-16, while
 the study was being designed. Energy figures that feed procurement or sustainability
@@ -196,11 +233,30 @@ CPUs~\cite{tsirogiannis2010energy,lang2012cluster,xu2010power}, and TPC result d
 have been mined for power consumption~\cite{poess2008energy}; TPC-Energy specifies energy
 metrics for TPC benchmarks~\cite{tpcenergy150}.
 Nahrstedt et al.\ measured the energy usage and performance of pandas and
-Polars~\cite{nahrstedt2024polars}. To our knowledge, measured per-query energy of GPU dataframe
-engines against CPU engines on rented hosts, with stated meter scope, has not been reported
-\todoverify{literature search}.
-% TODO-VERIFY: re-check the "to our knowledge" sentence with a literature search before submission
-% (see the TODO-VERIFY list at the end of references.bib).
+Polars~\cite{nahrstedt2024polars}, and Cheng, He and Lau studied energy-efficient query processing
+on embedded CPU--GPU hardware~\cite{cheng2015embedded}. In a search of OpenAlex, Crossref and arXiv
+we found no measured per-query energy of GPU dataframe engines against CPU engines on rented
+server-class hosts with a stated meter scope.
+% Search note (2026-11-23; raw responses kept by the writer, not in the repository). Indexes: OpenAlex
+% (api.openalex.org/works?search=, title and abstract), Crossref (api.crossref.org/works?query.bibliographic=)
+% and arXiv (export.arxiv.org, boolean term queries, cs.DB where given). DBLP was tried and is behind a bot
+% check; the ACM DL and IEEE Xplore were not searched directly (their DOIs are in Crossref and OpenAlex).
+% Queries (each in OpenAlex and Crossref; 25 and 15 results each): "GPU dataframe energy consumption", "GPU
+% database energy efficiency query", "energy per query GPU CPU analytics", "cuDF energy", "RAPIDS
+% Accelerator Spark energy", "Spark GPU energy consumption", "Polars energy consumption", "GPU query
+% processing power consumption", "GPU SQL analytics energy measurement", "TPC-H energy GPU", "energy
+% efficient query processing GPU", "energy consumption GPU join", "energy consumption database
+% co-processor", "energy efficiency analytical database GPU CPU comparison", "power measurement
+% GPU-accelerated database", "energy GPU accelerated Spark SQL", "energy efficiency dataframe library";
+% arXiv: energy AND GPU AND dataframe; energy AND GPU AND query (cs.DB); energy AND Spark AND GPU; energy AND
+% RAPIDS; energy AND Polars; energy AND TPC-H AND GPU; power AND GPU AND database (cs.DB). About 800 hits,
+% screened by title for energy/power + GPU/accelerator + database/query/dataframe/analytics terms. Relevant:
+% Cheng, He, Lau, DaMoN 2015 (embedded CPU-GPU query processing; cited) and Nahrstedt et al., EASE 2024
+% (pandas and Polars on the CPU; cited). The other screened titles were GPU performance models, bitmap
+% indexes, spatial engines or physics, with no per-query energy of dataframe engines. The claim is worded
+% to what this search shows, not as "no one has". Carbon-aware data systems (for the carbon sentence below):
+% OpenAlex "carbon-aware query processing", "carbon-aware database system", "carbon aware data analytics
+% scheduling", "carbon footprint database query"; relevant: Lechowicz et al., SIGCOMM 2025 (cited there).
 
 \paragraph{Engines, benchmarks and GPU databases.}
 Dataframe and analytics engines are compared mostly on speed: the Polars PDS-H
@@ -221,7 +277,7 @@ pre-registration~\cite{nosek2018prereg}.
 \paragraph{Cost per query and carbon.}
 Cloud cost per query has been modelled for query processing~\cite{leis2021costoptimal}, cloud
 DBMS architectures~\cite{tan2019cloud} and analytics benchmarks~\cite{vanrenen2023cab}.
-Carbon-aware computing shifts load in time~\cite{wiesner2021wait,radovanovic2023carbon} and
+Carbon-aware computing shifts load in time~\cite{wiesner2021wait,radovanovic2023carbon,lechowicz2025carbon} and
 informs data-center design~\cite{acun2023carbonexplorer}, and the footprint of computing
 includes embodied as well as operational carbon~\cite{gupta2021chasing}. We report
 energy and cost, not carbon: converting our scope-tagged energy to emissions needs grid
