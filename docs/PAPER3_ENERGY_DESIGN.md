@@ -1216,6 +1216,62 @@ analysed, and the analysis code has never been run on campaign data.
    energy value and raises an error for an untagged energy value. These readings are fixed here before any aggregate has been seen, so
    they do not fall under the limit of §7.4. Outcome data seen: none.
 
+### A8 — 2026-11-24
+Eighth amendment after the lock: a defect in the round gate on the two CPU-only hosts, and the relaunch of the two launches it
+stopped. Items 1-3 and 5-7 are the lead's records; item 4 is the lead's decision under A1 item 2. Sections 1-11 are not edited.
+**Outcome data seen, for every item: none.** No timing, energy, power or cost value and no result file was read; item 5 says exactly
+what was.
+1. **The defect.** Under `--paper3`, the G1 session check of `preflight.py` required every session to carry a passing `gpu_idle_gate`
+   record (a §6 control). `run_experiment.py` runs and records that gate only for a job that selected a GPU engine (its
+   `gpu_selected` condition), so on the two CPU-only hosts, C-VM and C-GCP, every session failed its `<suite>/sf<scale>:<engine>:
+   session` check. The test fake wrote the record on every session, so no test caught it. The GPU hosts are unaffected: every job there
+   selects GPU engines. A100 and H100 round 1 passed every gate (the driver's QA lines, 2026-11-23 21:40:09 UTC and 2026-11-24
+   01:11:28 UTC).
+2. **The effect.** C-VM launch 1 (lease `p3-campaign-cvm-l1-owner-ejiod-expires-20261124t0134z`, campaign commit `e613e40`) failed
+   `round-1` and `round-1-repeat-1` this way: each attempt had exactly 6 failing checks, `baseline/sf{10,30,300}:{polars,spark_cpu}:
+   session`. The campaign stopped by its own rule (§4: a round and its repeat both fail) at 2026-11-23 17:28:41 UTC; all data were
+   copied and the host was deleted (confirmed 17:31:01 UTC). C-GCP launch 1 (lease `p3-campaign-cgcp-l1-owner-ejiod-expires-
+   20261124t1225z`) stopped the same way at 21:35:30 UTC (both attempts: gate verdict fail, preflight fail), with all data copied and
+   the host deleted (confirmed 21:37:27 UTC). For C-GCP "the same way" rests on a reproduction on synthetic data, which gives 16
+   failing `:session` checks for its job shape; its gate files were not opened.
+3. **The fix.** Commit `afe7025d5245caf47341a8d976f8cc0e3a4e4d31` changes `preflight.py` (5 lines): the idle-GPU record is required on
+   a job that selected a GPU engine (or whose engines are unknown, the strict reading) and is checked wherever it is present, so a busy
+   record still fails. Tests: the fake writes the record as `run_experiment.py` does; the exact gate command of every host passes a
+   round shaped like that host's job; a CPU-only round passes without the record and fails with a busy one; a GPU job still needs the
+   record on its CPU-engine sessions. Without the fix 5 tests fail; 413 pass in the related suites. GPU-host gating, the gate
+   thresholds and Paper 1's `--formal` (four engines, pinned) are unchanged.
+4. **Decision (the lead's, under A1 item 2).** Both stopped launches were lost to a technical failure, a tool defect, before any value
+   was looked at: a round and its repeat both failed G1 (A1 item 2 (a)). Each is relaunched once on a fresh instance of the same type
+   and restarts its square from its first round: C-VM first, and C-GCP after the C-VM relaunch's round 1 has passed its gate (the
+   fix is confirmed on the cheaper host first). The rounds of the stopped launches are reported and never pooled with the
+   relaunches' (A1 item 2 (c); A7 item 4 (g)); the analysis labels the relaunches `c-vm-l1r2` and `c-gcp-l1r2`. C-GCP launch 2
+   follows its relaunch as planned. The stopped launches' attempts are not re-gated with the fixed code to rescue them: their squares
+   cannot be completed on a deleted instance, and A1 item 2 is the pre-registered path. The decision depends only on the defect,
+   never on any value.
+5. **What was seen.** To find the cause, with the author's approval on 2026-11-24, the lead read only the failing check ids and kinds
+   from the two C-VM `gates.json` files (`preflight.failing_checks[].id` and `.kind`), not the detail text and no result file. Beyond
+   that, only the driver logs' QA lines, which §4 allows (gate outcomes, counts, pooled ETA).
+6. **The code the relaunches and the later launches run.** The GPU hosts' launch 2s keep the campaign commit of their own launch 1
+   (A100 `35c54fd`; H100 `f64adc3`, from its launch record), because the fix changes nothing they run: since those commits the only
+   Python file a host runs that differs is `preflight.py`, and its change applies to a job with no GPU engine (a GPU job is gated as
+   before); `worker.py`, `run_experiment.py`, `run_campaign.py`, `power_telemetry.py`, `paper3_gates.py`, `paper3_campaign.py` and
+   `verify_generated_inputs.py` are unchanged. The C-VM relaunch, the C-GCP relaunch and C-GCP launch 2 run a new campaign commit that
+   descends from `afe7025` and this amendment. Both CPU-only launch 1s ran `e613e40` (their launch records). Between `e613e40` and
+   `afe7025` the host-run Python files that differ are `preflight.py` (the fix of item 3) and `verify_generated_inputs.py` (a bring-up
+   input-gate fix committed on 2026-11-23, before any round: another scale's generation lock is no longer read as a partial-write
+   leftover), and `paper3_hosts.json` differs by the A6 allow-list value. The other differing Python files are operator-side
+   (`tools/paper3_campaign/p3_plan.py`, which adds the five timers of A6 to the C-GCP bring-up's mask list and changes the bring-up
+   script, and `p3_bringup_view.py`), the analysis code frozen in A7, the manuscript tooling and tests. Outcome data seen: none.
+7. **The analysis code is not affected.** `preflight.py` is one of the files that A7 item 2 lists as imported, not owned, by the frozen
+   analysis, which uses only `preflight.classify_error` from it (`paper3_analysis/cells.py`). Its sha256 was
+   `28c42cdc2877800b74ce8b0292d5080028312e5aa376114a69ced7af1421b0bb` at `ea67f12` (the A7 manifest) and is
+   `3b4cac0638ac0c691ca4da9bc12f3ff9e09f311e31caef9bbfae1053291bedf2` at `afe7025`. `git diff ea67f12 afe7025 -- preflight.py` touches
+   only the idle-GPU lines of the G1 session check in `validate_engine`; `classify_error` and everything it calls are byte-identical.
+   The analysis code's own combined sha256, `80ac76fb952057b62803e25dbef0b61d4f757f67179ef31943c6dbc03f68b633`, is unchanged (`--manifest`
+   on a clean extract of `afe7025` gives the same 13 file hashes, and `preflight.py` is the only imported file whose hash differs from
+   the A7 manifest), and so is the analysis's behaviour: `--recovery` on that extract writes a `recovery.json` identical to the one at
+   `ea67f12`. Outcome data seen: none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,
