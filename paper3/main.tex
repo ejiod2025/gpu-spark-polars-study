@@ -94,9 +94,14 @@ context, and clock alignment. The protocol fixes a 10\,s measurement window, rep
 above-idle energy, tags every value with its scope, and makes cross-class energy claims only
 under a stated assumption whose weight is shown by tipping points. Cost is reported as
 separate time and price ratios under frozen list prices and three CPU baselines.
-\pending{energy per query, X1 and X2 at SF300, both hosts: \ratiotext{x1.h100.baseline.sf300.energy_total}}
-\pending{cost per query, X3 under the primary baseline: \ratiotext{x3.h100.baseline.sf300.cost_b1_p_new}}
-\pending{break-even scales, cost and the energy lower bound: \stat{break_even.x3.h100.baseline.cost_b1_p_new.text}}
+At SF300 against the right-sized CPU baseline, the cost ratio of the best CPU engine to the best GPU
+engine was
+\rtext{x3.h100.baseline.sf300.cost_b1_p_new} on the H100 host (\cls{x3.h100.baseline.sf300.cost_b1_p_new})
+and \rtext{x3.a100.baseline.sf300.cost_b1_p_new} on the A100 host (\cls{x3.a100.baseline.sf300.cost_b1_p_new}),
+with cost break-even brackets of \stat{break_even.x3.h100.baseline.cost_b1_p_new.text} and
+\stat{break_even.x3.a100.baseline.cost_b1_p_new.text}; the energy contrast was
+\ecls{x3.h100.baseline.sf300.energy_total} on the H100 host and \ecls{x3.a100.baseline.sf300.energy_total}
+on the A100 host.
 Tools, raw records and the time-stamped pre-registration are public.
 \end{abstract}
 
@@ -203,7 +208,9 @@ data was seen. Every later change is a dated amendment reported in Section~\ref{
 % TODO(results): one sentence per research question, after the analysis, each worded by the rules
 % of Sections 4.6 and 6.4 (e.g. "GPU better at the measured scopes", never "uses less energy" on the
 % x86 hosts).
-\pending{one summary sentence per research question}
+Section~\ref{sec:results} reports the answers; on the baseline suite the cost break-even brackets of the
+best GPU engine against the right-sized CPU baseline are \stat{break_even.x3.h100.baseline.cost_b1_p_new.text}
+(H100 host) and \stat{break_even.x3.a100.baseline.cost_b1_p_new.text} (A100 host).
 
 % =====================================================================================
 \section{Background and Related Work}
@@ -425,8 +432,8 @@ the 1$\times$ A100 found none either). CPU and DRAM energy of a GPU host is ther
 No model value enters a confirmatory table: every energy value carries one of the tags
 \scope{S1-counter}, \scope{S1-sampled}, \scope{S1-module}, \scope{S2-pinned}, \scope{S2-all},
 \scope{S3} (whole node by BMC; no host had one) or \scope{none}, and the analysis code raises an
-error on an untagged value. A host-CPU energy model fitted on \CG{} is exploratory and labelled
-MODEL wherever it appears.
+error on an untagged value. The design's exploratory host-CPU energy model (MODEL) was not
+computed; no model value appears in this paper.
 
 \paragraph{The \texttt{power.draw} field and the sampled cross-check.}
 The default \texttt{nvidia-smi} power field means different things on different GPUs
@@ -536,7 +543,8 @@ uses less energy than its CPU counterpart'' cannot be claimed at any scale.
 The cost of a run is $c = p\,t/3600$, with $p$ the on-demand list price in USD per hour of the
 instance rented and $t$ the timed seconds, accrued per second; energy, carbon, storage, egress
 and billing minimums are not in per-query cost. Session cost (worker launch to process exit,
-less the idle windows) and a cold-job cost $(p/3600)(t_{\mathrm{ready}} + t)$ are secondary.
+less the idle windows) and a cold-job cost $(p/3600)(t_{\mathrm{ready}} + t)$ are secondary in the
+design and were not computed by the frozen analysis (A7).
 
 \paragraph{Price tables.}
 \textbf{P-NEW} (primary) is frozen at the lock: Lambda prices effective 2026-11-16 00:00 UTC
@@ -597,8 +605,8 @@ energy, so energy X1--X3 are cross-class and read under \NOne{} with $\Dstar$. \
 engine, A100 over H100 (descriptive, confounded with CPU, RAM, link and driver). \textbf{X5}: CPU
 engines on a GPU host over \CG{}, time and cost only. \textbf{X6}: the idle-GPU tax, B3/B1 as price
 ratio $\times$ time ratio, and the \scope{S1} idle-GPU energy of CPU-engine runs in Wh per suite
-run. Exploratory analyses (e.g.\ the prior study's archived GPU power~\cite{ejiofor2026rawp1}) are
-labelled and never fill a confirmatory gap.
+run. The design's exploratory analyses (EX1--EX3, among them a re-analysis of the prior study's
+archived GPU power~\cite{ejiofor2026rawp1}) were not computed.
 
 \subsection{Estimation}
 \label{sec:estimation}
@@ -689,12 +697,11 @@ on technical failures, never on a value; lost and replaced launches are counted 
 % =====================================================================================
 \section{Results}
 \label{sec:results}
-% TODO(results): if a host ends with no complete square (Section 3.4), it is reported descriptively
-% and the abstract and Section 3 must say so.
-% TODO(results): every subsection below is a placeholder. Fill only after the campaign is complete
-% (or stopped by rule) and the analysis has run on it. Each result sentence uses \ratiotext or
-% \stat keys only and follows the classification wording of Section 6.4 and the scope wording of
-% Section 4.6.
+% Results skeleton (2026-11-24): every number is a stats key; every judgment is the analysis's own class
+% word, printed by \cls / \ecls / \rtext / \dstar (macros.tex), so the prose holds whichever way a result
+% falls, including "not estimable" and censored brackets. TODO(results): after `make stats`, read every
+% sentence against the output, add interpretation only where Section 6.4 and 4.6 allow it, and fill the
+% figures. A host with no complete square is reported descriptively: its hosts.<host>.status says so.
 
 % Full-width results floats are defined here, at the start of the section, so that they can
 % float onto the results pages (a table* lands at the top of a page after the one it is defined on).
@@ -795,28 +802,50 @@ Read latency ms, \polarsgpu & \tstat{qa.read_latency_and_overhang.h100.polars_gp
 \end{tabular}
 \end{table}
 
-\pending{campaign dates and launches: \GH{} \stat{campaign.h100.first_session_utc} to
-\stat{campaign.h100.last_session_utc}; \GA, \CG, \CV{} likewise; regions per launch; any lost
-launch or replaced host and why (technical cause only)}
-\pending{gate outcomes from Table~\ref{tab:qa}; launches lost or replaced and round repeats; the
-cells below resolution per host and why (\stat{counts.h100.g9.per_run_below_t_min} with per-run
-time below $\tmin$, \stat{counts.h100.g9.window_below_10s} with a window below 10\,s on \GH);
-coverage outcomes by kind (\stat{counts.h100.coverage_outcomes.unsupported_operation} unsupported,
-\stat{counts.h100.coverage_outcomes.resource_exhaustion} resource exhaustion on \GH); G8 flags per
-host and engine against the A4 prediction}
-\pending{B1 check on \CV: geometric-mean time ratio VM/metal \stat{c_vm_check.ratio_vm_over_metal}
-(95\% CI \stat{c_vm_check.ci_low}--\stat{c_vm_check.ci_high}), verdict \stat{c_vm_check.status}}
+Sessions ran from \stat{campaign.first_session_utc} to \stat{campaign.last_session_utc}; Table~\ref{tab:qa}
+gives the record. Confirmatory estimates use complete squares only (Section~\ref{sec:rounds}):
+\stat{counts.h100.squares_complete} of \stat{counts.h100.squares_planned} on \GH{}
+($R={}$\stat{counts.h100.rounds_confirmatory}), \stat{counts.a100.squares_complete} of
+\stat{counts.a100.squares_planned} on \GA{} ($R={}$\stat{counts.a100.rounds_confirmatory}) and
+\stat{counts.c-gcp.squares_complete} of \stat{counts.c-gcp.squares_planned} on \CG{}
+($R={}$\stat{counts.c-gcp.rounds_confirmatory}). A cross-host contrast pairs rounds by round number
+(Appendix~\ref{app:readings}), so its degrees of freedom, reported with each interval, follow the
+rounds both hosts have. Launches were relaunched or replaced only after technical failures (A1.2,
+A4.2, A8). G9 marked \stat{counts.h100.g9.cells_below_resolution} cells below resolution on \GH{}
+(\stat{counts.h100.g9.per_run_below_t_min} with a per-run time below $\tmin$,
+\stat{counts.h100.g9.window_below_10s} with a window below 10\,s),
+\stat{counts.a100.g9.cells_below_resolution} on \GA{} and \stat{counts.c-gcp.g9.cells_below_resolution}
+on \CG; the energy of such cells is not estimable, their time and cost stay. Coverage outcomes affected
+\stat{counts.h100.coverage_outcomes.total} cells on \GH{} (\stat{counts.h100.coverage_outcomes.unsupported_operation}
+unsupported operations, \stat{counts.h100.coverage_outcomes.resource_exhaustion} resource exhaustion) and
+\stat{counts.a100.coverage_outcomes.total} on \GA. A G8 flag disables only a session's stream
+cross-check (A4); where it ran, the sampled integral differed from the counter by a median relative
+difference of \stat{qa.crosscheck.h100.median} on \GH{} and \stat{qa.crosscheck.a100.median} on \GA.
+The B1 check on \CV{} gave a time ratio VM/metal of \stat{c_vm_check.ratio_vm_over_metal} (95\%~CI
+\stat{c_vm_check.ci_low}--\stat{c_vm_check.ci_high}), verdict \stat{c_vm_check.status}, so B1 uses the
+\stat{c_vm_check.b1_basis} times.
 
 \subsection{Energy per query}
 \label{sec:results-energy}
-\pending{X1 and X2 energy per suite and scale, per host, with classification; worded "CPU better
-at the measured scopes (under N1: the GPU engine uses more node energy)" or "GPU better at the
-measured scopes (no node-level claim)" or "inconclusive"; e.g.\ \ratiotext{x1.h100.baseline.sf300.energy_total}}
-\pending{tipping points: $\Dstar$ per cross-class cell, \stat{delta_star.x3.h100.baseline.sf300.energy_total.wh_per_suite_run.mean}
-Wh per suite run (\stat{delta_star.x3.h100.baseline.sf300.energy_total.w_over_gpu_suite_time.mean} W), beside the
-pinned \CG{} socket's idle \stat{qa.idle_power_w.c-gcp.polars.S2-pinned.mean} W and the idle GPU under a CPU engine
-\stat{qa.idle_power_w.h100.polars.S1-counter.mean} W}
-\pending{above-idle versus total: where they classify differently}
+Every energy contrast here is cross-class: \scope{S2-pinned} on \CG{} over \scope{S1-counter} on the GPU host
+(Section~\ref{sec:n1}; Figure~\ref{fig:energy}; Table~\ref{tab:x3} for X3 at every scale). At SF300 on \GH,
+X1 is \rtext{x1.h100.baseline.sf300.energy_total} on the baseline suite, \ecls{x1.h100.baseline.sf300.energy_total},
+and \rtext{x1.h100.complex.sf300.energy_total} on the complex suite, \ecls{x1.h100.complex.sf300.energy_total};
+X2 is \rtext{x2.h100.baseline.sf300.energy_total}, \ecls{x2.h100.baseline.sf300.energy_total}, and
+\rtext{x2.h100.complex.sf300.energy_total}, \ecls{x2.h100.complex.sf300.energy_total}. On \GA, X1 is
+\rtext{x1.a100.baseline.sf300.energy_total} (\ecls{x1.a100.baseline.sf300.energy_total}) and
+\rtext{x1.a100.complex.sf300.energy_total} (\ecls{x1.a100.complex.sf300.energy_total}); X2 is
+\rtext{x2.a100.baseline.sf300.energy_total} (\ecls{x2.a100.baseline.sf300.energy_total}) and
+\rtext{x2.a100.complex.sf300.energy_total} (\ecls{x2.a100.complex.sf300.energy_total}).
+
+On \GH{} the tipping point of X3 at SF300 (baseline suite) is
+\dstar{delta_star.x3.h100.baseline.sf300.energy_total}. On \GA{} it is
+\dstar{delta_star.x3.a100.baseline.sf300.energy_total}. For scale, the pinned \CG{}
+socket idled at \stat{qa.idle_power_w.c-gcp.polars.S2-pinned.mean}\,W and the GPU board under a CPU
+engine at \stat{qa.idle_power_w.h100.polars.S1-counter.mean}\,W (H100) and
+\stat{qa.idle_power_w.a100.polars.S1-counter.mean}\,W (A100). Above idle, X3 at SF300 is
+\rtext{x3.h100.baseline.sf300.energy_above_idle} on \GH{} (\ecls{x3.h100.baseline.sf300.energy_above_idle})
+and \rtext{x3.a100.baseline.sf300.energy_above_idle} on \GA{} (\ecls{x3.a100.baseline.sf300.energy_above_idle}).
 
 \subsection{Cost per query}
 \label{sec:results-cost}
@@ -830,48 +859,90 @@ points above a line are cheaper on the GPU host. Keys \texttt{x3.<host>.<suite>.
 \label{fig:factorised}
 \end{figure}
 
-\pending{X3 cost under B1 per host and scale from Table~\ref{tab:x3}, with classification; time
-ratio and price ratio stated separately (Figure~\ref{fig:factorised}); e.g.\
-\ratiotext{x3.h100.baseline.sf300.cost_b1_p_new}}
-\pending{X1 and X2 cost; B2 and B3 sensitivity; P-OLD and P-BILLED, with the invoice
-reconciliation per host (\GH: \stat{billing_by_host.h100.hours}\,h, billed
-\stat{billing_by_host.h100.billed_usd}\,USD, invoice \stat{billing_by_host.h100.invoice_usd}\,USD,
-gap \stat{billing_by_host.h100.gap}, above 2\%: \stat{billing_by_host.h100.gap_above_2pct})}
-\pending{session and cold-job cost where start-up dominates (small scales)}
+Under B1 at P-NEW (Table~\ref{tab:x3}), X3 at SF300 is \rtext{x3.h100.baseline.sf300.cost_b1_p_new} on \GH{}
+(\cls{x3.h100.baseline.sf300.cost_b1_p_new}) and \rtext{x3.a100.baseline.sf300.cost_b1_p_new} on \GA{}
+(\cls{x3.a100.baseline.sf300.cost_b1_p_new}) for the baseline suite, and \rtext{x3.h100.complex.sf300.cost_b1_p_new}
+(\cls{x3.h100.complex.sf300.cost_b1_p_new}) and \rtext{x3.a100.complex.sf300.cost_b1_p_new}
+(\cls{x3.a100.complex.sf300.cost_b1_p_new}) for the complex suite. The time ratios behind the baseline cells
+are \rtext{x3.h100.baseline.sf300.time_vs_cgcp} and \rtext{x3.a100.baseline.sf300.time_vs_cgcp}, against price
+ratios of 1.680 and 0.684 (Section~\ref{sec:cost}; Figure~\ref{fig:factorised}). Within a framework (baseline
+suite, SF300, B1), X1 is \rtext{x1.h100.baseline.sf300.cost_b1_p_new} (\cls{x1.h100.baseline.sf300.cost_b1_p_new})
+and X2 \rtext{x2.h100.baseline.sf300.cost_b1_p_new} (\cls{x2.h100.baseline.sf300.cost_b1_p_new}) on \GH, and
+\rtext{x1.a100.baseline.sf300.cost_b1_p_new} (\cls{x1.a100.baseline.sf300.cost_b1_p_new}) and
+\rtext{x2.a100.baseline.sf300.cost_b1_p_new} (\cls{x2.a100.baseline.sf300.cost_b1_p_new}) on \GA. Against \CG{} as
+rented (B2), X3 at SF300 is \rtext{x3.h100.baseline.sf300.cost_b2_p_new} (\GH) and
+\rtext{x3.a100.baseline.sf300.cost_b2_p_new} (\GA); against the CPU engine on the same GPU host (B3),
+\rtext{x3.h100.baseline.sf300.cost_b3_p_new} and \rtext{x3.a100.baseline.sf300.cost_b3_p_new}. For P-BILLED, \GH{}
+ran \stat{billing_by_host.h100.hours}\,h billed at \stat{billing_by_host.h100.billed_usd}\,USD (invoice gap
+\stat{billing_by_host.h100.gap}; above 2\%: \stat{billing_by_host.h100.gap_above_2pct}), \GA{}
+\stat{billing_by_host.a100.hours}\,h at \stat{billing_by_host.a100.billed_usd}\,USD (gap \stat{billing_by_host.a100.gap})
+and \CG{} \stat{billing_by_host.c-gcp.hours}\,h at \stat{billing_by_host.c-gcp.billed_usd}\,USD (gap
+\stat{billing_by_host.c-gcp.gap}).
 
 \subsection{Break-even scales}
 \label{sec:results-breakeven}
 
-\pending{break-even brackets from Table~\ref{tab:breakeven}; X1 and X2 brackets; how the bracket
-moves between B1, B2, B3 and between P-NEW, P-OLD, P-BILLED; the descriptive log-linear
-interpolation only as such}
+Under B1 at P-NEW the X3 brackets (Table~\ref{tab:breakeven}) are
+\stat{break_even.x3.h100.baseline.cost_b1_p_new.text} and \stat{break_even.x3.h100.complex.cost_b1_p_new.text} on
+\GH{} (baseline, complex) and \stat{break_even.x3.a100.baseline.cost_b1_p_new.text} and
+\stat{break_even.x3.a100.complex.cost_b1_p_new.text} on \GA. On \GH{} they are
+\stat{break_even.x3.h100.baseline.cost_b1_p_old.text} and \stat{break_even.x3.h100.complex.cost_b1_p_old.text} under
+P-OLD, and \stat{break_even.x3.h100.baseline.cost_b1_p_billed.text} and
+\stat{break_even.x3.h100.complex.cost_b1_p_billed.text} under P-BILLED (the A100's P-OLD price equals P-NEW).
+The energy brackets, lower bounds on the node-level energy break-even under \NOne, are
+\stat{break_even.x3.h100.baseline.energy_total.text} and \stat{break_even.x3.h100.complex.energy_total.text} on \GH{}
+and \stat{break_even.x3.a100.baseline.energy_total.text} and \stat{break_even.x3.a100.complex.energy_total.text} on
+\GA. A bracket ``$>$SF300'' means the top scale is not GPU better; ``$\le$'' the lowest scale of the suite
+means every scale is; a named non-estimable scale bounds the bracket (Section~\ref{sec:classification}).
 
 \subsection{GPU generation, CPU platform and the idle-GPU tax}
 \label{sec:results-x456}
-\pending{X4: per GPU engine, A100 over H100 for time, board energy and cost at SF300,
-\ratiotext{x4.a100.polars_gpu.baseline.sf300.energy_total}; descriptive, host-confounded}
-\pending{X5: CPU engines on each GPU host over \CG, time and cost, \ratiotext{x5.h100.polars.baseline.sf300.time}}
-\pending{X6: idle-GPU tax, B3/B1, and idle GPU energy of CPU-engine runs,
-\stat{x6.h100.polars.baseline.sf300.idle_gpu_energy_wh_per_suite_run.mean} Wh per suite run; context-open versus bare
-state from the recorded clocks}
+X4 (A100 over H100; descriptive, confounded with the host): at SF300 on the baseline suite the ratios for
+\polarsgpu{} are \rtext{x4.a100.polars_gpu.baseline.sf300.time} (time),
+\rtext{x4.a100.polars_gpu.baseline.sf300.energy_total} (board energy) and
+\rtext{x4.a100.polars_gpu.baseline.sf300.cost_p_new} (cost), and for \sparkgpu{}
+\rtext{x4.a100.spark_gpu.baseline.sf300.time}, \rtext{x4.a100.spark_gpu.baseline.sf300.energy_total} and
+\rtext{x4.a100.spark_gpu.baseline.sf300.cost_p_new}. X5 (a CPU engine on the GPU host over \CG, time): \polarscpu{}
+\rtext{x5.h100.polars.baseline.sf300.time} and \sparkcpu{} \rtext{x5.h100.spark_cpu.baseline.sf300.time} on \GH,
+\rtext{x5.a100.polars.baseline.sf300.time} and \rtext{x5.a100.spark_cpu.baseline.sf300.time} on \GA. X6 (the
+idle-GPU tax, B3 over B1): for \polarscpu{} the cost ratio is
+\rtext{x6.h100.polars.baseline.sf300.cost_ratio_b3_over_b1.p_new} on \GH{} (price ratio
+\stat{x6.h100.polars.baseline.sf300.price_ratio_b3_over_b1.p_new}) and
+\rtext{x6.a100.polars.baseline.sf300.cost_ratio_b3_over_b1.p_new} on \GA{} (price ratio
+\stat{x6.a100.polars.baseline.sf300.price_ratio_b3_over_b1.p_new}), and the idle GPU board used
+\stat{x6.h100.polars.baseline.sf300.idle_gpu_energy_wh_per_suite_run.mean}\,Wh (\GH) and
+\stat{x6.a100.polars.baseline.sf300.idle_gpu_energy_wh_per_suite_run.mean}\,Wh (\GA) per baseline suite run.
 
 \subsection{Sensitivity}
 \label{sec:results-sens}
-\pending{rounds of incomplete squares and per-launch estimates (\texttt{sensitivity.<name>});
-unpaired Welch comparisons (\texttt{sensitivity\_unpaired}, labelled); strict X3 variant (the lenient
-X3 is a diagnostic only, never a claim); above-idle; P-OLD
-and P-BILLED; within-session and between-round CV; order and carryover by position (descriptive)}
+The rounds of incomplete squares, among them the stopped launch~1s of \CV{} and \CG{} (A8), enter no
+estimate. Per-launch estimates and the unpaired Welch estimates of every cross-host cell are in
+Appendix~\ref{app:tables}. For X3 cost under B1 at SF300 on \GH{} the unpaired estimate is
+\rtext{sensitivity_unpaired.x3.h100.baseline.sf300.cost_b1_p_new}, and the strict X3 (queries both GPU engines
+ran) is \rtext{x3_strict.h100.baseline.sf300.cost_b1_p_new}.
 
 % =====================================================================================
 \section{Discussion}
 \label{sec:discussion}
-% TODO(results): write after the results. Planned structure, no claim before data:
-\pending{what an organization choosing an engine and host can take from the break-even scales
-and the factorised cost, and how to re-price with its own rates}
-\pending{what the energy results do and do not say under \NOne, with $\Dstar$ as the measure of
-how much the assumption carries}
-\pending{the protocol as a reusable procedure: which checks changed what we could report (scope:
-the GH200 counter; resolution: $\tmin$ and below-resolution cells; idle: context-open state)}
+% Wording holds whichever way the results fall. TODO(results): one interpretive sentence per paragraph,
+% written from the classes and brackets of Section 8 once the analysis output exists.
+\paragraph{Using the results to choose an engine and host.} The factorised form (Section~\ref{sec:cost},
+Figure~\ref{fig:factorised}) lets an organization re-price every cell: a GPU host is cheaper per query
+wherever the measured time ratio exceeds the organization's own price ratio, and the brackets of
+Table~\ref{tab:breakeven} move with the CPU baseline (B1, B2, B3) and the price table as
+Section~\ref{sec:results-breakeven} reports.
+
+\paragraph{What the energy results can and cannot say.} Every cross-class energy cell is a statement
+about measured scopes. Under \NOne, only a ``CPU better'' cell supports a node-level direction; for any
+other cell $\Dstar$ (Section~\ref{sec:results-energy}) is the unmeasured excess the GPU node would have to
+stay below, set beside the idle power of one \CG{} socket and of the idle GPU.
+
+\paragraph{The protocol as a procedure.} Three pre-lock checks changed what could be reported: the
+scope check showed the GH200 counter to cover the whole module (Appendix~\ref{app:notrun}), the
+resolution probe set per-host $\tmin$ of 1--2\,s and with it the cells below resolution
+(Section~\ref{sec:results-qa}), and the idle probe separated a context-open GPU from a bare one
+(Section~\ref{sec:idle}). Each is a short synthetic battery per host class (Appendix~\ref{app:validation})
+and should precede any per-query energy claim on rented hosts.
 
 % =====================================================================================
 \section{Threats to Validity and Limitations}
@@ -926,7 +997,11 @@ only with the meter's scope, resolution and idle state established first and the
 with every number. We locked such a protocol and its analysis plan before the campaign: per-host
 resolution limits of 1--2\,s, idle both ways, enforced scope tags, and cross-class energy claims
 bounded by an explicit assumption and its tipping points.
-\pending{summary of findings per research question}
+On this workload, the best GPU engine's cost at SF300 against the right-sized CPU baseline was
+\cls{x3.h100.baseline.sf300.cost_b1_p_new} on the H100 host and \cls{x3.a100.baseline.sf300.cost_b1_p_new}
+on the A100 host, with cost break-even brackets of \stat{break_even.x3.h100.baseline.cost_b1_p_new.text} and
+\stat{break_even.x3.a100.baseline.cost_b1_p_new.text}; the energy contrast was
+\ecls{x3.h100.baseline.sf300.energy_total} (H100 host) and \ecls{x3.a100.baseline.sf300.energy_total} (A100 host).
 
 % =====================================================================================
 \section*{Artifact Availability}
@@ -989,10 +1064,132 @@ hosts with GCP CPU hosts; cost uses list prices whatever funded the bill.
 
 \section{Full Contrast Tables}
 \label{app:tables}
-% TODO(results): X1 and X2 tables in the layout of Table~\ref{tab:x3}; the 95\% intervals of every
-% X1-X3 cell; P-OLD and P-BILLED tables; G8 flags by engine; the coverage matrix.
-\pending{full X1, X2 tables with 95\% intervals; P-OLD and P-BILLED tables; G8 flags by engine;
-coverage matrix}
+% Key-driven tables (generated by the writer's script from the key scheme; the values come from stats.json via
+% make stats). Per-query values, totals and the coverage matrix are in the analysis output's CSV tables, deposited
+% with the data.
+Tables~\ref{tab:x12}--\ref{tab:be-all} complete Tables~\ref{tab:x3} and~\ref{tab:breakeven}: the X1 and X2 classes,
+the 95\% intervals of X3, and the break-even brackets of X1--X3 under every baseline and price table. Per-query
+values, suite totals and the coverage matrix are in the analysis output deposited with the data.
+
+\begin{table*}[t]
+\caption{X1 (\polarscpu/\polarsgpu) and X2 (\sparkcpu/\sparkgpu) per host, suite and scale; cell: estimate of $\rho$
+and class as in Table~\ref{tab:x3}. Cost under P-NEW; energy at the measured scopes.}
+\label{tab:x12}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}ll*{8}{c}@{}}
+\toprule
+& & \multicolumn{5}{c}{baseline suite} & \multicolumn{3}{c}{complex suite} \\
+\cmidrule(lr){3-7}\cmidrule(l){8-10}
+Contrast & Metric & SF1 & SF10 & SF30 & SF100 & SF300 & SF30 & SF100 & SF300 \\
+\midrule
+\multirow{5}{*}{X1, \GH} & cost B1 & \xcell{x1.h100.baseline.sf1.cost_b1_p_new} & \xcell{x1.h100.baseline.sf10.cost_b1_p_new} & \xcell{x1.h100.baseline.sf30.cost_b1_p_new} & \xcell{x1.h100.baseline.sf100.cost_b1_p_new} & \xcell{x1.h100.baseline.sf300.cost_b1_p_new} & \xcell{x1.h100.complex.sf30.cost_b1_p_new} & \xcell{x1.h100.complex.sf100.cost_b1_p_new} & \xcell{x1.h100.complex.sf300.cost_b1_p_new} \\
+ & cost B2 & \xcell{x1.h100.baseline.sf1.cost_b2_p_new} & \xcell{x1.h100.baseline.sf10.cost_b2_p_new} & \xcell{x1.h100.baseline.sf30.cost_b2_p_new} & \xcell{x1.h100.baseline.sf100.cost_b2_p_new} & \xcell{x1.h100.baseline.sf300.cost_b2_p_new} & \xcell{x1.h100.complex.sf30.cost_b2_p_new} & \xcell{x1.h100.complex.sf100.cost_b2_p_new} & \xcell{x1.h100.complex.sf300.cost_b2_p_new} \\
+ & cost B3 & \xcell{x1.h100.baseline.sf1.cost_b3_p_new} & \xcell{x1.h100.baseline.sf10.cost_b3_p_new} & \xcell{x1.h100.baseline.sf30.cost_b3_p_new} & \xcell{x1.h100.baseline.sf100.cost_b3_p_new} & \xcell{x1.h100.baseline.sf300.cost_b3_p_new} & \xcell{x1.h100.complex.sf30.cost_b3_p_new} & \xcell{x1.h100.complex.sf100.cost_b3_p_new} & \xcell{x1.h100.complex.sf300.cost_b3_p_new} \\
+ & energy & \xcell{x1.h100.baseline.sf1.energy_total} & \xcell{x1.h100.baseline.sf10.energy_total} & \xcell{x1.h100.baseline.sf30.energy_total} & \xcell{x1.h100.baseline.sf100.energy_total} & \xcell{x1.h100.baseline.sf300.energy_total} & \xcell{x1.h100.complex.sf30.energy_total} & \xcell{x1.h100.complex.sf100.energy_total} & \xcell{x1.h100.complex.sf300.energy_total} \\
+ & above idle & \xcell{x1.h100.baseline.sf1.energy_above_idle} & \xcell{x1.h100.baseline.sf10.energy_above_idle} & \xcell{x1.h100.baseline.sf30.energy_above_idle} & \xcell{x1.h100.baseline.sf100.energy_above_idle} & \xcell{x1.h100.baseline.sf300.energy_above_idle} & \xcell{x1.h100.complex.sf30.energy_above_idle} & \xcell{x1.h100.complex.sf100.energy_above_idle} & \xcell{x1.h100.complex.sf300.energy_above_idle} \\
+\midrule
+\multirow{5}{*}{X1, \GA} & cost B1 & \xcell{x1.a100.baseline.sf1.cost_b1_p_new} & \xcell{x1.a100.baseline.sf10.cost_b1_p_new} & \xcell{x1.a100.baseline.sf30.cost_b1_p_new} & \xcell{x1.a100.baseline.sf100.cost_b1_p_new} & \xcell{x1.a100.baseline.sf300.cost_b1_p_new} & \xcell{x1.a100.complex.sf30.cost_b1_p_new} & \xcell{x1.a100.complex.sf100.cost_b1_p_new} & \xcell{x1.a100.complex.sf300.cost_b1_p_new} \\
+ & cost B2 & \xcell{x1.a100.baseline.sf1.cost_b2_p_new} & \xcell{x1.a100.baseline.sf10.cost_b2_p_new} & \xcell{x1.a100.baseline.sf30.cost_b2_p_new} & \xcell{x1.a100.baseline.sf100.cost_b2_p_new} & \xcell{x1.a100.baseline.sf300.cost_b2_p_new} & \xcell{x1.a100.complex.sf30.cost_b2_p_new} & \xcell{x1.a100.complex.sf100.cost_b2_p_new} & \xcell{x1.a100.complex.sf300.cost_b2_p_new} \\
+ & cost B3 & \xcell{x1.a100.baseline.sf1.cost_b3_p_new} & \xcell{x1.a100.baseline.sf10.cost_b3_p_new} & \xcell{x1.a100.baseline.sf30.cost_b3_p_new} & \xcell{x1.a100.baseline.sf100.cost_b3_p_new} & \xcell{x1.a100.baseline.sf300.cost_b3_p_new} & \xcell{x1.a100.complex.sf30.cost_b3_p_new} & \xcell{x1.a100.complex.sf100.cost_b3_p_new} & \xcell{x1.a100.complex.sf300.cost_b3_p_new} \\
+ & energy & \xcell{x1.a100.baseline.sf1.energy_total} & \xcell{x1.a100.baseline.sf10.energy_total} & \xcell{x1.a100.baseline.sf30.energy_total} & \xcell{x1.a100.baseline.sf100.energy_total} & \xcell{x1.a100.baseline.sf300.energy_total} & \xcell{x1.a100.complex.sf30.energy_total} & \xcell{x1.a100.complex.sf100.energy_total} & \xcell{x1.a100.complex.sf300.energy_total} \\
+ & above idle & \xcell{x1.a100.baseline.sf1.energy_above_idle} & \xcell{x1.a100.baseline.sf10.energy_above_idle} & \xcell{x1.a100.baseline.sf30.energy_above_idle} & \xcell{x1.a100.baseline.sf100.energy_above_idle} & \xcell{x1.a100.baseline.sf300.energy_above_idle} & \xcell{x1.a100.complex.sf30.energy_above_idle} & \xcell{x1.a100.complex.sf100.energy_above_idle} & \xcell{x1.a100.complex.sf300.energy_above_idle} \\
+\midrule
+\multirow{5}{*}{X2, \GH} & cost B1 & \xcell{x2.h100.baseline.sf1.cost_b1_p_new} & \xcell{x2.h100.baseline.sf10.cost_b1_p_new} & \xcell{x2.h100.baseline.sf30.cost_b1_p_new} & \xcell{x2.h100.baseline.sf100.cost_b1_p_new} & \xcell{x2.h100.baseline.sf300.cost_b1_p_new} & \xcell{x2.h100.complex.sf30.cost_b1_p_new} & \xcell{x2.h100.complex.sf100.cost_b1_p_new} & \xcell{x2.h100.complex.sf300.cost_b1_p_new} \\
+ & cost B2 & \xcell{x2.h100.baseline.sf1.cost_b2_p_new} & \xcell{x2.h100.baseline.sf10.cost_b2_p_new} & \xcell{x2.h100.baseline.sf30.cost_b2_p_new} & \xcell{x2.h100.baseline.sf100.cost_b2_p_new} & \xcell{x2.h100.baseline.sf300.cost_b2_p_new} & \xcell{x2.h100.complex.sf30.cost_b2_p_new} & \xcell{x2.h100.complex.sf100.cost_b2_p_new} & \xcell{x2.h100.complex.sf300.cost_b2_p_new} \\
+ & cost B3 & \xcell{x2.h100.baseline.sf1.cost_b3_p_new} & \xcell{x2.h100.baseline.sf10.cost_b3_p_new} & \xcell{x2.h100.baseline.sf30.cost_b3_p_new} & \xcell{x2.h100.baseline.sf100.cost_b3_p_new} & \xcell{x2.h100.baseline.sf300.cost_b3_p_new} & \xcell{x2.h100.complex.sf30.cost_b3_p_new} & \xcell{x2.h100.complex.sf100.cost_b3_p_new} & \xcell{x2.h100.complex.sf300.cost_b3_p_new} \\
+ & energy & \xcell{x2.h100.baseline.sf1.energy_total} & \xcell{x2.h100.baseline.sf10.energy_total} & \xcell{x2.h100.baseline.sf30.energy_total} & \xcell{x2.h100.baseline.sf100.energy_total} & \xcell{x2.h100.baseline.sf300.energy_total} & \xcell{x2.h100.complex.sf30.energy_total} & \xcell{x2.h100.complex.sf100.energy_total} & \xcell{x2.h100.complex.sf300.energy_total} \\
+ & above idle & \xcell{x2.h100.baseline.sf1.energy_above_idle} & \xcell{x2.h100.baseline.sf10.energy_above_idle} & \xcell{x2.h100.baseline.sf30.energy_above_idle} & \xcell{x2.h100.baseline.sf100.energy_above_idle} & \xcell{x2.h100.baseline.sf300.energy_above_idle} & \xcell{x2.h100.complex.sf30.energy_above_idle} & \xcell{x2.h100.complex.sf100.energy_above_idle} & \xcell{x2.h100.complex.sf300.energy_above_idle} \\
+\midrule
+\multirow{5}{*}{X2, \GA} & cost B1 & \xcell{x2.a100.baseline.sf1.cost_b1_p_new} & \xcell{x2.a100.baseline.sf10.cost_b1_p_new} & \xcell{x2.a100.baseline.sf30.cost_b1_p_new} & \xcell{x2.a100.baseline.sf100.cost_b1_p_new} & \xcell{x2.a100.baseline.sf300.cost_b1_p_new} & \xcell{x2.a100.complex.sf30.cost_b1_p_new} & \xcell{x2.a100.complex.sf100.cost_b1_p_new} & \xcell{x2.a100.complex.sf300.cost_b1_p_new} \\
+ & cost B2 & \xcell{x2.a100.baseline.sf1.cost_b2_p_new} & \xcell{x2.a100.baseline.sf10.cost_b2_p_new} & \xcell{x2.a100.baseline.sf30.cost_b2_p_new} & \xcell{x2.a100.baseline.sf100.cost_b2_p_new} & \xcell{x2.a100.baseline.sf300.cost_b2_p_new} & \xcell{x2.a100.complex.sf30.cost_b2_p_new} & \xcell{x2.a100.complex.sf100.cost_b2_p_new} & \xcell{x2.a100.complex.sf300.cost_b2_p_new} \\
+ & cost B3 & \xcell{x2.a100.baseline.sf1.cost_b3_p_new} & \xcell{x2.a100.baseline.sf10.cost_b3_p_new} & \xcell{x2.a100.baseline.sf30.cost_b3_p_new} & \xcell{x2.a100.baseline.sf100.cost_b3_p_new} & \xcell{x2.a100.baseline.sf300.cost_b3_p_new} & \xcell{x2.a100.complex.sf30.cost_b3_p_new} & \xcell{x2.a100.complex.sf100.cost_b3_p_new} & \xcell{x2.a100.complex.sf300.cost_b3_p_new} \\
+ & energy & \xcell{x2.a100.baseline.sf1.energy_total} & \xcell{x2.a100.baseline.sf10.energy_total} & \xcell{x2.a100.baseline.sf30.energy_total} & \xcell{x2.a100.baseline.sf100.energy_total} & \xcell{x2.a100.baseline.sf300.energy_total} & \xcell{x2.a100.complex.sf30.energy_total} & \xcell{x2.a100.complex.sf100.energy_total} & \xcell{x2.a100.complex.sf300.energy_total} \\
+ & above idle & \xcell{x2.a100.baseline.sf1.energy_above_idle} & \xcell{x2.a100.baseline.sf10.energy_above_idle} & \xcell{x2.a100.baseline.sf30.energy_above_idle} & \xcell{x2.a100.baseline.sf100.energy_above_idle} & \xcell{x2.a100.baseline.sf300.energy_above_idle} & \xcell{x2.a100.complex.sf30.energy_above_idle} & \xcell{x2.a100.complex.sf100.energy_above_idle} & \xcell{x2.a100.complex.sf300.energy_above_idle} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+\caption{X3 (best CPU engine / best GPU engine), baseline suite: estimate of $\rho$ [95\% CI]. Cost under
+P-NEW; energy at the measured scopes; time against \CG{} (the time factor of B1 and B2).}
+\label{tab:x3ci-base}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}ll*{5}{c}@{}}
+\toprule
+Host & Metric & SF1 & SF10 & SF30 & SF100 & SF300 \\
+\midrule
+\multirow{6}{*}{\GH} & cost B1 & \tratioci{x3.h100.baseline.sf1.cost_b1_p_new} & \tratioci{x3.h100.baseline.sf10.cost_b1_p_new} & \tratioci{x3.h100.baseline.sf30.cost_b1_p_new} & \tratioci{x3.h100.baseline.sf100.cost_b1_p_new} & \tratioci{x3.h100.baseline.sf300.cost_b1_p_new} \\
+ & cost B2 & \tratioci{x3.h100.baseline.sf1.cost_b2_p_new} & \tratioci{x3.h100.baseline.sf10.cost_b2_p_new} & \tratioci{x3.h100.baseline.sf30.cost_b2_p_new} & \tratioci{x3.h100.baseline.sf100.cost_b2_p_new} & \tratioci{x3.h100.baseline.sf300.cost_b2_p_new} \\
+ & cost B3 & \tratioci{x3.h100.baseline.sf1.cost_b3_p_new} & \tratioci{x3.h100.baseline.sf10.cost_b3_p_new} & \tratioci{x3.h100.baseline.sf30.cost_b3_p_new} & \tratioci{x3.h100.baseline.sf100.cost_b3_p_new} & \tratioci{x3.h100.baseline.sf300.cost_b3_p_new} \\
+ & energy & \tratioci{x3.h100.baseline.sf1.energy_total} & \tratioci{x3.h100.baseline.sf10.energy_total} & \tratioci{x3.h100.baseline.sf30.energy_total} & \tratioci{x3.h100.baseline.sf100.energy_total} & \tratioci{x3.h100.baseline.sf300.energy_total} \\
+ & above idle & \tratioci{x3.h100.baseline.sf1.energy_above_idle} & \tratioci{x3.h100.baseline.sf10.energy_above_idle} & \tratioci{x3.h100.baseline.sf30.energy_above_idle} & \tratioci{x3.h100.baseline.sf100.energy_above_idle} & \tratioci{x3.h100.baseline.sf300.energy_above_idle} \\
+ & time vs \CG & \tratioci{x3.h100.baseline.sf1.time_vs_cgcp} & \tratioci{x3.h100.baseline.sf10.time_vs_cgcp} & \tratioci{x3.h100.baseline.sf30.time_vs_cgcp} & \tratioci{x3.h100.baseline.sf100.time_vs_cgcp} & \tratioci{x3.h100.baseline.sf300.time_vs_cgcp} \\
+\midrule
+\multirow{6}{*}{\GA} & cost B1 & \tratioci{x3.a100.baseline.sf1.cost_b1_p_new} & \tratioci{x3.a100.baseline.sf10.cost_b1_p_new} & \tratioci{x3.a100.baseline.sf30.cost_b1_p_new} & \tratioci{x3.a100.baseline.sf100.cost_b1_p_new} & \tratioci{x3.a100.baseline.sf300.cost_b1_p_new} \\
+ & cost B2 & \tratioci{x3.a100.baseline.sf1.cost_b2_p_new} & \tratioci{x3.a100.baseline.sf10.cost_b2_p_new} & \tratioci{x3.a100.baseline.sf30.cost_b2_p_new} & \tratioci{x3.a100.baseline.sf100.cost_b2_p_new} & \tratioci{x3.a100.baseline.sf300.cost_b2_p_new} \\
+ & cost B3 & \tratioci{x3.a100.baseline.sf1.cost_b3_p_new} & \tratioci{x3.a100.baseline.sf10.cost_b3_p_new} & \tratioci{x3.a100.baseline.sf30.cost_b3_p_new} & \tratioci{x3.a100.baseline.sf100.cost_b3_p_new} & \tratioci{x3.a100.baseline.sf300.cost_b3_p_new} \\
+ & energy & \tratioci{x3.a100.baseline.sf1.energy_total} & \tratioci{x3.a100.baseline.sf10.energy_total} & \tratioci{x3.a100.baseline.sf30.energy_total} & \tratioci{x3.a100.baseline.sf100.energy_total} & \tratioci{x3.a100.baseline.sf300.energy_total} \\
+ & above idle & \tratioci{x3.a100.baseline.sf1.energy_above_idle} & \tratioci{x3.a100.baseline.sf10.energy_above_idle} & \tratioci{x3.a100.baseline.sf30.energy_above_idle} & \tratioci{x3.a100.baseline.sf100.energy_above_idle} & \tratioci{x3.a100.baseline.sf300.energy_above_idle} \\
+ & time vs \CG & \tratioci{x3.a100.baseline.sf1.time_vs_cgcp} & \tratioci{x3.a100.baseline.sf10.time_vs_cgcp} & \tratioci{x3.a100.baseline.sf30.time_vs_cgcp} & \tratioci{x3.a100.baseline.sf100.time_vs_cgcp} & \tratioci{x3.a100.baseline.sf300.time_vs_cgcp} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+\caption{X3, complex suite: estimate of $\rho$ [95\% CI], as in Table~\ref{tab:x3ci-base}.}
+\label{tab:x3ci-cx}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}ll*{3}{c}@{}}
+\toprule
+Host & Metric & SF30 & SF100 & SF300 \\
+\midrule
+\multirow{6}{*}{\GH} & cost B1 & \tratioci{x3.h100.complex.sf30.cost_b1_p_new} & \tratioci{x3.h100.complex.sf100.cost_b1_p_new} & \tratioci{x3.h100.complex.sf300.cost_b1_p_new} \\
+ & cost B2 & \tratioci{x3.h100.complex.sf30.cost_b2_p_new} & \tratioci{x3.h100.complex.sf100.cost_b2_p_new} & \tratioci{x3.h100.complex.sf300.cost_b2_p_new} \\
+ & cost B3 & \tratioci{x3.h100.complex.sf30.cost_b3_p_new} & \tratioci{x3.h100.complex.sf100.cost_b3_p_new} & \tratioci{x3.h100.complex.sf300.cost_b3_p_new} \\
+ & energy & \tratioci{x3.h100.complex.sf30.energy_total} & \tratioci{x3.h100.complex.sf100.energy_total} & \tratioci{x3.h100.complex.sf300.energy_total} \\
+ & above idle & \tratioci{x3.h100.complex.sf30.energy_above_idle} & \tratioci{x3.h100.complex.sf100.energy_above_idle} & \tratioci{x3.h100.complex.sf300.energy_above_idle} \\
+ & time vs \CG & \tratioci{x3.h100.complex.sf30.time_vs_cgcp} & \tratioci{x3.h100.complex.sf100.time_vs_cgcp} & \tratioci{x3.h100.complex.sf300.time_vs_cgcp} \\
+\midrule
+\multirow{6}{*}{\GA} & cost B1 & \tratioci{x3.a100.complex.sf30.cost_b1_p_new} & \tratioci{x3.a100.complex.sf100.cost_b1_p_new} & \tratioci{x3.a100.complex.sf300.cost_b1_p_new} \\
+ & cost B2 & \tratioci{x3.a100.complex.sf30.cost_b2_p_new} & \tratioci{x3.a100.complex.sf100.cost_b2_p_new} & \tratioci{x3.a100.complex.sf300.cost_b2_p_new} \\
+ & cost B3 & \tratioci{x3.a100.complex.sf30.cost_b3_p_new} & \tratioci{x3.a100.complex.sf100.cost_b3_p_new} & \tratioci{x3.a100.complex.sf300.cost_b3_p_new} \\
+ & energy & \tratioci{x3.a100.complex.sf30.energy_total} & \tratioci{x3.a100.complex.sf100.energy_total} & \tratioci{x3.a100.complex.sf300.energy_total} \\
+ & above idle & \tratioci{x3.a100.complex.sf30.energy_above_idle} & \tratioci{x3.a100.complex.sf100.energy_above_idle} & \tratioci{x3.a100.complex.sf300.energy_above_idle} \\
+ & time vs \CG & \tratioci{x3.a100.complex.sf30.time_vs_cgcp} & \tratioci{x3.a100.complex.sf100.time_vs_cgcp} & \tratioci{x3.a100.complex.sf300.time_vs_cgcp} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+\caption{Break-even brackets of X1--X3 under every baseline and price table; energy: lower bound on the
+node-level break-even, under \NOne.}
+\label{tab:be-all}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lll*{7}{c}@{}}
+\toprule
+Contrast & Host & Suite & B1 P-NEW & B1 P-OLD & B1 P-BILLED & B2 P-NEW & B3 P-NEW & energy & above idle \\
+\midrule
+X1 & \GH & baseline & \tstat{break_even.x1.h100.baseline.cost_b1_p_new.text} & \tstat{break_even.x1.h100.baseline.cost_b1_p_old.text} & \tstat{break_even.x1.h100.baseline.cost_b1_p_billed.text} & \tstat{break_even.x1.h100.baseline.cost_b2_p_new.text} & \tstat{break_even.x1.h100.baseline.cost_b3_p_new.text} & \tstat{break_even.x1.h100.baseline.energy_total.text} & \tstat{break_even.x1.h100.baseline.energy_above_idle.text} \\
+X1 & \GH & complex & \tstat{break_even.x1.h100.complex.cost_b1_p_new.text} & \tstat{break_even.x1.h100.complex.cost_b1_p_old.text} & \tstat{break_even.x1.h100.complex.cost_b1_p_billed.text} & \tstat{break_even.x1.h100.complex.cost_b2_p_new.text} & \tstat{break_even.x1.h100.complex.cost_b3_p_new.text} & \tstat{break_even.x1.h100.complex.energy_total.text} & \tstat{break_even.x1.h100.complex.energy_above_idle.text} \\
+X1 & \GA & baseline & \tstat{break_even.x1.a100.baseline.cost_b1_p_new.text} & \tstat{break_even.x1.a100.baseline.cost_b1_p_old.text} & \tstat{break_even.x1.a100.baseline.cost_b1_p_billed.text} & \tstat{break_even.x1.a100.baseline.cost_b2_p_new.text} & \tstat{break_even.x1.a100.baseline.cost_b3_p_new.text} & \tstat{break_even.x1.a100.baseline.energy_total.text} & \tstat{break_even.x1.a100.baseline.energy_above_idle.text} \\
+X1 & \GA & complex & \tstat{break_even.x1.a100.complex.cost_b1_p_new.text} & \tstat{break_even.x1.a100.complex.cost_b1_p_old.text} & \tstat{break_even.x1.a100.complex.cost_b1_p_billed.text} & \tstat{break_even.x1.a100.complex.cost_b2_p_new.text} & \tstat{break_even.x1.a100.complex.cost_b3_p_new.text} & \tstat{break_even.x1.a100.complex.energy_total.text} & \tstat{break_even.x1.a100.complex.energy_above_idle.text} \\
+\midrule
+X2 & \GH & baseline & \tstat{break_even.x2.h100.baseline.cost_b1_p_new.text} & \tstat{break_even.x2.h100.baseline.cost_b1_p_old.text} & \tstat{break_even.x2.h100.baseline.cost_b1_p_billed.text} & \tstat{break_even.x2.h100.baseline.cost_b2_p_new.text} & \tstat{break_even.x2.h100.baseline.cost_b3_p_new.text} & \tstat{break_even.x2.h100.baseline.energy_total.text} & \tstat{break_even.x2.h100.baseline.energy_above_idle.text} \\
+X2 & \GH & complex & \tstat{break_even.x2.h100.complex.cost_b1_p_new.text} & \tstat{break_even.x2.h100.complex.cost_b1_p_old.text} & \tstat{break_even.x2.h100.complex.cost_b1_p_billed.text} & \tstat{break_even.x2.h100.complex.cost_b2_p_new.text} & \tstat{break_even.x2.h100.complex.cost_b3_p_new.text} & \tstat{break_even.x2.h100.complex.energy_total.text} & \tstat{break_even.x2.h100.complex.energy_above_idle.text} \\
+X2 & \GA & baseline & \tstat{break_even.x2.a100.baseline.cost_b1_p_new.text} & \tstat{break_even.x2.a100.baseline.cost_b1_p_old.text} & \tstat{break_even.x2.a100.baseline.cost_b1_p_billed.text} & \tstat{break_even.x2.a100.baseline.cost_b2_p_new.text} & \tstat{break_even.x2.a100.baseline.cost_b3_p_new.text} & \tstat{break_even.x2.a100.baseline.energy_total.text} & \tstat{break_even.x2.a100.baseline.energy_above_idle.text} \\
+X2 & \GA & complex & \tstat{break_even.x2.a100.complex.cost_b1_p_new.text} & \tstat{break_even.x2.a100.complex.cost_b1_p_old.text} & \tstat{break_even.x2.a100.complex.cost_b1_p_billed.text} & \tstat{break_even.x2.a100.complex.cost_b2_p_new.text} & \tstat{break_even.x2.a100.complex.cost_b3_p_new.text} & \tstat{break_even.x2.a100.complex.energy_total.text} & \tstat{break_even.x2.a100.complex.energy_above_idle.text} \\
+\midrule
+X3 & \GH & baseline & \tstat{break_even.x3.h100.baseline.cost_b1_p_new.text} & \tstat{break_even.x3.h100.baseline.cost_b1_p_old.text} & \tstat{break_even.x3.h100.baseline.cost_b1_p_billed.text} & \tstat{break_even.x3.h100.baseline.cost_b2_p_new.text} & \tstat{break_even.x3.h100.baseline.cost_b3_p_new.text} & \tstat{break_even.x3.h100.baseline.energy_total.text} & \tstat{break_even.x3.h100.baseline.energy_above_idle.text} \\
+X3 & \GH & complex & \tstat{break_even.x3.h100.complex.cost_b1_p_new.text} & \tstat{break_even.x3.h100.complex.cost_b1_p_old.text} & \tstat{break_even.x3.h100.complex.cost_b1_p_billed.text} & \tstat{break_even.x3.h100.complex.cost_b2_p_new.text} & \tstat{break_even.x3.h100.complex.cost_b3_p_new.text} & \tstat{break_even.x3.h100.complex.energy_total.text} & \tstat{break_even.x3.h100.complex.energy_above_idle.text} \\
+X3 & \GA & baseline & \tstat{break_even.x3.a100.baseline.cost_b1_p_new.text} & \tstat{break_even.x3.a100.baseline.cost_b1_p_old.text} & \tstat{break_even.x3.a100.baseline.cost_b1_p_billed.text} & \tstat{break_even.x3.a100.baseline.cost_b2_p_new.text} & \tstat{break_even.x3.a100.baseline.cost_b3_p_new.text} & \tstat{break_even.x3.a100.baseline.energy_total.text} & \tstat{break_even.x3.a100.baseline.energy_above_idle.text} \\
+X3 & \GA & complex & \tstat{break_even.x3.a100.complex.cost_b1_p_new.text} & \tstat{break_even.x3.a100.complex.cost_b1_p_old.text} & \tstat{break_even.x3.a100.complex.cost_b1_p_billed.text} & \tstat{break_even.x3.a100.complex.cost_b2_p_new.text} & \tstat{break_even.x3.a100.complex.cost_b3_p_new.text} & \tstat{break_even.x3.a100.complex.energy_total.text} & \tstat{break_even.x3.a100.complex.energy_above_idle.text} \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \section{Pre-lock Validation of the Meters}
 \label{app:validation}

@@ -163,3 +163,52 @@
     \ifstatsfinal\stat@missing{#1.estimate}\else\textcolor{red}{\tiny TODO}\fi
   \fi}
 \makeatother
+
+% ---------------------------------------------------------------- result wording
+% Phrases that hold whichever way a result falls. They read the analysis's own words from the stats
+% file: the class (gpu_better, cpu_better, no_difference, inconclusive, not_estimable), "n/a" for a
+% missing value, and the sign of Delta*. An unexpected class prints as it is, never as another class.
+% In draft mode each prints one TODO box; in final mode a missing key is an error (via \stat).
+\makeatletter
+\edef\xcls@nes{\detokenize{not\_estimable}}
+\edef\res@na{\detokenize{n/a}}
+\edef\res@minus{\detokenize{-}}
+\def\res@first#1#2\relax{\def\res@f{#1}}
+\newcommand{\res@set}[1]{\edef\res@v{\expandafter\expandafter\expandafter\detokenize
+  \expandafter\expandafter\expandafter{\csname stat@#1\endcsname}}}
+% \resna{key}{if the value is n/a}{otherwise}
+\newcommand{\resna}[3]{\ifcsname stat@#1\endcsname\res@set{#1}\ifx\res@v\res@na #2\else #3\fi
+  \else #3\fi}
+% \resneg{key}{if the value is negative}{otherwise}
+\newcommand{\resneg}[3]{\ifcsname stat@#1\endcsname\res@set{#1}%
+  \expandafter\res@first\res@v\relax\relax\ifx\res@f\res@minus #2\else #3\fi\else #3\fi}
+% \rtext{prefix}: "1.23x (95% CI 1.10--1.40)", "1.23x (one round, no interval)" or "not estimable"
+\newcommand{\rtext}[1]{\ifcsname stat@#1.estimate\endcsname
+  \resna{#1.estimate}{not estimable}{\resna{#1.ci_low}{\stat{#1.estimate}$\times$ (one round, no
+  interval)}{\stat{#1.estimate}$\times$ (95\%~CI \stat{#1.ci_low}--\stat{#1.ci_high})}}%
+  \else\stat{#1.estimate}\fi}
+% \cls{prefix}: the class of a time or cost cell, in the words of Section 6.4
+\newcommand{\cls}[1]{\ifcsname stat@#1.class\endcsname\res@set{#1.class}%
+  \ifx\res@v\xcls@gpu GPU better\else\ifx\res@v\xcls@cpu CPU better\else
+  \ifx\res@v\xcls@nod no difference\else\ifx\res@v\xcls@inc inconclusive\else
+  \ifx\res@v\xcls@nes not estimable\else\stat{#1.class}\fi\fi\fi\fi\fi
+  \else\stat{#1.class}\fi}
+% \ecls{prefix}: the class of a cross-class energy cell, in the words allowed under N1 (Section 4.6)
+\newcommand{\ecls}[1]{\ifcsname stat@#1.class\endcsname\res@set{#1.class}%
+  \ifx\res@v\xcls@gpu GPU better at the measured scopes (no node-level claim)\else
+  \ifx\res@v\xcls@cpu CPU better at the measured scopes, so under \NOne{} the GPU engine uses more
+  node energy\else
+  \ifx\res@v\xcls@nod inside the $\pm$10\% band at the measured scopes (no node-level claim)\else
+  \ifx\res@v\xcls@inc inconclusive\else
+  \ifx\res@v\xcls@nes not estimable\else\stat{#1.class}\fi\fi\fi\fi\fi
+  \else\stat{#1.class}\fi}
+% \dstar{prefix}: Delta* in Wh per suite run and W over the GPU suite time, with what its sign means
+\newcommand{\dstar}[1]{\ifcsname stat@#1.wh_per_suite_run.mean\endcsname
+  \resna{#1.wh_per_suite_run.mean}{not estimable}{\stat{#1.wh_per_suite_run.mean}\,Wh per suite run
+  (\resna{#1.wh_per_suite_run.ci_low}{one round, no interval}{95\%~CI
+  \stat{#1.wh_per_suite_run.ci_low} to \stat{#1.wh_per_suite_run.ci_high}};
+  \stat{#1.w_over_gpu_suite_time.mean}\,W over the GPU suite time), \resneg{#1.wh_per_suite_run.mean}%
+  {negative, so under \NOne{} the GPU node uses more energy}{non-negative, so the GPU node would use
+  less node energy only if its unmeasured excess stayed below it; no such claim is made}}%
+  \else\stat{#1.wh_per_suite_run.mean}\fi}
+\makeatother

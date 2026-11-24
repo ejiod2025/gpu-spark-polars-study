@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Paper 3: write generated/stats.tex from analyze_paper3.py's stats.json, for exactly the keys main.tex uses.
 
-The paper cites a statistic as \\stat{key}, \\tstat{key}, \\ratiotext{prefix}, \\ratioci{prefix}, \\tratioci{prefix} or
-\\xcell{prefix} (macros.tex). This tool scans main.tex for those, expands the prefixes (estimate, ci_low, ci_high; for \\xcell
+The paper cites a statistic as \\stat{key}, \\tstat{key}, \\hashstat{key}, \\ratiotext{prefix}, \\ratioci{prefix},
+\\tratioci{prefix}, \\xcell{prefix}, \\rtext{prefix}, \\cls{prefix}, \\ecls{prefix} or \\dstar{prefix} (macros.tex). This tool scans main.tex for those, expands the prefixes (estimate, ci_low, ci_high; for \\xcell
 estimate and class), flattens stats.json with the analysis's own outputs.flatten and formats every value with its own
 outputs.tex_number, so a value reads the same here as in the analysis's tables. Keys of values from committed records, not
 campaign outcomes (amend.*, campaign.*), are skipped: they come from the tracked, hand-kept record.tex (macros.tex).
@@ -26,9 +26,12 @@ PAPER = Path(__file__).resolve().parent.parent
 REPO = PAPER.parent
 RECORD_PREFIXES = ("amend.", "campaign.")
 README_BEGIN, README_END = "<!-- keys:begin (make readme-keys) -->", "<!-- keys:end -->"
-MACRO_RE = re.compile(r"\\(stat|tstat|hashstat|ratioci|ratiotext|tratioci|xcell)\{([^}]+)\}")
+MACRO_RE = re.compile(r"\\(stat|tstat|hashstat|ratioci|ratiotext|tratioci|xcell|rtext|cls|ecls|dstar)\{([^}]+)\}")
 EXPANSION = {"ratioci": ("estimate", "ci_low", "ci_high"), "ratiotext": ("estimate", "ci_low", "ci_high"),
-             "tratioci": ("estimate", "ci_low", "ci_high"), "xcell": ("estimate", "class")}
+             "tratioci": ("estimate", "ci_low", "ci_high"), "xcell": ("estimate", "class"),
+             "rtext": ("estimate", "ci_low", "ci_high"), "cls": ("class",), "ecls": ("class",),
+             "dstar": ("wh_per_suite_run.mean", "wh_per_suite_run.ci_low", "wh_per_suite_run.ci_high",
+                       "w_over_gpu_suite_time.mean")}
 
 
 def strip_comments(text: str) -> str:
