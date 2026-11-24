@@ -641,17 +641,18 @@ The design was locked on 2026-11-16 (annotated tag, commit \lockcommit{}, deposi
 At the lock no timed study session had run and no energy or cost analysis had been computed;
 what had been seen before is disclosed in the design (synthetic-load probe results, the prior
 study's published timings and GPU power summaries). Sections 1--11 of the design were never
-edited afterwards. Seven dated amendments followed, each stating the outcome data seen when it was
+edited afterwards. Eight dated amendments followed, each stating the outcome data seen when it was
 made (``seen''): A1 (lock-day price snapshot, lost-launch policy, SF1 preflight, the \CG{}
 allow-list as pending, record completeness, start order, funding, a synthetic-data guard; seen:
 none), A2 (B200 admission, the bring-up view; seen: none beyond synthetic probe load), A3 (smoke
 test 1, the G8 onset reading; seen: none beyond synthetic load), A4 (smoke tests 2 and 3, the
 CUDA-readiness gate, the expected G8 flags; seen: none beyond synthetic load), A5 (GH200 and B200
-not run, GCP funding, start order; seen: none), A6 (the \CG{} allow-list; seen: none) and A7 (the
-analysis code; seen: none). None changes a threshold, estimator, margin or primary definition.
+not run, GCP funding, start order; seen: none), A6 (the \CG{} allow-list; seen: none), A7 (the
+analysis code; seen: none) and A8 (a gate defect on the CPU-only hosts and their relaunch; seen:
+none). None changes a threshold, estimator, margin or primary definition.
 Appendix~\ref{app:amendments} is the full pre-registration record (Table~\ref{tab:deviations}).
 
-Four deviations affect what the paper can report. First, contrary to \S5.4 of the locked
+Five deviations affect what the paper can report. First, contrary to \S5.4 of the locked
 design~\citelock{}, no analysis code existed at the lock: the analysis code was written after the
 lock and frozen before any campaign data was seen (A7 item 1). It was written by a team member
 without access to the campaign data, validated only on synthetic campaigns with injected known
@@ -668,13 +669,13 @@ the author's decision on 2026-11-23, on grounds of time and scarce capacity, bef
 value existed: RQ4 covers two GPU generations instead of four, and the planned same-host,
 module-scope CPU-versus-GPU energy comparison on the GH200, the one comparison in the design that
 needed no \NOne, is not available. Their pre-lock probes remain as method validation
-(Appendix~\ref{app:notrun}). Third, the relaunch rule (A1.2): a launch lost to a technical failure
-(the instance lost, or a round failing the repeat-once rule) is relaunched once on a fresh instance
-and restarts its square; the lost launch's rounds are reported, never pooled, and enter no
-estimate. Fourth, the CUDA-readiness replacement (A4.2): a GPU host that fails the CUDA-readiness
-check before round 1 has produced no round and is replaced without using the relaunch of A1.2
-(the lead's reading, recorded in A4). Both rules depend only on technical failures, never on any
-value, and the counts of lost launches and replaced hosts are reported (Table~\ref{tab:qa}).
+(Appendix~\ref{app:notrun}). Third, the relaunch rule (A1.2, Section~\ref{sec:gates}) decides which instances form a square;
+the lost launch's rounds are reported, never pooled. Fourth, a GPU host that fails the
+CUDA-readiness check before round~1 is replaced without using that relaunch (A4.2, the lead's
+reading). Fifth, a round-gate defect on the CPU-only hosts (A8: G1 required an idle-GPU record
+written only for GPU-engine jobs) stopped both of their launch~1s; after the fix each was relaunched
+once under A1.2, which changed the instances that form the CPU-only squares. These three depend only
+on technical failures, never on a value; lost and replaced launches are counted in Table~\ref{tab:qa}.
 
 % =====================================================================================
 \section{Results}
@@ -892,7 +893,9 @@ the Latin square and the cool-down, not removed. Idle power depends on temperatu
 mode, C-states and the CUDA-context state (recorded, not controlled).
 
 \paragraph{Tenancy, prices and confounds.} Lambda hosts and network storage are shared; noise is
-bounded only by rounds and two launches. \CG{} has network storage, not the GPU hosts' local SSD,
+bounded only by rounds and two launches. Each GPU host's two launches ran concurrently on separate
+instances (the design requires separation, not an order); the \CV{} rounds and \CG's first square
+come from the A8 relaunches. \CG{} has network storage, not the GPU hosts' local SSD,
 so Spark spill I/O may differ (recorded). Prices are a snapshot: Lambda changed three of four
 relevant prices on 2026-11-16, and spot, reserved and committed-use prices are not measured; the
 factorised time and price ratios are the durable result. The \CG{} Xeon 8481C and the H100 host's 8480+ are one
@@ -1108,6 +1111,8 @@ A6 (2026-11-23) & \CG{} G12 allow-list after review: the 25 scheduled items foun
 % commit, the sha256 and the synthetic-recovery result before any campaign aggregate is computed or
 % seen). Checked against the committed A7 (amendment commit 5382101, freeze commit ea67f12) on 2026-11-23.
 A7 (\stat{amend.a7.date}) & Contrary to design \S5.4, no analysis code existed at the lock. It was written after the lock by a team member without access to campaign data, validated only on synthetic campaigns with injected known effects, independently reviewed, and frozen before any campaign data was seen (freeze commit \camera{\stat{amend.a7.freeze_commit}}{\anonmark}; a first freeze the same day was superseded by one change to a diagnostic); code sha256 \hashstat{amend.a7.sha256}. Synthetic recovery passes (A7.3); the readings of the design it applies are in Appendix~\ref{app:readings}. & none \\
+% A8: values in record.tex (lead, 2026-11-24); checked against the committed A8 (commit 50eea45).
+A8 (\stat{amend.a8.date}) & Defect in the round gate of the CPU-only hosts: G1 required an idle-GPU record that is written only for jobs with a GPU engine, so every \CV{} and \CG{} session failed and both launch~1s stopped by rule. Fixed (commit \camera{\stat{amend.a8.fix_commit}}{\anonmark}); each launch relaunched once under A1.2, \CV{} first; the stopped rounds are reported, never pooled; the frozen analysis code and its hash are unaffected. Seen: only failing check ids and the QA lines. & none \\
 \bottomrule
 \end{tabular}
 \end{table*}
