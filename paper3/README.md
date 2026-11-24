@@ -56,7 +56,7 @@ Keys are paths of `analyze_paper3.py`'s flattened `stats.json` (frozen at `ea67f
 The exact list:
 
 <!-- keys:begin (make readme-keys) -->
-912 keys from the analysis's stats.json and 12 from record.tex, as used by main.tex (generated; do not edit by hand).
+912 keys from the analysis's stats.json and 13 from record.tex, as used by main.tex (generated; do not edit by hand).
 
 From stats.json (`make stats`):
 
@@ -985,6 +985,7 @@ amend.a7.recovery_commit
 amend.a7.sha256
 amend.a8.date
 amend.a8.fix_commit
+amend.a9.date
 campaign.a100.driver
 campaign.c-vm.cpu_model
 campaign.first_session_utc

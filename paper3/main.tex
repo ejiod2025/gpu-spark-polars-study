@@ -370,7 +370,7 @@ across-round interval. The engine letters come from
 \texttt{random.Random(seed).shuffle} with seed 20261116, the UTC date of the lock. Suite order
 alternates by round and scales ascend. A GPU-host round has 32 sessions (4 engines $\times$ 8
 suite--scale cells); a \CG{} round has 16, with orders \texttt{AB BA BA AB} and \texttt{BA AB AB
-BA} (\sparkcpu{} is A and \polarscpu{} is B, derived from the same seed). \CV{} runs the
+BA} (\sparkcpu{} is A and \polarscpu{} is B, derived from the same seed; only the first square ran, A9). \CV{} runs the
 baseline suite at SF10, 30 and 300 for two rounds (\texttt{AB}, \texttt{BA}), time only.
 Confirmatory estimates use complete squares only (all of a square's rounds accepted within one
 instance): two give $R = 8$, one gives $R = 4$; rounds of an incomplete square are a sensitivity. No round is added or dropped for what its values
@@ -658,18 +658,18 @@ speed, energy or cost.
 The design was locked on 2026-11-16 (annotated tag, commit \lockcommit{}, deposit \lockdoi{});
 what had been seen before is disclosed in the design (synthetic-load probe results, the prior
 study's published timings and GPU power summaries). Sections 1--11 of the design were never
-edited afterwards. Eight dated amendments followed, each stating the outcome data seen when it was
+edited afterwards. Nine dated amendments followed, each stating the outcome data seen when it was
 made (``seen''): A1 (lock-day price snapshot, lost-launch policy, SF1 preflight, the \CG{}
 allow-list as pending, record completeness, start order, funding, a synthetic-data guard; seen:
 none), A2 (B200 admission, the bring-up view; seen: none beyond synthetic probe load), A3 (smoke
 test 1, the G8 onset reading; seen: none beyond synthetic load), A4 (smoke tests 2 and 3, the
 CUDA-readiness gate, the expected G8 flags; seen: none beyond synthetic load), A5 (GH200 and B200
 not run, GCP funding, start order; seen: none), A6 (the \CG{} allow-list; seen: none), A7 (the
-analysis code; seen: none) and A8 (a gate defect on the CPU-only hosts and their relaunch; seen:
-none). None changes a threshold, estimator, margin or primary definition.
+analysis code; seen: none), A8 (a gate defect on the CPU-only hosts and their relaunch; seen: none)
+and A9 (\CG{} launch~2 not run, for time; seen: none). None changes a threshold, estimator, margin or primary definition.
 Appendix~\ref{app:amendments} is the full pre-registration record (Table~\ref{tab:deviations}).
 
-Five deviations affect what the paper can report. First, contrary to \S5.4 of the locked
+Six deviations affect what the paper can report. First, contrary to \S5.4 of the locked
 design~\citelock{}, no analysis code existed at the lock: the analysis code was written after the
 lock and frozen before any campaign data was seen (A7 item 1). It was written by a team member
 without access to the campaign data, validated only on synthetic campaigns with injected known
@@ -693,6 +693,8 @@ reading). Fifth, a round-gate defect on the CPU-only hosts (A8: G1 required an i
 written only for GPU-engine jobs) stopped both of their launch~1s; after the fix each was relaunched
 once under A1.2, which changed the instances that form the CPU-only squares. These three depend only
 on technical failures, never on a value; lost and replaced launches are counted in Table~\ref{tab:qa}.
+Sixth, \CG{} launch~2 was not run (A9: the author's decision, by the clock, before any result was seen),
+so \CG's confirmatory estimates come from one square and every cell paired with \CG{} uses rounds 1--4.
 
 % =====================================================================================
 \section{Results}
@@ -716,7 +718,7 @@ marked. Keys \texttt{x\{1,2,3\}.<host>.<suite>.sf<scale>.energy\_\{total,above\_
 \end{figure*}
 
 \begin{table*}[t]
-\caption{Planned: classification of X3 (best CPU engine / best GPU engine) per host, suite and
+\caption{Classification of X3 (best CPU engine / best GPU engine) per host, suite and
 scale; cost under B1, B2, B3 (P-NEW) and energy at the measured scopes (total). Cell: estimate
 of $\rho$ and class (G: GPU better; C: CPU better; =: no difference; ?: inconclusive; --: not
 estimable, e.g.\ below resolution); 95\% intervals in Appendix~\ref{app:tables}. Keys
@@ -745,7 +747,7 @@ Host & Metric & SF1 & SF10 & SF30 & SF100 & SF300 & SF30 & SF100 & SF300 \\
 \end{table*}
 
 \begin{table*}[t]
-\caption{Planned: break-even scale brackets (previous scale, $s$] of X3 under P-NEW;
+\caption{Break-even scale brackets (previous scale, $s$] of X3 under P-NEW;
 ``$\le$SF1'' and ``$>$SF300'' censored. Energy: lower bound on the node-level break-even, under
 \NOne. Keys \texttt{break\_even.x3.<host>.<suite>.<metric>.text}.}
 \label{tab:breakeven}
@@ -811,7 +813,7 @@ gives the record. Confirmatory estimates use complete squares only (Section~\ref
 ($R={}$\stat{counts.c-gcp.rounds_confirmatory}). A cross-host contrast pairs rounds by round number
 (Appendix~\ref{app:readings}), so its degrees of freedom, reported with each interval, follow the
 rounds both hosts have. Launches were relaunched or replaced only after technical failures (A1.2,
-A4.2, A8). G9 marked \stat{counts.h100.g9.cells_below_resolution} cells below resolution on \GH{}
+A4.2, A8); \CG{} launch~2 was not run (A9). G9 marked \stat{counts.h100.g9.cells_below_resolution} cells below resolution on \GH{}
 (\stat{counts.h100.g9.per_run_below_t_min} with a per-run time below $\tmin$,
 \stat{counts.h100.g9.window_below_10s} with a window below 10\,s),
 \stat{counts.a100.g9.cells_below_resolution} on \GA{} and \stat{counts.c-gcp.g9.cells_below_resolution}
@@ -963,6 +965,13 @@ conservative, while ``GPU better at the measured scope'' may partly reflect host
 DRAM are reported separately and above-idle beside total for this reason. B1 prices a 44-vCPU VM
 for 26 threads on times from the metal host; \CV{} bounds the time assumption, not the vCPU
 surplus.
+
+\paragraph{Fewer \CG{} rounds.} \CG's confirmatory estimates come from one complete square (A9: $R = 4$,
+df~3). Every cross-host cell paired with \CG{} (cross-class energy, B1 and B2 cost, X5, X6) uses
+rounds 1--4 only (Appendix~\ref{app:readings}, item a), so its interval rests on 3 degrees of freedom
+($t = 3.182$ against 2.365 for eight rounds) and is wider for a given between-round spread. The GPU hosts'
+rounds 5--8 are not in those cells; they enter the GPU hosts' within-host cells, the GPU-to-GPU contrast X4
+and the labelled unpaired Welch sensitivity. The cut was made by the clock, before any result was seen.
 
 \paragraph{Sensors and idle draw.} The one-sided short-run errors of the A100 and \CG{}
 (Section~\ref{sec:resolution}) were measured at one power level, so a query drawing less power may
@@ -1318,6 +1327,8 @@ A6 (2026-11-23) & \CG{} G12 allow-list after review: the 25 scheduled items foun
 A7 (\stat{amend.a7.date}) & Contrary to design \S5.4, no analysis code existed at the lock. It was written after the lock by a team member without access to campaign data, validated only on synthetic campaigns with injected known effects, independently reviewed, and frozen before any campaign data was seen (freeze commit \camera{\stat{amend.a7.freeze_commit}}{\anonmark}; a first freeze the same day was superseded by one change to a diagnostic); code sha256 \hashstat{amend.a7.sha256}. Synthetic recovery passes (A7.3); the readings of the design it applies are in Appendix~\ref{app:readings}. & none \\
 % A8: values in record.tex (lead, 2026-11-24); checked against the committed A8 (commit 50eea45).
 A8 (\stat{amend.a8.date}) & Defect in the round gate of the CPU-only hosts: G1 required an idle-GPU record that is written only for jobs with a GPU engine, so every \CV{} and \CG{} session failed and both launch~1s stopped by rule. Fixed (commit \camera{\stat{amend.a8.fix_commit}}{\anonmark}); each launch relaunched once under A1.2, \CV{} first; the stopped rounds are reported, never pooled; the frozen analysis code and its hash are unaffected. Seen: only failing check ids and the QA lines. & none \\
+% A9: values in record.tex (lead, 2026-11-24); checked against the committed A9 (commit 2a1727c).
+A9 (\stat{amend.a9.date}) & Author decision, for time alone: \CG{} launch~2 (rounds 5--8) is not run. Under the design's square rule, \CG's confirmatory estimates come from one complete square (the relaunch, rounds 1--4), $R = 4$ (df~3), and every cell pairing \CG{} with another host uses rounds 1--4 only; the other hosts are unchanged. If that square fails for a technical reason, launch~2 is run after all. Seen: progress only (QA lines, status views). & none \\
 \bottomrule
 \end{tabular}
 \end{table*}
