@@ -1323,6 +1323,27 @@ adds no analysis rule; the flags are those the code frozen in A7 defines. Sectio
    billing reconciliation shows the invoice values as missing. That is a reporting matter and changes no estimate. Outcome data seen:
    none.
 
+### A11 — 2026-11-24
+Eleventh amendment after the lock: analyses the design names that the frozen analysis code (A7, `ea67f12`) does not compute. It is
+the lead's record; sections 1-11 are not edited. **Outcome data seen: none.** The design's own words for each:
+1. **Session energy, session cost and cold-job cost.** §2.6: "Query energy and cost cover the timed runs only (primary). **Session
+   energy and cost** (secondary) cover worker launch to process exit, less the §2.2 idle windows ... Cold-job cost: `(p/3600) *
+   (launch_to_engine_ready + t_run)`." Secondary (the cold-job cost is defined in the same bullet, with no label of its own); none is
+   in an RQ or in the confirmatory set of §5.4 ("X1-X3 for {energy, cost} x suite x scale x GPU host", which is per query).
+2. **EX1, EX2 and EX3.** §1: "EX1-3 ... | exploratory". §6.1: "**every analysis of archived data is exploratory only**"; §6.2 (EX3a):
+   "exploratory, because the author has seen the timings. No archived value enters a confirmatory table."
+3. **The MODEL host-CPU energy estimate (EX2).** §2.4: "**No model value is ever placed in a confirmatory table.** ... Model values
+   (EX2: host-CPU power as a function of CPU utilisation, fitted on the CPU-only host's RAPL and applied to a GPU host's `host.csv`)
+   appear only in files and figures labelled MODEL."; §2.5: "A modelled host-CPU term (EX2) may appear only as exploratory MODEL." The
+   frozen code computes no model energy value (A7 item 4).
+4. **X7 and RQ6** (§5.4: "secondary ... outside the confirmatory set") are not run (A5 item 1).
+
+**The record.** None of these is computed in this paper. The reason is that the analysis code, written after the lock and frozen
+(A7), implements the confirmatory analyses and the stated sensitivities only, and adding code now would mean unfreezing it shortly
+before unblinding. The decision is the lead's, made before any outcome was seen. No confirmatory analysis is affected. The paper names
+each one as not computed. The raw data will be deposited with the paper, so anyone can compute them later (a later analysis is
+labelled exploratory with its date, §7.3). Outcome data seen: none.
+
 ### Pre-lock changes, 2026-11-15 (not amendments: the design is not locked, §7)
 Made after the pre-lock probes of 2026-11-11 to 2026-11-16 (§7.2) and the author decisions of §11 item 8. Outcome data seen:
 synthetic-load probe results only (power-interface behaviour); no study query was run and no engine-versus-engine energy,
