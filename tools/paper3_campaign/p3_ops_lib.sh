@@ -25,8 +25,15 @@ ledger_append() {      # EVENT RECORD_FILE [REASON]: one line to ledger.jsonl wi
   local event=$1 record=$2 reason=${3:-}
   mkdir -p "$P3_LEDGER_DIR" || return 1
   jq -c --arg event "$event" --arg at "$(p3_utc)" --arg reason "$reason" \
-    '{at:$at, event:$event, host:.host, launch:.launch, provider:.provider, instance_id:.instance_id, lease_name:.lease_name} + (if $reason == "" then {} else {reason:$reason} end)' "$record" \
+    '{at:$at, event:$event, host:.host, launch:.launch, provider:.provider, instance_id:.instance_id, lease_name:.lease_name}
+     + (if (.ordinal // 1) > 1 then {ordinal:.ordinal, relaunch_of:.relaunch_of} else {} end) + (if $reason == "" then {} else {reason:$reason} end)' "$record" \
     >> "$P3_LEDGER_DIR/ledger.jsonl"
+}
+
+p3_launch_dir() {      # RECORD: the launch's directory name under rerun/paper3/HOST/: launchN, and launchN-rK for the K-th instance of that launch (a relaunch, amendment A1 item 2)
+  local launch ordinal
+  launch=$(record_get "$1" launch); ordinal=$(record_get "$1" ordinal)
+  if [ -n "$ordinal" ] && [ "$ordinal" -gt 1 ] 2>/dev/null; then echo "launch$launch-r$ordinal"; else echo "launch$launch"; fi
 }
 
 record_get() {         # RECORD KEY: the value, or empty for null

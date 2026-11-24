@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p3_launch.sh HOST LAUNCH --place PLACE --commit SHA --price-snapshot DIR [--type T] [--now ISO] [--credit-funded yes|no] [--yes]
+# p3_launch.sh HOST LAUNCH --place PLACE --commit SHA --price-snapshot DIR [--type T] [--now ISO] [--credit-funded yes|no] [--relaunch-of RECORD] [--old-dest DIR] [--yes]
 #
 # Launches ONE campaign instance (HOST: a100 h100 gh200 b200 c-gcp c-vm; LAUNCH: 1 or 2) under the lease convention, records it, and
 # arms the wall-clock watchdog. Without --yes it prints the request it would send and exits: no cloud call is made.
@@ -9,6 +9,12 @@
 #   --price-snapshot DIR   output of p3_price_snapshot.sh, taken at most 3 hours ago: the Lambda price at launch and the snapshot time
 #   --credit-funded  whether the provider bills this instance against credits: Lambda defaults to yes (the funding statement), GCP has no
 #                    default (the author says)
+#   --relaunch-of RECORD   the replacement of a launch that stopped by rule or was lost (amendment A1 item 2): RECORD is the old launch's record (a path, or its lease name in
+#                    the ledger). The new instance gets lease token lNr2 (p3-campaign-cvm-l1r2-owner-...), a record with ordinal 2 and relaunch_of = the old lease, and its own
+#                    local directory rerun/paper3/HOST/launchN-r2 (the driver derives it from the record); it runs the same campaign root and launch number on the new host, so the
+#                    analysis finds it by its campaign.json and labels it HOST-lNr2. Refused (before anything is launched, also in the dry run) unless the old record has
+#                    terminate_confirmed_utc and its directory holds a LAUNCH-SHA256SUMS that verifies, and refused when a relaunch of this (HOST, LAUNCH) exists already:
+#                    a launch is relaunched once. --old-dest names the old directory when it is not rerun/paper3/HOST/launchN.
 #
 # What it does with --yes, in this order, so that an instance that exists is never untracked: the provider call; the launch record
 # ($P3_LEDGER_DIR/<lease>.json); the watchdog (Lambda: tools/paper3_probes/lambda_watchdog.sh; GCP: p3_gcp_watchdog.sh), armed for the
@@ -23,9 +29,9 @@ REPO=$(cd "$HERE/../.." && pwd)
 plan() { if [ -n "${P3_PLAN_CMD:-}" ]; then $P3_PLAN_CMD "$@"; else python3 "$HERE/p3_plan.py" "$@"; fi; }
 die() { echo "p3_launch.sh: $*" >&2; exit 2; }
 
-[ $# -ge 2 ] || { sed -n 2,19p "$0"; exit 2; }
+[ $# -ge 2 ] || { sed -n '2,/^set -uo pipefail/p' "$0" | sed '$d'; exit 2; }
 HOST=$1 LAUNCH=$2; shift 2
-PLACE="" COMMIT="" SNAP="" TYPE="" NOW="" CREDIT="" YES=0
+PLACE="" COMMIT="" SNAP="" TYPE="" NOW="" CREDIT="" YES=0 RELAUNCH_OF="" OLD_DEST=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --place) PLACE=$2; shift 2 ;;
@@ -34,6 +40,8 @@ while [ $# -gt 0 ]; do
     --type) TYPE=$2; shift 2 ;;
     --now) NOW=$2; shift 2 ;;
     --credit-funded) CREDIT=$2; shift 2 ;;
+    --relaunch-of) RELAUNCH_OF=$2; shift 2 ;;
+    --old-dest) OLD_DEST=$2; shift 2 ;;
     --yes) YES=1; shift ;;
     *) die "unknown option $1" ;;
   esac
@@ -45,6 +53,19 @@ case "$CREDIT" in ''|yes|no) ;; *) die "--credit-funded is yes or no" ;; esac
 args=(launch-spec "$HOST" "$LAUNCH" --place "$PLACE")
 [ -n "$TYPE" ] && args+=(--type "$TYPE")
 [ -n "$NOW" ] && args+=(--now "$NOW")
+ORDINAL=1 RELAUNCH_LEASE=""
+[ -z "$OLD_DEST" ] || [ -n "$RELAUNCH_OF" ] || die "--old-dest belongs to --relaunch-of"
+if [ -n "$RELAUNCH_OF" ]; then
+  # before anything else, so that a dry run shows the refusal too: the old instance is confirmed gone, its data is copied and intact, and this is the first relaunch
+  REL=$(plan check-relaunch "$HOST" "$LAUNCH" --old "$RELAUNCH_OF" --ledger "$P3_LEDGER_DIR" ${OLD_DEST:+--old-dest "$OLD_DEST"}) || exit 2
+  ORDINAL=$(echo "$REL" | jq -r .ordinal); RELAUNCH_LEASE=$(echo "$REL" | jq -r .relaunch_of)
+  args+=(--ordinal "$ORDINAL")
+  echo "relaunch $ORDINAL of $RELAUNCH_LEASE: its copy verifies ($(echo "$REL" | jq -r .old_files_verified) files in $(echo "$REL" | jq -r .old_dest)); the new launch's data goes to $(echo "$REL" | jq -r .new_dest); the stopped launch is reported, never pooled"
+elif [ -d "$P3_LEDGER_DIR" ]; then
+  # a plain launch of a (host, launch) that has a record already: the driver writes into rerun/paper3/HOST/launchN, which is the old launch's directory unless it is moved or --dest is used
+  OTHERS=$(for f in "$P3_LEDGER_DIR"/p3-*.json; do [ -f "$f" ] && jq -r --arg h "$HOST" --arg l "$LAUNCH" 'select(.host == $h and (.launch|tostring) == $l) | .lease_name' "$f" 2>/dev/null; done)
+  [ -z "$OTHERS" ] || echo "NOTE: the ledger already holds a record of $HOST launch $LAUNCH ($(echo "$OTHERS" | tr '\n' ' ')). If that launch ran rounds and this replaces it, use --relaunch-of (own lease token, own directory, one relaunch); otherwise ignore this note."
+fi
 SPEC=$(plan "${args[@]}") || exit 2
 PROVIDER=$(echo "$SPEC" | jq -r .provider)
 LEASE=$(echo "$SPEC" | jq -r .lease_name)
@@ -106,7 +127,8 @@ jq -n --arg host "$HOST" --argjson launch "$LAUNCH" --arg provider "$PROVIDER" -
   --argjson disk_requested "$(echo "$SPEC" | jq -c '.boot_disk // null')" --argjson disk_actual "${DISK_ACTUAL:-null}" \
   --arg termination_action "$(echo "$SPEC" | jq -r '.termination_action // empty')" \
   --argjson access "$(echo "$SPEC" | jq -c '.access // null')" \
-  '{format:1, host:$host, launch:$launch, provider:$provider, instance_type:$type, region:(if $region=="" then null else $region end),
+  --argjson ordinal "$ORDINAL" --arg relaunch_of "$RELAUNCH_LEASE" \
+  '{format:1, host:$host, launch:$launch, ordinal:$ordinal, relaunch_of:(if $relaunch_of=="" then null else $relaunch_of end), provider:$provider, instance_type:$type, region:(if $region=="" then null else $region end),
     zone:(if $zone=="" then null else $zone end), instance_id:$id, lease_name:$lease, launch_utc:$launch_utc,
     launch_utc_basis:"operator clock when the provider call returned", provider_created:(if $created=="" then null else $created end),
     expires_utc:$expires, lease_hours:$hours, price_usd_h:($price|tonumber), price_snapshot_utc:$snap, credit_funded:$credit,
@@ -123,6 +145,6 @@ WPID=$!
 disown
 record_set "$RECORD" watchdog_pid "$WPID" number
 if [ -z "${P3_NO_CAFFEINATE:-}" ] && command -v caffeinate >/dev/null 2>&1; then caffeinate -i -s -w "$WPID" >/dev/null 2>&1 & disown; fi
-ledger_append launch "$RECORD"
+ledger_append launch "$RECORD" "${RELAUNCH_LEASE:+relaunch $ORDINAL of $RELAUNCH_LEASE}"
 echo "watchdog pid $WPID armed for $SECONDS_TO_EXPIRY s of wall-clock time (log $P3_LEDGER_DIR/watchdog-$LEASE.log)"
 echo "next: p3_driver.sh $RECORD"

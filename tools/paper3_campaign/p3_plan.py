@@ -7,8 +7,8 @@ the runbook, the launcher, the driver and the tests cannot drift apart. The shel
 
   p3_plan.py table [--json]                           wall time and cost per host class at P-NEW against the ~$1,364 core estimate
   p3_plan.py timeline [--json]                        the recommended order and overlap of the launches
-  p3_plan.py lease HOST LAUNCH [--now ISO]            lease name, expiry and provider-side limit of one launch
-  p3_plan.py launch-spec HOST LAUNCH --place P        the launch request (Lambda API body or gcloud command) as JSON; the environment may set
+  p3_plan.py lease HOST LAUNCH [--now ISO] [--ordinal N]   lease name, expiry and provider-side limit of one launch (ordinal 2: the relaunch, lease token lNr2)
+  p3_plan.py launch-spec HOST LAUNCH --place P [--ordinal N]   the launch request (Lambda API body or gcloud command) as JSON; the environment may set
                                                       P3_LAMBDA_SSH_KEY_NAME, P3_GCP_TERMINATION_ACTION (STOP|DELETE), P3_GCP_OS_LOGIN (1),
                                                       P3_GCP_EXTRA_FLAGS (docs/PAPER3_CONTROLLER.md)
   p3_plan.py command HOST LAUNCH [--stop-after K]     the run_campaign.py command line of one launch (--record FILE for real values)
@@ -18,6 +18,9 @@ the runbook, the launcher, the driver and the tests cannot drift apart. The shel
   p3_plan.py root|budget HOST LAUNCH                  the campaign root (relative to ~/study); the driver's poll budgets
   p3_plan.py check-lock                               the lock evidence run_campaign.py will check on every host, checked on this checkout
   p3_plan.py check-allowlist --old SHA --new SHA      a paper3_hosts.json change may only fill c-gcp exclusive_use.allowed_scheduled
+  p3_plan.py allowlist-review --capture FILE --commit SHA   the items of a C-GCP exclusivity capture that the allow-list committed at SHA lacks (the short review of launch 2 and of a relaunch)
+  p3_plan.py dest HOST LAUNCH [--ordinal N]           the launch directory under the repository, rerun/paper3/HOST/launchN or launchN-r2 for a relaunch
+  p3_plan.py check-relaunch HOST LAUNCH --old RECORD  whether (HOST, LAUNCH) may be relaunched once: its record is terminated, its copy verifies, nothing was relaunched before
   p3_plan.py docs --check|--write FILE                the generated blocks of the runbook
 """
 from __future__ import annotations
@@ -63,6 +66,7 @@ GCP_OWN_FLAGS = ("--zone", "--machine-type", "--image-family", "--image-project"
 GCP_NO_IDENTITY = ("--no-service-account", "--no-scopes")
 GCP_IMAGE = ("ubuntu-2404-lts-amd64", "ubuntu-os-cloud")
 GCP_DISK = {"size": "800GB", "type": "hyperdisk-balanced", "iops": 16000, "throughput": 1000}   # design 2.6: 800 GiB, 16k IOPS, 1,000 MBps
+ORDINALS = (1, 2)                    # a launch runs once and is relaunched at most once (amendment A1 item 2: a replacement after a technical failure; the stopped rounds are reported, never pooled)
 ENGINE_TIMEOUT_S = 7200              # Paper 1 passed it on every host (REPRODUCE.md); the Paper 3 design only says "no timeout"
 C_GCP_PIN = "0-12,96-108"            # 13 physical cores + SMT siblings on socket 0, NUMA node 0 (design 3.1, probe P5)
 PAUSE_H = 0.12                       # per round: pack, copy, verify, restart (an assumption, not in the design's estimate)
@@ -200,11 +204,27 @@ def utc(text: str | None) -> datetime:
     return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
 
 
-def lease_name(plan: Plan, launch: str, expires: datetime) -> str:
+def launch_token(launch: str, ordinal: int = 1) -> str:
+    """l1 for the first instance of launch 1, l1r2 for its relaunch: the lease, the label and the host's instance name all carry it."""
+    return f"l{launch}" + ("" if ordinal == 1 else f"r{ordinal}")
+
+
+def check_ordinal(ordinal: int) -> int:
+    if ordinal not in ORDINALS:
+        raise PlanError(f"ordinal {ordinal!r}: a launch is run once and relaunched at most once, expected one of {ORDINALS}")
+    return ordinal
+
+
+def launch_dir_name(launch: str, ordinal: int = 1) -> str:
+    """The directory of a launch under rerun/paper3/HOST/ on the operator's machine: launch1, and launch1-r2 for its relaunch (never the first launch's directory)."""
+    return f"launch{launch}" + ("" if check_ordinal(ordinal) == 1 else f"-r{ordinal}")
+
+
+def lease_name(plan: Plan, launch: str, expires: datetime, ordinal: int = 1) -> str:
     stamp = expires.strftime("%Y%m%dT%H%MZ")
     if plan.provider == "gcp":
         stamp = stamp.lower()            # GCP names and label values must be lower case (docs/PAPER3_INFRA.md section 5)
-    name = f"p3-campaign-{plan.token}-l{launch}-owner-{OWNER}-expires-{stamp}"
+    name = f"p3-campaign-{plan.token}-{launch_token(launch, ordinal)}-owner-{OWNER}-expires-{stamp}"
     status = probe_power.lease_status(name, now=expires - timedelta(hours=1))
     if not status["valid"]:
         raise PlanError(f"lease name {name!r} does not satisfy the launch convention: {status['problem']}")
@@ -220,10 +240,11 @@ def check_launch(host: str, launch: str) -> Plan:
     return plan
 
 
-def lease_spec(host: str, launch: str, now: datetime) -> dict:
+def lease_spec(host: str, launch: str, now: datetime, ordinal: int = 1) -> dict:
     plan = check_launch(host, launch)
+    check_ordinal(ordinal)
     expires = now + timedelta(hours=plan.lease_h)
-    out = {"host": host, "launch": int(launch), "lease_name": lease_name(plan, launch, expires), "now_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    out = {"host": host, "launch": int(launch), "ordinal": ordinal, "lease_name": lease_name(plan, launch, expires, ordinal), "now_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
            "expires_utc": expires.strftime("%Y-%m-%dT%H:%M:%SZ"), "lease_hours": plan.lease_h, "launch_hours": round(plan.launch_h, 2),
            "exposure_at_lease_usd": round(plan.lease_h * plan.price, 2)}
     if plan.provider == "gcp":
@@ -252,7 +273,7 @@ def check_extra_flags(flags) -> list:
 
 
 def launch_spec(host: str, launch: str, place: str, now: datetime, *, instance_type: str | None = None,
-                termination_action: str = "STOP", extra_flags=(), ssh_key_name: str = LAMBDA_SSH_KEY_NAME, os_login: bool = False) -> dict:
+                termination_action: str = "STOP", extra_flags=(), ssh_key_name: str = LAMBDA_SSH_KEY_NAME, os_login: bool = False, ordinal: int = 1) -> dict:
     """The request of one launch. The keyword options default to the runbook's values (so the generated blocks never depend on the
     environment); the command line reads P3_LAMBDA_SSH_KEY_NAME, P3_GCP_TERMINATION_ACTION, P3_GCP_OS_LOGIN and P3_GCP_EXTRA_FLAGS into them."""
     plan = check_launch(host, launch)
@@ -263,7 +284,7 @@ def launch_spec(host: str, launch: str, place: str, now: datetime, *, instance_t
         raise PlanError(f"{ssh_key_name!r} does not look like a Lambda SSH key name")
     if host == "b200":
         check_admitted(host)
-    spec = lease_spec(host, launch, now)
+    spec = lease_spec(host, launch, now, ordinal)
     itype = instance_type or plan.instance_type
     if itype != plan.instance_type and itype not in VM_TYPES.get(host, ()):
         raise PlanError(f"{itype!r} is not an instance type of {host} (allowed: {', '.join((plan.instance_type,) + VM_TYPES.get(host, ()))})")
@@ -278,7 +299,7 @@ def launch_spec(host: str, launch: str, place: str, now: datetime, *, instance_t
     if not re.fullmatch(r"(us-east4|us-central1)-[a-f]", place):
         raise PlanError(f"zone {place!r}: only us-east4 and us-central1 are in the frozen P-NEW GCP table (design 2.6); another zone needs "
                         "its price added by a section 12 amendment first")
-    labels = {"project": "paper3-energy", "owner": OWNER, "purpose": "campaign", "host": plan.token, "launch": f"l{launch}",
+    labels = {"project": "paper3-energy", "owner": OWNER, "purpose": "campaign", "host": plan.token, "launch": launch_token(launch, ordinal),
               "expires": spec["lease_name"].rsplit("-", 1)[1]}
     command = ["gcloud", "compute", "instances", "create", spec["lease_name"], f"--zone={place}", f"--machine-type={itype}",
                f"--image-family={GCP_IMAGE[0]}", f"--image-project={GCP_IMAGE[1]}", f"--boot-disk-size={GCP_DISK['size']}",
@@ -571,6 +592,89 @@ def check_allowlist_change(old: str, new: str) -> dict:
     return {"old": old, "new": new, "changed_files": changed, "allowed_scheduled": new_list, "filled_now": old_list is None}
 
 
+def allowlist_review(capture: Path, commit: str) -> dict:
+    """The short review of C-GCP launch 2 or of a relaunch (docs/PAPER3_RUNBOOK.md section 6): the items of a host's exclusivity capture (rerun/bringup-artifacts/
+    exclusivity-after.json, key allow_list_items) that the allow-list committed at `commit` does not contain. Nothing printed there means the capture holds nothing new; an item
+    that is printed is masked on the host before round 1, never added to the list (the guard refuses a changed list). Reads two files; decides nothing."""
+    try:
+        items = json.loads(Path(capture).read_text())["allow_list_items"]
+    except (OSError, ValueError, KeyError) as exc:
+        raise PlanError(f"{capture}: cannot read allow_list_items of the capture ({exc.__class__.__name__}: {exc})") from None
+    if not isinstance(items, list) or not all(isinstance(i, str) for i in items):
+        raise PlanError(f"{capture}: allow_list_items is not a list of strings")
+    allowed = json.loads(git_show(commit, "paper3_hosts.json"))["hosts"]["c-gcp"]["exclusive_use"].get("allowed_scheduled")
+    if not isinstance(allowed, list):
+        raise PlanError(f"the commit {commit} holds no allow-list for c-gcp yet (allowed_scheduled is {allowed!r}): this is the first review, not the short one")
+    return {"commit": commit, "capture_items": len(items), "allow_list_items": len(allowed), "not_in_list": sorted(set(items) - set(allowed))}
+
+
+# ---- relaunch ------------------------------------------------------------------------------------------------------------------------
+def ledger_records(ledger: Path) -> list:
+    """Every launch record (<lease>.json) in the operator's ledger directory; ledger.jsonl and the watchdog logs are not records."""
+    out = []
+    for path in sorted(Path(ledger).glob("p3-*.json")):
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(record, dict) and record.get("lease_name"):
+            out.append((path, record))
+    return out
+
+
+def verify_launch_copy(directory: Path) -> int:
+    """LAUNCH-SHA256SUMS of a copied launch directory (written by the driver after the last file arrived), checked here the way `shasum -a 256 -c` does: every listed
+    file exists and has the listed hash. Returns the number of files; PlanError for a missing manifest or a damaged copy."""
+    import hashlib
+    manifest = Path(directory) / "LAUNCH-SHA256SUMS"
+    if not manifest.is_file():
+        raise PlanError(f"{directory} has no LAUNCH-SHA256SUMS: the launch's copy is not finished (the driver writes it last, after teardown); a launch is replaced only after its data is safe here")
+    lines = [line for line in manifest.read_text().splitlines() if line.strip()]
+    if not lines:
+        raise PlanError(f"{manifest} is empty")
+    bad = []
+    for line in lines:
+        digest, _, name = line.partition("  ")
+        target = Path(directory) / name.strip()
+        try:
+            actual = hashlib.sha256(target.read_bytes()).hexdigest()
+        except OSError:
+            bad.append(f"{name.strip()} (missing)")
+            continue
+        if actual != digest.strip():
+            bad.append(f"{name.strip()} (differs)")
+    if bad:
+        raise PlanError(f"{directory} does not match its LAUNCH-SHA256SUMS: {', '.join(bad[:4])}{' ...' if len(bad) > 4 else ''}: copy the launch again before relaunching")
+    return len(lines)
+
+
+def check_relaunch(host: str, launch: str, old: str, ledger: Path, old_dest: Path | None = None) -> dict:
+    """May (host, launch) be relaunched now? Refused unless the old launch's record says its instance is confirmed terminated and its directory holds a copied, intact
+    LAUNCH-SHA256SUMS, and unless nothing in the ledger is a relaunch of this (host, launch) already. Returns what the launcher records: ordinal 2 and the old lease."""
+    check_launch(host, launch)
+    path = Path(old)
+    if not path.is_file():
+        path = Path(ledger) / (old if old.endswith(".json") else f"{old}.json")
+    if not path.is_file():
+        raise PlanError(f"no launch record {old!r} (a path, or a lease name in {ledger})")
+    record = json.loads(path.read_text())
+    if record.get("host") != host or str(record.get("launch")) != str(launch):
+        raise PlanError(f"{path.name} is the record of {record.get('host')} launch {record.get('launch')}, not of {host} launch {launch}")
+    old_ordinal = int(record.get("ordinal") or 1)
+    if old_ordinal >= max(ORDINALS):
+        raise PlanError(f"{record['lease_name']} is already the relaunch of {record.get('relaunch_of')}: a launch is relaunched once (amendment A1 item 2)")
+    if not record.get("terminate_confirmed_utc"):
+        raise PlanError(f"{record['lease_name']} has no terminate_confirmed_utc: its instance may still be billing and its data may not be copied (p3_teardown.sh {path} --yes first)")
+    for other_path, other in ledger_records(ledger):
+        if other.get("host") == host and str(other.get("launch")) == str(launch) and int(other.get("ordinal") or 1) > old_ordinal:
+            raise PlanError(f"{other['lease_name']} (ordinal {other.get('ordinal')}) is already a relaunch of {host} launch {launch}: a launch is relaunched once (amendment A1 item 2)")
+    directory = Path(old_dest) if old_dest else REPO / "rerun" / "paper3" / host / launch_dir_name(launch, old_ordinal)
+    count = verify_launch_copy(directory)
+    ordinal = old_ordinal + 1
+    return {"host": host, "launch": int(launch), "ordinal": ordinal, "relaunch_of": record["lease_name"], "old_record": str(path), "old_dest": str(directory),
+            "old_files_verified": count, "new_dest": str(REPO / "rerun" / "paper3" / host / launch_dir_name(launch, ordinal)), "root": root_rel(host, launch)}
+
+
 def check_lock() -> dict:
     """What run_campaign.py will verify on every host before its first session (design 7.1), checked here on this checkout first."""
     def git(*args):
@@ -649,10 +753,11 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ("table", "timeline"):
         sub.add_parser(name).add_argument("--json", action="store_true")
-    for name in ("lease", "launch-spec", "command", "bringup", "stage-script", "rounds", "root", "budget"):
+    for name in ("lease", "launch-spec", "command", "bringup", "stage-script", "rounds", "root", "budget", "dest"):
         p = sub.add_parser(name)
         p.add_argument("host")
         p.add_argument("launch")
+        p.add_argument("--ordinal", type=int, default=1)
         p.add_argument("--now")
         p.add_argument("--place")
         p.add_argument("--record")
@@ -663,6 +768,15 @@ def main(argv=None) -> int:
     p = sub.add_parser("check-allowlist")
     p.add_argument("--old", required=True)
     p.add_argument("--new", required=True)
+    p = sub.add_parser("allowlist-review")
+    p.add_argument("--capture", required=True, type=Path)
+    p.add_argument("--commit", required=True)
+    p = sub.add_parser("check-relaunch")
+    p.add_argument("host")
+    p.add_argument("launch")
+    p.add_argument("--old", required=True)
+    p.add_argument("--ledger", type=Path, default=Path(os.environ.get("P3_LEDGER_DIR") or Path.home() / "p3ledger"))
+    p.add_argument("--old-dest", type=Path)
     p = sub.add_parser("docs")
     p.add_argument("file", type=Path)
     group = p.add_mutually_exclusive_group(required=True)
@@ -675,7 +789,7 @@ def main(argv=None) -> int:
         elif args.cmd == "timeline":
             print(json.dumps(timeline(), indent=2) if args.json else render("timeline", []))
         elif args.cmd == "lease":
-            print(json.dumps(lease_spec(args.host, args.launch, utc(args.now)), indent=2))
+            print(json.dumps(lease_spec(args.host, args.launch, utc(args.now), args.ordinal), indent=2))
         elif args.cmd == "launch-spec":
             if not args.place:
                 parser.error("launch-spec needs --place (a Lambda region or a GCP zone)")
@@ -684,7 +798,7 @@ def main(argv=None) -> int:
                                          termination_action=env.get("P3_GCP_TERMINATION_ACTION") or "STOP",
                                          extra_flags=shlex.split(env.get("P3_GCP_EXTRA_FLAGS", "")),
                                          ssh_key_name=env.get("P3_LAMBDA_SSH_KEY_NAME") or LAMBDA_SSH_KEY_NAME,
-                                         os_login=env.get("P3_GCP_OS_LOGIN", "") not in ("", "0")), indent=2))
+                                         os_login=env.get("P3_GCP_OS_LOGIN", "") not in ("", "0"), ordinal=args.ordinal), indent=2))
         elif args.cmd == "command":
             print(words(campaign_args(args.host, args.launch, read_record(args.record), args.stop_after)))
         elif args.cmd == "bringup":
@@ -705,6 +819,13 @@ def main(argv=None) -> int:
             print(json.dumps(check_lock(), indent=2))
         elif args.cmd == "check-allowlist":
             print(json.dumps(check_allowlist_change(args.old, args.new), indent=2))
+        elif args.cmd == "allowlist-review":
+            print(json.dumps(allowlist_review(args.capture, args.commit), indent=2))
+        elif args.cmd == "dest":
+            check_launch(args.host, args.launch)
+            print(f"rerun/paper3/{args.host}/{launch_dir_name(args.launch, args.ordinal)}")
+        elif args.cmd == "check-relaunch":
+            print(json.dumps(check_relaunch(args.host, args.launch, args.old, args.ledger, args.old_dest), indent=2))
         elif args.cmd == "docs":
             stale = docs(args.file, args.write)
             if stale and args.check:

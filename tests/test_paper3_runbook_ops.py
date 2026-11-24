@@ -722,6 +722,10 @@ elif cmd == "rounds":
     print("\\n".join(rounds))
 elif cmd == "check-allowlist":
     print(json.dumps({"filled_now": True}))
+elif cmd == "allowlist-review":
+    if os.environ.get("FAKE_NO_LIST"):
+        sys.exit("fake plan: the commit holds no allow-list yet")
+    print(json.dumps({"capture_items": 3, "allow_list_items": 3, "not_in_list": json.loads(os.environ.get("FAKE_NEW_ITEMS", "[]"))}))
 elif cmd == "bringup":
     print(BRINGUP, end="")
 elif cmd == "stage-script":

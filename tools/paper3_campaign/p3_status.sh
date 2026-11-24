@@ -17,7 +17,7 @@ RECORD=${1:-}
 [ -f "$RECORD" ] || { echo "usage: $0 RECORD.json" >&2; exit 2; }
 HOST=$(record_get "$RECORD" host); LAUNCH=$(record_get "$RECORD" launch)
 ROOT_REL=$(plan root "$HOST" "$LAUNCH") || exit 2
-echo "lease $(record_get "$RECORD" lease_name), expires $(record_get "$RECORD" expires_utc), terminated at: $(record_get "$RECORD" terminate_confirmed_utc)"
+echo "lease $(record_get "$RECORD" lease_name)$([ "$(record_get "$RECORD" ordinal)" -gt 1 ] 2>/dev/null && echo " (relaunch $(record_get "$RECORD" ordinal) of $(record_get "$RECORD" relaunch_of))"), expires $(record_get "$RECORD" expires_utc), terminated at: $(record_get "$RECORD" terminate_confirmed_utc)"
 p3_transport "$RECORD" || exit 1
 remote='cd "$HOME/p3out" 2>/dev/null && for f in *.started; do [ -d "$f" ] || continue; s=${f%.started}; if [ -f "$s.rc" ]; then echo "stage $s rc=$(cat "$s.rc")"; else echo "stage $s running"; fi; done;
 q="$HOME/study/tools/paper3_campaign/p3_qa_view.py"; if [ -f "$q" ]; then python3 "$q" "$HOME/study/'"$ROOT_REL"'"; else echo "(no QA view on the host yet)"; fi'

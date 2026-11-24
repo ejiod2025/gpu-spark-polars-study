@@ -10,7 +10,7 @@
 #   RECORD    the launch record (~/p3ledger/<lease>.json)
 #   LOGNAME   a file name from .held-logs, for example bringup-a1.log or campaign-r2-a1.log (no path)
 #   --tail N  only the last N lines (still logged as an opening)
-#   --dest    the launch directory (default: the driver's, rerun/paper3/HOST/launchN under the repository)
+#   --dest    the launch directory (default: the driver's, rerun/paper3/HOST/launchN under the repository; launchN-r2 for a relaunch)
 #
 # Exit: 0 opened, 2 usage or refused (not held, not a log name, no such file).
 set -uo pipefail
@@ -36,7 +36,7 @@ done
 [[ "$NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.log$ ]] || die "'$NAME' is not a log file name (a bare name such as bringup-a1.log, no path)"
 HOST=$(record_get "$RECORD" host); LAUNCH=$(record_get "$RECORD" launch); LEASE=$(record_get "$RECORD" lease_name)
 [ -n "$HOST" ] && [ -n "$LAUNCH" ] && [ -n "$LEASE" ] || die "$RECORD is not a launch record"
-DEST=${DEST:-$REPO/rerun/paper3/$HOST/launch$LAUNCH}
+DEST=${DEST:-$REPO/rerun/paper3/$HOST/$(p3_launch_dir "$RECORD")}
 if [ ! -f "$DEST/.held-logs" ] || ! grep -qxF -- "$NAME" "$DEST/.held-logs"; then
   held=$( [ -f "$DEST/.held-logs" ] && sort -u "$DEST/.held-logs" | tr '\n' ' ' )
   die "$NAME is not the log of a stage that failed and held the driver: it stays closed until the campaign ends (design 7.3). Held logs of this launch: ${held:-none}"

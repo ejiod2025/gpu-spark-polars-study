@@ -42,6 +42,11 @@
 # --stop-after-bringup: stop (exit 11, host running) once the bring-up is copied and verified, for a step a person must do before round 1
 # (the harness smoke test on the pathfinder host); run the driver again without it to continue.
 #
+# A relaunch (amendment A1 item 2; p3_launch.sh --relaunch-of) has a record with ordinal 2: the same campaign root and launch number on its new host, its own directory
+# rerun/paper3/HOST/launchN-r2 (p3_launch_dir), never the first launch's. A directory that already holds another lease's copy (a .lease marker, or a launch-record.json) is
+# refused, so nothing copied from the stopped launch can be overwritten. On C-GCP the allow-list review applies to the relaunch as it does to launch 2: exit 10 until
+# --config-commit, and the log carries the short review (what the new capture holds that the committed list lacks).
+#
 # Exit codes: 0 done and torn down; 10 C-GCP allow-list review needed; 11 stopped after bring-up on request; 20 held for a person (host kept running; the message says why);
 # 21 the provider no longer lists the host; 30 the campaign stopped by its own rule (a round failed its gates twice): everything was
 # copied, the host was torn down unless --on-stop hold; 31 the host's GPU is not ready (the bring-up's CUDA gate failed, e.g. CUDA error 802): an infrastructure failure
@@ -81,8 +86,16 @@ ROOT_REL=$(plan root "$HOST" "$LAUNCH") || exit 2
 BUDGET=$(plan budget "$HOST" "$LAUNCH") || exit 2
 BRINGUP_TIMEOUT=${P3_BRINGUP_TIMEOUT:-$(echo "$BUDGET" | jq -r .bringup_s)}
 ROUND_TIMEOUT=${P3_ROUND_TIMEOUT:-$(echo "$BUDGET" | jq -r .round_s)}
-DEST=${DEST:-$REPO/rerun/paper3/$HOST/launch$LAUNCH}
+DEST=${DEST:-$REPO/rerun/paper3/$HOST/$(p3_launch_dir "$RECORD")}
 mkdir -p "$DEST/.verified" "$DEST/.stage-scripts" "$DEST/.incoming" || die "cannot create $DEST"
+# a directory is one lease's: another lease's copied launch (a relaunch of a stopped launch, or a launch that was run again) is never written into
+if [ -f "$DEST/launch-record.json" ] && [ "$(jq -r '.lease_name // empty' "$DEST/launch-record.json" 2>/dev/null)" != "$LEASE" ]; then
+  die "$DEST already holds the copied launch of $(jq -r '.lease_name // "another lease"' "$DEST/launch-record.json" 2>/dev/null), not of $LEASE: a relaunch has its own directory (rerun/paper3/$HOST/launch$LAUNCH-r2), a first launch is never overwritten"
+fi
+if [ -f "$DEST/.lease" ] && [ "$(cat "$DEST/.lease")" != "$LEASE" ]; then
+  die "$DEST belongs to lease $(cat "$DEST/.lease"), not to $LEASE: use the directory of this lease"
+fi
+echo "$LEASE" > "$DEST/.lease"
 # one driver per launch: two would poll, pack and tear down the same host
 if [ -f "$DEST/.driver.pid" ] && kill -0 "$(cat "$DEST/.driver.pid" 2>/dev/null)" 2>/dev/null; then die "another driver (pid $(cat "$DEST/.driver.pid")) is running for this launch"; fi
 echo $$ > "$DEST/.driver.pid"
@@ -301,8 +314,16 @@ fi
 # ---- 2. C-GCP: the G12 allow-list is reviewed by a person, once, before the formal start -------------------------------------
 if [ "$HOST" = c-gcp ] && [ ! -f "$DEST/.verified/config" ]; then
   if [ -z "$CONFIG_COMMIT" ]; then
-    log "REVIEW REQUIRED: read $DEST/rerun/bringup-artifacts/exclusivity-after.json (and -before.json), decide the allow-list, commit it to paper3_hosts.json"
-    log "(and append the section 12 amendment), push, then run: p3_driver.sh $RECORD --config-commit <that commit>. See docs/PAPER3_RUNBOOK.md, 'C-GCP allow-list'."
+    CAMPAIGN_COMMIT=$(record_get "$RECORD" campaign_commit)
+    if review=$(plan allowlist-review --capture "$DEST/rerun/bringup-artifacts/exclusivity-after.json" --commit "$CAMPAIGN_COMMIT" 2>/dev/null); then
+      # the list is committed already (launch 2, a relaunch): the review is the short one, and the driver has made the comparison; a person still decides
+      new_items=$(printf '%s' "$review" | jq -r '.not_in_list | if length == 0 then "none" else join(", ") end')
+      log "REVIEW REQUIRED (the allow-list is committed at $CAMPAIGN_COMMIT; short review): the capture $DEST/rerun/bringup-artifacts/exclusivity-after.json holds $(printf '%s' "$review" | jq -r .capture_items) item(s); not in the committed list: $new_items"
+      log "none: run p3_driver.sh $RECORD --config-commit $CAMPAIGN_COMMIT. Any item named: mask it on the host before round 1 and never add it to the list (docs/PAPER3_RUNBOOK.md section 6, 'Launch 2 of C-GCP, or a relaunch')."
+    else
+      log "REVIEW REQUIRED: read $DEST/rerun/bringup-artifacts/exclusivity-after.json (and -before.json), decide the allow-list, commit it to paper3_hosts.json"
+      log "(and append the section 12 amendment), push, then run: p3_driver.sh $RECORD --config-commit <that commit>. See docs/PAPER3_RUNBOOK.md, 'C-GCP allow-list'."
+    fi
     exit 10
   fi
   plan check-allowlist --old "$(record_get "$RECORD" campaign_commit)" --new "$CONFIG_COMMIT" >> "$RUN_LOG" 2>&1 || die "the change from the campaign commit to $CONFIG_COMMIT is not just the allow-list (see the log)"

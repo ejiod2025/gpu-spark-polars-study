@@ -302,6 +302,34 @@ gcloud compute disks list --filter='name~^p3-campaign- AND -users:*'      # a di
 | 31 | **the host's GPU is not ready** (the bring-up's CUDA gate failed after its retries, e.g. CUDA error 802): an infrastructure failure before round 1 | the host was torn down and confirmed; the record and the ledger say why; no round ran, so launch again (a fresh `p3_launch.sh`, another region if the first has no capacity) |
 | 2 | usage or a refused input | read the message; nothing was started |
 
+**Step 6, relaunching a launch once (amendment A1 item 2).** A launch that stopped by its own rule or was lost leaves its square incomplete (design 3.2). When the lead has decided, in a
+dated section 12 amendment, that it is launched once more, the replacement is an instance of its own with the same campaign root and launch number on its new host
+(`run_campaign.py --root rerun/paper3-HOST-lN --paper3-launch N`), and everything on this machine keeps the first launch apart from it:
+
+| | first launch | its relaunch |
+|---|---|---|
+| lease (instance name, `launch` label) | `p3-campaign-cvm-l1-owner-ejiod-expires-...` | `p3-campaign-cvm-l1r2-owner-ejiod-expires-...` |
+| launch record | `ordinal` absent (1), `relaunch_of` absent | `ordinal` 2, `relaunch_of` = the old lease |
+| local directory | `rerun/paper3/HOST/launchN` | `rerun/paper3/HOST/launchN-r2` (the driver derives it from the record) |
+| ledger lines | as before | the same lines with `ordinal` and `relaunch_of`; the launch line has the reason `relaunch 2 of <old lease>` |
+| analysis label | `HOST-lN` | `HOST-lNr2` (`paper3_analysis/tree.py` finds the root by its `campaign.json` and numbers the instances of one launch by `created_utc`) |
+
+```bash
+tools/paper3_campaign/p3_price_snapshot.sh --out rerun/paper3/snapshots/$(date -u +%Y%m%dT%H%MZ)-HOST-lNr2 --yes
+tools/paper3_campaign/p3_launch.sh HOST N --place PLACE --commit CAMPAIGN --price-snapshot rerun/paper3/snapshots/... --credit-funded yes|no \
+    --relaunch-of ~/p3ledger/<old lease>.json                 # dry run: prints the request and what it checked; add --yes to launch
+tools/paper3_campaign/p3_driver.sh ~/p3ledger/<new lease>.json     # in the background, as for any launch
+```
+`--relaunch-of` is refused, also in the dry run and before anything is launched, unless the old record has `terminate_confirmed_utc` (the old instance no longer bills) **and**
+`rerun/paper3/HOST/launchN/LAUNCH-SHA256SUMS` exists and every file it lists is there with its hash (the old data is copied and intact; `--old-dest DIR` if it is somewhere else),
+and it is refused when the ledger already holds a relaunch of that HOST and N: **a launch is relaunched once** (a second one is a new decision and a new tool change). CAMPAIGN is the
+commit the replacement is to run: after a defect fixed in the tools it is the commit that holds the fix and its amendment; it must be on `origin` and descend from the lock commit,
+as for any launch. A plain `p3_launch.sh` of a launch that already has a record prints a note pointing at `--relaunch-of`, and a driver never writes into a directory that holds another
+lease's copy (a `.lease` marker, or a `launch-record.json` of another lease): the first launch's data cannot be overwritten by a second driver. `p3_archive.sh HOST N-r2` and
+`p3_ctl.sh pull HOST N-r2` take the relaunch's directory name; `p3_status.sh` says "relaunch 2 of ...". The watchdog, the reaper, the teardown and the ledger work on the record and
+the lease name and need nothing else. **C-GCP:** the allow-list review applies to the relaunch as to launch 2: the driver stops with exit 10 until `--config-commit`, and its log carries the
+short comparison of section 6 (what the new capture holds that the committed list lacks), so the person has the answer in front of them; the allow-list itself is never changed.
+
 ## 5. The host classes
 
 The bring-up commands are generated (`p3_plan.py bringup HOST N --record RECORD` prints the whole script); the lines that differ by class
@@ -740,7 +768,8 @@ jq -r '.allow_list_items[]' $D/exclusivity-after.json | sort > /tmp/capture.txt
 jq -r '.hosts["c-gcp"].exclusive_use.allowed_scheduled[]' paper3_hosts.json | sort > /tmp/allowed.txt
 comm -23 /tmp/capture.txt /tmp/allowed.txt          # must print nothing
 ```
-Nothing printed: continue with `p3_driver.sh ~/p3ledger/<lease>.json --config-commit <the launch's own campaign commit>` (the guard accepts an unchanged filled list, `filled_now: false`; the host is
+The driver makes this comparison itself when it stops with exit 10 and logs the result (`REVIEW REQUIRED (the allow-list is committed ...; short review): ... not in the committed list: none`;
+`p3_plan.py allowlist-review --capture FILE --commit SHA` is the same thing by hand, for the commit the record names); it still stops, and a person still decides. Nothing printed: continue with `p3_driver.sh ~/p3ledger/<lease>.json --config-commit <the launch's own campaign commit>` (the guard accepts an unchanged filled list, `filled_now: false`; the host is
 checked out at that same commit, which is a no-op). An item printed: mask it on the host before round 1 (and add its unit to `C_GCP_MASK_UNITS` for the launches after), **never add it to the list** (the
 guard refuses a changed value; G12 would fail the round). The rest of the section does not apply.
 
@@ -911,8 +940,8 @@ The author (or the lead) must decide before the first launch:
 
 * `--cost-credit-funded` for GCP (`yes` or `no`): the funding statement names Lambda and AWS credits only. Lambda defaults to `yes`.
 * **Relaunching a square.** A launch that stops by rule or is lost leaves its square incomplete (design 3.2: confirmatory estimates use complete
-  squares only; "no round is added or dropped for what its values look like"). The runbook does not relaunch. If the lead wants a replacement
-  launch for an infrastructure loss that happened before anyone looked at values, record the decision in section 12 first.
+  squares only; "no round is added or dropped for what its values look like"). The tools relaunch a launch once, on the lead's decision (section 4, step 6); the decision is a dated
+  section 12 amendment first (A1 item 2: a replacement after a technical failure, the stopped rounds reported and never pooled). Nothing relaunches by itself.
 * **When capacity never allows a second launch.** `run_campaign.py --paper3-launch both` runs all eight rounds on one instance (design 3.2: separate
   launches "where capacity allows"). The tools here handle launches 1 and 2 only; supporting `both` means a third root name and a longer lease in the
   planner. Not done; the lead decides when a second launch has been impossible for too long.
@@ -929,10 +958,10 @@ All under `tools/paper3_campaign/`; the shared detach and polling library is `to
 |---|---|---|
 | `p3_plan.py` | operator | the planner: tables, leases, launch requests, the `run_campaign.py` command, the bring-up and stage scripts, the allow-list guard, the lock check, the generated blocks of this file |
 | `p3_price_snapshot.sh` | operator | raw price responses with UTC time and sha256; `prices.json` |
-| `p3_launch.sh` | operator | one launch (dry run unless `--yes`): request, record, watchdog, ledger |
+| `p3_launch.sh` | operator | one launch (dry run unless `--yes`): request, record, watchdog, ledger; `--relaunch-of RECORD` for the one relaunch of a launch (section 4, step 6) |
 | `p3_launch_on_capacity.sh` | operator | waits (polls `/instance-types` every 30 s) for capacity of a Lambda host's type, then takes a fresh price snapshot, launches that host's launch ONCE with `p3_launch.sh` and starts `p3_driver.sh` with nohup; refuses if a record of that launch exists (unless it was an infrastructure failure before round 1); log in `rerun/paper3/watch-HOST-lN.log`; `touch ~/p3ledger/watch-HOST-lN/stop` ends it |
 | `p3_gcp_watchdog.sh` | operator | wall-clock backstop that deletes a labelled `p3-` GCP instance (`P3_GCP_WATCHDOG_ACTION=stop`: stops it, keeps the disk) |
-| `p3_driver.sh` | operator | bring-up to teardown of one launch; restartable; options `--dest`, `--config-commit`, `--on-stop terminate|hold`, `--no-teardown`, `--max-resume`, `--fresh`, `--stop-after-bringup` |
+| `p3_driver.sh` | operator | bring-up to teardown of one launch; restartable; options `--dest`, `--config-commit`, `--on-stop terminate|hold`, `--no-teardown`, `--max-resume`, `--fresh`, `--resume-bringup`, `--stop-after-bringup`; a record with `ordinal` 2 runs in `launchN-r2` and never in a directory that holds another lease's copy |
 | `p3_status.sh` | operator | a short look: lease, stages, the QA view |
 | `p3_archive.sh` | operator | the second copy of a launch to the bucket, under `paper3-campaign/` only, verified before (manifests) and after (object count and bytes) |
 | `p3_cuda_ready.sh` | GPU host | the CUDA-readiness gate of the bring-up and of the smoke test: a tiny CUDA init and kernel, retried for up to 10 minutes, exit 82 if it never works |
@@ -948,7 +977,8 @@ All under `tools/paper3_campaign/`; the shared detach and polling library is `to
 
 * **Launch record** (`~/p3ledger/<lease>.json`): `host launch provider instance_type region zone instance_id lease_name launch_utc
   launch_utc_basis provider_created expires_utc lease_hours price_usd_h price_snapshot_utc credit_funded boot_disk_requested boot_disk_actual campaign_commit ip watchdog_pid
-  terminate_requested_utc terminate_confirmed_utc` (and `config_commit` on C-GCP). `ip` and `watchdog_pid` are dropped from the copy beside the data.
+  terminate_requested_utc terminate_confirmed_utc ordinal relaunch_of` (and `config_commit` on C-GCP; `ordinal` 1 or 2, `relaunch_of` the old lease or null; a record written before 2026-11-23 has neither,
+  which reads as the first instance). `ip` and `watchdog_pid` are dropped from the copy beside the data.
 * **Environment knobs**: `P3_LEDGER_DIR`, `P3_POLL_SECONDS` (30; 60 on GCP), `P3_STAGE_TIMEOUT` and the driver's `P3_BRINGUP_TIMEOUT`,
   `P3_ROUND_TIMEOUT` (default from the planner: twice the stage estimate plus half an hour, in seconds of polling), `P3_PACK_TIMEOUT`,
   `P3_PACK_FETCH_BOUND`, `P3_SSH_BOUND`, `P3_TERMINATE_WAIT`; and for tests `P3_PLAN_CMD`, `P3_LAMBDA_SH`, `P3_LAMBDA_WATCHDOG`, `P3_GCP_WATCHDOG`, `P3_SKIP_PUSH_CHECK`.

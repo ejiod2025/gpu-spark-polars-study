@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p3_archive.sh HOST LAUNCH [--dir BASE] [--yes]
+# p3_archive.sh HOST LAUNCH [--dir BASE] [--yes]       LAUNCH is 1 or 2, or 1-r2 / 2-r2 for the directory of a relaunch (launch1-r2)
 #
 # The second copy of a launch (docs/PAPER3_RUNBOOK.md section 3 item 6): the launch directory rerun/paper3/HOST/launchN on THIS machine goes to
 # gs://siriusmedai-gpu-benchmark-archive/gpu-spark-polars-study/paper3-campaign/HOST/launchN, the bucket Paper 1's results are in. It runs on the operator's
@@ -27,7 +27,7 @@ BASE=$REPO YES=0
 while [ $# -gt 0 ]; do
   case "$1" in --dir) BASE=${2:-}; shift 2 ;; --yes) YES=1; shift ;; *) die "unknown option $1" ;; esac
 done
-[[ "$HOST" =~ ^(a100|h100|gh200|b200|c-gcp|c-vm)$ ]] && [[ "$LAUNCH" =~ ^[12]$ ]] || die "HOST is a100 h100 gh200 b200 c-gcp c-vm, LAUNCH is 1 or 2"
+[[ "$HOST" =~ ^(a100|h100|gh200|b200|c-gcp|c-vm)$ ]] && [[ "$LAUNCH" =~ ^[12](-r2)?$ ]] || die "HOST is a100 h100 gh200 b200 c-gcp c-vm, LAUNCH is 1 or 2 (1-r2 or 2-r2 for the directory of a relaunch)"
 URL=${P3_ARCHIVE_URL:-gs://siriusmedai-gpu-benchmark-archive/gpu-spark-polars-study/paper3-campaign}
 [[ "$URL" =~ ^gs://[a-z0-9._-]+/([A-Za-z0-9._/-]+/)?paper3-campaign$ ]] || die "the archive prefix must be gs://BUCKET/.../paper3-campaign (got '$URL'): nothing outside it is ever written"
 SRC=$BASE/rerun/paper3/$HOST/launch$LAUNCH

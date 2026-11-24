@@ -61,7 +61,7 @@ case "$CMD" in
     for a in "$@"; do if [ "$a" = --partial ]; then partial=1; else args+=("$a"); fi; done
     [ ${#args[@]} -ge 2 ] || die "usage: pull HOST LAUNCH [DIR] [--partial]"
     host=${args[0]} launch=${args[1]} dir=${args[2]:-$REPO}
-    [[ "$host" =~ ^(a100|h100|gh200|b200|c-gcp|c-vm)$ ]] && [[ "$launch" =~ ^[12]$ ]] || die "pull: HOST is a100 h100 gh200 b200 c-gcp c-vm, LAUNCH is 1 or 2"
+    [[ "$host" =~ ^(a100|h100|gh200|b200|c-gcp|c-vm)$ ]] && [[ "$launch" =~ ^[12](-r2)?$ ]] || die "pull: HOST is a100 h100 gh200 b200 c-gcp c-vm, LAUNCH is 1 or 2 (1-r2 or 2-r2: the directory of a relaunch)"
     mkdir -p "$dir/rerun" || die "cannot create $dir/rerun"
     rm -f "$dir/rerun/paper3/$host/launch$launch/LAUNCH-SHA256SUMS"      # only the manifest that arrives now may vouch for what arrives now
     # stream a tar of the launch directory (without the duplicate archives of .incoming) over the IAP ssh channel; a running launch may change a log

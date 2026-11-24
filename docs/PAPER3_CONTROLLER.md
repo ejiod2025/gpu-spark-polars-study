@@ -208,7 +208,7 @@ the one the probe used, minus the project-wide keys). `P3_GCP_EXTRA_FLAGS` (long
 | Repository | `p3_controller_setup.sh` clones `https://github.com/ejiod2025/gpu-spark-polars-study.git` and checks out exactly the commit in the instance metadata attribute `p3-commit` (the **campaign commit**, pushed). It refuses to move a checkout with local changes or under a running driver |
 | Keep-alive | `p3-driver@<lease>.service`: `Restart=on-failure`, `RestartSec=60`, at most 5 starts in 15 minutes, `RestartPreventExitStatus=2 10 11 20 21 30 31` (the driver's own exits: usage, allow-list review, stopped after bring-up, held, host gone, stopped by rule, host GPU not ready). Those leave the unit **failed** (visible in `p3_ctl.sh status`) and are never restarted; a crash, an OOM kill or a reboot is. `p3-reaper.timer`: 2 min after boot, then every 5 min; the service idles until the API key file exists |
 | Why not tmux | tmux does not survive a reboot and has no restart policy; it is installed for interactive work only (`sudo -u p3ops -H tmux new -As p3`) |
-| Data | the driver copies and verifies every round from the host to the controller (as it did to the Mac); `p3_ctl.sh pull HOST N` brings a finished launch to the Mac and checks it against `LAUNCH-SHA256SUMS` |
+| Data | the driver copies and verifies every round from the host to the controller (as it did to the Mac); `p3_ctl.sh pull HOST N` brings a finished launch to the Mac and checks it against `LAUNCH-SHA256SUMS` (`N-r2` for the directory of a relaunch, runbook section 4 step 6) |
 
 ## 7. Step list
 
