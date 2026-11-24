@@ -10,6 +10,10 @@ campaign outcomes (amend.*, campaign.*), are skipped: they come from the tracked
 It refuses (exit 1) if a key the paper uses is absent from stats.json or is a list or object, unless --allow-missing; a synthetic
 stats.json (_meta.synthetic true) writes \\syntheticstatstrue, which watermarks every page.
 
+Display mapping (fixed 2026-11-24, the lead's decision; display only, stats.json keeps the analysis's text verbatim): in a
+break-even bracket (keys break_even.*.text) "<=" is typeset as $\\le$ and a leading ">" as $>$, each followed by a thin
+space, so "<= SF30" prints as "\u2264 SF30" and "> SF300" as "> SF300". No other value is changed.
+
   stats_json_to_tex.py --stats OUT/stats.json [--tex main.tex] [--output generated/stats.tex] [--check] [--allow-missing]
   stats_json_to_tex.py --list-keys [--tex main.tex]
   stats_json_to_tex.py --update-readme README.md [--tex main.tex]   # rewrite its generated key list
@@ -46,6 +50,17 @@ def used_keys(tex_files) -> list:
             fields = EXPANSION.get(macro)
             keys.update(f"{arg}.{f}" for f in fields) if fields else keys.add(arg)
     return sorted(keys)
+
+
+BRACKET_KEY = re.compile(r"^break_even\..*\.text$")
+
+
+def display(key: str, tex: str) -> str:
+    """The fixed display mapping of break-even brackets (module docstring); every other value is returned unchanged."""
+    if not BRACKET_KEY.match(key):
+        return tex
+    tex = re.sub(r"<=\s*", lambda m: "$\\le$\\,", tex)
+    return re.sub(r"(^|(?<=\s))>\s*", lambda m: "$>$\\,", tex)
 
 
 def analysis_outputs():
@@ -112,7 +127,7 @@ def main(argv=None) -> int:
         lines += ["% SYNTHETIC - NOT RESULTS", "\\syntheticstatstrue"]
     for key in wanted:
         if key in flat and not isinstance(flat[key], (list, dict)):
-            lines.append(f"\\defstat{{{key}}}{{{outputs.tex_number(key, flat[key])}}}")
+            lines.append(f"\\defstat{{{key}}}{{{display(key, outputs.tex_number(key, flat[key]))}}}")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text("\n".join(lines) + "\n")
     print(f"wrote {args.output}", file=sys.stderr)

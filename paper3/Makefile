@@ -6,6 +6,7 @@
 #   make pages      # page count and the page on which the references start, per build
 #   make stats STATS=<analysis-out>/stats.json        # generated/stats.tex for the paper's keys (final mode)
 #   make stats-check STATS=<analysis-out>/stats.json  # list keys the paper uses that stats.json lacks
+#   make figures STATS=<analysis-out>/stats.json      # figures/f01, f02 from stats.json (tools/make_figures.py)
 #   make todo       # every TODO marker in the sources
 #   make keys       # every statistics key the paper uses (record.tex keys marked)
 #   make readme-keys  # regenerate the key list in README.md from main.tex
@@ -28,7 +29,7 @@ TEX := $(shell command -v tectonic >/dev/null 2>&1 && echo tectonic || echo late
 SOURCE_DATE_EPOCH ?= 1795435200
 export SOURCE_DATE_EPOCH
 
-.PHONY: pdf anon camera both stats stats-check pages todo keys readme-keys clean
+.PHONY: pdf anon camera both stats stats-check figures pages todo keys readme-keys clean
 
 pdf: anon
 
@@ -51,6 +52,10 @@ both: anon camera
 stats:
 	@test -n "$(STATS)" -a -f "$(STATS)" || (echo "usage: make stats STATS=<analyze_paper3.py output dir>/stats.json" && exit 2)
 	$(PYTHON) tools/stats_json_to_tex.py --stats "$(STATS)" --output generated/stats.tex
+
+figures:
+	@test -n "$(STATS)" -a -f "$(STATS)" || (echo "usage: make figures STATS=<analyze_paper3.py output dir>/stats.json" && exit 2)
+	$(PYTHON) tools/make_figures.py --stats "$(STATS)" --output figures
 
 stats-check:
 	@test -n "$(STATS)" -a -f "$(STATS)" || (echo "usage: make stats-check STATS=<analyze_paper3.py output dir>/stats.json" && exit 2)

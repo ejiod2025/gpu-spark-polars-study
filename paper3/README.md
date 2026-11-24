@@ -14,6 +14,7 @@ Requires tectonic (or latexmk with pdflatex and bibtex); `make pages` also needs
 | `make both` | both builds |
 | `make stats STATS=<out>/stats.json` | `generated/stats.tex` from `analyze_paper3.py`'s output, for exactly the keys `main.tex` uses; switches the build to final mode (a missing key is then an error) |
 | `make stats-check STATS=<out>/stats.json` | list the keys the paper uses that the output lacks; writes nothing |
+| `make figures STATS=<out>/stats.json` | `figures/f01_energy_forest.pdf` and `f02_time_vs_price.pdf` from `stats.json` (`tools/make_figures.py`; display rules in its header; needs matplotlib, `requirements-reporting.txt`) |
 | `make keys` | every statistics key `main.tex` uses |
 | `make readme-keys` | regenerate the key list below from `main.tex` |
 | `make pages` | page count and the pages where the references and the appendices start |
@@ -56,7 +57,7 @@ Keys are paths of `analyze_paper3.py`'s flattened `stats.json` (frozen at `ea67f
 The exact list:
 
 <!-- keys:begin (make readme-keys) -->
-912 keys from the analysis's stats.json and 13 from record.tex, as used by main.tex (generated; do not edit by hand).
+912 keys from the analysis's stats.json and 15 from record.tex, as used by main.tex (generated; do not edit by hand).
 
 From stats.json (`make stats`):
 
@@ -978,6 +979,8 @@ x6.h100.polars.baseline.sf300.price_ratio_b3_over_b1.p_new
 From record.tex (committed records, not campaign outcomes):
 
 ```
+amend.a10.date
+amend.a11.date
 amend.a7.commit
 amend.a7.date
 amend.a7.freeze_commit

@@ -432,8 +432,8 @@ the 1$\times$ A100 found none either). CPU and DRAM energy of a GPU host is ther
 No model value enters a confirmatory table: every energy value carries one of the tags
 \scope{S1-counter}, \scope{S1-sampled}, \scope{S1-module}, \scope{S2-pinned}, \scope{S2-all},
 \scope{S3} (whole node by BMC; no host had one) or \scope{none}, and the analysis code raises an
-error on an untagged value. The design's exploratory host-CPU energy model (MODEL) was not
-computed; no model value appears in this paper.
+error on an untagged value. The design's exploratory host-CPU energy model (MODEL, design
+\S\S2.4--2.5) is not computed (A11); no model value appears in this paper.
 
 \paragraph{The \texttt{power.draw} field and the sampled cross-check.}
 The default \texttt{nvidia-smi} power field means different things on different GPUs
@@ -544,7 +544,7 @@ The cost of a run is $c = p\,t/3600$, with $p$ the on-demand list price in USD p
 instance rented and $t$ the timed seconds, accrued per second; energy, carbon, storage, egress
 and billing minimums are not in per-query cost. Session cost (worker launch to process exit,
 less the idle windows) and a cold-job cost $(p/3600)(t_{\mathrm{ready}} + t)$ are secondary in the
-design and were not computed by the frozen analysis (A7).
+design and are not computed (A11).
 
 \paragraph{Price tables.}
 \textbf{P-NEW} (primary) is frozen at the lock: Lambda prices effective 2026-11-16 00:00 UTC
@@ -606,7 +606,7 @@ engine, A100 over H100 (descriptive, confounded with CPU, RAM, link and driver).
 engines on a GPU host over \CG{}, time and cost only. \textbf{X6}: the idle-GPU tax, B3/B1 as price
 ratio $\times$ time ratio, and the \scope{S1} idle-GPU energy of CPU-engine runs in Wh per suite
 run. The design's exploratory analyses (EX1--EX3, among them a re-analysis of the prior study's
-archived GPU power~\cite{ejiofor2026rawp1}) were not computed.
+archived GPU power~\cite{ejiofor2026rawp1}) are not computed (A11).
 
 \subsection{Estimation}
 \label{sec:estimation}
@@ -658,7 +658,7 @@ speed, energy or cost.
 The design was locked on 2026-11-16 (annotated tag, commit \lockcommit{}, deposit \lockdoi{});
 what had been seen before is disclosed in the design (synthetic-load probe results, the prior
 study's published timings and GPU power summaries). Sections 1--11 of the design were never
-edited afterwards. Nine dated amendments followed, each stating the outcome data seen when it was
+edited afterwards. Eleven dated amendments followed, each stating the outcome data seen when it was
 made (``seen''): A1 (lock-day price snapshot, lost-launch policy, SF1 preflight, the \CG{}
 allow-list as pending, record completeness, start order, funding, a synthetic-data guard; seen:
 none), A2 (B200 admission, the bring-up view; seen: none beyond synthetic probe load), A3 (smoke
@@ -666,7 +666,8 @@ test 1, the G8 onset reading; seen: none beyond synthetic load), A4 (smoke tests
 CUDA-readiness gate, the expected G8 flags; seen: none beyond synthetic load), A5 (GH200 and B200
 not run, GCP funding, start order; seen: none), A6 (the \CG{} allow-list; seen: none), A7 (the
 analysis code; seen: none), A8 (a gate defect on the CPU-only hosts and their relaunch; seen: none)
-and A9 (\CG{} launch~2 not run, for time; seen: none). None changes a threshold, estimator, margin or primary definition.
+A9 (\CG{} launch~2 not run, for time; seen: none), A10 (the analysis command and flags, fixed before
+unblinding; seen: none) and A11 (secondary and exploratory analyses not computed; seen: none). None changes a threshold, estimator, margin or primary definition.
 Appendix~\ref{app:amendments} is the full pre-registration record (Table~\ref{tab:deviations}).
 
 Six deviations affect what the paper can report. First, contrary to \S5.4 of the locked
@@ -695,6 +696,9 @@ once under A1.2, which changed the instances that form the CPU-only squares. The
 on technical failures, never on a value; lost and replaced launches are counted in Table~\ref{tab:qa}.
 Sixth, \CG{} launch~2 was not run (A9: the author's decision, by the clock, before any result was seen),
 so \CG's confirmatory estimates come from one square and every cell paired with \CG{} uses rounds 1--4.
+The design's secondary session energy, session cost and cold-job cost and its exploratory EX1--EX3,
+including the MODEL host-CPU estimate, are not computed (A11); none is confirmatory, and the deposited raw
+data allow them later as labelled exploratory analyses.
 
 % =====================================================================================
 \section{Results}
@@ -709,11 +713,12 @@ so \CG's confirmatory estimates come from one square and every cell paired with 
 % float onto the results pages (a table* lands at the top of a page after the one it is defined on).
 \begin{figure*}[t]
 \centering
-\studyfig{f01_energy_forest}{\textwidth}{0.20\textheight}
-\caption{Planned: energy ratio $\rho$ (95\% interval, log scale) for X1, X2 and X3 by suite and
-scale on \GH{} and \GA, total and above-idle, each point labelled with its scope pair
-(\scope{S2-pinned} / \scope{S1-counter}); shaded band $[1/1.10, 1.10]$; cells below resolution
-marked. Keys \texttt{x\{1,2,3\}.<host>.<suite>.sf<scale>.energy\_\{total,above\_idle\}}.}
+% Drawn by tools/make_figures.py from stats.json (display rules in its header); placeholder sized as the figure.
+\studyfig{f01_energy_forest}{\textwidth}{3.4in}
+\caption{Energy ratio $\rho$ of X1, X2 and X3 at the measured scopes (\scope{S2-pinned} on \CG{} over
+\scope{S1-counter} on the GPU host; log scale; whiskers: 95\% interval) per host, suite and scale; top row
+total energy, bottom row above idle. Marker shape gives the class; hollow: one round, no interval;
+cross: not estimable; shaded: the $\pm$10\% band.}
 \label{fig:energy}
 \end{figure*}
 
@@ -854,10 +859,12 @@ and \rtext{x3.a100.baseline.sf300.energy_above_idle} on \GA{} (\ecls{x3.a100.bas
 
 \begin{figure}[t]
 \centering
-\studyfig{f02_time_vs_price}{\columnwidth}{0.18\textheight}
-\caption{Planned: factorised cost. Time ratio $t_C/t_G$ (95\% interval) of X3 per scale against
-the price ratios of Section~\ref{sec:cost} (horizontal lines, P-NEW solid, P-OLD dashed);
-points above a line are cheaper on the GPU host. Keys \texttt{x3.<host>.<suite>.sf<scale>.time\_vs\_cgcp}.}
+% Drawn by tools/make_figures.py from stats.json (display rules in its header); placeholder sized as the figure.
+\studyfig{f02_time_vs_price}{\columnwidth}{3.5in}
+\caption{Factorised cost: the X3 time ratio $t_C/t_G$ against \CG{} (log scale; whiskers: 95\%
+interval) per host, suite and scale, with the B1 price ratio $p_G/p_C$ under P-NEW (solid) and P-OLD
+(dashed; the A100's equal). Points above a line are cheaper on the GPU host under that table; marker
+shape gives the class.}
 \label{fig:factorised}
 \end{figure}
 
@@ -1329,6 +1336,9 @@ A7 (\stat{amend.a7.date}) & Contrary to design \S5.4, no analysis code existed a
 A8 (\stat{amend.a8.date}) & Defect in the round gate of the CPU-only hosts: G1 required an idle-GPU record that is written only for jobs with a GPU engine, so every \CV{} and \CG{} session failed and both launch~1s stopped by rule. Fixed (commit \camera{\stat{amend.a8.fix_commit}}{\anonmark}); each launch relaunched once under A1.2, \CV{} first; the stopped rounds are reported, never pooled; the frozen analysis code and its hash are unaffected. Seen: only failing check ids and the QA lines. & none \\
 % A9: values in record.tex (lead, 2026-11-24); checked against the committed A9 (commit 2a1727c).
 A9 (\stat{amend.a9.date}) & Author decision, for time alone: \CG{} launch~2 (rounds 5--8) is not run. Under the design's square rule, \CG's confirmatory estimates come from one complete square (the relaunch, rounds 1--4), $R = 4$ (df~3), and every cell pairing \CG{} with another host uses rounds 1--4 only; the other hosts are unchanged. If that square fails for a technical reason, launch~2 is run after all. Seen: progress only (QA lines, status views). & none \\
+% A10, A11: values in record.tex (lead, 2026-11-24); checked against the committed text (cb22dd8, eb097ba).
+A10 (\stat{amend.a10.date}) & The analysis command and its flags are fixed before unblinding: one run of the frozen code once every launch is complete or stopped, with \CG{} launch~2 declared ended (A9); a design-hash relaxation only for the A6 allow-list value, with its expected digests; no status override; any other refusal means stop and amend. & none \\
+A11 (\stat{amend.a11.date}) & Not computed, because the frozen code implements the confirmatory analyses and the stated sensitivities only: session energy and cost and cold-job cost (secondary), EX1--EX3 (exploratory, including the MODEL host-CPU estimate) and X7 (A5). None is confirmatory; the raw data are deposited. & none \\
 \bottomrule
 \end{tabular}
 \end{table*}
