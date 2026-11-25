@@ -57,21 +57,17 @@ Keys are paths of `analyze_paper3.py`'s flattened `stats.json` (frozen at `ea67f
 The exact list:
 
 <!-- keys:begin (make readme-keys) -->
-912 keys from the analysis's stats.json and 15 from record.tex, as used by main.tex (generated; do not edit by hand).
+908 keys from the analysis's stats.json and 30 from record.tex, as used by main.tex (generated; do not edit by hand).
 
 From stats.json (`make stats`):
 
 ```
 _meta.analysis_code_sha256
 billing_by_host.a100.billed_usd
-billing_by_host.a100.gap
 billing_by_host.a100.hours
 billing_by_host.c-gcp.billed_usd
-billing_by_host.c-gcp.gap
 billing_by_host.c-gcp.hours
 billing_by_host.h100.billed_usd
-billing_by_host.h100.gap
-billing_by_host.h100.gap_above_2pct
 billing_by_host.h100.hours
 break_even.x1.a100.baseline.cost_b1_p_billed.text
 break_even.x1.a100.baseline.cost_b1_p_new.text
@@ -157,11 +153,11 @@ break_even.x3.h100.complex.cost_b2_p_new.text
 break_even.x3.h100.complex.cost_b3_p_new.text
 break_even.x3.h100.complex.energy_above_idle.text
 break_even.x3.h100.complex.energy_total.text
-c_vm_check.b1_basis
 c_vm_check.ci_high
 c_vm_check.ci_low
 c_vm_check.ratio_vm_over_metal
 c_vm_check.status
+counts.a100.cells_analysed
 counts.a100.coverage_outcomes.total
 counts.a100.g9.cells_below_resolution
 counts.a100.launches_lost_replaced
@@ -170,6 +166,7 @@ counts.a100.rounds_confirmatory
 counts.a100.sessions_analysed
 counts.a100.squares_complete
 counts.a100.squares_planned
+counts.c-gcp.cells_analysed
 counts.c-gcp.coverage_outcomes.total
 counts.c-gcp.g9.cells_below_resolution
 counts.c-gcp.launches_lost_replaced
@@ -183,11 +180,9 @@ counts.c-vm.launches_lost_replaced
 counts.c-vm.round_repeats
 counts.c-vm.rounds_confirmatory
 counts.c-vm.sessions_analysed
-counts.h100.coverage_outcomes.resource_exhaustion
+counts.h100.cells_analysed
 counts.h100.coverage_outcomes.total
-counts.h100.coverage_outcomes.unsupported_operation
 counts.h100.g9.cells_below_resolution
-counts.h100.g9.per_run_below_t_min
 counts.h100.g9.window_below_10s
 counts.h100.launches_lost_replaced
 counts.h100.round_repeats
@@ -230,6 +225,8 @@ qa.idle_power_w.c-gcp.polars.S2-pinned.mean
 qa.idle_power_w.h100.polars.S1-counter.mean
 qa.read_latency_and_overhang.a100.polars_gpu.read_latency_ms.median
 qa.read_latency_and_overhang.h100.polars_gpu.read_latency_ms.median
+sensitivity.launch:h100-l1.x3.h100.baseline.sf300.time.estimate
+sensitivity.launch:h100-l2.x3.h100.baseline.sf300.time.estimate
 sensitivity_unpaired.x3.h100.baseline.sf300.cost_b1_p_new.ci_high
 sensitivity_unpaired.x3.h100.baseline.sf300.cost_b1_p_new.ci_low
 sensitivity_unpaired.x3.h100.baseline.sf300.cost_b1_p_new.estimate
@@ -856,7 +853,6 @@ x3.h100.baseline.sf300.cost_b3_p_new.class
 x3.h100.baseline.sf300.cost_b3_p_new.estimate
 x3.h100.baseline.sf300.energy_above_idle.ci_high
 x3.h100.baseline.sf300.energy_above_idle.ci_low
-x3.h100.baseline.sf300.energy_above_idle.class
 x3.h100.baseline.sf300.energy_above_idle.estimate
 x3.h100.baseline.sf300.energy_total.ci_high
 x3.h100.baseline.sf300.energy_total.ci_low
@@ -990,9 +986,24 @@ amend.a8.date
 amend.a8.fix_commit
 amend.a9.date
 campaign.a100.driver
+campaign.a100.ram_gib
+campaign.a100.vcpu
+campaign.c-gcp.ram_gib
+campaign.c-gcp.vcpu
 campaign.c-vm.cpu_model
+campaign.c-vm.ram_gib
+campaign.c-vm.vcpu
 campaign.first_session_utc
+campaign.gcp_hosts.storage
+campaign.gpu_hosts.storage
 campaign.h100.driver
+campaign.h100.ram_gib
+campaign.h100.vcpu
 campaign.last_session_utc
+campaign.version.cudf_polars
+campaign.version.polars
+campaign.version.python
+campaign.version.rapids_jar
+campaign.version.spark
 ```
 <!-- keys:end -->

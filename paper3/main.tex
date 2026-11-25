@@ -16,13 +16,12 @@
 % the self-identifying links (repository, Zenodo DOIs, commits) appear only there
 % (macros.tex: \camera, \selfdoi, \repourl, \lockdoi, \lockcommit, \citelock).
 %
-% STATUS: SKELETON written 2026-11-23 while the campaign runs (started 2026-11-23), before any
-% campaign value exists or has been seen. Methods follow docs/PAPER3_ENERGY_DESIGN.md (locked
-% 2026-11-16; amendments A1--A5). Every campaign result is a \stat / \tstat / \ratiotext /
-% \tratioci macro without a value (draft boxes); results and discussion prose are structured
-% placeholders marked TODO(results). Pre-lock probe values (synthetic load; design 2.1-2.4, 4) are
-% method validation and are typed. Do NOT write an engine- or host-comparing sentence, in any
-% form, before the analysis is run on the completed campaign (design 7.3).
+% STATUS: skeleton written 2026-11-23 while the campaign ran, before any campaign value was seen; results
+% filled in 2026-11-24 from the frozen analysis output (results/paper3-analysis/stats.json, analysis code
+% sha256 80ac76fb...). Methods follow docs/PAPER3_ENERGY_DESIGN.md (locked 2026-11-16; amendments A1--A11).
+% Every campaign result is a \stat-family macro whose value comes from stats.json via `make stats`; the
+% judgments are the analysis's own class words. Pre-lock probe values (synthetic load; design 2.1-2.4, 4)
+% are method validation and are typed.
 %
 % Amendment A5 (GH200 and B200 not run; GCP funding; start order) was checked against the committed
 % text (commit 39b8f7b) on 2026-11-23.
@@ -78,8 +77,7 @@
 \email{ejiod@bu.edu}
 
 % ---------------------------------------------------------------- abstract
-% TODO(results): the bracketed result sentences are placeholders; each becomes one sentence whose
-% strength follows its interval and the classification rule of Section 6.4.
+% Result sentences: values and class words from stats.json (Section 6.4 rule; energy in the N1 wording).
 \begin{abstract}
 Organizations that choose between CPU and GPU engines for analytical data processing rarely
 have energy and cost figures per query that were measured on hosts they can rent, with the
@@ -99,10 +97,13 @@ engine was
 \rtext{x3.h100.baseline.sf300.cost_b1_p_new} on the H100 host (\cls{x3.h100.baseline.sf300.cost_b1_p_new})
 and \rtext{x3.a100.baseline.sf300.cost_b1_p_new} on the A100 host (\cls{x3.a100.baseline.sf300.cost_b1_p_new}),
 with cost break-even brackets of \stat{break_even.x3.h100.baseline.cost_b1_p_new.text} and
-\stat{break_even.x3.a100.baseline.cost_b1_p_new.text}; the energy contrast was
-\ecls{x3.h100.baseline.sf300.energy_total} on the H100 host and \ecls{x3.a100.baseline.sf300.energy_total}
-on the A100 host.
-Tools, raw records and the time-stamped pre-registration are public.
+\stat{break_even.x3.a100.baseline.cost_b1_p_new.text}. The energy contrast of the best CPU and GPU engines was
+estimable only at the largest scales (SF300, and SF100 for the complex queries), because the fastest GPU
+runs fell below the meters' resolution; there it was GPU better at the measured scopes, which supports no
+node-level claim: at SF300 the ratio was \rtext{x3.h100.baseline.sf300.energy_total} on the H100 host and
+\rtext{x3.a100.baseline.sf300.energy_total} on the A100 host.
+Tools and the time-stamped pre-registration are public; the raw records are archived with checksums and
+will be deposited.
 \end{abstract}
 
 % CCS 2012 concepts verified in ACM's CCS tool (https://dl.acm.org/ccs, read by venue-scout in a browser on
@@ -205,12 +206,15 @@ data was seen. Every later change is a dated amendment reported in Section~\ref{
 \item \textbf{Open tools and data}: probe tools, harness, gates, price snapshots and raw
   records (Section~\ref{sec:artifacts}).
 \end{enumerate}
-% TODO(results): one sentence per research question, after the analysis, each worded by the rules
-% of Sections 4.6 and 6.4 (e.g. "GPU better at the measured scopes", never "uses less energy" on the
-% x86 hosts).
-Section~\ref{sec:results} reports the answers; on the baseline suite the cost break-even brackets of the
-best GPU engine against the right-sized CPU baseline are \stat{break_even.x3.h100.baseline.cost_b1_p_new.text}
-(H100 host) and \stat{break_even.x3.a100.baseline.cost_b1_p_new.text} (A100 host).
+% One sentence per research question, worded by the rules of Sections 4.6 and 6.4.
+Section~\ref{sec:results} reports the answers. RQ1: cross-class energy was estimable only at the larger
+scales, and there every cell was GPU better at the measured scopes, which under \NOne{} gives no
+node-level direction. RQ2--RQ3: against the right-sized CPU baseline the cost break-even brackets on the
+baseline suite are \stat{break_even.x3.h100.baseline.cost_b1_p_new.text} (H100 host) and
+\stat{break_even.x3.a100.baseline.cost_b1_p_new.text} (A100 host), every complex-suite scale is GPU better,
+and the brackets move with the baseline. RQ4 (descriptive): at SF300 the A100 host took longer than the
+H100 host and cost less per query. RQ5: at SF300 a CPU engine cost more on the H100 host than on B1 and
+less on the A100 host.
 
 % =====================================================================================
 \section{Background and Related Work}
@@ -309,13 +313,14 @@ fixed in advance (there are no hypothesis tests).
 \subsection{Hosts and engines}
 \label{sec:hosts}
 
-% TODO(results): the bracketed host facts (driver, CPU model seen, RAM, regions, launches) come from
-% each launch's campaign.json and launch-record.json; replace the typed probe-time values with
-% \stat{campaign.<host>.*} where they differ.
+% Host facts: CPU model and driver of every launch checked against stats.json hosts.<host>.instances
+% (2026-11-24); drivers, the C-VM CPU model, vCPU, RAM and storage are record.tex values (the lead read them
+% from each launch's campaign.json; both launches of each host are identical).
 \begin{table*}[t]
 \caption{Hosts. Prices are on-demand list prices in USD per hour from the price table frozen at
-the lock (P-NEW; P-OLD in parentheses). ``KVM'' means a verified KVM guest. GH200 and B200 were
-part of the design and were not run (amendment A5).}
+the lock (P-NEW; P-OLD in parentheses). ``KVM'' means a verified KVM guest; RAM as seen by the guest.
+Disk: \stat{campaign.gpu_hosts.storage} on the GPU hosts, \stat{campaign.gcp_hosts.storage} on the GCP hosts.
+GH200 and B200 were part of the design and were not run (amendment A5).}
 \label{tab:hosts}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -323,10 +328,10 @@ part of the design and were not run (amendment A5).}
 \toprule
 Id & Instance (provider) & CPU as seen by the guest & GPU & vCPU / RAM & Energy meters (scope tag) & USD/h \\
 \midrule
-\GH{} & \texttt{gpu\_1x\_h100\_sxm5} (Lambda) & Xeon Platinum 8480+, 13 cores / 26 threads, KVM & H100 SXM5 80\,GB & 26 / 225\,GiB & NVML counter, GPU board (\scope{S1-counter}); no CPU energy & 4.89 (4.29) \\
-\GA{} & \texttt{gpu\_1x\_a100\_sxm4} (Lambda) & EPYC 7J13, 30 vCPUs, SMT off, KVM & A100 SXM4 40\,GB & 30 / 200\,GiB & NVML counter, GPU board (\scope{S1-counter}); no CPU energy & 1.99 (1.99) \\
-\CG{} & \texttt{c3-highmem-192-metal} (GCP) & 2$\times$ Xeon Platinum 8481C, 96 cores / 192 threads, bare metal & none & 192 / 1,536\,GB & RAPL package + DRAM per socket (\scope{S2-pinned}, \scope{S2-all}) & 12.701568 \\
-\CV{} & \texttt{c3-highmem-44} VM (GCP) & \tstat{campaign.c-vm.cpu_model} & none & 44 / 352\,GiB & none (time only) & 2.910776 \\
+\GH{} & \texttt{gpu\_1x\_h100\_sxm5} (Lambda) & Xeon Platinum 8480+, 13 cores / 26 threads, KVM & H100 SXM5 80\,GB & \tstat{campaign.h100.vcpu} / \tstat{campaign.h100.ram_gib}\,GiB & NVML counter, GPU board (\scope{S1-counter}); no CPU energy & 4.89 (4.29) \\
+\GA{} & \texttt{gpu\_1x\_a100\_sxm4} (Lambda) & EPYC 7J13, 30 vCPUs, SMT off, KVM & A100 SXM4 40\,GB & \tstat{campaign.a100.vcpu} / \tstat{campaign.a100.ram_gib}\,GiB & NVML counter, GPU board (\scope{S1-counter}); no CPU energy & 1.99 (1.99) \\
+\CG{} & \texttt{c3-highmem-192-metal} (GCP) & 2$\times$ Xeon Platinum 8481C, 96 cores / 192 threads, bare metal & none & \tstat{campaign.c-gcp.vcpu} / \tstat{campaign.c-gcp.ram_gib}\,GiB & RAPL package + DRAM per socket (\scope{S2-pinned}, \scope{S2-all}) & 12.701568 \\
+\CV{} & \texttt{c3-highmem-44} VM (GCP) & \tstat{campaign.c-vm.cpu_model} & none & \tstat{campaign.c-vm.vcpu} / \tstat{campaign.c-vm.ram_gib}\,GiB & none (time only) & 2.910776 \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -336,15 +341,15 @@ the prior study~\cite{ejiofor2026p1}, so energy and cost can be read beside its 
 are never pooled. On them, all four engines run. The CPU-only host \CG{} is a two-socket
 bare-metal machine on which the two CPU engines are pinned to 26 vCPUs of socket~0 (13
 physical cores and their SMT siblings, the H100 guest's shape) with memory bound to the
-pinned socket's NUMA node (Section~\ref{sec:cpuenergy}). \CV{} checks the right-sized CPU cost baseline (Section~\ref{sec:cost}). The engines and their settings are the prior study's: Polars
-1.44.2~\cite{polars1442} on the CPU and with the cudf-polars 26.10.2 GPU engine, and Spark
-on the CPU and with the cuDF plugin, with 26 threads, the strict \polarsgpu{} session guard
-(no silent CPU fallback) and the \sparkgpu{} final-plan check. Exact versions, the driver
-(\stat{campaign.h100.driver} on \GH, \stat{campaign.a100.driver} on \GA) and host identity
+pinned socket's NUMA node (Section~\ref{sec:cpuenergy}). \CV{} checks the right-sized CPU cost baseline (Section~\ref{sec:cost}). The engines and their settings are the prior study's. Every session recorded Polars
+\stat{campaign.version.polars}~\cite{polars1442} (CPU and GPU engine) and Spark \stat{campaign.version.spark}
+(CPU and GPU), on Python \stat{campaign.version.python}; the GPU engine of Polars is cudf-polars-cu12
+\stat{campaign.version.cudf_polars} as pinned in \texttt{requirements-gpu.txt} (installed from the pin; the
+version is not recorded per session), and Spark's is the RAPIDS Accelerator jar
+\stat{campaign.version.rapids_jar}, the same on all four GPU launches. All run with 26 threads, the strict
+\polarsgpu{} session guard (no silent CPU fallback) and the \sparkgpu{} final-plan check. The drivers,
+\stat{campaign.h100.driver} on \GH{} and \stat{campaign.a100.driver} on \GA, and host identity
 (hypervisor, kernel, storage) are recorded per launch.
-% TODO-VERIFY: every engine version of the campaign stack (requirements-gpu.txt pins Polars 1.44.2 and
-% cudf-polars-cu12 26.10.2; the prior study used Spark 3.5.9 and rapids-4-spark 26.08.1); read them
-% from campaign.json.
 Nothing is tuned: no clock locking, power capping or governor change.
 
 \subsection{Workload}
@@ -705,9 +710,8 @@ data allow them later as labelled exploratory analyses.
 \label{sec:results}
 % Results skeleton (2026-11-24): every number is a stats key; every judgment is the analysis's own class
 % word, printed by \cls / \ecls / \rtext / \dstar (macros.tex), so the prose holds whichever way a result
-% falls, including "not estimable" and censored brackets. TODO(results): after `make stats`, read every
-% sentence against the output, add interpretation only where Section 6.4 and 4.6 allow it, and fill the
-% figures. A host with no complete square is reported descriptively: its hosts.<host>.status says so.
+% falls, including "not estimable" and censored brackets. Read against the output on 2026-11-24; the
+% interpretation is in Section 9 only. A host with no complete square would be reported descriptively.
 
 % Full-width results floats are defined here, at the start of the section, so that they can
 % float onto the results pages (a table* lands at the top of a page after the one it is defined on).
@@ -751,24 +755,6 @@ Host & Metric & SF1 & SF10 & SF30 & SF100 & SF300 & SF30 & SF100 & SF300 \\
 \end{tabular}
 \end{table*}
 
-\begin{table*}[t]
-\caption{Break-even scale brackets (previous scale, $s$] of X3 under P-NEW;
-``$\le$SF1'' and ``$>$SF300'' censored. Energy: lower bound on the node-level break-even, under
-\NOne. Keys \texttt{break\_even.x3.<host>.<suite>.<metric>.text}.}
-\label{tab:breakeven}
-\footnotesize
-\begin{tabular}{@{}llccccc@{}}
-\toprule
-Host & Suite & Cost B1 & Cost B2 & Cost B3 & Energy & Energy above idle \\
-\midrule
-\multirow{2}{*}{\GH} & baseline & \tstat{break_even.x3.h100.baseline.cost_b1_p_new.text} & \tstat{break_even.x3.h100.baseline.cost_b2_p_new.text} & \tstat{break_even.x3.h100.baseline.cost_b3_p_new.text} & \tstat{break_even.x3.h100.baseline.energy_total.text} & \tstat{break_even.x3.h100.baseline.energy_above_idle.text} \\
- & complex & \tstat{break_even.x3.h100.complex.cost_b1_p_new.text} & \tstat{break_even.x3.h100.complex.cost_b2_p_new.text} & \tstat{break_even.x3.h100.complex.cost_b3_p_new.text} & \tstat{break_even.x3.h100.complex.energy_total.text} & \tstat{break_even.x3.h100.complex.energy_above_idle.text} \\
-\midrule
-\multirow{2}{*}{\GA} & baseline & \tstat{break_even.x3.a100.baseline.cost_b1_p_new.text} & \tstat{break_even.x3.a100.baseline.cost_b2_p_new.text} & \tstat{break_even.x3.a100.baseline.cost_b3_p_new.text} & \tstat{break_even.x3.a100.baseline.energy_total.text} & \tstat{break_even.x3.a100.baseline.energy_above_idle.text} \\
- & complex & \tstat{break_even.x3.a100.complex.cost_b1_p_new.text} & \tstat{break_even.x3.a100.complex.cost_b2_p_new.text} & \tstat{break_even.x3.a100.complex.cost_b3_p_new.text} & \tstat{break_even.x3.a100.complex.energy_total.text} & \tstat{break_even.x3.a100.complex.energy_above_idle.text} \\
-\bottomrule
-\end{tabular}
-\end{table*}
 
 \subsection{Campaign record and data quality}
 \label{sec:results-qa}
@@ -781,7 +767,7 @@ Host & Suite & Cost B1 & Cost B2 & Cost B3 & Energy & Energy above idle \\
 % clean G7 and G8); qa.read_latency_and_overhang.<host>.polars_gpu.read_latency_ms.median.
 \caption{Campaign record and QA per host. G8: sessions flagged (failed or not evaluable) of
 sessions. Cross-check: median relative difference of the sampled \texttt{nvidia-smi} integral from
-the counter, windows of at least 10\,s in sessions with clean G7 and G8.}
+the counter (windows of at least 10\,s; sessions with clean G7 and G8).}
 \label{tab:qa}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
@@ -818,41 +804,65 @@ gives the record. Confirmatory estimates use complete squares only (Section~\ref
 ($R={}$\stat{counts.c-gcp.rounds_confirmatory}). A cross-host contrast pairs rounds by round number
 (Appendix~\ref{app:readings}), so its degrees of freedom, reported with each interval, follow the
 rounds both hosts have. Launches were relaunched or replaced only after technical failures (A1.2,
-A4.2, A8); \CG{} launch~2 was not run (A9). G9 marked \stat{counts.h100.g9.cells_below_resolution} cells below resolution on \GH{}
-(\stat{counts.h100.g9.per_run_below_t_min} with a per-run time below $\tmin$,
-\stat{counts.h100.g9.window_below_10s} with a window below 10\,s),
-\stat{counts.a100.g9.cells_below_resolution} on \GA{} and \stat{counts.c-gcp.g9.cells_below_resolution}
-on \CG; the energy of such cells is not estimable, their time and cost stay. Coverage outcomes affected
-\stat{counts.h100.coverage_outcomes.total} cells on \GH{} (\stat{counts.h100.coverage_outcomes.unsupported_operation}
-unsupported operations, \stat{counts.h100.coverage_outcomes.resource_exhaustion} resource exhaustion) and
-\stat{counts.a100.coverage_outcomes.total} on \GA. A G8 flag disables only a session's stream
-cross-check (A4); where it ran, the sampled integral differed from the counter by a median relative
-difference of \stat{qa.crosscheck.h100.median} on \GH{} and \stat{qa.crosscheck.a100.median} on \GA.
+A4.2, A8); \CG{} launch~2 was not run (A9). G9 marked \stat{counts.h100.g9.cells_below_resolution} of
+\stat{counts.h100.cells_analysed} cells below resolution on \GH{} (all with a per-run time below
+$\tmin$; \stat{counts.h100.g9.window_below_10s} also with a window below 10\,s),
+\stat{counts.a100.g9.cells_below_resolution} of \stat{counts.a100.cells_analysed} on \GA{} and
+\stat{counts.c-gcp.g9.cells_below_resolution} of \stat{counts.c-gcp.cells_analysed} on \CG. Their energy is
+not estimable (their time and cost stay), and an X3 cell is not estimable when any engine that ran lacks a
+value (Appendix~\ref{app:readings}), so cross-class energy exists only at the larger scales: X1 and X3 at
+SF300 on the baseline suite and at SF100--SF300 on the complex suite, X2 from SF30 on (Table~\ref{tab:x3},
+Table~\ref{tab:x12}). Coverage outcomes affected \stat{counts.h100.coverage_outcomes.total} cells on
+\GH{} and \stat{counts.a100.coverage_outcomes.total} on \GA, all unsupported operations of \polarsgpu{} on
+the pre-declared \q{cx\_q13} and \q{cx\_window}. A G8 flag disables only a session's stream
+cross-check (A4); where it ran, the median relative difference of the sampled integral from the counter
+was \stat{qa.crosscheck.h100.median} on \GH{} and \stat{qa.crosscheck.a100.median} on \GA.
 The B1 check on \CV{} gave a time ratio VM/metal of \stat{c_vm_check.ratio_vm_over_metal} (95\%~CI
-\stat{c_vm_check.ci_low}--\stat{c_vm_check.ci_high}), verdict \stat{c_vm_check.status}, so B1 uses the
-\stat{c_vm_check.b1_basis} times.
+\stat{c_vm_check.ci_low}--\stat{c_vm_check.ci_high}), outside $[0.90, 1.10]$, so the check failed. As the design
+prescribes, B1 therefore uses the \CV{} times where they exist (baseline SF10, SF30 and SF300, a fixed
+reference per cell, not paired by round) and the metal times elsewhere (Appendix~\ref{app:readings}, item h).
+
+% The break-even table is defined here so that it floats to the top of the page with Section 8.4.
+\begin{table*}[t]
+\caption{Break-even scale brackets (previous scale, $s$] of X3 under P-NEW;
+``$\le$SF1'' and ``$>$SF300'' censored. Energy: lower bound on the node-level break-even, under
+\NOne. Keys \texttt{break\_even.x3.<host>.<suite>.<metric>.text}.}
+\label{tab:breakeven}
+\footnotesize
+\begin{tabular}{@{}llccccc@{}}
+\toprule
+Host & Suite & Cost B1 & Cost B2 & Cost B3 & Energy & Energy above idle \\
+\midrule
+\multirow{2}{*}{\GH} & baseline & \tstat{break_even.x3.h100.baseline.cost_b1_p_new.text} & \tstat{break_even.x3.h100.baseline.cost_b2_p_new.text} & \tstat{break_even.x3.h100.baseline.cost_b3_p_new.text} & \tstat{break_even.x3.h100.baseline.energy_total.text} & \tstat{break_even.x3.h100.baseline.energy_above_idle.text} \\
+ & complex & \tstat{break_even.x3.h100.complex.cost_b1_p_new.text} & \tstat{break_even.x3.h100.complex.cost_b2_p_new.text} & \tstat{break_even.x3.h100.complex.cost_b3_p_new.text} & \tstat{break_even.x3.h100.complex.energy_total.text} & \tstat{break_even.x3.h100.complex.energy_above_idle.text} \\
+\midrule
+\multirow{2}{*}{\GA} & baseline & \tstat{break_even.x3.a100.baseline.cost_b1_p_new.text} & \tstat{break_even.x3.a100.baseline.cost_b2_p_new.text} & \tstat{break_even.x3.a100.baseline.cost_b3_p_new.text} & \tstat{break_even.x3.a100.baseline.energy_total.text} & \tstat{break_even.x3.a100.baseline.energy_above_idle.text} \\
+ & complex & \tstat{break_even.x3.a100.complex.cost_b1_p_new.text} & \tstat{break_even.x3.a100.complex.cost_b2_p_new.text} & \tstat{break_even.x3.a100.complex.cost_b3_p_new.text} & \tstat{break_even.x3.a100.complex.energy_total.text} & \tstat{break_even.x3.a100.complex.energy_above_idle.text} \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \subsection{Energy per query}
 \label{sec:results-energy}
 Every energy contrast here is cross-class: \scope{S2-pinned} on \CG{} over \scope{S1-counter} on the GPU host
 (Section~\ref{sec:n1}; Figure~\ref{fig:energy}; Table~\ref{tab:x3} for X3 at every scale). At SF300 on \GH,
-X1 is \rtext{x1.h100.baseline.sf300.energy_total} on the baseline suite, \ecls{x1.h100.baseline.sf300.energy_total},
-and \rtext{x1.h100.complex.sf300.energy_total} on the complex suite, \ecls{x1.h100.complex.sf300.energy_total};
-X2 is \rtext{x2.h100.baseline.sf300.energy_total}, \ecls{x2.h100.baseline.sf300.energy_total}, and
-\rtext{x2.h100.complex.sf300.energy_total}, \ecls{x2.h100.complex.sf300.energy_total}. On \GA, X1 is
-\rtext{x1.a100.baseline.sf300.energy_total} (\ecls{x1.a100.baseline.sf300.energy_total}) and
-\rtext{x1.a100.complex.sf300.energy_total} (\ecls{x1.a100.complex.sf300.energy_total}); X2 is
-\rtext{x2.a100.baseline.sf300.energy_total} (\ecls{x2.a100.baseline.sf300.energy_total}) and
-\rtext{x2.a100.complex.sf300.energy_total} (\ecls{x2.a100.complex.sf300.energy_total}).
+X1 is \rtext{x1.h100.baseline.sf300.energy_total} on the baseline suite and
+\rtext{x1.h100.complex.sf300.energy_total} on the complex suite, and X2 is
+\rtext{x2.h100.baseline.sf300.energy_total} and \rtext{x2.h100.complex.sf300.energy_total}; on \GA, X1 is
+\rtext{x1.a100.baseline.sf300.energy_total} and \rtext{x1.a100.complex.sf300.energy_total}, and X2
+\rtext{x2.a100.baseline.sf300.energy_total} and \rtext{x2.a100.complex.sf300.energy_total}. These and every
+other estimable energy cell of X1--X3 in Table~\ref{tab:x12}, total and above idle, on both hosts, are
+\ecls{x1.h100.baseline.sf300.energy_total}.
 
 On \GH{} the tipping point of X3 at SF300 (baseline suite) is
 \dstar{delta_star.x3.h100.baseline.sf300.energy_total}. On \GA{} it is
-\dstar{delta_star.x3.a100.baseline.sf300.energy_total}. For scale, the pinned \CG{}
+\stat{delta_star.x3.a100.baseline.sf300.energy_total.wh_per_suite_run.mean}\,Wh per suite run (95\%~CI \stat{delta_star.x3.a100.baseline.sf300.energy_total.wh_per_suite_run.ci_low} to
+\stat{delta_star.x3.a100.baseline.sf300.energy_total.wh_per_suite_run.ci_high}; \stat{delta_star.x3.a100.baseline.sf300.energy_total.w_over_gpu_suite_time.mean}\,W), also non-negative. For scale, the pinned \CG{}
 socket idled at \stat{qa.idle_power_w.c-gcp.polars.S2-pinned.mean}\,W and the GPU board under a CPU
 engine at \stat{qa.idle_power_w.h100.polars.S1-counter.mean}\,W (H100) and
 \stat{qa.idle_power_w.a100.polars.S1-counter.mean}\,W (A100). Above idle, X3 at SF300 is
-\rtext{x3.h100.baseline.sf300.energy_above_idle} on \GH{} (\ecls{x3.h100.baseline.sf300.energy_above_idle})
-and \rtext{x3.a100.baseline.sf300.energy_above_idle} on \GA{} (\ecls{x3.a100.baseline.sf300.energy_above_idle}).
+\rtext{x3.h100.baseline.sf300.energy_above_idle} on \GH{} and \rtext{x3.a100.baseline.sf300.energy_above_idle}
+on \GA, both \ecls{x3.a100.baseline.sf300.energy_above_idle}.
 
 \subsection{Cost per query}
 \label{sec:results-cost}
@@ -863,30 +873,31 @@ and \rtext{x3.a100.baseline.sf300.energy_above_idle} on \GA{} (\ecls{x3.a100.bas
 \studyfig{f02_time_vs_price}{\columnwidth}{3.5in}
 \caption{Factorised cost: the X3 time ratio $t_C/t_G$ against \CG{} (log scale; whiskers: 95\%
 interval) per host, suite and scale, with the B1 price ratio $p_G/p_C$ under P-NEW (solid) and P-OLD
-(dashed; the A100's equal). Points above a line are cheaper on the GPU host under that table; marker
-shape gives the class.}
+(dashed; the A100's equal). Points above a line are cheaper on the GPU host under that table where B1 uses
+the metal times (not at baseline SF10, SF30 and SF300; Section~\ref{sec:results-qa}). Marker shape gives
+the class of the time ratio.}
 \label{fig:factorised}
 \end{figure}
 
-Under B1 at P-NEW (Table~\ref{tab:x3}), X3 at SF300 is \rtext{x3.h100.baseline.sf300.cost_b1_p_new} on \GH{}
-(\cls{x3.h100.baseline.sf300.cost_b1_p_new}) and \rtext{x3.a100.baseline.sf300.cost_b1_p_new} on \GA{}
-(\cls{x3.a100.baseline.sf300.cost_b1_p_new}) for the baseline suite, and \rtext{x3.h100.complex.sf300.cost_b1_p_new}
-(\cls{x3.h100.complex.sf300.cost_b1_p_new}) and \rtext{x3.a100.complex.sf300.cost_b1_p_new}
-(\cls{x3.a100.complex.sf300.cost_b1_p_new}) for the complex suite. The time ratios behind the baseline cells
-are \rtext{x3.h100.baseline.sf300.time_vs_cgcp} and \rtext{x3.a100.baseline.sf300.time_vs_cgcp}, against price
-ratios of 1.680 and 0.684 (Section~\ref{sec:cost}; Figure~\ref{fig:factorised}). Within a framework (baseline
-suite, SF300, B1), X1 is \rtext{x1.h100.baseline.sf300.cost_b1_p_new} (\cls{x1.h100.baseline.sf300.cost_b1_p_new})
-and X2 \rtext{x2.h100.baseline.sf300.cost_b1_p_new} (\cls{x2.h100.baseline.sf300.cost_b1_p_new}) on \GH, and
-\rtext{x1.a100.baseline.sf300.cost_b1_p_new} (\cls{x1.a100.baseline.sf300.cost_b1_p_new}) and
-\rtext{x2.a100.baseline.sf300.cost_b1_p_new} (\cls{x2.a100.baseline.sf300.cost_b1_p_new}) on \GA. Against \CG{} as
-rented (B2), X3 at SF300 is \rtext{x3.h100.baseline.sf300.cost_b2_p_new} (\GH) and
-\rtext{x3.a100.baseline.sf300.cost_b2_p_new} (\GA); against the CPU engine on the same GPU host (B3),
+Under B1 at P-NEW (Table~\ref{tab:x3}), X3 at SF300 on the baseline suite is
+\rtext{x3.h100.baseline.sf300.cost_b1_p_new} on \GH, \cls{x3.h100.baseline.sf300.cost_b1_p_new}, and
+\rtext{x3.a100.baseline.sf300.cost_b1_p_new} on \GA, \cls{x3.a100.baseline.sf300.cost_b1_p_new}; on the complex
+suite it is \rtext{x3.h100.complex.sf300.cost_b1_p_new}, \cls{x3.h100.complex.sf300.cost_b1_p_new}, and
+\rtext{x3.a100.complex.sf300.cost_b1_p_new}, \cls{x3.a100.complex.sf300.cost_b1_p_new}. Against the metal host the time ratios of these baseline cells are
+\rtext{x3.h100.baseline.sf300.time_vs_cgcp} and \rtext{x3.a100.baseline.sf300.time_vs_cgcp} (Figure~\ref{fig:factorised}),
+against price ratios of 1.680 and 0.684 (Section~\ref{sec:cost}); the B1 cost at baseline SF300 uses the
+\CV{} times instead (Section~\ref{sec:results-qa}). Within a framework (baseline
+suite, SF300, B1), X1 is \rtext{x1.h100.baseline.sf300.cost_b1_p_new}, \cls{x1.h100.baseline.sf300.cost_b1_p_new},
+and X2 \rtext{x2.h100.baseline.sf300.cost_b1_p_new}, \cls{x2.h100.baseline.sf300.cost_b1_p_new}, on \GH, and
+\rtext{x1.a100.baseline.sf300.cost_b1_p_new}, \cls{x1.a100.baseline.sf300.cost_b1_p_new}, and
+\rtext{x2.a100.baseline.sf300.cost_b1_p_new}, \cls{x2.a100.baseline.sf300.cost_b1_p_new}, on \GA. Against \CG{} as
+rented (B2), X3 at SF300 is \rtext{x3.h100.baseline.sf300.cost_b2_p_new} on \GH{} and
+\rtext{x3.a100.baseline.sf300.cost_b2_p_new} on \GA; against the CPU engine on the same GPU host (B3),
 \rtext{x3.h100.baseline.sf300.cost_b3_p_new} and \rtext{x3.a100.baseline.sf300.cost_b3_p_new}. For P-BILLED, \GH{}
-ran \stat{billing_by_host.h100.hours}\,h billed at \stat{billing_by_host.h100.billed_usd}\,USD (invoice gap
-\stat{billing_by_host.h100.gap}; above 2\%: \stat{billing_by_host.h100.gap_above_2pct}), \GA{}
-\stat{billing_by_host.a100.hours}\,h at \stat{billing_by_host.a100.billed_usd}\,USD (gap \stat{billing_by_host.a100.gap})
-and \CG{} \stat{billing_by_host.c-gcp.hours}\,h at \stat{billing_by_host.c-gcp.billed_usd}\,USD (gap
-\stat{billing_by_host.c-gcp.gap}).
+ran \stat{billing_by_host.h100.hours}\,h billed at \stat{billing_by_host.h100.billed_usd}\,USD, \GA{}
+\stat{billing_by_host.a100.hours}\,h at \stat{billing_by_host.a100.billed_usd}\,USD and \CG{}
+\stat{billing_by_host.c-gcp.hours}\,h at \stat{billing_by_host.c-gcp.billed_usd}\,USD (hours $\times$ price at
+launch); the providers' invoices were not available, so the invoice gap is not computed (A10).
 
 \subsection{Break-even scales}
 \label{sec:results-breakeven}
@@ -894,27 +905,24 @@ and \CG{} \stat{billing_by_host.c-gcp.hours}\,h at \stat{billing_by_host.c-gcp.b
 Under B1 at P-NEW the X3 brackets (Table~\ref{tab:breakeven}) are
 \stat{break_even.x3.h100.baseline.cost_b1_p_new.text} and \stat{break_even.x3.h100.complex.cost_b1_p_new.text} on
 \GH{} (baseline, complex) and \stat{break_even.x3.a100.baseline.cost_b1_p_new.text} and
-\stat{break_even.x3.a100.complex.cost_b1_p_new.text} on \GA. On \GH{} they are
-\stat{break_even.x3.h100.baseline.cost_b1_p_old.text} and \stat{break_even.x3.h100.complex.cost_b1_p_old.text} under
-P-OLD, and \stat{break_even.x3.h100.baseline.cost_b1_p_billed.text} and
-\stat{break_even.x3.h100.complex.cost_b1_p_billed.text} under P-BILLED (the A100's P-OLD price equals P-NEW).
-The energy brackets, lower bounds on the node-level energy break-even under \NOne, are
-\stat{break_even.x3.h100.baseline.energy_total.text} and \stat{break_even.x3.h100.complex.energy_total.text} on \GH{}
-and \stat{break_even.x3.a100.baseline.energy_total.text} and \stat{break_even.x3.a100.complex.energy_total.text} on
-\GA. A bracket ``$>$SF300'' means the top scale is not GPU better; ``$\le$'' the lowest scale of the suite
+\stat{break_even.x3.a100.complex.cost_b1_p_new.text} on \GA, the same under P-OLD and P-BILLED
+(Table~\ref{tab:be-all}; the A100's P-OLD price equals P-NEW). The energy brackets, lower bounds on the
+node-level energy break-even under \NOne, are \stat{break_even.x3.h100.baseline.energy_total.text} on the
+baseline suite and \stat{break_even.x3.h100.complex.energy_total.text} on the complex suite, on both hosts. A bracket ``$>$SF300'' means the top scale is not GPU better; ``$\le$'' the lowest scale of the suite
 means every scale is; a named non-estimable scale bounds the bracket (Section~\ref{sec:classification}).
 
 \subsection{GPU generation, CPU platform and the idle-GPU tax}
 \label{sec:results-x456}
-X4 (A100 over H100; descriptive, confounded with the host): at SF300 on the baseline suite the ratios for
-\polarsgpu{} are \rtext{x4.a100.polars_gpu.baseline.sf300.time} (time),
-\rtext{x4.a100.polars_gpu.baseline.sf300.energy_total} (board energy) and
-\rtext{x4.a100.polars_gpu.baseline.sf300.cost_p_new} (cost), and for \sparkgpu{}
+X4 (A100 over H100; descriptive, confounded with the host; above 1, the A100 needs more): at SF300 on
+the baseline suite the ratios for
+\polarsgpu{} are, for time, \rtext{x4.a100.polars_gpu.baseline.sf300.time}, for board energy
+\rtext{x4.a100.polars_gpu.baseline.sf300.energy_total} and for cost
+\rtext{x4.a100.polars_gpu.baseline.sf300.cost_p_new}, and for \sparkgpu{}
 \rtext{x4.a100.spark_gpu.baseline.sf300.time}, \rtext{x4.a100.spark_gpu.baseline.sf300.energy_total} and
-\rtext{x4.a100.spark_gpu.baseline.sf300.cost_p_new}. X5 (a CPU engine on the GPU host over \CG, time): \polarscpu{}
+\rtext{x4.a100.spark_gpu.baseline.sf300.cost_p_new}. X5 (a CPU engine on the GPU host over \CG, time; above 1, slower on the GPU host): \polarscpu{}
 \rtext{x5.h100.polars.baseline.sf300.time} and \sparkcpu{} \rtext{x5.h100.spark_cpu.baseline.sf300.time} on \GH,
 \rtext{x5.a100.polars.baseline.sf300.time} and \rtext{x5.a100.spark_cpu.baseline.sf300.time} on \GA. X6 (the
-idle-GPU tax, B3 over B1): for \polarscpu{} the cost ratio is
+idle-GPU tax: cost on the GPU host over B1; above 1, dearer on the GPU host): for \polarscpu{} the ratio is
 \rtext{x6.h100.polars.baseline.sf300.cost_ratio_b3_over_b1.p_new} on \GH{} (price ratio
 \stat{x6.h100.polars.baseline.sf300.price_ratio_b3_over_b1.p_new}) and
 \rtext{x6.a100.polars.baseline.sf300.cost_ratio_b3_over_b1.p_new} on \GA{} (price ratio
@@ -924,34 +932,44 @@ idle-GPU tax, B3 over B1): for \polarscpu{} the cost ratio is
 
 \subsection{Sensitivity}
 \label{sec:results-sens}
-The rounds of incomplete squares, among them the stopped launch~1s of \CV{} and \CG{} (A8), enter no
-estimate. Per-launch estimates and the unpaired Welch estimates of every cross-host cell are in
-Appendix~\ref{app:tables}. For X3 cost under B1 at SF300 on \GH{} the unpaired estimate is
+No accepted round lies outside a complete square: the stopped launch~1s of \CV{} and \CG{} (A8)
+have no accepted round, and \CG{} launch~2 was not run (A9). Per-launch estimates and the unpaired Welch estimates of every cross-host cell are in the
+deposited analysis output. For X3 cost under B1 at SF300 on \GH{} the unpaired estimate is
 \rtext{sensitivity_unpaired.x3.h100.baseline.sf300.cost_b1_p_new}, and the strict X3 (queries both GPU engines
 ran) is \rtext{x3_strict.h100.baseline.sf300.cost_b1_p_new}.
 
 % =====================================================================================
 \section{Discussion}
 \label{sec:discussion}
-% Wording holds whichever way the results fall. TODO(results): one interpretive sentence per paragraph,
-% written from the classes and brackets of Section 8 once the analysis output exists.
+% One interpretive sentence per paragraph (the last of each), from the classes, intervals and brackets of
+% Section 8 only; no new analysis.
 \paragraph{Using the results to choose an engine and host.} The factorised form (Section~\ref{sec:cost},
 Figure~\ref{fig:factorised}) lets an organization re-price every cell: a GPU host is cheaper per query
 wherever the measured time ratio exceeds the organization's own price ratio, and the brackets of
-Table~\ref{tab:breakeven} move with the CPU baseline (B1, B2, B3) and the price table as
-Section~\ref{sec:results-breakeven} reports.
+Table~\ref{tab:breakeven} move with the CPU baseline (B1, B2, B3) and the price table. On this workload they moved with the baseline and not with the
+price table (on the baseline suite X3 was GPU better at every scale against \CG{} as rented, and the B1
+brackets are the same under all three tables; Table~\ref{tab:be-all}), and the slower A100 host was the
+cheaper one per query (X4, descriptive).
 
 \paragraph{What the energy results can and cannot say.} Every cross-class energy cell is a statement
 about measured scopes. Under \NOne, only a ``CPU better'' cell supports a node-level direction; for any
 other cell $\Dstar$ (Section~\ref{sec:results-energy}) is the unmeasured excess the GPU node would have to
-stay below, set beside the idle power of one \CG{} socket and of the idle GPU.
+stay below, set beside the idle power of one \CG{} socket and of the idle GPU. Here every estimable cell
+was GPU better at the measured scopes, and the X3 tipping points at baseline SF300,
+\stat{delta_star.x3.h100.baseline.sf300.energy_total.w_over_gpu_suite_time.mean}\,W (H100) and
+\stat{delta_star.x3.a100.baseline.sf300.energy_total.w_over_gpu_suite_time.mean}\,W (A100), are several
+times the \stat{qa.idle_power_w.c-gcp.polars.S2-pinned.mean}\,W idle of the pinned socket; whether the GPU
+node's unmeasured host CPU and DRAM stay below them was not measured.
 
 \paragraph{The protocol as a procedure.} Three pre-lock checks changed what could be reported: the
 scope check showed the GH200 counter to cover the whole module (Appendix~\ref{app:notrun}), the
 resolution probe set per-host $\tmin$ of 1--2\,s and with it the cells below resolution
 (Section~\ref{sec:results-qa}), and the idle probe separated a context-open GPU from a bare one
 (Section~\ref{sec:idle}). Each is a short synthetic battery per host class (Appendix~\ref{app:validation})
-and should precede any per-query energy claim on rented hosts.
+and should precede any per-query energy claim on rented hosts. In this campaign the resolution limit
+decided where energy could be reported at all: \polarsgpu{} ran below $\tmin$ in every baseline cell up to
+SF100 on both GPU hosts (analysis table t14), so the energy brackets are censored at the lowest estimable
+scale, not located.
 
 % =====================================================================================
 \section{Threats to Validity and Limitations}
@@ -970,8 +988,9 @@ socket idles high against light work and its DRAM includes capacity a right-size
 This inflates $E_C$, a bias against the CPU engines: cross-class ``CPU better'' findings are
 conservative, while ``GPU better at the measured scope'' may partly reflect host size. Package and
 DRAM are reported separately and above-idle beside total for this reason. B1 prices a 44-vCPU VM
-for 26 threads on times from the metal host; \CV{} bounds the time assumption, not the vCPU
-surplus.
+for 26 threads (the vCPU surplus is not bounded) and, its time check having failed, uses the metal times
+outside baseline SF10, SF30 and SF300; if the VM's gap holds there, those cells understate the CPU-side cost
+and favour the CPU engines.
 
 \paragraph{Fewer \CG{} rounds.} \CG's confirmatory estimates come from one complete square (A9: $R = 4$,
 df~3). Every cross-host cell paired with \CG{} (cross-class energy, B1 and B2 cost, X5, X6) uses
@@ -980,6 +999,20 @@ rounds 1--4 only (Appendix~\ref{app:readings}, item a), so its interval rests on
 rounds 5--8 are not in those cells; they enter the GPU hosts' within-host cells, the GPU-to-GPU contrast X4
 and the labelled unpaired Welch sensitivity. The cut was made by the clock, before any result was seen.
 
+\paragraph{H100 driver.} The two H100 squares ran different drivers, \stat{campaign.h100.driver}, so the
+driver version is confounded with the instance and region of each square. It was not controlled, because
+the design fixes the image and not the driver.
+% Exploratory (lead's decision, 2026-11-25): computed by p3-analysis from tables/t10_cells.csv after
+% unblinding and re-computed by the writer (H100 l2/l1: polars 1.116, polars_gpu 1.089, spark_cpu 1.121,
+% spark_gpu 1.093; A100 1.001-1.009). Not a stats.json key.
+Exploratory, computed after unblinding (2026-11-25) from the analysis output's per-cell table (t10): on
+the H100 every engine, the CPU engines included, ran 9--12\% slower on launch~2 than on launch~1 (per
+engine, geometric mean over cells of the launch-2/launch-1 ratio of geometric-mean round times), while the two A100 launches agreed within 1\%. A slowdown that also hits the CPU engines points
+to a host- or region-level difference rather than to the GPU driver alone; the design cannot separate
+the two. The X3 ratios move far less (time at baseline SF300:
+\stat{sensitivity.launch:h100-l1.x3.h100.baseline.sf300.time.estimate} against
+\stat{sensitivity.launch:h100-l2.x3.h100.baseline.sf300.time.estimate}), and every H100 cell paired with \CG{} rests on launch~1 alone.
+
 \paragraph{Sensors and idle draw.} The one-sided short-run errors of the A100 and \CG{}
 (Section~\ref{sec:resolution}) were measured at one power level, so a query drawing less power may
 have a larger relative error (not tested).
@@ -987,11 +1020,12 @@ Back-to-back window runs are warmer than interleaved trials, and thermal carryov
 the Latin square and the cool-down, not removed. Idle power depends on temperature, persistence
 mode, C-states and the CUDA-context state (recorded, not controlled).
 
-\paragraph{Tenancy, prices and confounds.} Lambda hosts and network storage are shared; noise is
+\paragraph{Tenancy, prices and confounds.} Cloud hosts and their storage are shared; noise is
 bounded only by rounds and two launches. Each GPU host's two launches ran concurrently on separate
 instances (the design requires separation, not an order); the \CV{} rounds and \CG's first square
-come from the A8 relaunches. \CG{} has network storage, not the GPU hosts' local SSD,
-so Spark spill I/O may differ (recorded). Prices are a snapshot: Lambda changed three of four
+come from the A8 relaunches. \CG's data sat on a Hyperdisk network volume and the GPU hosts' on the
+instance's virtio disk, whose backing the provider does not state; the storage types differ and are
+recorded, and Spark spill I/O may differ with them. Prices are a snapshot: Lambda changed three of four
 relevant prices on 2026-11-16, and spot, reserved and committed-use prices are not measured; the
 factorised time and price ratios are the durable result. The \CG{} Xeon 8481C and the H100 host's 8480+ are one
 family, not one SKU; the A100 host has an AMD EPYC, confounding A100 CPU-engine comparisons and
@@ -1000,24 +1034,25 @@ X4. One query at a time on a whole instance: real fleets share, queue and idle.
 \paragraph{Not blind; scope of claims.} The prior study's timings were \camera{known to the
 author}{public} before the lock, so Lambda cost ratios are partly predictable; the pre-registration fixes the choices, not the knowledge. Four
 engines, one TPC-H-derived workload, five scales and one provider per host class: no claim extends
-to other engines, formats, clusters, CPU vendors or query mixes. Two GPU generations only
-(GH200 and B200 not measured, Section~\ref{sec:deviations}).
+to other engines, formats, clusters, CPU vendors or query mixes, nor to GPU generations other than the
+two measured.
 
 % =====================================================================================
 \section{Conclusion}
 \label{sec:conclusion}
-% TODO(results): replace the second paragraph with the findings, in the wording rules of
-% Sections 4.6 and 6.4.
+% Findings in the wording rules of Sections 4.6 and 6.4.
 Energy and cost per query of CPU and GPU dataframe engines can be measured on rented hosts, but
 only with the meter's scope, resolution and idle state established first and the scope carried
-with every number. We locked such a protocol and its analysis plan before the campaign: per-host
-resolution limits of 1--2\,s, idle both ways, enforced scope tags, and cross-class energy claims
-bounded by an explicit assumption and its tipping points.
-On this workload, the best GPU engine's cost at SF300 against the right-sized CPU baseline was
-\cls{x3.h100.baseline.sf300.cost_b1_p_new} on the H100 host and \cls{x3.a100.baseline.sf300.cost_b1_p_new}
-on the A100 host, with cost break-even brackets of \stat{break_even.x3.h100.baseline.cost_b1_p_new.text} and
-\stat{break_even.x3.a100.baseline.cost_b1_p_new.text}; the energy contrast was
-\ecls{x3.h100.baseline.sf300.energy_total} (H100 host) and \ecls{x3.a100.baseline.sf300.energy_total} (A100 host).
+with every number. We locked such a protocol and its analysis plan before the campaign, with cross-class
+energy claims bounded by an explicit assumption and its tipping points.
+On this workload, against the right-sized CPU baseline, the cost contrast of the best CPU and GPU engines at
+SF300 was \cls{x3.h100.baseline.sf300.cost_b1_p_new} on both GPU hosts
+(\rtext{x3.h100.baseline.sf300.cost_b1_p_new} on the H100, \rtext{x3.a100.baseline.sf300.cost_b1_p_new} on the
+A100), with break-even brackets of \stat{break_even.x3.h100.baseline.cost_b1_p_new.text} and
+\stat{break_even.x3.a100.baseline.cost_b1_p_new.text} on the baseline suite and GPU better at every
+complex-suite scale. Energy could be compared across classes only where runs were long enough to resolve;
+there every cell was GPU better at the measured scopes, a statement about the GPU board against one
+pinned CPU socket and its DRAM that supports no node-level claim.
 
 % =====================================================================================
 \section*{Artifact Availability}

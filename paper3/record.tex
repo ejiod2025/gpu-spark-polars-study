@@ -31,7 +31,34 @@
 \defstat{amend.a11.date}{2026-11-24}
 \defstat{amend.a11.commit}{eb097ba}
 %
-% TODO(results): launch-record facts, filled from each launch's campaign.json / launch-record.json when the
-% launches have ended (until then they print as TODO boxes):
-%  campaign.h100.driver, campaign.a100.driver, campaign.c-vm.cpu_model,
-%  campaign.first_session_utc, campaign.last_session_utc (first and last session of the whole campaign, UTC)
+% Launch-record facts (lead, 2026-11-25, read from each launch root's campaign.json provenance.host and the attempt.json job
+% times; not read by the writer, who does not open rerun/).
+%  H100: H100 80GB HBM3, Xeon Platinum 8480+; the two launches ran in different Lambda regions with different drivers.
+%  A100: A100-SXM4-40GB, AMD EPYC 7J13, driver 570.148.08 on both launches.
+%  C-GCP: Xeon Platinum 8481C (c3-highmem-192-metal). C-VM: c3-highmem-44.
+%  first session: the first job start of any launch, including the stopped launch 1s; last session: the last job finish.
+\defstat{campaign.h100.driver}{580.105.08 (launch~1) and 570.148.08 (launch~2)}
+\defstat{campaign.a100.driver}{570.148.08}
+\defstat{campaign.c-vm.cpu_model}{Intel Xeon Platinum 8481C @ 2.70\,GHz}
+\defstat{campaign.first_session_utc}{2026-11-23 16:15~UTC}
+\defstat{campaign.last_session_utc}{2026-11-25 01:04~UTC}
+%
+% Host shape and software versions (lead, 2026-11-24, read from each launch's campaign.json provenance.host: cpus;
+% memory_total_bytes as GiB; root filesystem; both launches of each host identical. Versions: every session's
+% results.json "version"; campaign.json inputs.rapids_jar, sha256 773a2fe5a6ee..., the same on all four GPU launches).
+% cudf-polars is not recorded per session: the value is the pin in requirements-gpu.txt, from which it was installed.
+\defstat{campaign.h100.vcpu}{26}
+\defstat{campaign.h100.ram_gib}{221}
+\defstat{campaign.a100.vcpu}{30}
+\defstat{campaign.a100.ram_gib}{216}
+\defstat{campaign.c-gcp.vcpu}{192}
+\defstat{campaign.c-gcp.ram_gib}{1,511}
+\defstat{campaign.c-vm.vcpu}{44}
+\defstat{campaign.c-vm.ram_gib}{346}
+\defstat{campaign.gpu_hosts.storage}{ext4 on \texttt{/dev/vda1}}
+\defstat{campaign.gcp_hosts.storage}{NVMe}
+\defstat{campaign.version.polars}{1.44.2}
+\defstat{campaign.version.spark}{3.5.9}
+\defstat{campaign.version.rapids_jar}{\texttt{rapids-4-spark\_2.12-26.08.1}}
+\defstat{campaign.version.cudf_polars}{26.10.2}
+\defstat{campaign.version.python}{3.11.13}
